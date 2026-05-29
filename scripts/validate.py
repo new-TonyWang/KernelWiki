@@ -1440,29 +1440,32 @@ def validate_bundle(bundle_root, known_source_ids):
 
 
 def _resolve_source_ref(full_ref: str):
-    """Resolve a source_refs path like 'source_id/relative/path' using the
-    source-corpus registry. Returns Path if resolved, None if unresolvable
-    (e.g., external without localize.yaml)."""
+    """Resolve a source_refs path. Returns (status, path_or_none).
+
+    Status values:
+      "resolved" — path resolved successfully
+      "unlocalized" — external source without localize.yaml (tier-2 warning)
+      "error" — resolver import or runtime failure
+    """
     try:
         sys.path.insert(0, str(REPO_ROOT))
         from scripts.source_corpus.registry import (
             resolve_corpus_path, load_manifest, load_localize_variables, PLACEHOLDER_RE,
         )
-        # Check if this is an external entry that can't be resolved
         manifest = load_manifest()
-        sid = full_ref.split("/")[0]
-        # Try matching the full source_id (may contain slashes)
         for entry in manifest:
             if full_ref.startswith(entry.source_id + "/") or full_ref == entry.source_id:
                 if PLACEHOLDER_RE.search(entry.local_path):
                     variables = load_localize_variables()
                     resolved_entry = entry.resolved_path(variables)
                     if resolved_entry is None:
-                        return None  # External, no localize.yaml
+                        return "unlocalized", None
                 break
-        return resolve_corpus_path(full_ref)
+        return "resolved", resolve_corpus_path(full_ref)
     except ImportError:
-        return None  # Registry not available
+        return "error", None
+    except Exception:
+        return "error", None
 
 
 def main():
@@ -1470,6 +1473,7 @@ def main():
     schemas = load_yaml_file(DATA_DIR / "schemas.yaml")
 
     all_errors = []
+    all_warnings = []
     file_count = 0
     ids_seen = {}
 
@@ -1559,11 +1563,19 @@ def main():
                         # Unified path resolution through source-corpus registry
                         if sid in manifest_source_ids:
                             full_ref = f"{sid}/{rpath}"
-                            resolved = _resolve_source_ref(full_ref)
-                            if resolved is None:
-                                # Unresolvable (external without localize.yaml)
-                                pass  # AC-1 tier-2 warning handled below
-                            elif not resolved.exists():
+                            status, resolved = _resolve_source_ref(full_ref)
+                            if status == "unlocalized":
+                                all_warnings.append(
+                                    f"{rel_path}: source_refs[{i}] "
+                                    f"'{sid}/{rpath}' — tier-2 source not localized "
+                                    f"(configure corpus/localize.yaml)"
+                                )
+                            elif status == "error":
+                                all_errors.append(
+                                    f"{rel_path}: source_refs[{i}] "
+                                    f"resolver error for '{sid}/{rpath}'"
+                                )
+                            elif resolved is not None and not resolved.exists():
                                 all_errors.append(
                                     f"{rel_path}: source_refs[{i}] "
                                     f"path '{rpath}' not found under source '{sid}'"
@@ -1773,6 +1785,10 @@ def main():
               f"orphan-source-files={len(orphans)})")
     if ledger_count:
         print(f"Validated {ledger_count} candidate ledgers")
+    if all_warnings:
+        print(f"\n{len(all_warnings)} warnings:")
+        for w in all_warnings:
+            print(f"  WARNING: {w}")
     if all_errors:
         print(f"\n{len(all_errors)} errors found:\n")
         for err in all_errors:

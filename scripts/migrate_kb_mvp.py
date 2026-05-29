@@ -305,16 +305,26 @@ def main():
             else:
                 status, reason = "skipped", "corpus-not-needed"
         elif top in skip_map:
-            status, reason = skip_map[top]
+            default_status, reason = skip_map[top]
             target = ""
-            if status == "migrated":
+            if default_status == "migrated":
                 if top == "70-reasoning":
                     target = f"reasoning/{'/'.join(src_rel.parts[1:])}"
                 elif top == "00-foundation":
                     target = f"wiki/nvidia/hardware/foundation/{src_rel.stem}.md"
+            # Verify target exists before marking migrated
+            if target and (REPO_ROOT / target).exists():
+                status = "migrated"
+            elif target:
+                status, reason = "skipped", "target-not-found"
+            else:
+                status = default_status
         elif src_rel.name in ("AGENTS.md", "GLOBAL_VARIABLES.md"):
-            status, reason = "migrated", "top-level"
             target = f"reasoning/{src_rel.name}" if src_rel.name == "AGENTS.md" else f"corpus/GLOBAL_VARIABLES.md"
+            if (REPO_ROOT / target).exists():
+                status, reason = "migrated", "top-level"
+            else:
+                status, reason = "skipped", "target-not-found"
         else:
             target, status, reason = None, "skipped", f"unmapped-dir-{top}"
 
