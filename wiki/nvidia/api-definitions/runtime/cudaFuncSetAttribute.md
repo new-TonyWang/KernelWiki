@@ -7,29 +7,32 @@ since_cuda: ''
 status: draft
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3372-L3372
-  excerpt: cudaFuncSetAttribute
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3375-L3375
-  excerpt: cudaFuncSetAttribute
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L15838-L15838
-  excerpt: cudaFuncSetAttribute
-- path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/README.md
-  anchor: L26-L26
-  excerpt: '[CUDA Runtime API](http://docs.nvidia.com/cuda/cuda-runtime-api/index.html)'
-- path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
-  anchor: L774-L774
-  excerpt: endif
-- path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
-  anchor: L782-L782
-  excerpt: endif
+- path: spec
+  anchor: Reference
 probed_by: sources/experience/api-probes/2026-04-17-runtime-cuda-func-set-attribute.md
 id: api-cudaFuncSetAttribute
 type: api-definition
 vendor: nvidia
 title: Cudafuncsetattribute
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3372-L3372
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3375-L3375
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L15838-L15838
+- source_id: source-code/cuda-samples
+  path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/README.md
+  anchor: L26-L26
+- source_id: source-code/cuda-samples
+  path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
+  anchor: L774-L774
+- source_id: source-code/cuda-samples
+  path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
+  anchor: L782-L782
 ---
 # cudaFuncSetAttribute
 

@@ -26,16 +26,8 @@ referenced_in_corpus:
     Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   line_range: L12971-L13050
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24559-L24565
-  excerpt: T __ldcs(const T* address); performs a load using the cache operator specified
-    in the PTX ISA guide
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L13000-L13012
-  excerpt: .cs -- Cache streaming, likely to be accessed once. The ld.cs load cached
-    streaming operation allocates global lines with evict-first policy in L1 and L2
-    to limit cache pollution by temporary streaming data that may be accessed once
-    or twice.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.202976
@@ -55,6 +47,13 @@ id: exp-2026-04-17-runtime-ldcs
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Ldcs
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24559-L24565
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L13000-L13012
 ---
 ## Summary
 

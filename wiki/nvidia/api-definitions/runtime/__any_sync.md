@@ -7,16 +7,17 @@ since_cuda: '9.0'
 status: draft
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23872-L23882
-  excerpt: '__any_sync(unsigned mask, predicate): Evaluates predicate for all non-exited
-    threads in mask and returns non-zero if predicate evaluates to non-zero for any
-    of them.'
+- path: spec
+  anchor: Reference
 probed_by: sources/experience/api-probes/2026-04-17-runtime-any-sync.md
 id: api-__any_sync
 type: api-definition
 vendor: nvidia
 title: __Any_Sync
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23872-L23882
 ---
 # __any_sync
 

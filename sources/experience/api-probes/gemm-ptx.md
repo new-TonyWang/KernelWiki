@@ -10,8 +10,8 @@ clock_policy: as-launched
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 verdict: partial
 source:
-- path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
-  anchor: Hopper wgmma GEMM walkthrough
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/api-probes/gemm-ptx/artifacts/gemm_ptx.cu
   build: sources/experience/api-probes/gemm-ptx/artifacts/build.sh
@@ -25,6 +25,10 @@ id: exp-gemm-ptx
 type: experience
 vendor: nvidia
 title: 2026 04 28 Gemm Ptx Hello
+source_refs:
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  anchor: Hopper wgmma GEMM walkthrough
 ---
 # Probe — Cutlass-free GEMM hello-world
 

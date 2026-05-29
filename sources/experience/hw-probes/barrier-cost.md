@@ -29,16 +29,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L3647-L3704
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1402-L1404
-  excerpt: Throughput for __syncthreads() is 32 operations per clock cycle for devices
-    of compute capability 6.0, 16 operations per clock cycle for devices of compute
-    capability 7.x as well as 8.x and 64 operations per clock cycle for devices of
-    compute capability 5.x, 6.1 and 6.2.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3647-L3704
-  excerpt: Asynchronous barriers split arrive from wait to allow overlap with independent
-    computation; hardware-accelerated on sm_80+.
+- path: spec
+  anchor: Reference
 conclusions:
   workload: 10,000 barriers per kernel, single-block launch, block sizes {128, 256,
     512, 1024}
@@ -77,6 +69,13 @@ id: exp-barrier-cost
 type: experience
 vendor: nvidia
 title: 2026 04 22 Barrier Cost
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1402-L1404
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3647-L3704
 ---
 ## Summary
 

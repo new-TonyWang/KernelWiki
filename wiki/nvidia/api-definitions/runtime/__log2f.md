@@ -7,20 +7,23 @@ since_cuda: ''
 status: draft
 has_end_to_end_example: false
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
-  anchor: L2719-L2719
-  excerpt: 7. Single Precision Intrinsics
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
-  anchor: L3658-L3658
-  excerpt: 7.1. Functions
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L27003-L27003
-  excerpt: 5.5.9.2. Single-Precision-Only Intrinsic Functions
+- path: spec
+  anchor: Reference
 probed_by: ''
 id: api-__log2f
 type: api-definition
 vendor: nvidia
 title: __Log2F
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  anchor: L2719-L2719
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  anchor: L3658-L3658
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L27003-L27003
 ---
 # __log2f
 

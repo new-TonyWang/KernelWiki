@@ -32,18 +32,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L4094-L4130
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L728-L732
-  excerpt: Shared memory enables cooperation between threads in a block. When multiple
-    threads in a block use the same data from global memory, shared memory can be
-    used to access the data from global memory only once. Shared memory can also be
-    used to avoid uncoalesced memory accesses by loading and storing data in a coalesced
-    pattern from global memory and then reordering it in shared memory.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1484-L1540
-  excerpt: 'Matrix Transpose Example Using Shared Memory: shared memory will be treated
-    as a user-managed cache to stage loads and stores from global memory, resulting
-    in coalesced global memory access of both reads and writes.'
+- path: spec
+  anchor: Reference
 conclusions:
   workload: 4096x4096 fp32 matrix transpose; N^2 = 16,777,216 elements; read+write
     = 128 MB of HBM traffic
@@ -77,6 +67,13 @@ id: exp-smem-tile-reuse
 type: experience
 vendor: nvidia
 title: 2026 04 21 Smem Tile Reuse
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L728-L732
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1484-L1540
 ---
 ## Summary
 

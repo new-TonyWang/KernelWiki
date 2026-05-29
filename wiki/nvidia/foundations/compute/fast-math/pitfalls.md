@@ -12,32 +12,30 @@ applies_to_ops:
 requires_sm: '>=3.0'
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L26993-L26995
-  excerpt: '__expf(x): max ULP error 2 + floor(abs(1.173 * x))'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L27041-L27045
-  excerpt: --use_fast_math translates a subset of CUDA Math API functions into their
-    intrinsic counterpart. A more robust approach is to selectively replace mathematical
-    function calls.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25507
-  excerpt: --use_fast_math includes -ftz=true which flushes subnormal numbers to zero.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1561
-  excerpt: The throughput of __sinf(x), __cosf(x), and __expf(x) is much greater than
-    that of sinf(x), cosf(x), and expf(x). The latter become even more expensive if
-    the magnitude of the argument x needs to be reduced.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1370-L1374
-  excerpt: rsqrtf() should be invoked directly where desired. The compiler can optimize
-    1.0/sqrtf() into rsqrtf() only when both -prec-div=false and -prec-sqrt=false.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L27017-L27023
-  excerpt: '__sinf(x): 2^-21.41 abs error for x in [-pi, pi]; larger otherwise'
+- path: spec
+  anchor: Reference
 id: pitfall-fast-math
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L26993-L26995
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L27041-L27045
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25507
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1561
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1370-L1374
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L27017-L27023
 ---
 ## P1: Input-dependent ULP error for __expf
 

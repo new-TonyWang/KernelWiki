@@ -29,15 +29,6 @@ referenced_in_corpus:
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L940-L999
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11259-L11270
-  excerpt: This section provides detailed guidance and examples for asynchronous data
-    movement within the GPU memory hierarchy. It covers LDGSTS for element-wise copies.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L940-L942
-  excerpt: CUDA 11.0 introduces an async-copy feature that can be used within device
-    code to explicitly manage the asynchronous copying of data from global memory
-    to shared memory.
 - path: <path-removed>
   anchor: part-1-maximizing-memory-bandwidth
   excerpt: LDGSTS landed in Ampere; TMA in Hopper. LDGSTS for 4/8/16-byte aligned
@@ -62,6 +53,13 @@ id: exp-async-copy
 type: experience
 vendor: nvidia
 title: 2026 04 16 Async Copy
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11259-L11270
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L940-L942
 ---
 ## Summary
 

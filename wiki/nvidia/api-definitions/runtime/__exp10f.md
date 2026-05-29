@@ -7,20 +7,23 @@ since_cuda: ''
 status: draft
 has_end_to_end_example: false
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
-  anchor: L2425-L2425
-  excerpt: 7. Single Precision Intrinsics
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
-  anchor: L2786-L2786
-  excerpt: 7.1. Functions
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L26997-L26997
-  excerpt: 5.5.9.2. Single-Precision-Only Intrinsic Functions
+- path: spec
+  anchor: Reference
 probed_by: ''
 id: api-__exp10f
 type: api-definition
 vendor: nvidia
 title: __Exp10F
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  anchor: L2425-L2425
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  anchor: L2786-L2786
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L26997-L26997
 ---
 # __exp10f
 

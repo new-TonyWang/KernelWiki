@@ -12,21 +12,21 @@ applies_to_ops:
 requires_sm: '>=6.0'
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22574-L22702
-  excerpt: 'The following table details the byte size and alignment requirements of
-    the vector types. float4: size 16, alignment 16.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1062
-  excerpt: In particular, there is no register-related reason to pack data into vector
-    data types such as float4 or int4 types.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22735-L22753
-  excerpt: Vector types are structures. Their first, second, third, and fourth components
-    are accessible through the x, y, z, and w fields, respectively.
+- path: spec
+  anchor: Reference
 id: pitfall-vectorized-access
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22574-L22702
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1062
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22735-L22753
 ---
 ## P1: Misaligned pointer for vector load
 

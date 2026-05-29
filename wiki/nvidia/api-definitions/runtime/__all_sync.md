@@ -7,23 +7,23 @@ since_cuda: '9.0'
 status: draft
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23872-L23882
-  excerpt: '__all_sync(unsigned mask, predicate): Evaluates predicate for all non-exited
-    threads in mask and returns non-zero if predicate evaluates to non-zero for all
-    of them.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24220-L24295
-  excerpt: The intrinsics achieve the best efficiency when all warp threads participate
-    in the call, namely when the mask is set to 0xFFFFFFFF.
-- path: source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
-  anchor: L58-L58
-  excerpt: result[tx] = __all_sync(mask, input[tx]);
+- path: spec
+  anchor: Reference
 probed_by: sources/experience/api-probes/2026-04-17-runtime-all-sync.md
 id: api-__all_sync
 type: api-definition
 vendor: nvidia
 title: __All_Sync
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23872-L23882
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24220-L24295
+- source_id: source-code/cuda-samples
+  path: source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
+  anchor: L58-L58
 ---
 # __all_sync
 

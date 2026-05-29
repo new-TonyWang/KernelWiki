@@ -17,8 +17,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
-  anchor: Hopper warp-specialized cooperative GEMM
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/api-probes/gemm/artifacts/gemm_tail.cu
   build: sources/experience/api-probes/gemm/artifacts/build_tail.sh
@@ -44,6 +44,9 @@ source_refs:
 - source_id: source-code/cutlass
   path: examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
   anchor: Lall (gemm.can_implement(arguments) on line 415)
+- source_id: blogs/colfax
+  path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
+  anchor: Hopper warp-specialized cooperative GEMM
 ---
 # Non-aligned GEMM tail handling on Hopper
 

@@ -10,8 +10,8 @@ clock_policy: as-launched
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 verdict: verified
 source:
-- path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
-  anchor: wgmma atom shape selection
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/api-probes/gemm/artifacts/gemm_compare.cu
   build: sources/experience/api-probes/gemm/artifacts/run_problem_size_sweep.sh
@@ -26,6 +26,9 @@ source_refs:
 - source_id: source-code/cutlass
   path: include/cute/atom/mma_traits_sm90_gmma.hpp
   anchor: MMA_64xNxK family
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  anchor: wgmma atom shape selection
 ---
 # Probe — wgmma problem-size sweep within cutlass example 48 GEMM (5 problem sizes, 1 atom)
 

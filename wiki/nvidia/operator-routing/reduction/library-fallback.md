@@ -4,23 +4,25 @@ pattern_class: cuda-core
 op: reduction
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L26607-L26923
-  excerpt: DeviceReduce provides device-wide, parallel operations for computing a
-    reduction across a sequence of data items residing within device-accessible memory.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L26886-L26910
-  excerpt: 'cub::DeviceReduce::Sum code snippet: two-pass temp storage pattern'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L26956-L26982
-  excerpt: cub::DeviceReduce::Min code snippet
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
-  anchor: L10641-L10643
-  excerpt: thrust::reduce(d_vec.begin(), d_vec.end(), 0, thrust::plus<int>())
+- path: spec
+  anchor: Reference
 id: routing-reduction-library-fallback
 type: operator-routing
 vendor: nvidia
 operator: reduction
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L26607-L26923
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L26886-L26910
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L26956-L26982
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  anchor: L10641-L10643
 ---
 # Reduction -- Library Fallback Paths
 

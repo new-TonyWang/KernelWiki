@@ -29,16 +29,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L23252-L23295
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3435-L3436
-  excerpt: If an atomic instruction executed by a warp reads, modifies, and writes
-    to the same location in global memory for more than one of the threads of the
-    warp, each read/modify/write to that location occurs and they are all serialized.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3641-L3645
-  excerpt: 'Use the narrowest scope possible: block-scoped atomics are much faster
-    than system-scoped atomics. Consider memory location: shared memory atomics are
-    faster than global memory atomics.'
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.05029
   latency_ms_median: 0.0393
@@ -67,6 +59,13 @@ id: exp-atomic-reduction-contention
 type: experience
 vendor: nvidia
 title: 2026 04 20 Atomic Reduction
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3435-L3436
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3641-L3645
 ---
 ## Summary
 

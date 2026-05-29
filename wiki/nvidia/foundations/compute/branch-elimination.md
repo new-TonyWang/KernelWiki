@@ -24,16 +24,8 @@ requires_features:
 - fsel
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25650-L25760
-  excerpt: 'Single-precision floating-point intrinsics: fmaxf / fminf / fabsf / copysignf.
-    Math function reference Appendix: bit-level semantics preserved under IEEE 754
-    rounding.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L6800-L6950
-  excerpt: 'PTX: max.f32 / min.f32 / abs.f32 / selp (predicated move). The selp instruction
-    is the canonical branchless conditional-assignment primitive emitted by ptxas
-    for simple-body if/else and ternary expressions.'
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/branchless-patterns/artifacts/branchless_patterns_probe.cu
   build: sources/experience/hw-probes/branchless-patterns/artifacts/build.sh
@@ -64,6 +56,13 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25650-L25760
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L6800-L6950
 ---
 ## What
 

@@ -18,33 +18,8 @@ requires_features:
 - scoped-atomics
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3435-L3436
-  excerpt: If an atomic instruction executed by a warp reads, modifies, and writes
-    to the same location in global memory for more than one of the threads of the
-    warp, each read/modify/write to that location occurs and they are all serialized,
-    but the order in which they occur is undefined.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3524-L3610
-  excerpt: 'Scoped atomics combine two key concepts: Thread Scope defines which threads
-    can observe the effect of the atomic operation; Memory Ordering defines the ordering
-    constraints relative to other memory operations.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3641-L3645
-  excerpt: 'Use the narrowest scope possible: block-scoped atomics are much faster
-    than system-scoped atomics. Prefer weaker orderings: use stronger orderings only
-    when necessary for correctness. Consider memory location: shared memory atomics
-    are faster than global memory atomics.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23252-L23295
-  excerpt: Atomic functions perform read-modify-write operations on shared data, making
-    them appear to execute in a single step. Using the Extended CUDA C++ atomic functions
-    provided by libcu++ is recommended for efficiency, safety, and portability.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L19647-L19680
-  excerpt: atom — atomic reduction operations for thread-to-thread communication.
-    atom{.sem}{.scope}{.space}.op{.level::cache_hint}.type d, [a], b; .scope = { .cta,
-    .cluster, .gpu, .sys }.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/atomic-reduction-contention/artifacts/atomic_reduction_probe.cu
   build: sources/experience/hw-probes/atomic-reduction-contention/artifacts/build.sh
@@ -67,6 +42,22 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3435-L3436
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3524-L3610
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3641-L3645
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23252-L23295
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L19647-L19680
 ---
 ## What
 

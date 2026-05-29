@@ -6,13 +6,16 @@ signature: float __expf(float x)
 status: documented
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L26993-L26995
-  excerpt: '__expf(x): e^x, max ULP error 2 + floor(abs(1.173 * x))'
+- path: spec
+  anchor: Reference
 id: api-fast-math-ref
 type: api-definition
 vendor: nvidia
 title: Apis
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L26993-L26995
 ---
 # Fast Math Intrinsics API Reference
 

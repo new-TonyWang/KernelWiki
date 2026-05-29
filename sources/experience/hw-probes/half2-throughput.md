@@ -29,15 +29,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L25350-L25420
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1370-L1440
-  excerpt: 'Best Practices §12.1.1 Throughput of native arithmetic instructions: 16-bit
-    floating-point add/multiply/multiply-add (2-way SIMD via add.f16x2 / fma.f16x2)
-    runs at higher ops/clock than scalar fp32 on sm_8.x+.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25350-L25420
-  excerpt: Programming Guide §5.4.11.2 Alternate Floating Point (__half / __half2
-    / __nv_bfloat16 / __nv_bfloat162 intrinsics).
+- path: spec
+  anchor: Reference
 conclusions:
   workload: 'fma_bench_<V>: grid=528 blocks x 256 threads = 135168 threads; each thread
     runs N_CHAINS=4 independent accumulator chains of N_FMA_ITERS=2048 FMAs (8192
@@ -95,6 +88,13 @@ id: exp-half2-throughput
 type: experience
 vendor: nvidia
 title: 2026 04 23 Half2 Throughput
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1370-L1440
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25350-L25420
 ---
 ## Summary
 

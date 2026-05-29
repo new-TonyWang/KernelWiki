@@ -18,34 +18,6 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9 + libcuda (driver API for cuTensorMapEncodeTiled)
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L16866-L16880
-  excerpt: '9.7.9.25.5.2. Data Movement and Conversion Instructions: cp.async.bulk.tensor
-    — Initiates an asynchronous copy operation on the tensor data from one state space
-    to another.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L16316
-  excerpt: The modifier .mbarrier::complete_tx::bytes specifies that the cp.async.bulk
-    variant uses [the mbarrier complete-tx byte tracking].
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L20810-L20825
-  excerpt: 9.7.13.15.9. mbarrier.init initializes the mbarrier object at the location
-    specified by the address operand addr with the unsigned 32-bit integer count.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11833
-  excerpt: compute capability 9.0 (Hopper) and later have a tensor memory accelerator
-    (TMA). The primary goal of the TMA is to provide an efficient data transfer mechanism
-    from global memory to shared memory for multi-dimensional arrays.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3459
-  excerpt: Compute capability 9.0 (NVIDIA Hopper) extended the asynchronous execution
-    features with the Tensor Memory Accelerator (TMA) unit, which can transfer large
-    blocks of data and multidimensional tensors from global memory to shared memory
-    and vice versa, asynchronous transaction barriers, and asynchronous matrix multiply-accumulate
-    operations.
-- path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
-  anchor: Hopper TMA walkthrough — cuTensorMapEncodeTiled + cp.async.bulk.tensor +
-    mbarrier protocol
 - path: sources/experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
   anchor: cutlass-free hello-world (correctness)
 - path: sources/experience/hw-probes/tma-ptx/artifacts/tma_throughput_probe.cu
@@ -80,6 +52,25 @@ source_refs:
   path: include/cute/arch/copy_sm90_tma.hpp
   anchor: cutlass's TMA inline-PTX wrapper (used as a reference; not included in our
     binary)
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L16866-L16880
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L16316
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L20810-L20825
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11833
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3459
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  anchor: Hopper TMA walkthrough — cuTensorMapEncodeTiled + cp.async.bulk.tensor +
+    mbarrier protocol
 ---
 # Hopper TMA via raw PTX (cutlass-free)
 

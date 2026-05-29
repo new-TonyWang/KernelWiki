@@ -29,16 +29,8 @@ referenced_in_corpus:
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1062
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22574-L22702
-  excerpt: 'The following table details the byte size and alignment requirements of
-    the vector types. float4: size 16, alignment 16.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L991-L1001
-  excerpt: We evaluate the performance of both kernels using elements of size 4B,
-    8B and 16B per thread i.e., using int, int2 and int4 for the template parameter.
-    Overall, best performance is achieved when using asynchronous copies with an element
-    of size 8 or 16 bytes.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.0709
@@ -56,6 +48,13 @@ id: exp-vectorized-access
 type: experience
 vendor: nvidia
 title: 2026 04 15 Vectorized Access
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22574-L22702
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L991-L1001
 ---
 ## Summary
 

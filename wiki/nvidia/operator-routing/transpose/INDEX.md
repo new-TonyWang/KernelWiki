@@ -11,25 +11,22 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1413-L1483
-  excerpt: 'Matrix Transpose Example Using Global Memory: a naive implementation of
-    matrix transpose is functionally correct but not optimized because the write of
-    the c matrix is not coalesced.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1484-L1540
-  excerpt: 'Matrix Transpose Example Using Shared Memory: shared memory will be treated
-    as a user-managed cache to stage loads and stores from global memory, resulting
-    in coalesced global memory access of both reads and writes.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L606-L634
-  excerpt: 'Strided Accesses: stride-2 gives 50% load/store efficiency; as the stride
-    increases, bandwidth decreases. Non-unit-stride accesses should be avoided whenever
-    possible.'
+- path: spec
+  anchor: Reference
 id: routing-transpose-INDEX
 type: operator-routing
 vendor: nvidia
 operator: transpose
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1413-L1483
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1484-L1540
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L606-L634
 ---
 # Transpose Pattern -- Decision Tree
 

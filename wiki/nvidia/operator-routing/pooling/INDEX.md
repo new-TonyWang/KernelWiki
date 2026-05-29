@@ -12,19 +12,19 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L538-L542
-  excerpt: A very important performance consideration in programming for CUDA-capable
-    GPU architectures is the coalescing of global memory accesses.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L719-L726
-  excerpt: Because it is on-chip, shared memory has much higher bandwidth and lower
-    latency than local and global memory - provided there are no bank conflicts between
-    the threads.
+- path: spec
+  anchor: Reference
 id: routing-pooling-INDEX
 type: operator-routing
 vendor: nvidia
 operator: pooling
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L538-L542
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L719-L726
 ---
 # Pooling Pattern -- Decision Tree
 

@@ -18,22 +18,6 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L28042
-  excerpt: applications have a large number of small kernels, with each kernel representing
-    a stage in a processing pipeline ... the ability to provide global inter thread
-    block synchronization would allow the application to be restructured to have persistent
-    thread blocks, which are able to synchronize on the device when a given stage
-    is complete.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11680-L11686
-  excerpt: 4.11.1.3. Producer-Consumer Pattern Through Warp Specialization — the WS
-    variant the persistent-kernel pattern is typically paired with on Hopper (pingpong
-    / cooperative).
-- path: blogs/colfax/cutlass-tutorial-persistent-kernels-and-stream-k
-  anchor: persistent-kernel + stream-K walkthrough — tile-scheduler abstraction
-- path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
-  anchor: pingpong vs cooperative scheduling section
 - path: wiki/nvidia/hardware/tma-ptx/skill.md
   anchor: cutlass-free TMA primitive (composes per-tile in the persistent loop)
 - path: wiki/nvidia/hardware/wgmma-ptx/skill.md
@@ -56,6 +40,19 @@ type: algorithm
 vendor: nvidia
 tags:
 - cuda-cpp
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L28042
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11680-L11686
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-persistent-kernels-and-stream-k
+  anchor: persistent-kernel + stream-K walkthrough — tile-scheduler abstraction
+- source_id: blogs/colfax
+  path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
+  anchor: pingpong vs cooperative scheduling section
 ---
 # Persistent kernel (algorithm skeleton)
 

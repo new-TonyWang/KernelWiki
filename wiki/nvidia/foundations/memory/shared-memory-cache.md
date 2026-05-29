@@ -22,45 +22,8 @@ requires_features:
 - smem-l1-carveout
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L719-L727
-  excerpt: Because it is on-chip, shared memory has much higher bandwidth and lower
-    latency than local and global memory - provided there are no bank conflicts between
-    the threads. On devices of compute capability 5.x or newer, each bank has a bandwidth
-    of 32 bits every clock cycle, and successive 32-bit words are assigned to successive
-    banks.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L728-L732
-  excerpt: Shared memory enables cooperation between threads in a block. When multiple
-    threads in a block use the same data from global memory, shared memory can be
-    used to access the data from global memory only once. Shared memory can also be
-    used to avoid uncoalesced memory accesses by loading and storing data in a coalesced
-    pattern from global memory and then reordering it in shared memory.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1132-L1150
-  excerpt: 'Effects of Shared Memory: shared memory can be helpful in several situations,
-    such as helping to coalesce or eliminate redundant access to global memory. However,
-    it can also act as a constraint on occupancy. In many cases, the amount of shared
-    memory required by a kernel is related to the block size chosen.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1130-L1170
-  excerpt: Shared memory is expected to be much faster than global memory. Any opportunity
-    to replace global memory accesses by shared memory accesses should therefore be
-    exploited. Static and dynamic shared memory allocations are distinguished by __shared__
-    arrays with compile-time-known sizes versus extern __shared__ with size passed
-    at launch time.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1484-L1540
-  excerpt: 'Matrix Transpose Example Using Shared Memory: shared memory will be treated
-    as a user-managed cache to stage loads and stores from global memory, resulting
-    in coalesced global memory access of both reads and writes.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L4094-L4130
-  excerpt: 'Configuring L1/Shared Memory Balance: the L1 and shared memory on an SM
-    use the same physical resource, known as the unified data cache. An application
-    can set the carveout, or preferred shared memory capacity, with the cudaFuncSetAttribute
-    function. Kernels relying on shared memory allocations over 48 KB per block must
-    use dynamic shared memory and require an explicit opt-in.'
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/smem-tile-reuse/artifacts/smem_tile_reuse_probe.cu
   build: sources/experience/hw-probes/smem-tile-reuse/artifacts/build.sh
@@ -85,6 +48,25 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L719-L727
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L728-L732
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1132-L1150
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1130-L1170
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1484-L1540
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L4094-L4130
 ---
 ## What
 

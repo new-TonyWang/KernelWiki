@@ -27,16 +27,8 @@ referenced_in_corpus:
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1064-L1099
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22819
-  excerpt: Applications can optionally aid these heuristics by providing additional
-    information to the compiler in the form of launch bounds that are specified using
-    the __launch_bounds__() qualifier
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22837
-  excerpt: If both minBlocksPerMultiprocessor and maxThreadsPerBlock are specified,
-    the compiler may increase register usage up to L in order to reduce the number
-    of instructions
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 1.49e-07
   latency_ms_median: 0.1203
@@ -56,6 +48,13 @@ id: exp-compiler-hints
 type: experience
 vendor: nvidia
 title: 2026 04 15 Compiler Hints
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22819
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22837
 ---
 ## Summary
 

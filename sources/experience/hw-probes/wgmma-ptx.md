@@ -10,8 +10,8 @@ evidence_level: measured
 clock_policy: as-launched (H200 boost-clock unlocked)
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
-  anchor: Hopper wgmma walkthrough
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
   codegen: sources/experience/hw-probes/wgmma-ptx/artifacts/gen_wgmma_zoo.py
@@ -90,6 +90,10 @@ id: exp-wgmma-ptx
 type: experience
 vendor: nvidia
 title: 2026 04 29 Wgmma Zoo
+source_refs:
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  anchor: Hopper wgmma walkthrough
 ---
 ## Summary
 

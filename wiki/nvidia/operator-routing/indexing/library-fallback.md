@@ -4,29 +4,25 @@ pattern_class: cuda-core
 op: indexing
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
-  anchor: L101875-L101930
-  excerpt: thrust::gather copies elements from a source array into a destination range
-    according to a map. For each input iterator i in the range [map_first, map_last),
-    the value input_first[*i] is assigned to *(result + (i - map_first)).
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
-  anchor: L112950-L113010
-  excerpt: thrust::scatter copies elements from a source range into an output array
-    according to a map. For each iterator i in the range [first, last), the value
-    *i is assigned to output[*(map + (i - first))].
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
-  anchor: L113098-L113200
-  excerpt: thrust::scatter_if conditionally copies elements from a source range into
-    an output array according to a map and a stencil predicate.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L22478-L22555
-  excerpt: DeviceRadixSort provides device-wide, parallel operations for computing
-    a radix sort across a sequence of data items residing within device-accessible
-    memory.
+- path: spec
+  anchor: Reference
 id: routing-indexing-library-fallback
 type: operator-routing
 vendor: nvidia
 operator: indexing
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  anchor: L101875-L101930
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  anchor: L112950-L113010
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  anchor: L113098-L113200
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L22478-L22555
 ---
 # Indexing -- Library Fallback Paths
 

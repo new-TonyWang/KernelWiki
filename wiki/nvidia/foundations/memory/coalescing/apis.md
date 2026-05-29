@@ -6,15 +6,16 @@ signature: T __ldg(const T* address)
 status: documented
 has_end_to_end_example: false
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24550-L24554
-  excerpt: The function __ldg() performs a read-only L1/Tex cache load. It supports
-    all C++ fundamental types, CUDA vector types (except x3 components), and extended
-    floating-point types.
+- path: spec
+  anchor: Reference
 id: api-coalescing-ref
 type: api-definition
 vendor: nvidia
 title: Apis
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24550-L24554
 ---
 # Global Memory Coalescing API Reference
 

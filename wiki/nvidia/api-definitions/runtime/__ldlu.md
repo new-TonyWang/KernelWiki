@@ -7,14 +7,17 @@ since_cuda: ''
 status: draft
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24562-L24562
-  excerpt: 5.4.8.3. Low-Level Load and Store Functions
+- path: spec
+  anchor: Reference
 probed_by: sources/experience/api-probes/2026-04-17-runtime-ldlu.md
 id: api-__ldlu
 type: api-definition
 vendor: nvidia
 title: __Ldlu
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24562-L24562
 ---
 # __ldlu
 

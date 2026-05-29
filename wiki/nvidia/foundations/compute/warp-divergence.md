@@ -19,34 +19,8 @@ requires_features:
 - independent-thread-scheduling
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1602-L1612
-  excerpt: Avoid different execution paths within the same warp. Flow control instructions
-    (if, switch, do, for, while) can significantly affect the instruction throughput
-    by causing threads of the same warp to diverge; if this happens, the different
-    execution paths must be executed separately, increasing the total number of instructions
-    executed for this warp.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1396-L1400
-  excerpt: To obtain best performance in cases where the control flow depends on the
-    thread ID, the controlling condition should be written so as to minimize the number
-    of divergent warps. A trivial example is when the controlling condition only depends
-    on (threadIdx / warpSize), in which case no warp diverges since the controlling
-    condition is perfectly aligned with the warps.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1614-L1628
-  excerpt: When using branch predication, none of the instructions whose execution
-    depends on the controlling condition is skipped. Instead, each such instruction
-    is associated with a per-thread condition code or predicate. The compiler replaces
-    a branch with predicated instructions only if the number of instructions controlled
-    by the branch condition is less than or equal to a certain threshold.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3427-L3436
-  excerpt: Independent thread scheduling (CC 7.0+) can break code that relies on implicit
-    warp-synchronous behavior. Warp-synchronous code assumes that threads in the same
-    warp execute in lockstep at every instruction, but the ability for threads to
-    diverge and reconverge at sub-warp granularity makes such assumptions invalid.
-    Developers should explicitly synchronize with __syncwarp() to ensure correct behavior.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/warp-divergence-cost/artifacts/divergence_cost_probe.cu
   build: sources/experience/hw-probes/warp-divergence-cost/artifacts/build.sh
@@ -69,6 +43,19 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1602-L1612
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1396-L1400
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1614-L1628
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3427-L3436
 ---
 ## What
 

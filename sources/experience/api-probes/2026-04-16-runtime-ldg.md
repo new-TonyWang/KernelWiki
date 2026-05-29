@@ -29,9 +29,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L24547-L24557
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24550
-  excerpt: T __ldg(const T* address); performs a read-only L1/Tex cache load
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.007712
@@ -52,6 +51,10 @@ id: exp-2026-04-16-runtime-ldg
 type: experience
 vendor: nvidia
 title: 2026 04 16 Runtime Ldg
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24550
 ---
 ## Summary
 

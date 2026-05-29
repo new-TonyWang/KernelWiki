@@ -7,13 +7,17 @@ since_cuda: '9.0'
 status: draft
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23945-L24034
+- path: spec
+  anchor: Reference
 probed_by: sources/experience/api-probes/2026-04-16-runtime-shfl-xor-sync.md
 id: api-__shfl_xor_sync
 type: api-definition
 vendor: nvidia
 title: __Shfl_Xor_Sync
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23945-L24034
 ---
 # __shfl_xor_sync
 

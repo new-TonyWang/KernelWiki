@@ -2,14 +2,8 @@
 title: Half-Precision Math APIs
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25350-L25420
-  excerpt: Programming Guide §5.4.11.2 / §5.5.2 — __half, __half2, __nv_bfloat16,
-    __nv_bfloat162 intrinsics; arithmetic / packed / conversion / transcendentals.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L11000-L11200
-  excerpt: 'PTX f16 / bf16 arithmetic: add.f16{,x2}, mul.f16{,x2}, fma.rn.f16{,x2},
-    fma.rn.bf16{,x2}, fma.rn.relu.f16{,x2}, tanh.approx.f16, atom.add.noftz.f16, cvt.rn.f16.f32.'
+- path: spec
+  anchor: Reference
 apis:
 - func_name: __hadd
   namespace: cuda-runtime
@@ -211,6 +205,13 @@ func_name: Half-Precision Math APIs
 namespace: runtime
 header: cuda_runtime.h
 signature: See documentation
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25350-L25420
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L11000-L11200
 ---
 ## Scalar FMA throughput table (H200 sm_9.0a, measured)
 

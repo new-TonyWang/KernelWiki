@@ -17,25 +17,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23945-L24034
-  excerpt: Warp shuffle functions exchange a value between non-exited threads within
-    a warp without the use of shared memory.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23868-L23890
-  excerpt: The warp vote functions enable the threads of a given warp to perform a
-    reduction-and-broadcast operation.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L13435-L13520
-  excerpt: shfl.sync exchanges register data between threads in membermask.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L20298-L20361
-  excerpt: vote.sync performs a reduction of the source predicate across all non-exited
-    threads in membermask.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1289-L1297
-  excerpt: warp shuffle shfl.sync.idx.b32 throughput 32 ops/clock/SM on sm_9.0; warp
-    vote vote.sync.ballot.b32 throughput 64 ops/clock/SM on sm_9.0
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/shfl-sync-bfly/artifacts/warp_reduce_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o warp_reduce_probe warp_reduce_probe.cu
@@ -64,6 +47,21 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
   anchor: L75-L91
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23945-L24034
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23868-L23890
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L13435-L13520
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L20298-L20361
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1289-L1297
 ---
 ## What
 

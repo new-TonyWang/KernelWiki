@@ -18,22 +18,8 @@ requires_features:
 - ptx-ld-cache-operators
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25083-L25130
-  excerpt: 'Read-Only Data Cache Load Function: T __ldg(const T* address); reads memory
-    through the non-coherent read-only data cache. Additional intrinsics __ldca /
-    __ldcg / __ldcs / __ldlu / __ldcv expose the ld.global.{ca,cg,cs,lu,cv} PTX cache
-    operators.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L10400-L10490
-  excerpt: 'PTX ld cache operators: .ca (cache all — default), .cg (cache global,
-    L2 only, bypass L1), .cs (cache streaming, evict-first), .lu (last-use, evict
-    after), .cv (cache volatile, always fetch from system memory).'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1289-L1330
-  excerpt: The read-only cache path can reduce pressure on the unified L1/Tex cache
-    for const __restrict__ inputs. On modern architectures the compiler routes const
-    __restrict__ loads through this path automatically.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/cache-hint/artifacts/cache_hint_probe.cu
   build: sources/experience/hw-probes/cache-hint/artifacts/build.sh
@@ -66,6 +52,16 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25083-L25130
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L10400-L10490
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1289-L1330
 ---
 ## What
 

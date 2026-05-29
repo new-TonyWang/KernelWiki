@@ -32,14 +32,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L24206-L24206
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23953-L23953
-  excerpt: T __shfl_up_sync  (unsigned mask, T value, unsigned delta,    int width=warpSize);
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23967-L23967
-  excerpt: '__shfl_up_sync(): Copy from a lane with a lower ID than the caller''s.
-    The intrinsic function calculates a source lane ID by subtracting `delta` from
-    the caller''s lane ID ... the upper `delta` lanes will effectively remain unchanged.'
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.005216
@@ -61,6 +55,13 @@ id: exp-2026-04-17-runtime-shfl-up-sync
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Shfl Up Sync
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23953-L23953
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23967-L23967
 ---
 ## Summary
 

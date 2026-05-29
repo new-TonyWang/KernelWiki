@@ -12,23 +12,21 @@ applies_to_ops:
 requires_sm: '>=7.0'
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3435-L3436
-  excerpt: If an atomic instruction executed by a warp reads, modifies, and writes
-    to the same location in global memory for more than one of the threads of the
-    warp, each read/modify/write to that location occurs and they are all serialized.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3641-L3645
-  excerpt: 'Use the narrowest scope possible: block-scoped atomics are much faster
-    than system-scoped atomics. Prefer weaker orderings. Consider memory location:
-    shared memory atomics are faster than global memory atomics.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23252-L23295
-  excerpt: Atomic functions perform read-modify-write operations on shared data, making
-    them appear to execute in a single step.
+- path: spec
+  anchor: Reference
 id: pitfall-atomic-reduction
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3435-L3436
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3641-L3645
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23252-L23295
 ---
 ## P1. Every thread writing to a single global address
 

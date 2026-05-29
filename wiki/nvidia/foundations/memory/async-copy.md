@@ -19,20 +19,6 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3937-L3944
-  excerpt: Modern GPU architectures provide hardware-accelerated asynchronous data
-    copy mechanisms that allow memory transfers to proceed independently while threads
-    continue executing other work.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11259-L11269
-  excerpt: This section provides detailed guidance and examples for asynchronous data
-    movement within the GPU memory hierarchy. It covers LDGSTS for element-wise copies.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L940-L999
-  excerpt: CUDA 11.0 introduces an async-copy feature that can be used within device
-    code to explicitly manage the asynchronous copying of data from global memory
-    to shared memory.
 - path: <path-removed>
   anchor: part-1-maximizing-memory-bandwidth
   excerpt: 'Asynchronous copies let the data go directly from global memory to shared
@@ -64,6 +50,16 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3937-L3944
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11259-L11269
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L940-L999
 ---
 ## What
 

@@ -29,12 +29,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L1379-L1411
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L606-L634
-  excerpt: A stride of 2 results in a 50% of load/store efficiency. As the stride
-    increases, the effective bandwidth decreases until the point where 32 32-byte
-    segments are loaded for the 32 threads in a warp. Non-unit-stride global memory
-    accesses should be avoided whenever possible.
+- path: spec
+  anchor: Reference
 conclusions:
   workload: AoS vs SoA read-one-field pattern; Particle{x,y,z,vx,vy,vz}=24B, N=16,777,216
   baseline_name: aos_read_one_field (stride=24B, reads only .x)
@@ -72,6 +68,10 @@ id: exp-aos-vs-soa
 type: experience
 vendor: nvidia
 title: 2026 04 22 Aos Vs Soa
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L606-L634
 ---
 ## Summary
 

@@ -30,18 +30,8 @@ referenced_in_corpus:
     Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   line_range: L10400-L10490
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25083-L25130
-  excerpt: 'Read-Only Data Cache Load Function: T __ldg(const T* address); reads memory
-    through the non-coherent read-only data cache. Also: __ldca, __ldcg, __ldcs, __ldlu,
-    __ldcv for explicit PTX cache-operator control.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L10400-L10490
-  excerpt: 'PTX ld cache operators: .ca (cache all — default), .cg (cache global,
-    L2 only, bypass L1), .cs (cache streaming, evict-first), .lu (last-use, evict
-    after), .cv (cache volatile, always fetch from system memory). Store operators:
-    .wb (write-back, default), .cg (cache global), .cs (cache streaming), .wt (write
-    through).'
+- path: spec
+  anchor: Reference
 conclusions:
   workload: 'grid-stride read kernel, grid=528 blocks x 256 threads. Two regimes:
     DRAM (256 MiB buffer > 60 MiB L2, single pass) and L2 (8 MiB buffer << L2, 16
@@ -118,6 +108,13 @@ id: exp-cache-hint
 type: experience
 vendor: nvidia
 title: 2026 04 23 Cache Hint
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25083-L25130
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L10400-L10490
 ---
 ## Summary
 

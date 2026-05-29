@@ -14,26 +14,24 @@ applies_to_ops:
 requires_sm: '>=6.0'
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L606-L634
-  excerpt: As illustrated in Figure 7, non-unit-stride global memory accesses should
-    be avoided whenever possible.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1389-L1393
-  excerpt: Conversely, the pathologically worst case scenario is when consecutive
-    threads access data elements that are 32 bytes or more apart from each other in
-    memory.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1446-L1448
-  excerpt: To alleviate these uncoalesced writes, the use of shared memory can be
-    employed.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L569-L603
-  excerpt: If sequential threads in a warp access memory that is sequential but not
-    aligned with a 32-byte segment, five 32-byte segments will be requested.
+- path: spec
+  anchor: Reference
 id: pitfall-coalescing
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L606-L634
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1389-L1393
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1446-L1448
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L569-L603
 ---
 ## P1: Array-of-Structures (AoS) layout
 

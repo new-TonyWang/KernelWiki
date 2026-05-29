@@ -14,30 +14,25 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
-  anchor: L101875-L101920
-  excerpt: thrust::gather copies elements from a source array into a destination range
-    according to a map. For each input iterator i in the range [map_first, map_last),
-    the value input_first[*i] is assigned to *(result + (i - map_first)).
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
-  anchor: L112950-L113004
-  excerpt: thrust::scatter copies elements from a source range into an output array
-    according to a map. For each iterator i in the range [first, last), the value
-    *i is assigned to output[*(map + (i - first))].
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L22478-L22555
-  excerpt: DeviceRadixSort provides device-wide, parallel operations for computing
-    a radix sort across a sequence of data items residing within device-accessible
-    memory.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L538-L542
-  excerpt: Coalesced Access to Global Memory -- A very important performance consideration
-    in programming for CUDA-capable GPU architectures is the coalescing of global
-    memory accesses.
+- path: spec
+  anchor: Reference
 id: routing-indexing-INDEX
 type: operator-routing
 vendor: nvidia
 operator: indexing
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  anchor: L101875-L101920
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  anchor: L112950-L113004
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L22478-L22555
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L538-L542
 ---
 # Indexing Pattern -- Decision Tree
 

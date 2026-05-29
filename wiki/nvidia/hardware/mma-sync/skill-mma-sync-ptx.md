@@ -13,11 +13,8 @@ requires_features:
 - ldmatrix
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L28200-L28250
-  excerpt: 9.7.14. Matrix Multiply-Accumulate Operation using mma.sync instruction
-    — The mma operation is performed by all threads in a warp, and is therefore a
-    warp-level instruction.
+- path: spec
+  anchor: Reference
 related_apis: []
 related_skills:
 - wgmma
@@ -38,6 +35,9 @@ source_refs:
 - source_id: source-code/cutlass
   path: include/cute/arch/mma_sm80.hpp
   anchor: SM80_16x8x8_F32F16F16F32_TN inline PTX wrappers
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L28200-L28250
 ---
 # mma.sync — Warp-level MMA on Ampere+ via PTX
 

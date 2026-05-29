@@ -48,21 +48,8 @@ precision:
     in fp32 and only cast back at store time. This is the mixed-precision pattern;
     skill §S3 documents the canonical shape.
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1370-L1440
-  excerpt: BP §12.1.1 Throughput of native arithmetic instructions. 16-bit fp add
-    / mul / FMA (2-way SIMD via add.f16x2 / fma.f16x2) runs at 2x the fp32 rate on
-    sm_8.x+. BF16 operations require sm_80+.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25350-L25420
-  excerpt: PG §5.4.11.2 Alternate Floating Point — intrinsics for __half / __half2
-    / __nv_bfloat16 / __nv_bfloat162 arithmetic, conversions, and packed transcendentals
-    (h2exp / h2log / h2rsqrt / h2sqrt).
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L11000-L11150
-  excerpt: 'PTX f16/bf16 arithmetic: add.f16 / add.f16x2 / fma.rn.f16 / fma.rn.f16x2
-    / fma.rn.relu.f16{,x2} (fused FMA+ReLU) / tanh.approx.f16 / tanh.approx.bf16 /
-    atom.add.noftz.f16.'
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/half2-throughput/artifacts/half2_throughput_probe.cu
   build: sources/experience/hw-probes/half2-throughput/artifacts/build.sh
@@ -111,6 +98,16 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1370-L1440
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25350-L25420
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L11000-L11150
 ---
 ## What
 

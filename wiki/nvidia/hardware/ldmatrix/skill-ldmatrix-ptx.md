@@ -12,10 +12,8 @@ requires_features:
 - ldmatrix
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L27850-L27890
-  excerpt: 9.7.13.4. Matrix Load/Store Instructions — ldmatrix loads one or more matrices
-    from shared memory into registers, distributing them across the threads of a warp.
+- path: spec
+  anchor: Reference
 related_apis: []
 related_skills:
 - mma-sync-ptx
@@ -35,6 +33,9 @@ source_refs:
 - source_id: source-code/cutlass
   path: include/cute/arch/copy_sm75.hpp
   anchor: ldmatrix PTX wrappers
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L27850-L27890
 ---
 # ldmatrix — Shared-memory to register matrix load for tensor cores
 

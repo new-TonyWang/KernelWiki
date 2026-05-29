@@ -27,9 +27,8 @@ referenced_in_corpus:
 - path: '{{LESSION_REPO_REF}}/04_warp_level_primitives/lesson.md'
   line_range: L118-L144
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23945-L24034
-  excerpt: '__shfl_xor_sync(): Copy from a lane based on bitwise XOR of own lane ID'
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.00528
@@ -48,6 +47,10 @@ id: exp-2026-04-16-runtime-shfl-xor-sync
 type: experience
 vendor: nvidia
 title: 2026 04 16 Runtime Shfl Xor Sync
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23945-L24034
 ---
 ## Summary
 

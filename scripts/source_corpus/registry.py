@@ -114,15 +114,31 @@ def find_entries(scope: str | None = None, manifest_path: Path | None = None) ->
 
 
 def resolve_corpus_path(path_str: str) -> Path:
-    """Resolve a corpus path (tier-1 relative or tier-2 placeholder)."""
+    """Resolve a corpus path. Handles multiple formats:
+
+    1. source_id/relative (from search hits): match longest source_id prefix
+       in manifest, resolve entry, append remaining relative path
+    2. {{PLACEHOLDER}}/relative: substitute via localize.yaml
+    3. nvidia/cuda-official/...: relative to corpus/
+    """
+    # Format 1: try matching against manifest source_ids
+    variables = load_localize_variables()
+    for entry in load_manifest():
+        sid = entry.source_id
+        if path_str.startswith(sid + "/") or path_str == sid:
+            remaining = path_str[len(sid):].lstrip("/")
+            resolved = entry.resolved_path(variables)
+            if resolved:
+                return resolved / remaining if remaining else resolved
+    # Format 2: placeholder
     if PLACEHOLDER_RE.search(path_str):
-        variables = load_localize_variables()
         result = path_str
         for m in PLACEHOLDER_RE.finditer(path_str):
             var = m.group(1)
             if var in variables:
                 result = result.replace(f"{{{{{var}}}}}", variables[var])
         return Path(result)
+    # Format 3: relative to corpus/
     return SOURCE_CORPUS_ROOT / path_str
 
 

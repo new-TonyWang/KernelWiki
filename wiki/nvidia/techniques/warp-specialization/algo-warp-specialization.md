@@ -18,35 +18,6 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11680-L11686
-  excerpt: 4.11.1.3. Producer-Consumer Pattern Through Warp Specialization — implement
-    a producer-consumer pattern where a single warp is specialized as the producer
-    performing asynchronous data copies from global to shared memory, while the remaining
-    warps consume the data from shared memory and perform computations. To enable
-    concurrency between the producer and the consumer threads, we use double-buffering
-    in shared memory.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L10720
-  excerpt: A thread block can be spatially partitioned to allow different threads
-    to perform independent operations. This is most commonly done by assigning threads
-    from different warps within the thread block to specific tasks. This technique
-    is referred to as warp specialization.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L16316
-  excerpt: The modifier .mbarrier::complete_tx::bytes specifies that the cp.async.bulk
-    variant uses the mbarrier complete-tx byte tracking — the synchronization primitive
-    that connects the producer's TMA load to the consumer's wgmma issue.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L20810-L20825
-  excerpt: 9.7.13.15.9. mbarrier.init initializes the mbarrier object at the location
-    specified by the address operand addr with the unsigned 32-bit integer count —
-    the bar_full / bar_empty pair in the WS skeleton.
-- path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
-  anchor: warp-specialized GEMM mainloop walkthrough — producer/consumer warpgroups
-    + mbarrier-pipelined TMA→wgmma
-- path: blogs/colfax/cutlass-tutorial-efficient-gemm-kernel-designs-with-pipelining
-  anchor: pipelining strategy for warp-specialized GEMM
 - path: wiki/nvidia/hardware/tma-ptx/skill.md
   anchor: cutlass-free TMA primitive (the producer issues these)
 - path: wiki/nvidia/hardware/wgmma-ptx/skill.md
@@ -69,6 +40,26 @@ type: algorithm
 vendor: nvidia
 tags:
 - cuda-cpp
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11680-L11686
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L10720
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L16316
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L20810-L20825
+- source_id: blogs/colfax
+  path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
+  anchor: warp-specialized GEMM mainloop walkthrough — producer/consumer warpgroups
+    + mbarrier-pipelined TMA→wgmma
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-efficient-gemm-kernel-designs-with-pipelining
+  anchor: pipelining strategy for warp-specialized GEMM
 ---
 # Warp-specialized GEMM mainloop (algorithm skeleton)
 

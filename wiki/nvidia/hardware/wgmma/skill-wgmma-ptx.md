@@ -17,34 +17,6 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L28659-L28675
-  excerpt: 9.7.15.5. Asynchronous Warpgroup Level Matrix Multiply-Accumulate Operation
-    using wgmma.mma_async instruction — The input matrix A of the warpgroup wide MMA
-    operations can be either in registers or in the shared memory. The input matrix
-    B of the warpgroup wide MMA operations must be in the shared memory. When the
-    matrices are in shared memory, their starting addresses must be aligned to 16
-    bytes.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L28451-L28465
-  excerpt: wgmma.fence operations to indicate that the register/shared-memory across
-    the warpgroup have been written into ... Issue the asynchronous matrix multiply
-    and accumulate operations using the wgmma.mma_async operation ... Create a wgmma-group
-    and commit all the prior outstanding wgmma.mma_async operations into the group,
-    by using wgmma.commit_group ... Wait for the completion of the required wgmma-group.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L28674-L28695
-  excerpt: 9.7.15.5.1.1.1. Matrix Fragments for wgmma.mma_async.m64nNk16 — A warpgroup
-    executing wgmma.mma_async.m64nNk16 will compute an MMA operation of shape .m64nNk16
-    ... Elements of the matrix are distributed across the threads in a warpgroup so
-    each thread of the warpgroup holds a fragment of the matrix.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L29622-L29640
-  excerpt: 9.7.15.5.1.2.2. Matrix Descriptor Format — Matrix descriptor specifies
-    the properties of the matrix in shared memory that is a multiplicand in the matrix
-    multiply and accumulate operation. It is a 64-bit value contained in a register.
-- path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
-  anchor: Hopper wgmma walkthrough — descriptor format + sync semantics
 - path: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
   anchor: cutlass-free hello-world (single m64n8k16 bf16 atom)
 - path: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
@@ -74,6 +46,21 @@ source_refs:
   path: include/cute/arch/mma_sm90_gmma.hpp
   anchor: cutlass's wgmma inline-PTX wrapper (used as a reference for descriptor construction;
     not included in our binary)
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L28659-L28675
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L28451-L28465
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L28674-L28695
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L29622-L29640
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  anchor: Hopper wgmma walkthrough — descriptor format + sync semantics
 ---
 # Hopper wgmma via raw PTX (cutlass-free)
 

@@ -3,17 +3,20 @@ title: L2 Access Policy — Pitfalls
 status: verified
 related_skill: wiki/nvidia/foundations/memory/l2-access-policy/skill.md
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L4094-L4170
-  excerpt: hitRatio tuning, cudaCtxResetPersistingL2Cache semantics, MIG / MPS caveats.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1561-L1610
-  excerpt: BP §10.2.2 usage guidance + warnings.
+- path: spec
+  anchor: Reference
 experience_refs:
 - sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md
 id: pitfall-l2-access-policy
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L4094-L4170
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1561-L1610
 ---
 Legacy P1–P5 came from L3-sandbox verification on pre-H200 hardware (A100 unless noted). P6–P10 are L3-sandbox findings copied from the legacy KB and annotated with the current H200 measurement where the probe touches them. "**Measured on H200 sm_9.0a**" tags indicate pitfalls validated by sources/experience/hw-probes/l2-residency/.
 

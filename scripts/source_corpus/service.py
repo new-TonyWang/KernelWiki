@@ -81,9 +81,18 @@ def source_search(
 
     variables = load_localize_variables()
     hits: list[SourceHit] = []
+    unresolved_entries: list[str] = []
     for entry in entries:
         resolved = entry.resolved_path(variables)
-        if not resolved or not resolved.exists():
+        if not resolved:
+            unresolved_entries.append(
+                f"{entry.source_id}: unresolved (configure corpus/localize.yaml)"
+            )
+            continue
+        if not resolved.exists():
+            unresolved_entries.append(
+                f"{entry.source_id}: path not found: {resolved}"
+            )
             continue
         category = _derive_category(entry)
         for abs_path, line_no, text in _search_one_root(query, resolved, regex, top_k):
@@ -117,6 +126,14 @@ def source_search(
                     score=round(score, 3),
                 )
             )
+
+    # If scoped search found no hits and entries were unresolved, report error
+    if not hits and unresolved_entries and scope:
+        return ResponseEnvelope(
+            ok=False,
+            error_code="CORPUS_UNAVAILABLE",
+            message=f"No results for scope '{scope}': " + "; ".join(unresolved_entries),
+        ).to_dict()
 
     hits.sort(key=lambda item: (-item.score, item.path, item.line_start))
     uniq: list[SourceHit] = []

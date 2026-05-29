@@ -14,26 +14,6 @@ requires_features:
 - scoped-atomics
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3471-L3515
-  excerpt: A thread scope defines which threads can observe a thread's loads and stores
-    and specifies which threads can synchronize with each other using synchronization
-    primitives such as atomic operations and barriers.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3524-L3610
-  excerpt: 'Scoped atomics combine two key concepts: Thread Scope and Memory Ordering.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23069-L3190
-  excerpt: Memory fence and synchronization functions enforce a sequentially consistent
-    ordering of memory accesses.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L28467-L28663
-  excerpt: 'CUDA C++ extends the standard C++ memory model and concurrency facilities
-    in the cuda:: namespace with thread scopes.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L4680-L4780
-  excerpt: The axioms introduced by the memory consistency model specify exactly which
-    contradictions are forbidden between the orders observed by different threads.
 - path: <path-removed>
   anchor: part-2--the-cuda-memory-model-allart
   excerpt: A memory model determines the values a load can legally return from memory
@@ -61,6 +41,22 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3471-L3515
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3524-L3610
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23069-L3190
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L28467-L28663
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L4680-L4780
 ---
 ## What
 

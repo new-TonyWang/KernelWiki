@@ -18,10 +18,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
-  anchor: wgmma atom + warpgroup synchronization
-  excerpt: Warpgroup MMA = 4 warps × M64 rows; SS-form consumes A and B from smem;
-    F32 accumulator stays in registers.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/api-probes/gemm/artifacts/gemm_compare.cu
   build: sources/experience/api-probes/gemm/artifacts/build.sh
@@ -46,6 +44,9 @@ source_refs:
 - source_id: source-code/cutlass
   path: examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
   anchor: Lall
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  anchor: wgmma atom + warpgroup synchronization
 ---
 # wgmma — Warpgroup MMA on Hopper
 

@@ -17,25 +17,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22574-L22702
-  excerpt: 'The following table details the byte size and alignment requirements of
-    the vector types. float4: size 16, alignment 16.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22735-L22753
-  excerpt: Vector types are structures. Their first, second, third, and fourth components
-    are accessible through the x, y, z, and w fields, respectively. They all have
-    a factory function of the form make_<type_name>().
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L991-L1001
-  excerpt: We evaluate the performance of both kernels using elements of size 4B,
-    8B and 16B per thread i.e., using int, int2 and int4 for the template parameter.
-    Overall, best performance is achieved when using asynchronous copies with an element
-    of size 8 or 16 bytes.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1062
-  excerpt: In particular, there is no register-related reason to pack data into vector
-    data types such as float4 or int4 types.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/vectorized-access/artifacts/vectorized_load_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o vectorized_load_probe vectorized_load_probe.cu
@@ -60,6 +43,19 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22574-L22702
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22735-L22753
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L991-L1001
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1062
 ---
 ## What
 

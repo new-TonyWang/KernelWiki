@@ -7,14 +7,16 @@ signature: cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor(int* numBlo
 status: documented
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3862-L3890
-  excerpt: Returns in *numBlocks the maximum number of active blocks per streaming
-    multiprocessor for the device function.
+- path: spec
+  anchor: Reference
 id: api-occupancy-tuning-ref
 type: api-definition
 vendor: nvidia
 title: Apis
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3862-L3890
 ---
 # Occupancy Tuning API Reference
 

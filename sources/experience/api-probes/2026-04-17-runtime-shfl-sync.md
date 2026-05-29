@@ -29,13 +29,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L24206-L24206
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23952-L23952
-  excerpt: T __shfl_sync     (unsigned mask, T value, int      srcLane,  int width=warpSize);
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11966-L11966
-  excerpt: unsigned int uniform_warp_id = __shfl_sync(0xFFFFFFFF, warp_id, 0); //
-    Broadcast from lane 0.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.005248
@@ -54,6 +49,13 @@ id: exp-2026-04-17-runtime-shfl-sync
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Shfl Sync
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23952-L23952
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11966-L11966
 ---
 ## Summary
 

@@ -31,21 +31,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L22890-L22905
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1064-L1065
-  excerpt: Register pressure occurs when there are not enough registers available
-    for a given task.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1215
-  excerpt: Using this option to reduce the number of registers a kernel can use may
-    result in more thread blocks being scheduled on the SM concurrently, but may also
-    result in more register spilling.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1219-L1222
-  excerpt: Local memory is thread local storage similar to registers and managed by
-    NVCC, but the physical location of local memory is in the global memory space...
-    Any variable if the kernel uses more registers than available, that is register
-    spilling.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 1.192093e-07
   latency_ms_median: 0.1738
@@ -64,6 +51,16 @@ id: exp-register-pressure
 type: experience
 vendor: nvidia
 title: 2026 04 15 Register Pressure
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1064-L1065
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1215
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1219-L1222
 ---
 ## Summary
 

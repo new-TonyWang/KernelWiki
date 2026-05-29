@@ -2,16 +2,8 @@
 title: Atomic Reduction APIs
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23252-L23295
-  excerpt: Atomic functions perform read-modify-write operations on shared data.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3524-L3610
-  excerpt: Scoped atomics combine Thread Scope and Memory Ordering, available through
-    libcu++ or compiler built-ins.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L19647-L19680
-  excerpt: atom — atomic reduction operations for thread-to-thread communication.
+- path: spec
+  anchor: Reference
 apis:
 - func_name: atomicAdd
   namespace: cuda-runtime
@@ -47,6 +39,16 @@ func_name: Atomic Reduction APIs
 namespace: runtime
 header: cuda_runtime.h
 signature: See documentation
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23252-L23295
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3524-L3610
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L19647-L19680
 ---
 # Atomic Reduction API Surface
 

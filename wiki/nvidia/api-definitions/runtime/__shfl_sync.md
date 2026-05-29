@@ -7,29 +7,32 @@ since_cuda: ''
 status: draft
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
-  anchor: L22825-L22825
-  excerpt: Removed functions and classes
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11966-L11966
-  excerpt: include <cuda/ptx>
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L12144-L12144
-  excerpt: 4.11.2.1.1. Prefetching Data
-- path: source-code/cutlass/docs/gemm__pipelined_8h_source.html
-  anchor: L101-L101
-  excerpt: gemm__pipelined_8h_source.html
-- path: source-code/cutlass/examples/111_hopper_ssd/collective/common.hpp
-  anchor: L148-L148
-  excerpt: include "cute/tensor.hpp"
-- path: source-code/cutlass/examples/111_hopper_ssd/collective/common.hpp
-  anchor: L162-L162
-  excerpt: include "cute/tensor.hpp"
+- path: spec
+  anchor: Reference
 probed_by: sources/experience/api-probes/2026-04-17-runtime-shfl-sync.md
 id: api-__shfl_sync
 type: api-definition
 vendor: nvidia
 title: __Shfl_Sync
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  anchor: L22825-L22825
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11966-L11966
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L12144-L12144
+- source_id: source-code/cutlass
+  path: source-code/cutlass/docs/gemm__pipelined_8h_source.html
+  anchor: L101-L101
+- source_id: source-code/cutlass
+  path: source-code/cutlass/examples/111_hopper_ssd/collective/common.hpp
+  anchor: L148-L148
+- source_id: source-code/cutlass
+  path: source-code/cutlass/examples/111_hopper_ssd/collective/common.hpp
+  anchor: L162-L162
 ---
 # __shfl_sync
 

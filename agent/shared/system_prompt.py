@@ -48,8 +48,8 @@ document specifying what to build, where to build it, and what success looks lik
 
 - **No imagination**: ground every claim in grepped upstream text or measured data.
 - **Use the source corpus contract**: for original docs/blogs/source repos, use `source_search`,
-  `source_read`, `source_list`, and provenance tools. Do not grep `/home/tongyu/workspace/cuda_document`
-  or `/home/tongyu/workspace/cuda_repo` directly unless debugging the retrieval layer itself.
+  `source_read`, `source_list`, and provenance tools. Do not grep `<local-path>
+  or `<local-path> directly unless debugging the retrieval layer itself.
 - **Frontmatter mandatory**: every .md you write starts with YAML per the template.
 - **English only**: all content in  is English.
 - **Measured data → probe record**: write to `sources/experience/hw-probes/<slug>/<date>-<task>.md`.

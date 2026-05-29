@@ -17,39 +17,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L26909-L26916
-  excerpt: Intrinsic mathematical functions are faster and less accurate versions
-    of their corresponding CUDA C Standard Library Mathematical functions. They have
-    the same name prefixed with __, such as __sinf(x).
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L26969-L27038
-  excerpt: Table 58 Single-Precision Only Floating-Point Intrinsic Functions Mapping
-    and Accuracy (Maximum ULP)
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L27041-L27094
-  excerpt: Table 59 Functions Directly Affected by --use_fast_math
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1243-L1244
-  excerpt: '32-bit approximate floating-point reciprocal, reciprocal square root,
-    base-2 logarithm, base 2 exponential, sine, cosine: lg2.approx.f32 -- 16 ops/clock/SM'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1556-L1581
-  excerpt: 'Medium Priority: Use the fast math library whenever speed trumps precision.
-    Functions following the __functionName() naming convention map directly to the
-    hardware level.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L26917-L26967
-  excerpt: Table 57 Single- and Double-Precision Floating-Point Intrinsic Functions
-    (basic intrinsics with rounding modes, 0 ULP)
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25993-L25996
-  excerpt: '--use_fast_math enables contraction of floating-point multiplies and adds/subtracts
-    into FFMA; -prec-div=false maps x/y to __fdividef(x,y): 2 ULP'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1370-L1374
-  excerpt: __fdividef(x, y) provides faster single-precision floating-point division.
-    rsqrtf() should be invoked directly where desired.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/fast-math/artifacts/expf_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o expf_probe expf_probe.cu
@@ -73,6 +42,31 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L26909-L26916
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L26969-L27038
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L27041-L27094
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1243-L1244
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1556-L1581
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L26917-L26967
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25993-L25996
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1370-L1374
 ---
 ## What
 

@@ -7,13 +7,16 @@ signature: template <class T, cuda::thread_scope Scope = cuda::thread_scope_syst
 status: documented
 has_end_to_end_example: false
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3534-L3551
-  excerpt: cuda::atomic<int, cuda::thread_scope_block> counter
+- path: spec
+  anchor: Reference
 id: api-memory-ordering-ref
 type: api-definition
 vendor: nvidia
 title: Apis
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3534-L3551
 ---
 # Memory Ordering API Reference
 

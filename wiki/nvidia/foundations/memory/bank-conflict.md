@@ -19,29 +19,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1450-L1482
-  excerpt: Shared memory has 32 banks that are organized such that successive 32-bit
-    words map to successive banks. Each bank has a bandwidth of 32 bits per clock
-    cycle.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1452-L1454
-  excerpt: When multiple threads in the same warp attempt to access different elements
-    in the same bank, a bank conflict occurs. In this case, the access to the data
-    in that bank will be serialized.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1604-L1655
-  excerpt: A common fix to avoid bank conflicts is to pad the shared memory by adding
-    one to the column dimension of the array.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L720-L726
-  excerpt: Shared memory has much higher bandwidth and lower latency than local and
-    global memory - provided there are no bank conflicts between the threads.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L892-L900
-  excerpt: The simple remedy is to pad the shared memory array so that it has an extra
-    column... After this change, the effective bandwidth is 199.4 GB/s on an NVIDIA
-    Tesla V100, which is comparable to the results from the last C = AB kernel.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/smem-bank-conflict/artifacts/smem_bank_conflict_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o smem_bank_conflict_probe smem_bank_conflict_probe.cu
@@ -59,6 +38,22 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1450-L1482
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1452-L1454
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1604-L1655
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L720-L726
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L892-L900
 ---
 ## What
 

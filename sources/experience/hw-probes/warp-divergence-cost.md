@@ -29,16 +29,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L3427-L3436
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1602-L1612
-  excerpt: Avoid different execution paths within the same warp. If this happens,
-    the different execution paths must be executed separately; this increases the
-    total number of instructions executed for this warp.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1614-L1628
-  excerpt: The compiler replaces a branch instruction with predicated instructions
-    only if the number of instructions controlled by the branch condition is less
-    than or equal to a certain threshold.
+- path: spec
+  anchor: Reference
 conclusions:
   workload: N=1,048,576 lanes, ~1024 FMA/lane per path, compute-bound (~89% SM throughput)
   branch_variant_ms_p0: 0.0418
@@ -85,6 +77,13 @@ id: exp-warp-divergence-cost
 type: experience
 vendor: nvidia
 title: 2026 04 22 Warp Divergence Cost
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1602-L1612
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1614-L1628
 ---
 ## Summary
 

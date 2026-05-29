@@ -3,17 +3,20 @@ title: Cache Load Hints — Pitfalls
 status: verified
 related_skill: wiki/nvidia/foundations/memory/cache-load-hints/skill.md
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25083-L25230
-  excerpt: Read-only data cache load function + low-level load/store cache hint intrinsics.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L10400-L10490
-  excerpt: 'PTX ld.global cache operators: .ca .cg .cs .lu .cv.'
+- path: spec
+  anchor: Reference
 experience_refs:
 - sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md
 id: pitfall-cache-load-hints
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25083-L25230
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L10400-L10490
 ---
 Legacy P1–P5 came from L3-sandbox verification on pre-H200 hardware.
 P6–P11 are L3-sandbox findings copied from the legacy KB. The H200

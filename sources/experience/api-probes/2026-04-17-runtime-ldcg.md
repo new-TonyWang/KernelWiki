@@ -26,15 +26,8 @@ referenced_in_corpus:
     Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   line_range: L12971-L13050
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24559-L24565
-  excerpt: T __ldcg(const T* address); performs a load using the cache operator specified
-    in the PTX ISA guide
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L12990-L13000
-  excerpt: .cg -- Cache at global level (cache in L2 and below, not L1). Use ld.cg
-    to cache loads only globally, bypassing the L1 cache, and cache only in the L2
-    cache.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.204256
@@ -54,6 +47,13 @@ id: exp-2026-04-17-runtime-ldcg
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Ldcg
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24559-L24565
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L12990-L13000
 ---
 ## Summary
 

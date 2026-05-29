@@ -2,19 +2,8 @@
 title: Shared Memory Cache APIs
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1130-L1170
-  excerpt: Shared memory is allocated via __shared__ (static) or extern __shared__
-    (dynamic, size at launch).
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L4094-L4130
-  excerpt: cudaFuncSetAttribute with cudaFuncAttributePreferredSharedMemoryCarveout
-    / cudaFuncAttributeMaxDynamicSharedMemorySize configures the L1/shared split and
-    >48 KB opt-in.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L728-L732
-  excerpt: Shared memory staging reduces redundant global reads and converts non-coalesced
-    access to coalesced.
+- path: spec
+  anchor: Reference
 apis:
 - func_name: __shared__
   namespace: cuda-language
@@ -91,6 +80,16 @@ func_name: Shared Memory Cache APIs
 namespace: runtime
 header: cuda_runtime.h
 signature: See documentation
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1130-L1170
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L4094-L4130
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L728-L732
 ---
 ## Core APIs
 

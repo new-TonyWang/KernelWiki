@@ -32,18 +32,8 @@ referenced_in_corpus:
     Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   line_range: L9106-L9155
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1113
-  excerpt: The latency of most arithmetic instructions is typically 4 cycles on devices
-    of compute capability 7.0.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1124
-  excerpt: with a high degree of exposed instruction-level parallelism (ILP) it is,
-    in some cases, possible to fully cover latency with a low occupancy
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1229-L1232
-  excerpt: '32-bit floating-point add, multiply, multiply-add: throughput 128 ops/clock/SM
-    on sm_9.0'
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: null
   latency_ms_median: null
@@ -60,6 +50,16 @@ id: exp-ilp
 type: experience
 vendor: nvidia
 title: 2026 04 16 Ilp
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1113
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1124
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1229-L1232
 ---
 ## Summary
 

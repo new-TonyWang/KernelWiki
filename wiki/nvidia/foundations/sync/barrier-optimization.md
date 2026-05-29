@@ -19,32 +19,8 @@ requires_features:
 - async-barrier
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1402-L1404
-  excerpt: Throughput for __syncthreads() is 32 operations per clock cycle for devices
-    of compute capability 6.0, 16 operations per clock cycle for devices of compute
-    capability 7.x as well as 8.x and 64 operations per clock cycle for devices of
-    compute capability 5.x, 6.1 and 6.2. __syncthreads() can impact performance by
-    forcing the multiprocessor to idle.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3647-L3704
-  excerpt: An asynchronous barrier differs from a typical single-stage barrier (__syncthreads)
-    in that the notification by a thread that it has reached the barrier (the arrival)
-    is separated from the operation of waiting for other threads to arrive at the
-    barrier (the wait). This separation increases execution efficiency by allowing
-    a thread to perform additional operations unrelated to the barrier. Devices of
-    compute capability 8.0 or higher provide hardware acceleration for asynchronous
-    barriers.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L19217-L19237
-  excerpt: 'bar.cta.sync / bar.cta.arrive: CTA-level barrier with 16 named barrier
-    resources. barrier.cta.sync.aligned and barrier.cta.arrive.aligned provide the
-    aligned variants used when the compiler can prove full-warp participation.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L20580-L20600
-  excerpt: 'mbarrier: a 64-bit memory-backed barrier object with separate arrival
-    and wait phases, transaction-count tracking for async copies, and hardware-accelerated
-    phase advancement on sm_80+.'
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/barrier-cost/artifacts/barrier_cost_probe.cu
   build: sources/experience/hw-probes/barrier-cost/artifacts/build.sh
@@ -70,6 +46,19 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1402-L1404
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3647-L3704
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L19217-L19237
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L20580-L20600
 ---
 ## What
 

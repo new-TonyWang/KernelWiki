@@ -31,19 +31,8 @@ referenced_in_corpus:
 - path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
   line_range: L55-L80
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23872-L23882
-  excerpt: '__all_sync(unsigned mask, predicate): Evaluates predicate for all non-exited
-    threads in mask and returns non-zero if predicate evaluates to non-zero for all
-    of them.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24197-L24217
-  excerpt: All warp __sync intrinsics use the mask parameter to indicate which warp
-    threads participate in the call. Each bit in the mask corresponds to a thread's
-    lane ID.
-- path: source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
-  anchor: L55-L80
-  excerpt: result[tx] = __all_sync(mask, input[tx]);
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0
   latency_ms_median: 0.005152
@@ -64,6 +53,16 @@ id: exp-2026-04-17-runtime-all-sync
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime All Sync
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23872-L23882
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24197-L24217
+- source_id: source-code/cuda-samples
+  path: source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
+  anchor: L55-L80
 ---
 ## Summary
 

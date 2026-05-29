@@ -30,17 +30,8 @@ referenced_in_corpus:
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1561-L1581
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L4094-L4130
-  excerpt: accessPolicyWindow.hitRatio specifies the fraction of accesses in the window
-    that receive the hitProp property. When num_bytes exceeds the L2 set-aside capacity,
-    reducing hitRatio so that hitRatio*num_bytes <= set-aside prevents thrashing by
-    stochastically tagging only a fitting fraction of lines as persisting.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1561-L1581
-  excerpt: On devices of compute capability 8.0+ the L2 cache has a set-aside portion
-    that can be reserved for data accesses to persisting memory, improving bandwidth
-    for repeatedly accessed hot working sets.
+- path: spec
+  anchor: Reference
 conclusions:
   workload: repeat_read_sum, grid=528 blocks x 256 threads, N_REPEATS=32 inner passes
     per launch, buffer filled with 1.0f; buffer slice sized to WS; accessPolicyWindow
@@ -99,6 +90,13 @@ id: exp-l2-residency
 type: experience
 vendor: nvidia
 title: 2026 04 23 L2 Residency
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L4094-L4130
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1561-L1581
 ---
 ## Summary
 

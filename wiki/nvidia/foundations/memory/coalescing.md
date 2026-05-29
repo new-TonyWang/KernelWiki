@@ -19,37 +19,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1379-L1411
-  excerpt: Global memory is accessed via 32-byte memory transactions. When a CUDA
-    thread requests a word of data from global memory, the relevant warp coalesces
-    the memory requests from all the threads in that warp into the number of memory
-    transactions necessary to satisfy the request.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L539-L542
-  excerpt: A very important performance consideration in programming for CUDA-capable
-    GPU architectures is the coalescing of global memory accesses. Global memory loads
-    and stores by threads of a warp are coalesced by the device into as few as possible
-    transactions.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L545-L567
-  excerpt: 'For devices of compute capability 6.0 or higher, the requirements can
-    be summarized quite easily: the concurrent accesses of the threads of a warp will
-    coalesce into a number of transactions equal to the number of 32-byte transactions
-    necessary to service all of the threads of the warp.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L606-L634
-  excerpt: As illustrated in Figure 7, non-unit-stride global memory accesses should
-    be avoided whenever possible.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1446-L1448
-  excerpt: To alleviate these uncoalesced writes, the use of shared memory can be
-    employed.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22350
-  excerpt: Accesses to __global__ function const pointers marked with __restrict__
-    are compiled as read-only cache loads, similar to the PTX ld.global.nc or __ldg()
-    instructions.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/coalescing-stride/artifacts/coalescing_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o coalescing_probe coalescing_probe.cu
@@ -71,6 +42,25 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1379-L1411
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L539-L542
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L545-L567
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L606-L634
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1446-L1448
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22350
 ---
 ## What
 

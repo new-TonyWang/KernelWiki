@@ -33,27 +33,8 @@ referenced_in_corpus:
 - path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/0_Introduction/simpleOccupancy/simpleOccupancy.cu'
   line_range: L77-L122
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1087-L1089
-  excerpt: Occupancy is the ratio of the number of active warps per multiprocessor
-    to the maximum number of possible active warps.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1089
-  excerpt: Higher occupancy does not always equate to higher performance-there is
-    a point above which additional occupancy does not improve performance.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1124
-  excerpt: A lower occupancy kernel will have more registers available per thread
-    than a higher occupancy kernel, which may result in less register spilling to
-    local memory
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
-  anchor: L35-L42
-  excerpt: The maximum number of concurrent warps per SM remains the same as in NVIDIA
-    Ampere GPU architecture (that is, 64)
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3862-L3890
-  excerpt: Returns in *numBlocks the maximum number of active blocks per streaming
-    multiprocessor for the device function.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.0057
@@ -72,6 +53,22 @@ id: exp-occupancy-sweep
 type: experience
 vendor: nvidia
 title: 2026 04 16 Occupancy Tuning
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1087-L1089
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1089
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1124
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
+  anchor: L35-L42
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3862-L3890
 ---
 ## Summary
 

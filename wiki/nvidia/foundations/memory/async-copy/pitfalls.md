@@ -13,28 +13,23 @@ applies_to_ops:
 requires_sm: '>=8.0'
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11266-L11269
-  excerpt: LDGSTS supports copying 4, 8, or 16 bytes. Copying 4 or 8 bytes always
-    happens in the so called L1 ACCESS mode... copying 16-bytes enables the L1 BYPASS
-    mode.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11267-L11268
-  excerpt: The pointers need to be aligned to 4, 8, or 16 bytes depending on the size
-    of the data being copied. Best performance is achieved when the alignment of both
-    shared memory and global memory is 128 bytes.
 - path: <path-removed>
   anchor: ldgsts-apis-and-modes
   excerpt: L1 BYPASS -- sizeof(datatype) and alignment must be 16 bytes. producer_acquire()
     and producer_commit() must be called from converged code.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11269
-  excerpt: LDGSTS must provide a signal when the operation is complete... if you use
-    LDGSTS to prefetch some data that will be shared with other threads, a __syncthreads()
-    is necessary after synchronizing with the LDGSTS completion mechanism.
 id: pitfall-async-copy
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11266-L11269
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11267-L11268
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11269
 ---
 ## P1: Alignment requirements for L1 BYPASS mode
 

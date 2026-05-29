@@ -6,14 +6,16 @@ signature: __launch_bounds__(maxThreadsPerBlock [, minBlocksPerMultiprocessor [,
 status: documented
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22816-L22905
-  excerpt: Applications can optionally aid these heuristics by providing additional
-    information to the compiler in the form of launch bounds
+- path: spec
+  anchor: Reference
 id: api-compiler-hints-ref
 type: api-definition
 vendor: nvidia
 title: Apis
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22816-L22905
 ---
 # Compiler Hints API Reference
 

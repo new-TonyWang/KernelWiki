@@ -20,26 +20,8 @@ requires_features:
 single_kernel_useful: false
 multi_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L4094-L4130
-  excerpt: accessPolicyWindow.hitRatio specifies the fraction of accesses that receive
-    the hitProp property. Reducing hitRatio below 1.0 so that hitRatio*num_bytes <=
-    set-aside prevents thrashing when num_bytes exceeds the persisting-L2 capacity
-    by stochastically tagging only the fitting fraction of lines as persisting.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L4060-L4092
-  excerpt: cudaDeviceSetLimit(cudaLimitPersistingL2CacheSize, N) reserves the set-aside
-    portion of L2 for persisting accesses. The maximum is reported by cudaDeviceProp::persistingL2CacheMaxSize.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1561-L1581
-  excerpt: On devices of compute capability 8.0+ the L2 cache has a set-aside portion
-    that can be reserved for data accesses to persisting memory, improving bandwidth
-    for repeatedly accessed hot working sets.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L4132-L4168
-  excerpt: cudaCtxResetPersistingL2Cache resets all persisting L2 cache lines so they
-    can be evicted like normal lines. Called between phases of work that use different
-    persisting regions.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/l2-residency/artifacts/l2_residency_probe.cu
   build: sources/experience/hw-probes/l2-residency/artifacts/build.sh
@@ -70,6 +52,19 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L4094-L4130
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L4060-L4092
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1561-L1581
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L4132-L4168
 ---
 ## What
 

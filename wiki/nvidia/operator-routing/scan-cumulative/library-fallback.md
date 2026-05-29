@@ -4,34 +4,31 @@ pattern_class: cuda-core
 op: scan-cumulative
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L28474-L28508
-  excerpt: DeviceScan provides device-wide, parallel operations for computing a prefix
-    scan across a sequence of data items residing within device-accessible memory.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L28553-L28578
-  excerpt: 'cub::DeviceScan::ExclusiveSum code snippet: two-pass temp storage pattern,
-    d_out <-- [0, 8, 14, 21, 26, 29, 29]'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L29201-L29227
-  excerpt: 'cub::DeviceScan::InclusiveSum code snippet: d_out <-- [8, 14, 21, 26,
-    29, 29, 38]'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L28764-L28802
-  excerpt: 'cub::DeviceScan::ExclusiveScan with CustomMin functor: exclusive prefix
-    min-scan'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L29340-L29381
-  excerpt: 'cub::DeviceScan::InclusiveScan with CustomMin functor: inclusive prefix
-    min-scan'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
-  anchor: L99812-L99891
-  excerpt: thrust::exclusive_scan computes an exclusive prefix sum operation. thrust::inclusive_scan
-    computes an inclusive prefix sum operation.
+- path: spec
+  anchor: Reference
 id: routing-scan-cumulative-library-fallback
 type: operator-routing
 vendor: nvidia
 operator: scan-cumulative
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L28474-L28508
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L28553-L28578
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L29201-L29227
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L28764-L28802
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L29340-L29381
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  anchor: L99812-L99891
 ---
 # Scan (Cumulative) -- Library Fallback Paths
 

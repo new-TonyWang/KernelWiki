@@ -17,10 +17,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
-  anchor: TMA descriptor + cp.async.bulk.tensor end-to-end
-  excerpt: TMA descriptor encoded host-side, cp.async.bulk.tensor.<dim>d.* issued
-    device-side, mbarrier-driven completion.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/api-probes/gemm/artifacts/gemm_compare.cu
   build: sources/experience/api-probes/gemm/artifacts/build.sh
@@ -45,6 +43,9 @@ source_refs:
 - source_id: source-code/cutlass
   path: examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
   anchor: Lall
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  anchor: TMA descriptor + cp.async.bulk.tensor end-to-end
 ---
 # TMA — Tensor Memory Accelerator on Hopper
 

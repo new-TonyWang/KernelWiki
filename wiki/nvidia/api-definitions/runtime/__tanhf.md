@@ -7,20 +7,23 @@ since_cuda: ''
 status: draft
 has_end_to_end_example: false
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
-  anchor: L2761-L2761
-  excerpt: 7. Single Precision Intrinsics
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
-  anchor: L3773-L3773
-  excerpt: 7.1. Functions
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L27033-L27033
-  excerpt: 5.5.9.2. Single-Precision-Only Intrinsic Functions
+- path: spec
+  anchor: Reference
 probed_by: ''
 id: api-__tanhf
 type: api-definition
 vendor: nvidia
 title: __Tanhf
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  anchor: L2761-L2761
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  anchor: L3773-L3773
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L27033-L27033
 ---
 # __tanhf
 

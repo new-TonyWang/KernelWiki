@@ -7,29 +7,32 @@ since_cuda: ''
 status: draft
 has_end_to_end_example: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3862-L3862
-  excerpt: cudaOccupancyMaxActiveBlocksPerMultiprocessor
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3865-L3865
-  excerpt: cudaOccupancyMaxActiveBlocksPerMultiprocessor
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3890-L3890
-  excerpt: cudaOccupancyMaxActiveBlocksPerMultiprocessor
-- path: source-code/cuda-samples/Samples/0_Introduction/simpleAWBarrier/README.md
-  anchor: L26-L26
-  excerpt: '[CUDA Runtime API](http://docs.nvidia.com/cuda/cuda-runtime-api/index.html)'
-- path: source-code/cuda-samples/Samples/0_Introduction/simpleAWBarrier/simpleAWBarrier.cu
-  anchor: L204-L204
-  excerpt: endif
-- path: source-code/cuda-samples/Samples/0_Introduction/simpleIPC/README.md
-  anchor: L26-L26
-  excerpt: '[CUDA Runtime API](http://docs.nvidia.com/cuda/cuda-runtime-api/index.html)'
+- path: spec
+  anchor: Reference
 probed_by: sources/experience/api-probes/2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor.md
 id: api-cudaOccupancyMaxActiveBlocksPerMultiprocessor
 type: api-definition
 vendor: nvidia
 title: Cudaoccupancymaxactiveblockspermultiprocessor
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3862-L3862
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3865-L3865
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3890-L3890
+- source_id: source-code/cuda-samples
+  path: source-code/cuda-samples/Samples/0_Introduction/simpleAWBarrier/README.md
+  anchor: L26-L26
+- source_id: source-code/cuda-samples
+  path: source-code/cuda-samples/Samples/0_Introduction/simpleAWBarrier/simpleAWBarrier.cu
+  anchor: L204-L204
+- source_id: source-code/cuda-samples
+  path: source-code/cuda-samples/Samples/0_Introduction/simpleIPC/README.md
+  anchor: L26-L26
 ---
 # cudaOccupancyMaxActiveBlocksPerMultiprocessor
 

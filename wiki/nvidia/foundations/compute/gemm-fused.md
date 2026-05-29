@@ -18,11 +18,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: blogs/colfax/epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
-  anchor: epilogue-visitor-tree (EVT) abstraction; LinearCombination / Activation
-    / Bias / Aux fusion patterns
-- path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
-  anchor: epilogue customization for Hopper wgmma GEMM
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/api-probes/gemm/artifacts/gemm_compare_relu.cu
   build: sources/experience/api-probes/gemm/artifacts/build_fused.sh
@@ -55,6 +52,13 @@ source_refs:
 - source_id: source-code/cutlass
   path: include/cutlass/epilogue/thread/linear_combination_relu.h
   anchor: LinearCombinationRelu — Activation fusion as a thread-level epilogue
+- source_id: blogs/colfax
+  path: blogs/colfax/epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
+  anchor: epilogue-visitor-tree (EVT) abstraction; LinearCombination / Activation
+    / Bias / Aux fusion patterns
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  anchor: epilogue customization for Hopper wgmma GEMM
 ---
 # Hopper fused-GEMM (epilogue + prologue fusion via cutlass)
 

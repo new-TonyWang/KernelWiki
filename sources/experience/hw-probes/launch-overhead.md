@@ -20,14 +20,8 @@ artifacts:
   profile: ''
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/launch-overhead/2026-04-23/run.log
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1700-L1800
-  excerpt: 'BP §11.1 Kernel Launch: each kernel launch has a fixed cost associated
-    with queuing the launch on the CUDA stream; when the GPU-side work is very small,
-    this fixed cost dominates wall-clock.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L5900-L6100
-  excerpt: cudaLaunchKernel / cudaLaunchKernelEx runtime API reference.
+- path: spec
+  anchor: Reference
 conclusions:
   workload: 3 launch shapes × 2 launch mechanisms × N_BATCH=10000 launches, timed
     with outer CUDA-event bracket and divided by N_BATCH. Plus a workload-crossover
@@ -91,6 +85,13 @@ id: exp-launch-overhead
 type: experience
 vendor: nvidia
 title: 2026 04 23 Launch Overhead
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1700-L1800
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L5900-L6100
 ---
 ## Summary
 

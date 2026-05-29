@@ -2,18 +2,8 @@
 title: Layout Transform APIs
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1379-L1411
-  excerpt: 'Global memory coalescing: adjacent threads must land in the same 32-byte
-    segment to avoid multiple transactions per warp.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L606-L634
-  excerpt: 'Strided accesses: stride-2 gives 50% efficiency; stride-32 gives 12.5%.
-    Layout transforms convert strided patterns into unit-stride.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L13528-L13530
-  excerpt: prmt.b32 byte permutation across two 32-bit registers; mode selector picks
-    bytes 0..7 of (a || b).
+- path: spec
+  anchor: Reference
 apis:
 - func_name: cudaMallocPitch
   namespace: cuda-runtime
@@ -84,6 +74,16 @@ func_name: Layout Transform APIs
 namespace: runtime
 header: cuda_runtime.h
 signature: See documentation
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1379-L1411
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L606-L634
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L13528-L13530
 ---
 ## Core APIs
 

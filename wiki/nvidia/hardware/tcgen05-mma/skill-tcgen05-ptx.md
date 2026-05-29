@@ -13,12 +13,8 @@ requires_features:
 - tcgen05
 single_kernel_useful: true
 source:
-- path: whitepapers/gpu-wite-paper/BlackWell/nvidia-blackwell-architecture-technical-brief.pdf
-  anchor: 5th Generation Tensor Cores
-  excerpt: Blackwell introduces 5th-generation Tensor Cores with 2x throughput over
-    Hopper and new micro-tensor scaling (MX formats).
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: tcgen05 instruction family
+- path: spec
+  anchor: Reference
 related_apis: []
 related_skills:
 - wgmma-ptx
@@ -38,6 +34,12 @@ source_refs:
 - source_id: source-code/cutlass
   path: include/cute/atom/mma_traits_sm100.hpp
   anchor: SM100_MMA_TF32_SS, SM100_MMA_F16BF16_SS, SM100_MMA_*_TS, SM100_MMA_*_SCALED
+- source_id: whitepapers/gpu
+  path: whitepapers/gpu-wite-paper/BlackWell/nvidia-blackwell-architecture-technical-brief.pdf
+  anchor: 5th Generation Tensor Cores
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: tcgen05 instruction family
 ---
 # tcgen05 — Blackwell 5th-generation Tensor Core via PTX
 

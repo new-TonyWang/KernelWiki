@@ -32,13 +32,8 @@ referenced_in_corpus:
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1556-L1581
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L26993-L26995
-  excerpt: '__expf(x): max ULP error 2 + floor(abs(1.173 * x))'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1243-L1244
-  excerpt: '32-bit approximate floating-point reciprocal, reciprocal square root,
-    base-2 logarithm, base 2 exponential, sine, cosine: lg2.approx.f32 -- 16 ops/clock/SM'
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: null
   latency_ms_median: 0.0404
@@ -57,6 +52,13 @@ id: exp-fast-math
 type: experience
 vendor: nvidia
 title: 2026 04 16 Fast Math
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L26993-L26995
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1243-L1244
 ---
 ## Summary
 

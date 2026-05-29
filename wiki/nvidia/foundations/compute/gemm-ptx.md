@@ -18,28 +18,6 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9 + libcuda + libcublas
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L28659-L28675
-  excerpt: 9.7.15.5. Asynchronous Warpgroup Level Matrix Multiply-Accumulate Operation
-    using wgmma.mma_async instruction — the consumer side of this skill's kernel.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L16866-L16880
-  excerpt: '9.7.9.25.5.2. Data Movement and Conversion Instructions: cp.async.bulk.tensor
-    — the producer side of this skill''s kernel (TMA tile load).'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L29622-L29640
-  excerpt: 9.7.15.5.1.2.2. Matrix Descriptor Format — Matrix descriptor specifies
-    the properties of the matrix in shared memory that is a multiplicand in the matrix
-    multiply and accumulate operation. It is a 64-bit value contained in a register.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11833
-  excerpt: compute capability 9.0 (Hopper) and later have a tensor memory accelerator
-    (TMA). The primary goal of the TMA is to provide an efficient data transfer mechanism
-    from global memory to shared memory for multi-dimensional arrays.
-- path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
-  anchor: Hopper wgmma GEMM walkthrough — descriptor format + fragment layout
-- path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
-  anchor: TMA tile-load protocol that this kernel's mainloop composes
 - path: wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu
   anchor: this skill's harness — TMA-PTX + wgmma-PTX composed into a single GEMM kernel
 artifacts:
@@ -63,6 +41,25 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L28659-L28675
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L16866-L16880
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L29622-L29640
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11833
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  anchor: Hopper wgmma GEMM walkthrough — descriptor format + fragment layout
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  anchor: TMA tile-load protocol that this kernel's mainloop composes
 ---
 # Hopper GEMM via raw PTX (cutlass-free)
 

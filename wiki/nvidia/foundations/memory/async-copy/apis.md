@@ -7,17 +7,19 @@ signature: void __pipeline_memcpy_async(void* __restrict__ dst_shared, const voi
 status: documented
 has_end_to_end_example: false
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3921
-  excerpt: __pipeline_memcpy_async
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L971-L973
-  excerpt: __pipeline_memcpy_async(&shared[blockDim.x * i + threadIdx.x], &global[blockDim.x
-    * i + threadIdx.x], sizeof(T));
+- path: spec
+  anchor: Reference
 id: api-async-copy-ref
 type: api-definition
 vendor: nvidia
 title: Apis
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3921
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L971-L973
 ---
 # Asynchronous Data Copies API Reference
 

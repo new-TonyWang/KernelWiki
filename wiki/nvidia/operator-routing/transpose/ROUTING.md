@@ -4,15 +4,16 @@ pattern_class: cuda-core
 op: transpose
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1484-L1540
-  excerpt: 'Matrix Transpose Example Using Shared Memory: shared memory as a user-managed
-    cache to stage loads and stores resulting in coalesced global memory access of
-    both reads and writes.'
+- path: spec
+  anchor: Reference
 id: routing-transpose-ROUTING
 type: operator-routing
 vendor: nvidia
 operator: transpose
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1484-L1540
 ---
 # Transpose Pattern -- Skill Whitelist
 

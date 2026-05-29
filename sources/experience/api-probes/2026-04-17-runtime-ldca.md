@@ -26,15 +26,8 @@ referenced_in_corpus:
     Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   line_range: L12971-L13050
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24559-L24565
-  excerpt: T __ldca(const T* address); performs a load using the cache operator specified
-    in the PTX ISA guide
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L12978-L12988
-  excerpt: .ca -- Cache at all levels, likely to be accessed again. The default load
-    instruction cache operation is ld.ca, which allocates cache lines in all levels
-    (L1 and L2) with normal eviction policy.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.204288
@@ -54,6 +47,13 @@ id: exp-2026-04-17-runtime-ldca
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Ldca
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24559-L24565
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L12978-L12988
 ---
 ## Summary
 

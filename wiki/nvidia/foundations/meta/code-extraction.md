@@ -16,17 +16,8 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9 + ripgrep 14.x
 measured_on: developer workstation + H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
-  anchor: Hopper warp-specialized GEMM walkthrough — the canonical worked-example
-    target
-- path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
-  anchor: TMA walkthrough
-- path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
-  anchor: wgmma walkthrough
-- path: blogs/colfax/cutlass-tutorial-persistent-kernels-and-stream-k
-  anchor: persistent + stream-K walkthrough
-- path: blogs/colfax/epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
-  anchor: epilogue fusion walkthrough
+- path: spec
+  anchor: Reference
 related_skills:
 - tma
 - wgmma
@@ -47,6 +38,23 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: blogs/colfax
+  path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
+  anchor: Hopper warp-specialized GEMM walkthrough — the canonical worked-example
+    target
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  anchor: TMA walkthrough
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  anchor: wgmma walkthrough
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-persistent-kernels-and-stream-k
+  anchor: persistent + stream-K walkthrough
+- source_id: blogs/colfax
+  path: blogs/colfax/epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
+  anchor: epilogue fusion walkthrough
 ---
 # Agent meta-skill: CUDA code crawling + operator-optimization-algorithm identification
 

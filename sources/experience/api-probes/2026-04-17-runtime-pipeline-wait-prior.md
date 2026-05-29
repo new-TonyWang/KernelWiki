@@ -29,14 +29,8 @@ referenced_in_corpus:
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L960-L1000
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3927-L3930
-  excerpt: __pipeline_wait_prior(N) — Waits for completion of asynchronous operations
-    in all but the last N commits to the pipeline.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L985-L985
-  excerpt: The __pipeline_wait_prior(0) will wait until all the instructions in the
-    pipe object have been executed.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.009984
@@ -57,6 +51,13 @@ id: exp-2026-04-17-runtime-pipeline-wait-prior
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Pipeline Wait Prior
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3927-L3930
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L985-L985
 ---
 ## Summary
 

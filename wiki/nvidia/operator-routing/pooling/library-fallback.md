@@ -4,14 +4,16 @@ pattern_class: cuda-core
 op: pooling
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L538-L542
-  excerpt: A very important performance consideration in programming for CUDA-capable
-    GPU architectures is the coalescing of global memory accesses.
+- path: spec
+  anchor: Reference
 id: routing-pooling-library-fallback
 type: operator-routing
 vendor: nvidia
 operator: pooling
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L538-L542
 ---
 # Pooling -- Library Fallback Paths
 

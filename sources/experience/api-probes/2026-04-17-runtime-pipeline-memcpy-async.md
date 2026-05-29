@@ -29,19 +29,8 @@ referenced_in_corpus:
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L960-L1000
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3919-L3923
-  excerpt: __pipeline_memcpy_async — Request a memory copy from global to shared memory
-    to be submitted for asynchronous evaluation.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L985-L985
-  excerpt: In the asynchronous version of the kernel, instructions to load from global
-    memory and store directly into shared memory are issued as soon as __pipeline_memcpy_async()
-    function is called.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L985-L985
-  excerpt: If individual CUDA threads are copying elements of 16 bytes, the L1 cache
-    can be bypassed.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.009984
@@ -60,6 +49,16 @@ id: exp-2026-04-17-runtime-pipeline-memcpy-async
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Pipeline Memcpy Async
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3919-L3923
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L985-L985
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L985-L985
 ---
 ## Summary
 

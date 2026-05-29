@@ -2,13 +2,8 @@
 title: Branch Elimination APIs
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25650-L25760
-  excerpt: fmaxf / fminf / fabsf / copysignf — single-precision floating-point helper
-    intrinsics, IEEE 754 semantics.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L6800-L6950
-  excerpt: PTX max / min / abs / selp instructions and their SASS lowering targets.
+- path: spec
+  anchor: Reference
 apis:
 - func_name: fmaxf
   namespace: cuda-runtime
@@ -133,6 +128,13 @@ func_name: Branch Elimination APIs
 namespace: runtime
 header: cuda_runtime.h
 signature: See documentation
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25650-L25760
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L6800-L6950
 ---
 ## Core rewrite intrinsics (H200 sm_9.0a, measured)
 

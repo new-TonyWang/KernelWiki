@@ -29,10 +29,8 @@ referenced_in_corpus:
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1289-L1292
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23979
-  excerpt: '__shfl_xor_sync(): Copy from a lane based on bitwise XOR of own lane ID...
-    implements a butterfly addressing pattern'
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: null
   latency_ms_median: null
@@ -49,6 +47,10 @@ id: exp-shfl-sync-bfly
 type: experience
 vendor: nvidia
 title: 2026 04 16 Warp Primitives
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23979
 ---
 ## Summary
 

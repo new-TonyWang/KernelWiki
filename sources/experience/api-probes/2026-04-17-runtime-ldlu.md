@@ -26,16 +26,8 @@ referenced_in_corpus:
     Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   line_range: L12971-L13050
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24559-L24565
-  excerpt: T __ldlu(const T* address); performs a load using the cache operator specified
-    in the PTX ISA guide
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L13013-L13022
-  excerpt: .lu -- Last use. The compiler/programmer may use ld.lu when restoring spilled
-    registers and popping function stack frames to avoid needless write-backs of lines
-    that will not be used again. The ld.lu instruction performs a load cached streaming
-    operation (ld.cs) on global addresses.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.20288
@@ -56,6 +48,13 @@ id: exp-2026-04-17-runtime-ldlu
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Ldlu
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24559-L24565
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L13013-L13022
 ---
 ## Summary
 

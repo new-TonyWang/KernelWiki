@@ -11,20 +11,21 @@ applies_to_ops:
 requires_sm: '>=3.0'
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24203-L24290
-  excerpt: 'The behavior of warp __sync functions is invalid, such as kernel hang,
-    or undefined if: A calling thread is not specified in the mask.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L24015-L24031
-  excerpt: Examples of invalid warp shuffle usage
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23988-L23990
-  excerpt: width must be a power of two in the range [1, warpSize], namely 1, 2, 4,
-    8, 16, or 32. Other values will produce undefined results.
+- path: spec
+  anchor: Reference
 id: pitfall-warp-primitives
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24203-L24290
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24015-L24031
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23988-L23990
 ---
 ## P1: Mask mismatch with active threads
 

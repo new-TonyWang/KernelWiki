@@ -23,15 +23,8 @@ artifacts:
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/branchless-patterns/2026-04-23/run.log
   sass_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-src/branchless-patterns/branchless.sass
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25650-L25760
-  excerpt: 'Single-precision floating-point intrinsics: __fmaxf, __fminf, __fmaf_rn.
-    Math-function intrinsics including fabsf, copysignf, and their IEEE 754 semantics.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L6800-L6950
-  excerpt: PTX max.f32 / min.f32 / abs.f32 / selp; the selp instruction implements
-    a predicated move with a source operand selector — the canonical branchless assignment
-    primitive.
+- path: spec
+  anchor: Reference
 conclusions:
   workload: '10 variants of branchful vs branchless rewrites for 3 canonical patterns
     (relu / abs / conditional-register-assign). Compute-bound harness: 4 independent
@@ -87,6 +80,13 @@ id: exp-branchless-patterns
 type: experience
 vendor: nvidia
 title: 2026 04 23 Branchless Patterns
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25650-L25760
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L6800-L6950
 ---
 ## Summary
 

@@ -30,18 +30,8 @@ referenced_in_corpus:
 - path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleOccupancy/simpleOccupancy.cu
   line_range: L77-L122
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3865-L3865
-  excerpt: __host__ __device__ cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor
-    ( int* numBlocks, const void* func, int blockSize, size_t dynamicSMemSize )
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3881-L3883
-  excerpt: Returns in *numBlocks the maximum number of active blocks per streaming
-    multiprocessor for the device function.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
-  anchor: L35-L42
-  excerpt: The maximum number of concurrent warps per SM remains the same as in NVIDIA
-    Ampere GPU architecture (that is, 64)
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0
   latency_ms_median: 7.6e-05
@@ -65,6 +55,16 @@ id: exp-2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Cuda Occupancy Max Active Blocks Per Multiprocessor
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3865-L3865
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3881-L3883
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
+  anchor: L35-L42
 ---
 ## Summary
 

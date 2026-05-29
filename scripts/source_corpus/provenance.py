@@ -43,7 +43,7 @@ def _iter_knowledge_entries(root: Path) -> list[Path]:
 def provenance_walk(knowledge_path: str) -> dict:
     path = Path(knowledge_path)
     if not path.is_absolute():
-        path = (KNOWLEDGE_ROOT.parent / path).resolve()
+        path = (KNOWLEDGE_ROOT / path).resolve()
     if not path.exists():
         return ResponseEnvelope(
             ok=False,
@@ -55,15 +55,18 @@ def provenance_walk(knowledge_path: str) -> dict:
     refs = []
     # Read both source: and source_refs:
     for item in fm.get("source", []) or []:
-        refs.append(
-            ProvenanceRef(
-                path=item.get("path", ""),
-                anchor=item.get("anchor", ""),
-                excerpt=item.get("excerpt", ""),
-                source_id="",
-                note=item.get("note", ""),
-            ).to_dict()
-        )
+        if isinstance(item, dict):
+            refs.append(
+                ProvenanceRef(
+                    path=item.get("path", ""),
+                    anchor=item.get("anchor", ""),
+                    excerpt=item.get("excerpt", ""),
+                    source_id="",
+                    note=item.get("note", ""),
+                ).to_dict()
+            )
+        elif isinstance(item, str):
+            refs.append(ProvenanceRef(path=item, anchor="", excerpt="", source_id="", note="").to_dict())
     for item in fm.get("source_refs", []) or []:
         refs.append(
             ProvenanceRef(
@@ -86,19 +89,36 @@ def build_provenance_index(output_path: Path | None = None) -> dict:
     rows = []
     for entry in _iter_knowledge_entries(KNOWLEDGE_ROOT):
         fm = _read_frontmatter(entry)
+        # Index source: entries (handle both dict and string items)
         for item in fm.get("source", []) or []:
-            src_path = item.get("path", "")
-            anchor = item.get("anchor", "")
+            if isinstance(item, dict):
+                src_path = item.get("path", "")
+                anchor = item.get("anchor", "")
+            elif isinstance(item, str):
+                src_path = item
+                anchor = ""
+            else:
+                continue
             if not src_path:
                 continue
             rows.append(
                 {
                     "source_path": src_path,
-                    "resolved_path": str(resolve_corpus_path(src_path)),
                     "anchor": anchor,
-                    "referenced_by": str(entry.relative_to(KNOWLEDGE_ROOT.parent)),
+                    "referenced_by": str(entry.relative_to(KNOWLEDGE_ROOT)),
                 }
             )
+        # Index source_refs: entries
+        for item in fm.get("source_refs", []) or []:
+            if isinstance(item, dict):
+                rows.append(
+                    {
+                        "source_path": f"{item.get('source_id', '')}/{item.get('path', '')}",
+                        "source_id": item.get("source_id", ""),
+                        "anchor": item.get("anchor", ""),
+                        "referenced_by": str(entry.relative_to(KNOWLEDGE_ROOT)),
+                    }
+                )
 
     with target.open("w") as f:
         for row in rows:

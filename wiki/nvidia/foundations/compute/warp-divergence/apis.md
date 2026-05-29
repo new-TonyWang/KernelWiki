@@ -2,14 +2,8 @@
 title: Warp Divergence APIs
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1602-L1628
-  excerpt: 'Branching and divergence (§13.1) + Branch Predication (§13.2): two companion
-    sections defining the cost model and the predication escape hatch.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3427-L3436
-  excerpt: 'Independent Thread Scheduling (CC 7.0+): __syncwarp() and _sync intrinsics
-    are required to ensure correct cross-lane behavior after divergent regions.'
+- path: spec
+  anchor: Reference
 apis:
 - func_name: __ballot_sync
   namespace: cuda-runtime
@@ -88,6 +82,13 @@ func_name: Warp Divergence APIs
 namespace: runtime
 header: cuda_runtime.h
 signature: See documentation
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1602-L1628
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3427-L3436
 ---
 ## Core APIs
 

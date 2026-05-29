@@ -12,30 +12,26 @@ applies_to_ops:
 requires_sm: '>=7.0'
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L28617-L28663
-  excerpt: While the memory operations on f are atomic, the scope of the store operation
-    is block scope. Since the store is performed by Thread 0 of Block 0, it only includes
-    all other threads of Block 0.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23272-L23289
-  excerpt: Legacy atomic functions only support memory_order_relaxed C++ atomic memory
-    semantics. They allow specifying the thread scope as part of the function name.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23195-L23200
-  excerpt: The memory fence only affects the order in which memory operations are
-    executed; it does not guarantee visibility of these operations to other threads.
 - path: <path-removed>
   anchor: non-coherence-the-constant-cache
   excerpt: The constant cache sits in the SM, has a direct link to L2, and is not
     kept coherent with the L1 cache.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L4692-L4695
-  excerpt: The memory consistency model does not apply to texture (including ld.global.nc)
-    and surface accesses.
 id: pitfall-memory-ordering
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L28617-L28663
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23272-L23289
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23195-L23200
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L4692-L4695
 ---
 ## P1: Scope mismatch -- block scope for cross-block communication
 

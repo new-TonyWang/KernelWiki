@@ -7,14 +7,8 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L23945-L23973
-  excerpt: 'Warp Shuffle Functions: __shfl_down_sync copies from a lane with a higher
-    ID'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L5931-L5997
-  excerpt: cub::BlockReduce provides collective methods for computing a parallel reduction
-    across a CUDA thread block
+- path: spec
+  anchor: Reference
 id: routing-normalization-INDEX
 type: operator-routing
 vendor: nvidia
@@ -23,6 +17,12 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
   anchor: L75-L81
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23945-L23973
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L5931-L5997
 ---
 # Normalization Pattern -- Decision Tree
 

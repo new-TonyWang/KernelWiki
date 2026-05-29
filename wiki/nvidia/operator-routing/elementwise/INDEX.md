@@ -12,10 +12,8 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L539-L542
-  excerpt: A very important performance consideration in programming for CUDA-capable
-    GPU architectures is the coalescing of global memory accesses.
+- path: spec
+  anchor: Reference
 id: routing-elementwise-INDEX
 type: operator-routing
 vendor: nvidia
@@ -24,6 +22,9 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/0_Introduction/vectorAdd/vectorAdd.cu
   anchor: L47-L54
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L539-L542
 ---
 # Elementwise Operator Pattern -- Decision Tree
 

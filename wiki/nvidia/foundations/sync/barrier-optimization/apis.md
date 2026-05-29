@@ -2,18 +2,8 @@
 title: Barrier Optimization APIs
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3647-L3704
-  excerpt: Asynchronous barriers split arrive and wait for overlap with compute; hardware-accelerated
-    on sm_80+.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L19217-L19482
-  excerpt: PTX bar / barrier instructions (CTA scope, 16 named barriers) and barrier.cluster
-    (cluster scope).
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L20580-L21555
-  excerpt: 'PTX mbarrier family: init, arrive, arrive.expect_tx, try_wait, test_wait,
-    pending_count.'
+- path: spec
+  anchor: Reference
 apis:
 - func_name: __syncthreads
   namespace: cuda-runtime
@@ -155,6 +145,16 @@ func_name: Barrier Optimization APIs
 namespace: runtime
 header: cuda_runtime.h
 signature: See documentation
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3647-L3704
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L19217-L19482
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L20580-L21555
 ---
 ## Core APIs
 

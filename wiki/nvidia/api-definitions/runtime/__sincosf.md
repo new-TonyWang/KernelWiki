@@ -7,23 +7,26 @@ since_cuda: ''
 status: draft
 has_end_to_end_example: false
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
-  anchor: L2743-L2743
-  excerpt: 7. Single Precision Intrinsics
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
-  anchor: L3720-L3720
-  excerpt: 7.1. Functions
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1563-L1563
-  excerpt: 12.1.9. Math Libraries
-- path: source-code/cuda-samples/Samples/5_Domain_Specific/convolutionFFT2D/convolutionFFT2D.cuh
-  anchor: L207-L207
-  excerpt: endif
+- path: spec
+  anchor: Reference
 probed_by: ''
 id: api-__sincosf
 type: api-definition
 vendor: nvidia
 title: __Sincosf
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  anchor: L2743-L2743
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  anchor: L3720-L3720
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1563-L1563
+- source_id: source-code/cuda-samples
+  path: source-code/cuda-samples/Samples/5_Domain_Specific/convolutionFFT2D/convolutionFFT2D.cuh
+  anchor: L207-L207
 ---
 # __sincosf
 

@@ -29,14 +29,8 @@ referenced_in_corpus:
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L960-L1000
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L3924-L3924
-  excerpt: __pipeline_commit — Commits the asynchronous operations issued before the
-    call on the current stage of the pipeline.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L11100-L11160
-  excerpt: 'Example: three commit stages issued back-to-back and drained by __pipeline_wait_prior(2),
-    __pipeline_wait_prior(1), __pipeline_wait_prior(0).'
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.009984
@@ -55,6 +49,13 @@ id: exp-2026-04-17-runtime-pipeline-commit
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Pipeline Commit
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L3924-L3924
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L11100-L11160
 ---
 ## Summary
 

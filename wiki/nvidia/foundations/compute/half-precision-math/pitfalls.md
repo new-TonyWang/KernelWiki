@@ -3,17 +3,20 @@ title: Half-Precision Math — Pitfalls
 status: verified
 related_skill: wiki/nvidia/foundations/compute/half-precision-math/skill.md
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L25350-L25420
-  excerpt: PG §5.4.11.2 / §5.5.2 Alternate Floating Point + Floating-Point Data Types.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L11000-L11200
-  excerpt: PTX f16 / bf16 arithmetic; atom.add.noftz.f16 denormal handling.
+- path: spec
+  anchor: Reference
 experience_refs:
 - sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md
 id: pitfall-half-precision-math
 type: pitfall
 vendor: nvidia
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L25350-L25420
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L11000-L11200
 ---
 Pitfalls group: P1–P6 are numerical-format and availability facts grounded in PG §5.5.2 / PTX ISA; P13 is a build-system fact; P14–P16 are measured on H200 sm_9.0a by the half2-throughput probe 2026-04-23. P10/P11/P12 are open risks not re-measured by the probe — each records what to look for in SASS / wall-clock and flags a follow-up probe.
 

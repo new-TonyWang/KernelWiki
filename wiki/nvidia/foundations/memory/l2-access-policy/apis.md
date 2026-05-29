@@ -2,16 +2,8 @@
 title: L2 Access Policy APIs
 status: draft
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L4060-L4170
-  excerpt: L2 Cache Set-Aside for Persisting Accesses — cudaDeviceSetLimit / cudaLimitPersistingL2CacheSize;
-    accessPolicyWindow fields (base_ptr, num_bytes, hitRatio, hitProp, missProp);
-    cudaCtxResetPersistingL2Cache; per-stream, per-graph-node, and per-launch attribute
-    entry points.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L1561-L1610
-  excerpt: Best Practices §10.2.2 — L2 cache set-aside + access window use cases,
-    MIG caveat, hitRatio tuning formula set_aside / WS.
+- path: spec
+  anchor: Reference
 apis:
 - func_name: cudaStreamSetAttribute
   namespace: cuda-runtime
@@ -178,6 +170,13 @@ func_name: L2 Access Policy APIs
 namespace: runtime
 header: cuda_runtime.h
 signature: See documentation
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L4060-L4170
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1561-L1610
 ---
 ## Core APIs
 

@@ -7,10 +7,8 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
-  anchor: L26607-L26630
-  excerpt: DeviceReduce provides device-wide, parallel operations for computing a
-    reduction across a sequence of data items residing within device-accessible memory.
+- path: spec
+  anchor: Reference
 id: routing-reduction-INDEX
 type: operator-routing
 vendor: nvidia
@@ -22,6 +20,9 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/2_Concepts_and_Techniques/reduction/reduction.cpp
   anchor: L28-L62
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  anchor: L26607-L26630
 ---
 # Reduction Pattern -- Decision Tree
 

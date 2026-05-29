@@ -18,30 +18,8 @@ requires_features:
 - coalesced-memory-model
 single_kernel_useful: true
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L606-L634
-  excerpt: 'Strided Accesses: non-unit-strided accesses occur frequently when dealing
-    with multidimensional data or matrices. A stride of 2 results in a 50% of load/store
-    efficiency; as the stride increases, the effective bandwidth decreases until the
-    point where 32 32-byte segments are loaded for the 32 threads in a warp. Non-unit-stride
-    global memory accesses should be avoided whenever possible.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1379-L1411
-  excerpt: Global memory is accessed via 32-byte memory transactions. Coalesced memory
-    access occurs provided all the threads in the warp access elements from the same
-    32-byte segments of memory in some linear or permuted way. The pathologically
-    worst case is when consecutive threads access elements 32 bytes or more apart
-    — memory utilization drops to 12.5%.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1413-L1483
-  excerpt: 'Matrix Transpose Example Using Global Memory: a naive implementation of
-    matrix transpose is functionally correct but not optimized because the write of
-    the c matrix is not coalesced.'
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  anchor: L13528-L13530
-  excerpt: prmt.b32{.mode} d, a, b, c; Byte permutation across two 32-bit source operands.
-    The selector c chooses which bytes of the 8-byte concatenation (a||b) appear in
-    each byte of destination d.
+- path: spec
+  anchor: Reference
 artifacts:
   code: sources/experience/hw-probes/aos-vs-soa/artifacts/aos_vs_soa_probe.cu
   build: sources/experience/hw-probes/aos-vs-soa/artifacts/build.sh
@@ -66,6 +44,19 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L606-L634
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1379-L1411
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1413-L1483
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L13528-L13530
 ---
 ## What
 

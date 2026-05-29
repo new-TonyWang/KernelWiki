@@ -27,19 +27,8 @@ referenced_in_corpus:
 - path: corpus/nvidia/source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
   line_range: L774-L785
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3375-L3375
-  excerpt: __host__ cudaError_t cudaFuncSetAttribute ( const void* func, cudaFuncAttribute
-    attr, int value )
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L3395-L3398
-  excerpt: cudaFuncAttributeMaxDynamicSharedMemorySize - The requested maximum size
-    in bytes of dynamically-allocated shared memory. The sum of this value and the
-    function attribute sharedSizeBytes cannot exceed the device attribute cudaDevAttrMaxSharedMemoryPerBlockOptin.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  anchor: L15841-L15841
-  excerpt: template < class T > __host__ cudaError_t cudaFuncSetAttribute ( T* func,
-    cudaFuncAttribute attr, int value ) [inline]
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.006624
@@ -64,6 +53,16 @@ id: exp-2026-04-17-runtime-cuda-func-set-attribute
 type: experience
 vendor: nvidia
 title: 2026 04 17 Runtime Cuda Func Set Attribute
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3375-L3375
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3395-L3398
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L15841-L15841
 ---
 ## Summary
 

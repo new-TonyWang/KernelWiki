@@ -26,15 +26,8 @@ referenced_in_corpus:
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L1379-L1448
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1379-L1411
-  excerpt: Global memory is accessed via 32-byte memory transactions. When a CUDA
-    thread requests a word of data from global memory, the relevant warp coalesces
-    the memory requests.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  anchor: L539-L542
-  excerpt: A very important performance consideration in programming for CUDA-capable
-    GPU architectures is the coalescing of global memory accesses.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: null
   latency_ms_median: null
@@ -53,6 +46,13 @@ id: exp-coalescing-stride
 type: experience
 vendor: nvidia
 title: 2026 04 15 Coalescing
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1379-L1411
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L539-L542
 ---
 ## Summary
 

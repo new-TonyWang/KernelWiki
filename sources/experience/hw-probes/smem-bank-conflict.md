@@ -34,16 +34,8 @@ referenced_in_corpus:
 - path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/Miscellaneous/cupti/cupti_index.html.md
   line_range: L4506-L4510
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1452-L1453
-  excerpt: Shared memory has 32 banks that are organized such that successive 32-bit
-    words map to successive banks. Each bank has a bandwidth of 32 bits per clock
-    cycle.
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L1640-L1647
-  excerpt: A common fix to avoid bank conflicts is to pad the shared memory by adding
-    one to the column dimension of the array... This minor adjustment to the declaration
-    of smemArray will eliminate the bank conflicts.
+- path: spec
+  anchor: Reference
 conclusions:
   max_abs_err: null
   latency_ms_median: null
@@ -61,6 +53,13 @@ id: exp-smem-bank-conflict
 type: experience
 vendor: nvidia
 title: 2026 04 16 Bank Conflict
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1452-L1453
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1640-L1647
 ---
 ## Summary
 

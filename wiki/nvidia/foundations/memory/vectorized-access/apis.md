@@ -6,13 +6,16 @@ signature: struct float4 { float x, y, z, w; }
 status: documented
 has_end_to_end_example: false
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  anchor: L22574-L22702
-  excerpt: 'float4: size 16, alignment 16.'
+- path: spec
+  anchor: Reference
 id: api-vectorized-access-ref
 type: api-definition
 vendor: nvidia
 title: Apis
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L22574-L22702
 ---
 # Vectorized Memory Access API Reference
 

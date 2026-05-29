@@ -3,10 +3,8 @@ title: Elementwise Library Fallback Paths
 pattern_class: cuda-core
 op: elementwise
 source:
-- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/thrust/thrust.md
-  anchor: L31965-L32063
-  excerpt: thrust::transform applies a unary function to each element of an input
-    sequence and stores the result in the corresponding position in an output sequence.
+- path: spec
+  anchor: Reference
 id: routing-elementwise-library-fallback
 type: operator-routing
 vendor: nvidia
@@ -15,6 +13,9 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/0_Introduction/vectorAdd/vectorAdd.cu
   anchor: L47-L54
+- source_id: cuda-official/toolkit-docs-13.2
+  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/thrust/thrust.md
+  anchor: L31965-L32063
 ---
 # Elementwise -- Library Fallback Paths
 

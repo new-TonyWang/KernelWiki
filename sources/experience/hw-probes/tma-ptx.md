@@ -11,8 +11,6 @@ evidence_level: measured
 clock_policy: as-launched (H200 boost-clock unlocked)
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
-  anchor: Hopper TMA walkthrough — multicast variant for cooperative GEMM
 - path: wiki/nvidia/hardware/tma-ptx/skill.md
   anchor: cutlass-free TMA primitive (this probe extends it with multicast::cluster)
 artifacts:
@@ -71,6 +69,10 @@ id: exp-tma-ptx
 type: experience
 vendor: nvidia
 title: 2026 04 30 Tma Multicast
+source_refs:
+- source_id: blogs/colfax
+  path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  anchor: Hopper TMA walkthrough — multicast variant for cooperative GEMM
 ---
 ## Summary
 
