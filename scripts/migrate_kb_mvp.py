@@ -315,7 +315,7 @@ def main():
         if target:
             target_path = REPO_ROOT / target
             if target_path.exists() and target_path.suffix == ".md":
-                tfm = extract_frontmatter(target_path)
+                tfm, _ = extract_frontmatter(target_path)
                 if tfm and isinstance(tfm, dict):
                     page_id = tfm.get("id", "")
                     page_type = tfm.get("type", "")
@@ -334,22 +334,16 @@ def main():
         else:
             skipped += 1
 
-    # Also process artifact files in 80-experience
-    exp_dir = knowledge / "80-experience"
-    if exp_dir.exists():
-        for src_file in sorted(exp_dir.rglob("*")):
-            if src_file.is_file() and src_file.suffix != ".md":
-                src_rel = src_file.relative_to(knowledge)
-                target, status, reason = migrate_file(src_file, src_root, inventory, dry_run=args.dry_run)
-                inventory.append({
-                    "input_path": str(src_rel),
-                    "output_path": target or "",
-                    "page_id": "", "page_type": "", "vendor": "nvidia",
-                    "status": status,
-                    "reason": reason,
-                })
-                if status == "migrated":
-                    migrated += 1
+    # Also process artifact files in 80-experience (real run only, not dry-run inventory)
+    if not args.dry_run:
+        exp_dir = knowledge / "80-experience"
+        if exp_dir.exists():
+            for src_file in sorted(exp_dir.rglob("*")):
+                if src_file.is_file() and src_file.suffix != ".md":
+                    src_rel = src_file.relative_to(knowledge)
+                    target, status, reason = migrate_file(src_file, src_root, inventory, dry_run=False)
+                    if status == "migrated":
+                        migrated += 1
 
     # Write TSV inventory (7-column schema matching plan contract)
     if args.output_tsv:

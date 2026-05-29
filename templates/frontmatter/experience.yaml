@@ -31,7 +31,7 @@ artifacts:
   profile: ""                          # Optional. ncu-rep path.
 
 # ==== Upstream grounding (REQUIRED) ====
-referenced_in_corpus: []               # List of {path, line_range} hits from Step 1 of api-probing.md
+source_refs: []                        # List of {source_id, path, anchor} MANIFEST-backed refs
 source:
   - path: ""                           # REQUIRED (unless kind == undocumented)
     anchor: ""

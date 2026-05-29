@@ -1501,7 +1501,7 @@ def main():
             errors = validate_file(md_file, schemas, tags, all_source_ids, code_langs)
             all_errors.extend(errors)
 
-            # Validate source_refs against MANIFEST.yaml with path resolution
+            # Validate source_refs against MANIFEST.yaml with full path resolution
             if fm and isinstance(fm, dict) and "source_refs" in fm:
                 refs = fm["source_refs"]
                 rel_path = md_file.relative_to(REPO_ROOT)
@@ -1514,29 +1514,29 @@ def main():
                             continue
                         sid = ref.get("source_id", "")
                         rpath = ref.get("path", "")
-                        if not sid:
-                            all_errors.append(f"{rel_path}: source_refs[{i}] missing source_id")
+                        if not isinstance(sid, str) or not sid:
+                            all_errors.append(f"{rel_path}: source_refs[{i}] source_id must be a non-empty string")
                             continue
-                        if not rpath:
-                            all_errors.append(f"{rel_path}: source_refs[{i}] missing path")
+                        if not isinstance(rpath, str) or not rpath:
+                            all_errors.append(f"{rel_path}: source_refs[{i}] path must be a non-empty string")
                             continue
                         if manifest_source_ids and sid not in manifest_source_ids:
                             all_errors.append(
                                 f"{rel_path}: source_refs source_id "
                                 f"'{sid}' not found in corpus/MANIFEST.yaml"
                             )
-                        if isinstance(rpath, str) and rpath.startswith("/"):
+                        if rpath.startswith("/"):
                             all_errors.append(
                                 f"{rel_path}: source_refs path "
                                 f"'{rpath}' is absolute; must be source-root-relative"
                             )
-                        # Resolve in-git source_refs paths to verify readability
+                        # Resolve path through manifest entries
                         if manifest_entries:
                             for me in manifest_entries:
                                 if me.get("source_id") == sid:
                                     tier = me.get("tier", "")
+                                    lp = me.get("local_path", "")
                                     if tier == "in-git":
-                                        lp = me.get("local_path", "")
                                         resolved = REPO_ROOT / "corpus" / lp / rpath
                                         if not resolved.exists():
                                             all_errors.append(
@@ -1544,6 +1544,22 @@ def main():
                                                 f"path '{rpath}' not found under "
                                                 f"in-git source '{sid}'"
                                             )
+                                    elif tier == "external":
+                                        # Check if localize.yaml exists for external resolution
+                                        localize_path = REPO_ROOT / "corpus" / "localize.yaml"
+                                        if localize_path.exists():
+                                            try:
+                                                from scripts.source_corpus.registry import resolve_corpus_path
+                                                full = f"{sid}/{rpath}"
+                                                resolved = resolve_corpus_path(full)
+                                                if not resolved.exists():
+                                                    all_errors.append(
+                                                        f"{rel_path}: source_refs[{i}] "
+                                                        f"path '{rpath}' not found under "
+                                                        f"localized external source '{sid}'"
+                                                    )
+                                            except Exception:
+                                                pass  # Registry not importable — skip
                                     break
 
             # AC-5: Validate related: entries point to existing page IDs

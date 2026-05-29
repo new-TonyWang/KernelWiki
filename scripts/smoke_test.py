@@ -47,25 +47,47 @@ def test_tools():
     return f"{len(TOOL_REGISTRY)} tools"
 
 
-@check("Source search via TOOL_REGISTRY (tier-1)")
+@check("Task upstream_scope resolves via TOOL_REGISTRY")
+def test_task_scopes():
+    import json
+    from agent.shared.task_schema import load_task
+    from agent.shared.tools import TOOL_REGISTRY
+    task = load_task(str(REPO_ROOT / "tasks" / "build-warp-primitives.yaml"))
+    scopes = task.get("upstream_scope", [])
+    assert scopes, "Task has no upstream_scope"
+    resolve_fn = TOOL_REGISTRY["source_resolve"]
+    for scope in scopes:
+        result_str = resolve_fn(scope)
+        result = json.loads(result_str) if isinstance(result_str, str) else result_str
+        assert result["ok"], f"Scope '{scope}' failed to resolve: {result.get('message')}"
+    return f"{len(scopes)} scopes resolved"
+
+
+@check("Source search via TOOL_REGISTRY (task-derived scope)")
 def test_search():
     import json
+    from agent.shared.task_schema import load_task
     from agent.shared.tools import TOOL_REGISTRY
+    task = load_task(str(REPO_ROOT / "tasks" / "build-warp-primitives.yaml"))
+    scope = task.get("upstream_scope", ["cuda-official/toolkit-docs-13.2"])[0]
     search_fn = TOOL_REGISTRY["source_search"]
-    result_str = search_fn("__shfl_sync", scope="cuda-official", top_k=3)
+    result_str = search_fn("__shfl_sync", scope=scope, top_k=3)
     result = json.loads(result_str) if isinstance(result_str, str) else result_str
-    assert result["ok"], f"Search failed: {result.get('message')}"
+    assert result["ok"], f"Search failed for scope '{scope}': {result.get('message')}"
     assert result["data"]["total_hits"] > 0
-    return f"{result['data']['total_hits']} hits"
+    return f"{result['data']['total_hits']} hits (scope={scope})"
 
 
-@check("Source read via TOOL_REGISTRY (roundtrip)")
+@check("Source read via TOOL_REGISTRY (task-scope roundtrip)")
 def test_read():
     import json
+    from agent.shared.task_schema import load_task
     from agent.shared.tools import TOOL_REGISTRY
+    task = load_task(str(REPO_ROOT / "tasks" / "build-warp-primitives.yaml"))
+    scope = task.get("upstream_scope", ["cuda-official/toolkit-docs-13.2"])[0]
     search_fn = TOOL_REGISTRY["source_search"]
     read_fn = TOOL_REGISTRY["source_read"]
-    sr_str = search_fn("__shfl_sync", scope="cuda-official", top_k=1)
+    sr_str = search_fn("__shfl_sync", scope=scope, top_k=1)
     sr = json.loads(sr_str) if isinstance(sr_str, str) else sr_str
     hit_path = sr["data"]["hits"][0]["path"]
     result_str = read_fn(hit_path)
@@ -74,26 +96,18 @@ def test_read():
     return f"title={result['data']['title']}"
 
 
-@check("Source list via TOOL_REGISTRY")
+@check("Source list via TOOL_REGISTRY (task-scope)")
 def test_list():
     import json
+    from agent.shared.task_schema import load_task
     from agent.shared.tools import TOOL_REGISTRY
+    task = load_task(str(REPO_ROOT / "tasks" / "build-warp-primitives.yaml"))
+    scope = task.get("upstream_scope", ["cuda-official/toolkit-docs-13.2"])[0]
     list_fn = TOOL_REGISTRY["source_list"]
-    result_str = list_fn(scope="cuda-official")
+    result_str = list_fn(scope=scope)
     result = json.loads(result_str) if isinstance(result_str, str) else result_str
     assert result["ok"]
     return f"count={result['data']['count']}"
-
-
-@check("Source resolve via TOOL_REGISTRY")
-def test_resolve():
-    import json
-    from agent.shared.tools import TOOL_REGISTRY
-    resolve_fn = TOOL_REGISTRY["source_resolve"]
-    result_str = resolve_fn("cuda-official")
-    result = json.loads(result_str) if isinstance(result_str, str) else result_str
-    assert result["ok"]
-    return "resolved"
 
 
 @check("Provenance walk via TOOL_REGISTRY")

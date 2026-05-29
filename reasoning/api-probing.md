@@ -35,7 +35,7 @@ python3 -m scripts.source_corpus.cli search '<api-symbol>' --scope source-code/c
 python3 -m scripts.source_corpus.cli read 'cuda-official/toolkit-docs-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md' --anchor 'L120-L140'
 ```
 
-Collect every hit as `{path, line_range}` and store it in the probe record's `referenced_in_corpus:` field. If zero hits, mark the probe `kind: undocumented`, write the stub, and stop — ask a human to decide scope.
+Collect every hit as `{path, line_range}` and store it in the probe record's `source_refs:` field. If zero hits, mark the probe `kind: undocumented`, write the stub, and stop — ask a human to decide scope.
 
 ### Step 2 — Write a minimal kernel
 
