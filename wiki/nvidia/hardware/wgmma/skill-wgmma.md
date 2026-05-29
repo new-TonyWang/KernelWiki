@@ -22,10 +22,6 @@ source:
   anchor: wgmma atom + warpgroup synchronization
   excerpt: Warpgroup MMA = 4 warps × M64 rows; SS-form consumes A and B from smem;
     F32 accumulator stays in registers.
-- path: '{{CUTLASS_REPO_REF}}/include/cute/atom/mma_traits_sm90_gmma.hpp'
-  anchor: MMA_64x{N}x{K}_F32{TF32|BF16|FP16|FP8}_SS_TN
-- path: '{{CUTLASS_REPO_REF}}/examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu'
-  anchor: Lall
 artifacts:
   code: sources/experience/api-probes/gemm/artifacts/gemm_compare.cu
   build: sources/experience/api-probes/gemm/artifacts/build.sh
@@ -43,6 +39,13 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cutlass
+  path: include/cute/atom/mma_traits_sm90_gmma.hpp
+  anchor: MMA_64x{N}x{K}_F32{TF32|BF16|FP16|FP8}_SS_TN
+- source_id: source-code/cutlass
+  path: examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
+  anchor: Lall
 ---
 # wgmma — Warpgroup MMA on Hopper
 
@@ -96,9 +99,9 @@ End-to-end wgmma-driven GEMM via `examples/48_hopper_warp_specialized_gemm` at t
 - `sm__warps_active.avg.pct_of_peak_sustained_active` = 14.07 % — low warp-occupancy is the **expected** signature of warp-specialized wgmma: most warps spin on `wgmma.wait_group`, not on the warp scheduler.
 - 384 threads/CTA × 4×30 grid = 120 CTAs = one wave on H200's 132 SMs.
 
-Full probe record: [sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md](../../sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md).
+Full probe record: sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md.
 
-For the wgmma instruction in isolation (cutlass-free 11-config zoo across N-shape × dtype × layout × A-source on H200), see [sources/experience/hw-probes/wgmma-ptx/2026-04-28-wgmma-ptx-hello.md](../../sources/experience/hw-probes/wgmma-ptx/2026-04-28-wgmma-ptx-hello.md) and [sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md](../../sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md).
+For the wgmma instruction in isolation (cutlass-free 11-config zoo across N-shape × dtype × layout × A-source on H200), see sources/experience/hw-probes/wgmma-ptx/2026-04-28-wgmma-ptx-hello.md and sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md.
 
 ## Minimum repro
 
@@ -121,11 +124,11 @@ Measured on H200-SXM at problem size 4096 × 4096 × 4096, TF32 input / F32 accu
 - Pick **small (N=64)** only when register pressure or epilogue-co-resident state forces it. Throughput drops sharply (~35 % below medium) because the kernel issues 2× as many wgmma atoms per CTA tile and the wgmma issue pipeline becomes the bottleneck.
 - The `sm__warps_active` 14.07 % across all three atoms is the warp-specialized-wgmma signature, not a regression. Don't try to "improve" it; warps in the consumer wg are *meant* to spend most of their time on `wgmma.wait_group`.
 
-For complementary guidance on **problem-size scaling at a fixed atom** (small/medium/large GEMM under the medium atom), see the supplemental record [sources/experience/api-probes/gemm/2026-04-28-wgmma-problem-size-sweep.md](../../sources/experience/api-probes/gemm/2026-04-28-wgmma-problem-size-sweep.md). Headline: at the medium atom the kernel goes 21.4 → 189.5 → 276.2 → 282.5 → 292.3 TFLOPS as MNK grows from 512³ through 8192³; below 2K total problem size the kernel-launch/wave-amortization overheads dominate, so adjust CTA tile or grouped-GEMM rather than the wgmma atom.
+For complementary guidance on **problem-size scaling at a fixed atom** (small/medium/large GEMM under the medium atom), see the supplemental record sources/experience/api-probes/gemm/2026-04-28-wgmma-problem-size-sweep.md. Headline: at the medium atom the kernel goes 21.4 → 189.5 → 276.2 → 282.5 → 292.3 TFLOPS as MNK grows from 512³ through 8192³; below 2K total problem size the kernel-launch/wave-amortization overheads dominate, so adjust CTA tile or grouped-GEMM rather than the wgmma atom.
 
 **Authoritative evidence:**
-- Atom-shape sweep (this section): [sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md](../../sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md). Reproducible from `sources/experience/api-probes/gemm/artifacts/run_atom_sweep.sh`.
-- Problem-size sweep at the medium atom: [sources/experience/api-probes/gemm/2026-04-28-wgmma-problem-size-sweep.md](../../sources/experience/api-probes/gemm/2026-04-28-wgmma-problem-size-sweep.md). Reproducible from `sources/experience/api-probes/gemm/artifacts/run_problem_size_sweep.sh`.
+- Atom-shape sweep (this section): sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md. Reproducible from `sources/experience/api-probes/gemm/artifacts/run_atom_sweep.sh`.
+- Problem-size sweep at the medium atom: sources/experience/api-probes/gemm/2026-04-28-wgmma-problem-size-sweep.md. Reproducible from `sources/experience/api-probes/gemm/artifacts/run_problem_size_sweep.sh`.
 
 ## Atomic Usage (cute)
 
@@ -167,4 +170,4 @@ Families NOT exercised in the probe zoo but present in `mma_traits_sm90_gmma.hpp
 
 - Pairs with `wiki/nvidia/hardware/tma/skill.md` — the cooperative kernel exercises both. wgmma without TMA falls back to `cp.async`, which collapses the issue-rate advantage.
 - Pre-condition for `wiki/nvidia/techniques/warp-specialization/` and `wiki/nvidia/techniques/persistent-kernel/`.
-- Shape-selection guide is the dedicated section above, backed by the atom-shape sweep at [sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md](../../sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md).
+- Shape-selection guide is the dedicated section above, backed by the atom-shape sweep at sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md.

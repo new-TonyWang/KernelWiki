@@ -95,7 +95,7 @@ The wrapper includes the upstream source via `#include "88_hopper_fmha.cu"` and 
 
 ## H200 measured results
 
-See [sources/experience/api-probes/attention/2026-05-08-cutlass-88-hopper-fmha.md](../../../sources/experience/api-probes/attention/2026-05-08-cutlass-88-hopper-fmha.md).
+See sources/experience/api-probes/attention/2026-05-08-cutlass-88-hopper-fmha.md.
 
 | Config | Shape | TFLOPS/s | Correctness |
 |--------|-------|----------|-------------|

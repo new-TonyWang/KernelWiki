@@ -111,4 +111,4 @@ This file lists the APIs touched by the occupancy-tuning skill. Each entry recor
 
 ## Related Probes
 
-- [`cudaOccupancyMaxActiveBlocksPerMultiprocessor`](../../../sources/experience/api-probes/2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- `cudaOccupancyMaxActiveBlocksPerMultiprocessor` — end-to-end example, build command, and H200 measurement. See probe record.

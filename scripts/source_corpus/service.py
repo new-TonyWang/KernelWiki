@@ -5,7 +5,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from agent.shared.config import SOURCE_CORPUS_ROOT
+from .registry import SOURCE_CORPUS_ROOT
 
 from .query_types import ResponseEnvelope, SourceHit, SourceReadResult
 from .reader import heading_before_line, read_by_anchor, read_by_section

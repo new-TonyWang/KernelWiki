@@ -167,4 +167,4 @@ Key rules for `#pragma unroll` (from the programming guide L24765-L24805):
 
 ## Measured Characteristics
 
-- [ILP FMA accumulator-chain probe](../../sources/experience/hw-probes/ilp/2026-04-16-ilp.md): On H200 (sm_90a, CUDA 12.9), a dependent FMA chain (1 accumulator) costs **4.01 cycles/FMA**. With 2 independent chains: **2.00 cycles/FMA** (2.00x speedup). With 4 independent chains: **1.01 cycles/FMA** (3.97x speedup). With 8 independent chains: **1.01 cycles/FMA** (no further gain). The FP32 pipeline depth is confirmed to be 4 stages; 4 independent chains are necessary and sufficient to reach peak single-warp throughput.
+- ILP FMA accumulator-chain probe: On H200 (sm_90a, CUDA 12.9), a dependent FMA chain (1 accumulator) costs **4.01 cycles/FMA**. With 2 independent chains: **2.00 cycles/FMA** (2.00x speedup). With 4 independent chains: **1.01 cycles/FMA** (3.97x speedup). With 8 independent chains: **1.01 cycles/FMA** (no further gain). The FP32 pipeline depth is confirmed to be 4 stages; 4 independent chains are necessary and sufficient to reach peak single-warp throughput.

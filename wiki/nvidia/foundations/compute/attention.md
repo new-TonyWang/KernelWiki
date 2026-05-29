@@ -16,8 +16,6 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: '{{CUTLASS_REPO_REF}}/examples/88_hopper_fmha/88_hopper_fmha.cu'
-  anchor: Hopper FMHA example — used as algorithmic reference only, not as code dependency
 - path: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
   anchor: wgmma PTX inline-asm pattern reused for attention Q@K^T and P@V tiles
 - path: sources/experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
@@ -40,6 +38,10 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cutlass
+  path: examples/88_hopper_fmha/88_hopper_fmha.cu
+  anchor: Hopper FMHA example — used as algorithmic reference only, not as code dependency
 ---
 # MVP Minimal Flash-Attention Kernel
 
@@ -129,14 +131,14 @@ H200-SXM, sm_90a, cuda 12.9.86, driver 570.124.06. fp16 inputs, f32 accumulator.
 | Tensor ops (hmma) | 1,024 instructions | 32 wgmma calls |
 
 Evidence:
-- Primary probe: [2026-05-08-mvp-attention-tma-wgmma.md](../../../../sources/experience/api-probes/attention/2026-05-08-mvp-attention-tma-wgmma.md)
+- Primary probe: 2026-05-08-mvp-attention-tma-wgmma.md
 - ncu CSV: `sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-ncu.csv`
 - Correctness log: `sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-correctness.log`
 - Sanitizer log: `sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-sanitizer.log`
 
 Secondary thread-level reference:
-- Probe record: [sources/experience/api-probes/attention/2026-05-08-mvp-attention.md](../../../../sources/experience/api-probes/attention/2026-05-08-mvp-attention.md)
-- Tuning sweep: [sources/experience/hw-probes/attention-tuning/2026-05-08-attention-tile-sweep.md](../../../../sources/experience/hw-probes/attention-tuning/2026-05-08-attention-tile-sweep.md)
+- Probe record: sources/experience/api-probes/attention/2026-05-08-mvp-attention.md
+- Tuning sweep: sources/experience/hw-probes/attention-tuning/2026-05-08-attention-tile-sweep.md
 
 ## When to use it
 
@@ -154,4 +156,4 @@ Secondary thread-level reference:
 - Builds on `wiki/nvidia/hardware/wgmma-ptx/` (wgmma PTX patterns) and `wiki/nvidia/hardware/tma-ptx/` (TMA load patterns).
 - Complemented by `wiki/nvidia/foundations/compute/attention/cutlass-fmha/` (cutlass's production FMHA).
 - Compared against FlashAttention v3 at `wiki/nvidia/code-walkthroughs/flash-attention-v3/`.
-- Tuning parameter space: [tuning.md](tuning.md).
+- Tuning parameter space: tuning.md.

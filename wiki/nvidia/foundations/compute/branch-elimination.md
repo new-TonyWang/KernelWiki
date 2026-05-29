@@ -158,7 +158,7 @@ This trades some wasted compute for guaranteed predication. The trade-off is usu
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using [sources/experience/hw-probes/branchless-patterns/](../../../sources/experience/hw-probes/branchless-patterns/) — 10 variants × 3 pattern families, compute-bound 4-chain ILP × 1024 inner iters harness, lane-variant input so branchful variants would see worst-case 50% divergence if the compiler had actually emitted branches. Full record: [sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md](../../../sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md).
+Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/branchless-patterns/ — 10 variants × 3 pattern families, compute-bound 4-chain ILP × 1024 inner iters harness, lane-variant input so branchful variants would see worst-case 50% divergence if the compiler had actually emitted branches. Full record: sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md.
 
 ### Per-iter cost on one SM chain
 

@@ -96,4 +96,4 @@ This file lists the APIs touched by the compiler-hints skill. Each entry records
 
 ## Related Probes
 
-- [`cudaFuncSetAttribute`](../../../sources/experience/api-probes/2026-04-17-runtime-cuda-func-set-attribute.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- `cudaFuncSetAttribute` — end-to-end example, build command, and H200 measurement. See probe record.

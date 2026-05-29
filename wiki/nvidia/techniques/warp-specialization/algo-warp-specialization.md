@@ -79,7 +79,7 @@ An *algorithmic pattern* for hiding TMA latency behind wgmma compute on Hopper. 
 - **Producer warps** — issue TMA loads of A and B tiles into a multi-stage smem ring buffer; signal completion via a per-stage mbarrier.
 - **Consumer warpgroup(s)** — wait on the mbarrier (TMA done), issue `wgmma.mma_async` against the loaded tile, signal back that the smem stage is consumed and may be refilled.
 
-The pattern is independent of cutlass; cutlass is one realization (`MainloopSm90TmaGmmaWarpSpecialized`). The cutlass-free realization composes the primitives from [`wiki/nvidia/hardware/tma-ptx`](../../wiki/nvidia/hardware/tma-ptx/skill.md) (producer side) and [`wiki/nvidia/hardware/wgmma-ptx`](../../wiki/nvidia/hardware/wgmma-ptx/skill.md) (consumer side).
+The pattern is independent of cutlass; cutlass is one realization (`MainloopSm90TmaGmmaWarpSpecialized`). The cutlass-free realization composes the primitives from `wiki/nvidia/hardware/tma-ptx` (producer side) and `wiki/nvidia/hardware/wgmma-ptx` (consumer side).
 
 ## Why the pattern works
 
@@ -91,7 +91,7 @@ Three variants of the pattern, each adding an axis of parallelism:
 |---|---|---|---|
 | **Plain WS** | 1 warp (or 1 warpgroup) | 1 warpgroup | one tile at a time |
 | **Pingpong** | 1 | 2 (alternating) | while consumer-A computes tile T, consumer-B prepares tile T+1 |
-| **Cooperative** | 1 | 2 (cooperating on same tile) | both consumers split the wgmma rows of one tile; usually paired with cluster-multicast TMA so the producer's tile is broadcast to ≥2 CTAs (see [`sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md`](../../sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md) — measured 1.26× / 1.79× effective-bandwidth amplification at C=2 / C=4) |
+| **Cooperative** | 1 | 2 (cooperating on same tile) | both consumers split the wgmma rows of one tile; usually paired with cluster-multicast TMA so the producer's tile is broadcast to ≥2 CTAs (see `sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md` — measured 1.26× / 1.79× effective-bandwidth amplification at C=2 / C=4) |
 
 (Cutlass exposes these as `KernelTmaWarpSpecialized*` dispatch policies; the names are implementation labels, not algorithm names.)
 

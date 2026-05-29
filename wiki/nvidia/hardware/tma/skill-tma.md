@@ -21,10 +21,6 @@ source:
   anchor: TMA descriptor + cp.async.bulk.tensor end-to-end
   excerpt: TMA descriptor encoded host-side, cp.async.bulk.tensor.<dim>d.* issued
     device-side, mbarrier-driven completion.
-- path: '{{CUTLASS_REPO_REF}}/include/cute/atom/copy_traits_sm90_tma.hpp'
-  anchor: SM90_TMA_LOAD / SM90_TMA_LOAD_MULTICAST
-- path: '{{CUTLASS_REPO_REF}}/examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu'
-  anchor: Lall
 artifacts:
   code: sources/experience/api-probes/gemm/artifacts/gemm_compare.cu
   build: sources/experience/api-probes/gemm/artifacts/build.sh
@@ -42,6 +38,13 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cutlass
+  path: include/cute/atom/copy_traits_sm90_tma.hpp
+  anchor: SM90_TMA_LOAD / SM90_TMA_LOAD_MULTICAST
+- source_id: source-code/cutlass
+  path: examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
+  anchor: Lall
 ---
 # TMA — Tensor Memory Accelerator on Hopper
 
@@ -77,9 +80,9 @@ End-to-end TMA-driven GEMM via `examples/48_hopper_warp_specialized_gemm` at the
 - Sustained SM utilization: `sm__cycles_active.avg.pct_of_peak_sustained_elapsed` = **87.77 %** (kernel name decoded; `SM90_TMA_LOAD_MULTICAST` atom + `Swizzle<3,4,3>` smem layout).
 - Compute-bound at this shape: SM throughput 30.95 % of SoL, DRAM throughput 3.32 % — TMA is keeping wgmma fed without saturating DRAM.
 
-Full probe record: [sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md](../../sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md).
+Full probe record: sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md.
 
-For the TMA primitive in isolation (single-tile correctness + 16-config DRAM-bound bandwidth sweep, peak 3.72 TB/s = 77.5 % HBM3e on H200), see the cutlass-free hw-probes [sources/experience/hw-probes/tma-ptx/2026-04-28-tma-ptx-hello.md](../../sources/experience/hw-probes/tma-ptx/2026-04-28-tma-ptx-hello.md) and [sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md](../../sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md).
+For the TMA primitive in isolation (single-tile correctness + 16-config DRAM-bound bandwidth sweep, peak 3.72 TB/s = 77.5 % HBM3e on H200), see the cutlass-free hw-probes sources/experience/hw-probes/tma-ptx/2026-04-28-tma-ptx-hello.md and sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md.
 
 ## Minimum repro
 

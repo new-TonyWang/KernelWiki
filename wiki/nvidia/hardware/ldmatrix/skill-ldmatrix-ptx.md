@@ -12,14 +12,6 @@ requires_features:
 - ldmatrix
 single_kernel_useful: true
 source:
-- path: '{{CUTLASS_REPO_REF}}/include/cute/atom/copy_traits_sm75.hpp'
-  anchor: SM75_U32x1_LDSM_N .. SM75_U16x8_LDSM_T
-  excerpt: 'ldmatrix copy atoms: SM75_U32x{1,2,4}_LDSM_N (non-transposed) and SM75_U16x{2,4,8}_LDSM_T
-    (transposed). Also SM75_U32x1_MOVM_T (movmatrix).'
-- path: '{{CUTLASS_REPO_REF}}/include/cute/arch/copy_sm75.hpp'
-  anchor: ldmatrix PTX wrappers
-  excerpt: Inline PTX wrappers for ldmatrix.sync.aligned.x{1,2,4}.m8n8 and ldmatrix.sync.aligned.x{1,2,4}.m8n8.trans
-    instructions.
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L27850-L27890
   excerpt: 9.7.13.4. Matrix Load/Store Instructions — ldmatrix loads one or more matrices
@@ -36,6 +28,13 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cutlass
+  path: include/cute/atom/copy_traits_sm75.hpp
+  anchor: SM75_U32x1_LDSM_N .. SM75_U16x8_LDSM_T
+- source_id: source-code/cutlass
+  path: include/cute/arch/copy_sm75.hpp
+  anchor: ldmatrix PTX wrappers
 ---
 # ldmatrix — Shared-memory to register matrix load for tensor cores
 

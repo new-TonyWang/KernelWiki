@@ -23,16 +23,6 @@ source:
     / Bias / Aux fusion patterns
 - path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: epilogue customization for Hopper wgmma GEMM
-- path: '{{CUTLASS_REPO_REF}}/examples/50_hopper_gemm_with_epilogue_swizzle/50_hopper_gemm_with_epilogue_swizzle.cu'
-  anchor: S8 GEMM + epilogue-swizzle fusion (output-tensor stride/swizzle absorbed
-    into the epilogue)
-- path: '{{CUTLASS_REPO_REF}}/examples/55_hopper_mixed_dtype_gemm/55_hopper_mixed_dtype_gemm.cu'
-  anchor: mixed-dtype GEMM (int4 × bf16) — int4 dequantization is the prologue fusion
-    absorbed into the mainloop
-- path: '{{CUTLASS_REPO_REF}}/examples/61_hopper_gemm_with_topk_and_softmax/61_hopper_gemm_with_topk_and_softmax.cu'
-  anchor: epilogue-fused topK + softmax for output projection
-- path: '{{CUTLASS_REPO_REF}}/include/cutlass/epilogue/thread/linear_combination_relu.h'
-  anchor: LinearCombinationRelu — Activation fusion as a thread-level epilogue
 artifacts:
   code: sources/experience/api-probes/gemm/artifacts/gemm_compare_relu.cu
   build: sources/experience/api-probes/gemm/artifacts/build_fused.sh
@@ -50,6 +40,21 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cutlass
+  path: examples/50_hopper_gemm_with_epilogue_swizzle/50_hopper_gemm_with_epilogue_swizzle.cu
+  anchor: S8 GEMM + epilogue-swizzle fusion (output-tensor stride/swizzle absorbed
+    into the epilogue)
+- source_id: source-code/cutlass
+  path: examples/55_hopper_mixed_dtype_gemm/55_hopper_mixed_dtype_gemm.cu
+  anchor: mixed-dtype GEMM (int4 × bf16) — int4 dequantization is the prologue fusion
+    absorbed into the mainloop
+- source_id: source-code/cutlass
+  path: examples/61_hopper_gemm_with_topk_and_softmax/61_hopper_gemm_with_topk_and_softmax.cu
+  anchor: epilogue-fused topK + softmax for output projection
+- source_id: source-code/cutlass
+  path: include/cutlass/epilogue/thread/linear_combination_relu.h
+  anchor: LinearCombinationRelu — Activation fusion as a thread-level epilogue
 ---
 # Hopper fused-GEMM (epilogue + prologue fusion via cutlass)
 
@@ -106,4 +111,4 @@ Other fusion patterns documented but not timed yet:
 - Library-usage notes + tuning log: `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-fused/{README.md, tuning.md}`. Canonical reproducible artifact: `sources/experience/api-probes/gemm/artifacts/gemm_compare_relu.cu` + upstream `examples/50_hopper_gemm_with_epilogue_swizzle/` built in place by `run_fused.sh`.
 - Probe (verified epilogue, partial prologue): `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md`
 - Failure modes: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/pitfalls.md`
-- Tuning parameter space: [tuning.md](tuning.md).
+- Tuning parameter space: tuning.md.

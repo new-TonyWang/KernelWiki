@@ -36,4 +36,4 @@ Butterfly reduction: `val += __shfl_xor_sync(0xffffffff, val, delta)` with delta
 
 ## End-to-End Example
 
-See [probe record](../../../sources/experience/api-probes/2026-04-16-runtime-shfl-xor-sync.md) for a complete end-to-end example: host allocation, H2D copy, warp butterfly reduction kernel, D2H copy, and correctness verification against a CPU sequential sum. Tested on H200 (sm_90a, CUDA 12.9).
+See probe record for a complete end-to-end example: host allocation, H2D copy, warp butterfly reduction kernel, D2H copy, and correctness verification against a CPU sequential sum. Tested on H200 (sm_90a, CUDA 12.9).

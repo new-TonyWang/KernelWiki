@@ -91,7 +91,7 @@ The pattern composes naturally with warp-specialization: the producer warps stre
 |---|---|---|
 | **Plain persistent** | 1 | one tile, then advance to next |
 | **Pingpong persistent** | 2 (alternating) | consumer-A computes tile T, consumer-B prepares T+1; on tile T+2 they swap |
-| **Cooperative persistent** | 2 (cooperating on same tile) | both consumers split the wgmma rows of one tile; advance jointly to next; pair with cluster-multicast TMA (cutlass-free PTX measured at [`sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md`](../../sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md), 1.26× / 1.79× effective-bandwidth at C=2 / C=4) |
+| **Cooperative persistent** | 2 (cooperating on same tile) | both consumers split the wgmma rows of one tile; advance jointly to next; pair with cluster-multicast TMA (cutlass-free PTX measured at `sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md`, 1.26× / 1.79× effective-bandwidth at C=2 / C=4) |
 
 Cutlass spells these as `KernelTmaWarpSpecializedPingpong` and `KernelTmaWarpSpecializedCooperative`; those names label *the warp-spec variant + persistent loop combination*. The persistent loop itself is independent of warp-spec — a non-warp-specialized persistent kernel also exists in principle, just not landed in cutlass for sm_90.
 

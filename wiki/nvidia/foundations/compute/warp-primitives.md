@@ -36,9 +36,6 @@ source:
   anchor: L1289-L1297
   excerpt: warp shuffle shfl.sync.idx.b32 throughput 32 ops/clock/SM on sm_9.0; warp
     vote vote.sync.ballot.b32 throughput 64 ops/clock/SM on sm_9.0
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu'
-  anchor: L75-L91
-  excerpt: warpReduceSum using __shfl_down_sync with offset halving loop
 artifacts:
   code: sources/experience/hw-probes/shfl-sync-bfly/artifacts/warp_reduce_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o warp_reduce_probe warp_reduce_probe.cu
@@ -63,6 +60,10 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cuda-samples
+  path: Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
+  anchor: L75-L91
 ---
 ## What
 
@@ -158,4 +159,4 @@ This two-phase approach uses exactly 10 shuffle instructions and one `__syncthre
 
 ## Measured Characteristics
 
-- [shfl-sync-bfly warp-reduce probe](../../sources/experience/hw-probes/shfl-sync-bfly/2026-04-16-warp-primitives.md): On H200 (sm_90a, CUDA 12.9), a dependent chain of butterfly reductions (`__shfl_xor_sync` with delta 16/8/4/2/1, each followed by `fadd`) measured **29.00 cycles per shfl_xor_sync** and **144.98 cycles per full 5-step butterfly reduction**. The canonical baseline for a pure dependent `shfl.sync.bfly` chain (no interleaved fadd) is 23.83 cycles. The ~5-cycle gap is attributable to the dependent `fadd` between each shuffle step.
+- shfl-sync-bfly warp-reduce probe: On H200 (sm_90a, CUDA 12.9), a dependent chain of butterfly reductions (`__shfl_xor_sync` with delta 16/8/4/2/1, each followed by `fadd`) measured **29.00 cycles per shfl_xor_sync** and **144.98 cycles per full 5-step butterfly reduction**. The canonical baseline for a pure dependent `shfl.sync.bfly` chain (no interleaved fadd) is 23.83 cycles. The ~5-cycle gap is attributable to the dependent `fadd` between each shuffle step.

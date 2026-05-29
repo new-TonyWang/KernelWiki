@@ -49,12 +49,12 @@ You are a **KB-gen agent** building CUDA optimization knowledge for H200 (sm_90a
    - For **probe-api**: api-probing.md, benchmark-protocol.md
    - For **build-pattern**: task-packet.md, bottleneck-triage.md
 3. Read the frontmatter template: `{knowledge_root}/templates/frontmatter/{{skill|api-raw|experience}}.yaml`
-4. For upstream material, use `python -m tools.source_corpus.cli ...` instead of grepping external absolute paths directly.
+4. For upstream material, use `python3 -m scripts.source_corpus.cli ...` instead of grepping external absolute paths directly.
 
 ## Key rules
 
 - **No imagination**: every factual claim must be grounded in grep output or measured data.
-- **Source corpus first**: use `python -m tools.source_corpus.cli search/read/list` for original docs, blogs, and source repos.
+- **Source corpus first**: use `python3 -m scripts.source_corpus.cli search/read/list` for original docs, blogs, and source repos.
 - **Frontmatter mandatory**: every .md starts with YAML per the template.
 - **English only** in .
 - **Measured data** → write probe record to `{knowledge_root}/sources/experience/hw-probes/<slug>/`
@@ -86,13 +86,13 @@ rsync -avz {remote_host}:{remote_dir}/ {knowledge_root}/
 1. **Search upstream** via:
 
 ```bash
-python -m tools.source_corpus.cli search "<topic or api>" --scope cuda-official
+python3 -m scripts.source_corpus.cli search "<topic or api>" --scope cuda-official
 ```
 
 2. **Read** the most relevant hits, for example:
 
 ```bash
-python -m tools.source_corpus.cli read "corpus/nvidia/..." --anchor "L120-L140"
+python3 -m scripts.source_corpus.cli read "corpus/nvidia/..." --anchor "L120-L140"
 ```
 
 3. **Write skill.md** (frontmatter + narrative: what / why / when / when-not).

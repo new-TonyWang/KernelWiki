@@ -147,7 +147,7 @@ Use this when `cols * sizeof(elem) % 128 != 0` and the kernel's access pattern i
 
 ### S3. In-kernel transpose (pointer; mechanism in shared-memory-cache)
 
-The `[TILE][TILE+1]`-padded shared-memory transpose is the standard out-of-place layout transform when no SoA split is possible (dense matrix transpose, batched axis swap). The **kernel** lives in [`wiki/nvidia/foundations/memory/shared-memory-cache/skill.md` §S2](../shared-memory-cache/skill.md); this skill records the *layout decision* — when transposing ahead-of-time beats running every downstream kernel with non-coalesced access. Measured on H200 (4096² fp32): padded tiled transpose hits 1685 GB/s; the per-step cost is ~0.08 ms. If > 3 downstream kernels benefit, the transpose amortizes.
+The `[TILE][TILE+1]`-padded shared-memory transpose is the standard out-of-place layout transform when no SoA split is possible (dense matrix transpose, batched axis swap). The **kernel** lives in `wiki/nvidia/foundations/memory/shared-memory-cache/skill.md` §S2; this skill records the *layout decision* — when transposing ahead-of-time beats running every downstream kernel with non-coalesced access. Measured on H200 (4096² fp32): padded tiled transpose hits 1685 GB/s; the per-step cost is ~0.08 ms. If > 3 downstream kernels benefit, the transpose amortizes.
 
 ### S4. Byte permutation with `prmt.b32`
 
@@ -173,7 +173,7 @@ The selector `c` in `prmt.b32 d, a, b, c` is a 4-nibble control picking bytes 0.
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using [sources/experience/hw-probes/aos-vs-soa/](../../../sources/experience/hw-probes/aos-vs-soa/) — AoS-vs-SoA probe on `Particle{x,y,z,vx,vy,vz}` (24 B struct), N = 16,777,216 elements, kernel reads one field. Unlocked clock logged at 1980 MHz. Full record: [sources/experience/hw-probes/aos-vs-soa/2026-04-22-aos-vs-soa.md](../../../sources/experience/hw-probes/aos-vs-soa/2026-04-22-aos-vs-soa.md).
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/aos-vs-soa/ — AoS-vs-SoA probe on `Particle{x,y,z,vx,vy,vz}` (24 B struct), N = 16,777,216 elements, kernel reads one field. Unlocked clock logged at 1980 MHz. Full record: sources/experience/hw-probes/aos-vs-soa/2026-04-22-aos-vs-soa.md.
 
 | Kernel                        | Median ms | Useful BW GB/s | DRAM SoL | Warp cyc/issue | Speedup |
 | ----------------------------- | --------: | -------------: | -------: | -------------: | ------: |

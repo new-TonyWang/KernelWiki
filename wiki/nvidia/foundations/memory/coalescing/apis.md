@@ -104,9 +104,9 @@ This file lists the APIs touched by the coalescing skill. Each entry records the
 
 ## Related Probes
 
-- [`__ldg`](../../../sources/experience/api-probes/2026-04-16-runtime-ldg.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__ldcv`](../../../sources/experience/api-probes/2026-04-17-runtime-ldcv.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__ldca`](../../../sources/experience/api-probes/2026-04-17-runtime-ldca.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__ldcs`](../../../sources/experience/api-probes/2026-04-17-runtime-ldcs.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__ldcg`](../../../sources/experience/api-probes/2026-04-17-runtime-ldcg.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__ldlu`](../../../sources/experience/api-probes/2026-04-17-runtime-ldlu.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- `__ldg` — end-to-end example, build command, and H200 measurement. See probe record.
+- `__ldcv` — end-to-end example, build command, and H200 measurement. See probe record.
+- `__ldca` — end-to-end example, build command, and H200 measurement. See probe record.
+- `__ldcs` — end-to-end example, build command, and H200 measurement. See probe record.
+- `__ldcg` — end-to-end example, build command, and H200 measurement. See probe record.
+- `__ldlu` — end-to-end example, build command, and H200 measurement. See probe record.

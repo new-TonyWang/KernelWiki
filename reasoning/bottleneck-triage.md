@@ -81,7 +81,7 @@ Q4b. Bytes-in-flight analysis (Little's Law, from GTC25-S72683):
         → H200 with 256 threads/block at 100% occ: 2 stages minimum
 
     See optimization flow chart:
-    ![Optimization guidelines](/data1/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0215.jpg)
+    ![Optimization guidelines](<local-path>
 
 Q5. After pulling a skill and modifying the kernel, rerun the benchmark
     and go back to Q1.

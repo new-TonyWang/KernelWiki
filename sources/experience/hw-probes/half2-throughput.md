@@ -98,7 +98,7 @@ title: 2026 04 23 Half2 Throughput
 ---
 ## Summary
 
-This probe backs the compute-throughput claims in [wiki/nvidia/foundations/compute/half-precision-math/skill.md](../../../wiki/nvidia/foundations/compute/half-precision-math/skill.md) by sweeping five FMA variants — fp32 scalar, fp16 scalar, fp16 packed (`__hfma2`), bf16 scalar, bf16 packed — in a compute-bound 4-chain ILP harness on H200 sm_9.0a. The legacy skill makes two canonical claims worth re-measuring on H200:
+This probe backs the compute-throughput claims in [wiki/nvidia/foundations/compute/half-precision-math/skill.md](../../../wiki/nvidia/foundations/compute/half-precision-math.md) by sweeping five FMA variants — fp32 scalar, fp16 scalar, fp16 packed (`__hfma2`), bf16 scalar, bf16 packed — in a compute-bound 4-chain ILP harness on H200 sm_9.0a. The legacy skill makes two canonical claims worth re-measuring on H200:
 
 1. **"`__hfma2` gives 2× throughput over `__hfma`"** (Skill 1). Measured on H200: only **1.16×**. The "2× from packing" framing is largely false on sm_9.0a — scalar `__hfma` already runs faster than scalar `fmaf` (1.58× measured), and the additional packing only gains 16% more.
 2. **"bf16 packed has equal throughput to fp16 packed"** (Skill 2). Measured: **bf16 packed is 12% slower than fp16 packed** (46.5 vs 52.6 TFLOPS scalar-equivalent). Scalar bf16 and fp16 are identical at ~45 TFLOPS, so the fp16x2 and bf16x2 packed pipelines differ on H200.

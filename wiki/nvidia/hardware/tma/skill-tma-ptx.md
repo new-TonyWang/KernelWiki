@@ -46,9 +46,6 @@ source:
 - path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: Hopper TMA walkthrough — cuTensorMapEncodeTiled + cp.async.bulk.tensor +
     mbarrier protocol
-- path: '{{CUTLASS_REPO_REF}}/include/cute/arch/copy_sm90_tma.hpp'
-  anchor: cutlass's TMA inline-PTX wrapper (used as a reference; not included in our
-    binary)
 - path: sources/experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
   anchor: cutlass-free hello-world (correctness)
 - path: sources/experience/hw-probes/tma-ptx/artifacts/tma_throughput_probe.cu
@@ -78,6 +75,11 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cutlass
+  path: include/cute/arch/copy_sm90_tma.hpp
+  anchor: cutlass's TMA inline-PTX wrapper (used as a reference; not included in our
+    binary)
 ---
 # Hopper TMA via raw PTX (cutlass-free)
 

@@ -42,14 +42,14 @@ This file lists the APIs touched by the register-pressure skill. Each entry reco
 - **Namespace**: runtime (compiler directive)
 - **Signature**: `__launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor)`
 - Annotates a `__global__` function with occupancy targets. The compiler derives a register ceiling L = regsPerSM / (maxTPB * minBlocks).
-- Cross-reference: [compiler-hints skill](../../compute/compiler-hints/skill.md)
+- Cross-reference: [compiler-hints skill](../../compute/compiler-hints.md)
 
 ### __maxnreg__
 
 - **Namespace**: runtime (compiler directive)
 - **Signature**: `__maxnreg__(maxNumberRegistersPerThread)`
 - Directly caps per-thread register count. Mutually exclusive with `__launch_bounds__` on the same kernel.
-- Cross-reference: [compiler-hints skill](../../compute/compiler-hints/skill.md)
+- Cross-reference: [compiler-hints skill](../../compute/compiler-hints.md)
 
 ## Diagnostic Flags
 
@@ -65,4 +65,4 @@ This file lists the APIs touched by the register-pressure skill. Each entry reco
 
 ## Related Probes
 
-- [`cudaOccupancyMaxActiveBlocksPerMultiprocessor`](../../../sources/experience/api-probes/2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- `cudaOccupancyMaxActiveBlocksPerMultiprocessor` — end-to-end example, build command, and H200 measurement. See probe record.

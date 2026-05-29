@@ -8,7 +8,7 @@ from typing import Any
 
 import yaml
 
-from agent.shared.config import KNOWLEDGE_ROOT, SOURCE_CORPUS_INDEX_ROOT
+from .registry import REPO_ROOT as KNOWLEDGE_ROOT, SOURCE_CORPUS_INDEX_ROOT
 
 from .query_types import ProvenanceRef, ResponseEnvelope
 from .registry import entry_for_corpus_path, resolve_corpus_path

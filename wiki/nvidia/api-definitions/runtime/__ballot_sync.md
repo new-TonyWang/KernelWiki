@@ -34,4 +34,4 @@ Population count of a warp-wide condition: `int count = __popc(__ballot_sync(0xf
 
 ## End-to-End Example
 
-See [probe record](../../../sources/experience/api-probes/2026-04-16-runtime-ballot-sync.md) for a complete end-to-end example: host allocation of random floats, H2D copy, warp ballot + popcount kernel (counting lanes above a threshold), D2H copy, and exact correctness verification. Tested on H200 (sm_90a, CUDA 12.9).
+See probe record for a complete end-to-end example: host allocation of random floats, H2D copy, warp ballot + popcount kernel (counting lanes above a threshold), D2H copy, and exact correctness verification. Tested on H200 (sm_90a, CUDA 12.9).

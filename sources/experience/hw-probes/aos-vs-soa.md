@@ -75,7 +75,7 @@ title: 2026 04 22 Aos Vs Soa
 ---
 ## Summary
 
-This probe validates sub-skill **S1 "AoS → SoA conversion"** from [wiki/nvidia/foundations/memory/layout-transform/skill.md](../../../wiki/nvidia/foundations/memory/layout-transform/skill.md). BP Guide §10.2.1.4 (L606-L634) asserts that non-unit-stride global accesses waste bandwidth proportional to the stride; this probe measures the penalty on H200 for a 24-byte struct when the kernel touches only a 4-byte field (stride = 6× the useful bytes).
+This probe validates sub-skill **S1 "AoS → SoA conversion"** from [wiki/nvidia/foundations/memory/layout-transform/skill.md](../../../wiki/nvidia/foundations/memory/layout-transform.md). BP Guide §10.2.1.4 (L606-L634) asserts that non-unit-stride global accesses waste bandwidth proportional to the stride; this probe measures the penalty on H200 for a 24-byte struct when the kernel touches only a 4-byte field (stride = 6× the useful bytes).
 
 Four kernels over `N = 16,777,216` particles:
 

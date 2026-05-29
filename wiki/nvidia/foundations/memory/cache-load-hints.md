@@ -243,9 +243,9 @@ surface. Retained as inferred pending a multi-kernel probe
 ## Measured Characteristics
 
 Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using
-[sources/experience/hw-probes/cache-hint/](../../../sources/experience/hw-probes/cache-hint/) —
+sources/experience/hw-probes/cache-hint/ —
 6 load variants × 2 working-set regimes. Full record:
-[sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md](../../../sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md).
+sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md.
 
 ### DRAM regime (256 MiB, single pass) — variants collapse to DRAM BW
 

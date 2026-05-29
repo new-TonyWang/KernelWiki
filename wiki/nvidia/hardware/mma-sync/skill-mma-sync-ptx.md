@@ -13,12 +13,6 @@ requires_features:
 - ldmatrix
 single_kernel_useful: true
 source:
-- path: '{{CUTLASS_REPO_REF}}/include/cute/atom/mma_traits_sm80.hpp'
-  anchor: SM80_16x8x8_F32F16F16F32_TN .. SM80_16x8x32_S32S8S8S32_TN
-  excerpt: 'Ampere mma.sync atom shapes: m16n8k8 (fp16/bf16), m16n8k16 (fp16/bf16
-    double-K), m16n8k4/m16n8k8 (tf32), m8n8k4 (f64), m8n8k16/m16n8k16/m16n8k32 (s8/u8).'
-- path: '{{CUTLASS_REPO_REF}}/include/cute/arch/mma_sm80.hpp'
-  anchor: SM80_16x8x8_F32F16F16F32_TN inline PTX wrappers
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L28200-L28250
   excerpt: 9.7.14. Matrix Multiply-Accumulate Operation using mma.sync instruction
@@ -37,6 +31,13 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cutlass
+  path: include/cute/atom/mma_traits_sm80.hpp
+  anchor: SM80_16x8x8_F32F16F16F32_TN .. SM80_16x8x32_S32S8S8S32_TN
+- source_id: source-code/cutlass
+  path: include/cute/arch/mma_sm80.hpp
+  anchor: SM80_16x8x8_F32F16F16F32_TN inline PTX wrappers
 ---
 # mma.sync — Warp-level MMA on Ampere+ via PTX
 

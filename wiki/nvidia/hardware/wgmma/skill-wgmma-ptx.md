@@ -45,9 +45,6 @@ source:
     multiply and accumulate operation. It is a 64-bit value contained in a register.
 - path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: Hopper wgmma walkthrough — descriptor format + sync semantics
-- path: '{{CUTLASS_REPO_REF}}/include/cute/arch/mma_sm90_gmma.hpp'
-  anchor: cutlass's wgmma inline-PTX wrapper (used as a reference for descriptor construction;
-    not included in our binary)
 - path: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
   anchor: cutlass-free hello-world (single m64n8k16 bf16 atom)
 - path: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
@@ -72,6 +69,11 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cutlass
+  path: include/cute/arch/mma_sm90_gmma.hpp
+  anchor: cutlass's wgmma inline-PTX wrapper (used as a reference for descriptor construction;
+    not included in our binary)
 ---
 # Hopper wgmma via raw PTX (cutlass-free)
 

@@ -242,4 +242,4 @@ Compute SOL (fp32 variant) = 78% at 4-chain ILP × 2048 FMAs/chain.
 
 ## Related Probes
 
-- [sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md](../../../sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md) — 5-variant FMA throughput sweep. Load-bearing results: __hfma2 = 1.16× __hfma (not 2×); bf16-packed = 0.88× fp16-packed (not equal).
+- sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md — 5-variant FMA throughput sweep. Load-bearing results: __hfma2 = 1.16× __hfma (not 2×); bf16-packed = 0.88× fp16-packed (not equal).

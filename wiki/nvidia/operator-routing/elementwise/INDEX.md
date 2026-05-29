@@ -12,11 +12,6 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/0_Introduction/vectorAdd/vectorAdd.cu'
-  anchor: L47-L54
-  excerpt: __global__ void vectorAdd(const float *A, const float *B, float *C, int
-    numElements) { int i = blockDim.x * blockIdx.x + threadIdx.x; if (i < numElements)
-    C[i] = A[i] + B[i]; }
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L539-L542
   excerpt: A very important performance consideration in programming for CUDA-capable
@@ -25,6 +20,10 @@ id: routing-elementwise-INDEX
 type: operator-routing
 vendor: nvidia
 operator: elementwise
+source_refs:
+- source_id: source-code/cuda-samples
+  path: Samples/0_Introduction/vectorAdd/vectorAdd.cu
+  anchor: L47-L54
 ---
 # Elementwise Operator Pattern -- Decision Tree
 

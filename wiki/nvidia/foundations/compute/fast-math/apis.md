@@ -29,7 +29,7 @@ This file lists the APIs touched by the fast-math skill. Each entry records the 
 - **Semantics**: Computes `e^x` using the SFU approximate exponential.
 - **Max ULP error**: `2 + floor(abs(1.173 * x))`
 - **Source**: Programming guide Table 58, L26993-L26995
-- **Probed**: [expf-vs-fast-expf](../../sources/experience/hw-probes/fast-math/2026-04-16-fast-math.md)
+- **Probed**: expf-vs-fast-expf
 
 ### `__exp10f`
 

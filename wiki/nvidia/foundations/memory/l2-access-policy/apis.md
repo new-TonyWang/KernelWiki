@@ -219,4 +219,4 @@ signature: See documentation
 
 ## Related Probes
 
-- [sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md](../../../sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md) — 3 WS × 3 policy sweep on H200. Load-bearing result: `hitRatio = set_aside / WS` at WS = 80 MiB gives +17.7% effective BW.
+- sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md — 3 WS × 3 policy sweep on H200. Load-bearing result: `hitRatio = set_aside / WS` at WS = 80 MiB gives +17.7% effective BW.

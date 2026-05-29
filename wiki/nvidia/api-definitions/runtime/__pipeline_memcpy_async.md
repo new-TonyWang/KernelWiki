@@ -32,4 +32,4 @@ Agent: replace this section with parameter list + return semantics + typical use
 
 ## End-to-End Example
 
-See the probe record at [sources/experience/api-probes/2026-04-17-runtime-pipeline-memcpy-async.md](../../sources/experience/api-probes/2026-04-17-runtime-pipeline-memcpy-async.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).
+See the probe record at sources/experience/api-probes/2026-04-17-runtime-pipeline-memcpy-async.md for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

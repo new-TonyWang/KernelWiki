@@ -38,4 +38,4 @@ Warp vote intrinsic. Evaluates `predicate` for all non-exited threads in `mask` 
 
 ## End-to-End Example
 
-See the probe record at [sources/experience/api-probes/2026-04-17-runtime-any-sync.md](../../sources/experience/api-probes/2026-04-17-runtime-any-sync.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).
+See the probe record at sources/experience/api-probes/2026-04-17-runtime-any-sync.md for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

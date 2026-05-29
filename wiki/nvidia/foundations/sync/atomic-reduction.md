@@ -200,7 +200,7 @@ PG 3.2.4.1.2 (L3641-L3645) states shared-memory atomics are faster than global-m
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06), summing `N = 33,554,432` floats (128 MB) to one scalar. Full record: [sources/experience/hw-probes/atomic-reduction-contention/2026-04-20-atomic-reduction.md](../../../sources/experience/hw-probes/atomic-reduction-contention/2026-04-20-atomic-reduction.md).
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06), summing `N = 33,554,432` floats (128 MB) to one scalar. Full record: sources/experience/hw-probes/atomic-reduction-contention/2026-04-20-atomic-reduction.md.
 
 | Kernel             | Median ms | Eff. BW GB/s | DRAM SoL | Warp cyc/issue |
 | ------------------ | --------: | -----------: | -------: | -------------: |

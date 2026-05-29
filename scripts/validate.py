@@ -1604,7 +1604,8 @@ def main():
     # AC-10 discoverability + sources/upstreams forbidden.
     all_errors.extend(validate_discoverability())
 
-    # AC-5.1: Body markdown link validation — reject old kb-mvp numbered-layer paths
+    # AC-5.1: Body markdown link validation
+    # 1) Reject old kb-mvp numbered-layer paths
     old_path_patterns = [
         "80-experience/", "30-skill/", "40-hardware-feature/",
         "50-classical-algo/", "60-code/", "10-api-raw/", "20-pattern/",
@@ -1627,9 +1628,81 @@ def main():
                         f"(must be rewritten to new layout)"
                     )
                     body_link_errors += 1
-                    break  # One error per file
+                    break
     if body_link_errors:
         print(f"  Body-link validation: {body_link_errors} files with old paths")
+
+    # 2) Resolve relative Markdown links and check targets exist
+    _LINK_RE = re.compile(r'\[([^\]]*)\]\(([^)]+)\)')
+    link_resolve_errors = 0
+    for search_dir in [WIKI_DIR, SOURCES_DIR]:
+        if not search_dir.exists():
+            continue
+        for md_file in sorted(search_dir.rglob("*.md")):
+            try:
+                body = read_body(md_file)
+            except Exception:
+                continue
+            rel = md_file.relative_to(REPO_ROOT)
+            # Skip files inside code fences
+            in_fence = False
+            for line in body.split('\n'):
+                if line.strip().startswith('```'):
+                    in_fence = not in_fence
+                    continue
+                if in_fence:
+                    continue
+                for m in _LINK_RE.finditer(line):
+                    target = m.group(2)
+                    # Skip URLs, anchors, mailto, images
+                    if target.startswith(('http://', 'https://', '#', 'mailto:')):
+                        continue
+                    # Strip anchor from target
+                    target_path = target.split('#')[0]
+                    if not target_path:
+                        continue
+                    # Resolve relative to file's directory
+                    resolved = (md_file.parent / target_path).resolve()
+                    if not resolved.exists():
+                        all_errors.append(
+                            f"{rel}: broken link [{m.group(1)}]({target}) "
+                            f"→ target does not exist"
+                        )
+                        link_resolve_errors += 1
+    if link_resolve_errors:
+        print(f"  Body-link resolution: {link_resolve_errors} broken links")
+
+    # AC-13: MANIFEST schema validation
+    manifest_path = REPO_ROOT / "corpus" / "MANIFEST.yaml"
+    if manifest_path.exists():
+        try:
+            manifest_data = load_yaml_file(manifest_path)
+            if isinstance(manifest_data, list):
+                for entry in manifest_data:
+                    sid = entry.get("source_id", "?")
+                    tier = entry.get("tier", "")
+                    if tier == "external":
+                        remote = entry.get("remote", {}) or {}
+                        if not remote.get("url"):
+                            all_errors.append(
+                                f"corpus/MANIFEST.yaml: external entry '{sid}' "
+                                f"missing remote.url"
+                            )
+                        if not entry.get("default_ref"):
+                            all_errors.append(
+                                f"corpus/MANIFEST.yaml: external entry '{sid}' "
+                                f"missing default_ref"
+                            )
+                    elif tier == "in-git":
+                        lp = entry.get("local_path", "")
+                        resolved = REPO_ROOT / "corpus" / lp
+                        if not resolved.exists():
+                            all_errors.append(
+                                f"corpus/MANIFEST.yaml: in-git entry '{sid}' "
+                                f"path '{lp}' does not exist"
+                            )
+        except Exception as e:
+            all_errors.append(f"corpus/MANIFEST.yaml: parse error: {e}")
 
     print(f"Validated {file_count} files ({len(all_source_ids)} source IDs collected)")
     if bundle_count or orphans:

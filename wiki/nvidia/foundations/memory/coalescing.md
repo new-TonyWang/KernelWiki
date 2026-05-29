@@ -174,4 +174,4 @@ The read of `idata` is coalesced because `threadIdx.x` maps to the column index.
 
 ## Measured Characteristics
 
-- [coalescing-stride bandwidth probe](../../sources/experience/hw-probes/coalescing-stride/2026-04-15-coalescing.md): On H200 (sm_90a, CUDA 12.9), stride-1 (coalesced) access achieved an effective bandwidth of 530.66 GB/s (median latency 0.0079 ms), while stride-32 (non-coalesced) access achieved only 186.18 GB/s (median latency 0.0225 ms). The strided access was **2.85x slower** than coalesced access. With stride-32, each warp issues 32 separate 32-byte transactions for 128 bytes of useful data, yielding 12.5% memory utilization.
+- coalescing-stride bandwidth probe: On H200 (sm_90a, CUDA 12.9), stride-1 (coalesced) access achieved an effective bandwidth of 530.66 GB/s (median latency 0.0079 ms), while stride-32 (non-coalesced) access achieved only 186.18 GB/s (median latency 0.0225 ms). The strided access was **2.85x slower** than coalesced access. With stride-32, each warp issues 32 separate 32-byte transactions for 128 bytes of useful data, yielding 12.5% memory utilization.

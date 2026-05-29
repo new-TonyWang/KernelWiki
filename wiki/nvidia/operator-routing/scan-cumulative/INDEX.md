@@ -7,14 +7,6 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/2_Concepts_and_Techniques/shfl_scan/shfl_scan.cu'
-  anchor: L55-L131
-  excerpt: 'shfl_scan_test kernel: warp-level inclusive scan via __shfl_up_sync, then
-    inter-warp scan through shared memory, then uniform_add for multi-block'
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/2_Concepts_and_Techniques/scan/scan.cu'
-  anchor: L43-L62
-  excerpt: 'scan1Inclusive: naive shared-memory Hillis-Steele inclusive scan with
-    O(N log N) work'
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
   anchor: L28474-L28508
   excerpt: DeviceScan provides device-wide, parallel operations for computing a prefix
@@ -24,6 +16,13 @@ id: routing-scan-cumulative-INDEX
 type: operator-routing
 vendor: nvidia
 operator: scan-cumulative
+source_refs:
+- source_id: source-code/cuda-samples
+  path: Samples/2_Concepts_and_Techniques/shfl_scan/shfl_scan.cu
+  anchor: L55-L131
+- source_id: source-code/cuda-samples
+  path: Samples/2_Concepts_and_Techniques/scan/scan.cu
+  anchor: L43-L62
 ---
 # Scan (Cumulative) Pattern -- Decision Tree
 

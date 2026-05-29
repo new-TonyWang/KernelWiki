@@ -83,7 +83,7 @@ warpgroup_wait<0>();                                  // wgmma.wait_group 0 — 
 
 `warpgroup_fence_operand` / `warpgroup_commit_batch` / `warpgroup_wait` are inline helpers in `include/cute/arch/mma_sm90.hpp` that wrap `__nvvm_intrinsic`-style PTX `wgmma.fence`/`wgmma.commit_group`/`wgmma.wait_group`.
 
-### C. Pre-conditions ([from the cute traits headers](../../../corpus/nvidia/blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus))
+### C. Pre-conditions (from the cute traits headers)
 
 Decoded from the vendored example's compiled kernel signature:
 

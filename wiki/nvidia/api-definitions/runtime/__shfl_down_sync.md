@@ -18,7 +18,7 @@ source:
   excerpt: 5.4.6.5. Warp Shuffle Functions
 - path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/README.md
   anchor: L65-L65
-  excerpt: '[reduction](./reduction)'
+  excerpt: '[reduction](.)'
 - path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/reduction/README.md
   anchor: L5-L5
   excerpt: Description
@@ -41,4 +41,4 @@ Agent: replace this section with parameter list + return semantics + typical use
 
 ## End-to-End Example
 
-See the probe record at [sources/experience/api-probes/2026-04-17-runtime-shfl-down-sync.md](../../sources/experience/api-probes/2026-04-17-runtime-shfl-down-sync.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).
+See the probe record at sources/experience/api-probes/2026-04-17-runtime-shfl-down-sync.md for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

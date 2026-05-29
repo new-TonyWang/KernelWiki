@@ -128,7 +128,7 @@ cudaStreamSetAttribute(stream, cudaStreamAttributeAccessPolicyWindow, &attr);
 // launch the hot-region kernels on `stream` here
 ```
 
-Measured result on H200 (WS = 80 MiB, set_aside = 37.5 MiB, hitRatio ≈ 0.469): median launch time drops from 1.870 ms to 1.589 ms, a **+17.7%** speedup. See [sources/experience/hw-probes/l2-residency/](../../../sources/experience/hw-probes/l2-residency/).
+Measured result on H200 (WS = 80 MiB, set_aside = 37.5 MiB, hitRatio ≈ 0.469): median launch time drops from 1.870 ms to 1.589 ms, a **+17.7%** speedup. See sources/experience/hw-probes/l2-residency/.
 
 ### S3. Reset persisting lines between phases
 
@@ -162,7 +162,7 @@ Semantics are identical to the stream variant; pick whichever matches the submis
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using [sources/experience/hw-probes/l2-residency/](../../../sources/experience/hw-probes/l2-residency/) — a `repeat_read_sum` kernel with N_REPEATS=32 inner passes, swept over working-set sizes {4, 40, 80} MiB and policies {none, persist@1.0, persist@tuned}. Full record: [sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md](../../../sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md).
+Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/l2-residency/ — a `repeat_read_sum` kernel with N_REPEATS=32 inner passes, swept over working-set sizes {4, 40, 80} MiB and policies {none, persist@1.0, persist@tuned}. Full record: sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md.
 
 ### Effective bandwidth by (WS, policy)
 

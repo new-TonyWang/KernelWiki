@@ -7,10 +7,6 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu'
-  anchor: L75-L81
-  excerpt: warpReduceSum using __shfl_down_sync with offset halving loop -- same primitive
-    used for the reduction phase of normalization
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23945-L23973
   excerpt: 'Warp Shuffle Functions: __shfl_down_sync copies from a lane with a higher
@@ -23,6 +19,10 @@ id: routing-normalization-INDEX
 type: operator-routing
 vendor: nvidia
 operator: normalization
+source_refs:
+- source_id: source-code/cuda-samples
+  path: Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
+  anchor: L75-L81
 ---
 # Normalization Pattern -- Decision Tree
 
@@ -123,7 +123,7 @@ Q4. How many elements per normalization instance (reduction width)?
 
 ## Step 1b -- Choose dtypes (precision/range decision; correctness-critical)
 
-Normalization has a **reduction phase** (mean / variance / RMS over the axis) and an **elementwise scaling phase** (`(x - mean) * rstd * gamma + beta`). These two phases have different numerical requirements and are usually assigned different dtypes. This is a **correctness decision**, not a perf tuning step. Reference: [`wiki/nvidia/foundations/compute/half-precision-math/`](../../../wiki/nvidia/foundations/compute/half-precision-math/) §Precision.
+Normalization has a **reduction phase** (mean / variance / RMS over the axis) and an **elementwise scaling phase** (`(x - mean) * rstd * gamma + beta`). These two phases have different numerical requirements and are usually assigned different dtypes. This is a **correctness decision**, not a perf tuning step. Reference: `wiki/nvidia/foundations/compute/half-precision-math/` §Precision.
 
 ```
 Q3a. Storage dtype (input activation, gamma, beta, output) — fp16 / bf16 / fp32?

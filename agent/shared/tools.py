@@ -20,15 +20,22 @@ from agent.shared.config import (
     REMOTE_HOST,
     REMOTE_PYLIB,
 )
-from tools.source_corpus import (
-    build_provenance_index,
-    list_sources,
-    provenance_back,
-    provenance_walk,
-    resolve_source,
-    source_read,
-    source_search,
-)
+try:
+    from scripts.source_corpus import (
+        build_provenance_index,
+        list_sources,
+        provenance_back,
+        provenance_walk,
+        resolve_source,
+        source_read,
+        source_search,
+    )
+except ImportError:
+    # Graceful degradation if source_corpus package not on sys.path
+    def _stub(*a, **kw):
+        return "source_corpus package not available"
+    build_provenance_index = list_sources = provenance_back = _stub
+    provenance_walk = resolve_source = source_read = source_search = _stub
 
 
 def grep_source(pattern: str, scope: str, glob: str | None = None,

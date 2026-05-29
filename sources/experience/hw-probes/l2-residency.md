@@ -102,7 +102,7 @@ title: 2026 04 23 L2 Residency
 ---
 ## Summary
 
-This probe backs the cost/benefit claims in [wiki/nvidia/foundations/memory/l2-access-policy/skill.md](../../../wiki/nvidia/foundations/memory/l2-access-policy/skill.md) by sweeping a repeat-read kernel across three working-set sizes and three L2 policies on H200 (sm_9.0a). The canonical claim from BP Guide §10.2.2 (L1561-L1581) is that `accessPolicyWindow` with `hitProp = Persisting` protects a hot buffer from eviction so repeat reads hit L2 instead of DRAM; PG §4.13 (L4094-L4130) adds that `hitRatio` tuning is the remedy when the hot region exceeds the L2 set-aside. Neither source quantifies the threshold or the cost of misapplication on H200. This probe gives the three data points that matter for the skill's decision tree:
+This probe backs the cost/benefit claims in [wiki/nvidia/foundations/memory/l2-access-policy/skill.md](../../../wiki/nvidia/foundations/memory/l2-access-policy.md) by sweeping a repeat-read kernel across three working-set sizes and three L2 policies on H200 (sm_9.0a). The canonical claim from BP Guide §10.2.2 (L1561-L1581) is that `accessPolicyWindow` with `hitProp = Persisting` protects a hot buffer from eviction so repeat reads hit L2 instead of DRAM; PG §4.13 (L4094-L4130) adds that `hitRatio` tuning is the remedy when the hot region exceeds the L2 set-aside. Neither source quantifies the threshold or the cost of misapplication on H200. This probe gives the three data points that matter for the skill's decision tree:
 
 1. When WS ≪ L2, the policy is a null (or slight loss due to overhead).
 2. When WS ≈ L2 naturally, the policy is still a null — the data is already resident.

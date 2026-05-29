@@ -13,15 +13,6 @@ requires_features:
 - tcgen05
 single_kernel_useful: true
 source:
-- path: '{{CUTLASS_REPO_REF}}/include/cute/arch/copy_sm100.hpp'
-  anchor: tcgen05.cp and tcgen05.ld inline PTX wrappers
-  excerpt: tcgen05.cp.cta_group::{1,2}.{128x256b,128x128b,4x256b,32x128b,64x128b}
-    — Blackwell tcgen05 copy instructions for loading matrix tiles from smem into
-    the tensor core register file.
-- path: '{{CUTLASS_REPO_REF}}/include/cute/atom/mma_traits_sm100.hpp'
-  anchor: SM100_MMA_TF32_SS, SM100_MMA_F16BF16_SS, SM100_MMA_*_TS, SM100_MMA_*_SCALED
-  excerpt: 'Blackwell MMA traits: SS (both operands from smem), TS (A from tcgen05
-    register file, B from smem), and SCALED variants with per-element scaling.'
 - path: whitepapers/gpu-wite-paper/BlackWell/nvidia-blackwell-architecture-technical-brief.pdf
   anchor: 5th Generation Tensor Cores
   excerpt: Blackwell introduces 5th-generation Tensor Cores with 2x throughput over
@@ -40,6 +31,13 @@ tags:
 - cuda-cpp
 applies_to:
 - general
+source_refs:
+- source_id: source-code/cutlass
+  path: include/cute/arch/copy_sm100.hpp
+  anchor: tcgen05.cp and tcgen05.ld inline PTX wrappers
+- source_id: source-code/cutlass
+  path: include/cute/atom/mma_traits_sm100.hpp
+  anchor: SM100_MMA_TF32_SS, SM100_MMA_F16BF16_SS, SM100_MMA_*_TS, SM100_MMA_*_SCALED
 ---
 # tcgen05 — Blackwell 5th-generation Tensor Core via PTX
 

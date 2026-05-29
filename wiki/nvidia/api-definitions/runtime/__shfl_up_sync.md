@@ -18,7 +18,7 @@ source:
   excerpt: 5.4.6.5. Warp Shuffle Functions
 - path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/README.md
   anchor: L80-L80
-  excerpt: '[shfl_scan](./shfl_scan)'
+  excerpt: '[shfl_scan](.)'
 - path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/shfl_scan/README.md
   anchor: L5-L5
   excerpt: Description
@@ -41,4 +41,4 @@ Agent: replace this section with parameter list + return semantics + typical use
 
 ## End-to-End Example
 
-See the probe record at [sources/experience/api-probes/2026-04-17-runtime-shfl-up-sync.md](../../sources/experience/api-probes/2026-04-17-runtime-shfl-up-sync.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).
+See the probe record at sources/experience/api-probes/2026-04-17-runtime-shfl-up-sync.md for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

@@ -3,11 +3,6 @@ title: Elementwise Library Fallback Paths
 pattern_class: cuda-core
 op: elementwise
 source:
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/0_Introduction/vectorAdd/vectorAdd.cu'
-  anchor: L47-L54
-  excerpt: __global__ void vectorAdd(const float *A, const float *B, float *C, int
-    numElements) { int i = blockDim.x * blockIdx.x + threadIdx.x; if (i < numElements)
-    C[i] = A[i] + B[i]; }
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/thrust/thrust.md
   anchor: L31965-L32063
   excerpt: thrust::transform applies a unary function to each element of an input
@@ -16,6 +11,10 @@ id: routing-elementwise-library-fallback
 type: operator-routing
 vendor: nvidia
 operator: elementwise
+source_refs:
+- source_id: source-code/cuda-samples
+  path: Samples/0_Introduction/vectorAdd/vectorAdd.cu
+  anchor: L47-L54
 ---
 # Elementwise -- Library Fallback Paths
 

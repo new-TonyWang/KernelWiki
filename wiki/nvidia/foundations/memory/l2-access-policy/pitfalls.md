@@ -15,7 +15,7 @@ id: pitfall-l2-access-policy
 type: pitfall
 vendor: nvidia
 ---
-Legacy P1–P5 came from L3-sandbox verification on pre-H200 hardware (A100 unless noted). P6–P10 are L3-sandbox findings copied from the legacy KB and annotated with the current H200 measurement where the probe touches them. "**Measured on H200 sm_9.0a**" tags indicate pitfalls validated by [sources/experience/hw-probes/l2-residency/](../../sources/experience/hw-probes/l2-residency/).
+Legacy P1–P5 came from L3-sandbox verification on pre-H200 hardware (A100 unless noted). P6–P10 are L3-sandbox findings copied from the legacy KB and annotated with the current H200 measurement where the probe touches them. "**Measured on H200 sm_9.0a**" tags indicate pitfalls validated by sources/experience/hw-probes/l2-residency/.
 
 ## P1. `hitRatio = 1.0` thrashes silently when `num_bytes > set_aside`
 

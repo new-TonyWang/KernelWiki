@@ -7,13 +7,6 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu'
-  anchor: L75-L91
-  excerpt: warpReduceSum using __shfl_down_sync with offset halving loop
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/2_Concepts_and_Techniques/reduction/reduction.cpp'
-  anchor: L28-L62
-  excerpt: Parallel reduction sample showing 7 kernel variants (reduce0--reduce6)
-    with increasing optimization
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
   anchor: L26607-L26630
   excerpt: DeviceReduce provides device-wide, parallel operations for computing a
@@ -22,6 +15,13 @@ id: routing-reduction-INDEX
 type: operator-routing
 vendor: nvidia
 operator: reduction
+source_refs:
+- source_id: source-code/cuda-samples
+  path: Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
+  anchor: L75-L91
+- source_id: source-code/cuda-samples
+  path: Samples/2_Concepts_and_Techniques/reduction/reduction.cpp
+  anchor: L28-L62
 ---
 # Reduction Pattern -- Decision Tree
 

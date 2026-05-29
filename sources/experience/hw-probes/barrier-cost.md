@@ -80,7 +80,7 @@ title: 2026 04 22 Barrier Cost
 ---
 ## Summary
 
-This probe measures the **bare per-call cost** of three synchronization primitives at four block sizes, to back the cost model in [wiki/nvidia/foundations/sync/barrier-optimization/skill.md](../../../wiki/nvidia/foundations/sync/barrier-optimization/skill.md). BP Guide §12.1.3 (L1402-L1404) gives the per-SM throughput for `__syncthreads` (16 ops/clock on sm_7.x / sm_8.x) but does not compare against `__syncwarp` or `cuda::barrier` arrive+wait. PG §3.2.4.2 (L3647-L3704) documents that async barriers give benefit *via overlap*, but does not quantify the bare-cost gap when there is no overlap.
+This probe measures the **bare per-call cost** of three synchronization primitives at four block sizes, to back the cost model in [wiki/nvidia/foundations/sync/barrier-optimization/skill.md](../../../wiki/nvidia/foundations/sync/barrier-optimization.md). BP Guide §12.1.3 (L1402-L1404) gives the per-SM throughput for `__syncthreads` (16 ops/clock on sm_7.x / sm_8.x) but does not compare against `__syncwarp` or `cuda::barrier` arrive+wait. PG §3.2.4.2 (L3647-L3704) documents that async barriers give benefit *via overlap*, but does not quantify the bare-cost gap when there is no overlap.
 
 Three kernels over block sizes {128, 256, 512, 1024}:
 

@@ -80,7 +80,7 @@ title: 2026 04 21 Smem Tile Reuse
 ---
 ## Summary
 
-This probe validates sub-skill **S2 "coalescing transform via shared memory"** from [wiki/nvidia/foundations/memory/shared-memory-cache/skill.md](../../../wiki/nvidia/foundations/memory/shared-memory-cache/skill.md). The worked example in CUDA C++ Programming Guide §2.2.4.2.1 (L1484-L1540) — "Matrix Transpose Example Using Shared Memory" — claims that staging the tile through `__shared__ float smem[32][32]` converts a non-coalesced transposed-store kernel into one with coalesced stores on both sides. The guide also warns that the staged layout is vulnerable to 32-way shared-memory bank conflicts on the column read, and that declaring `[TILE][TILE+1]` breaks the conflict. This probe measures both effects end-to-end on an H200.
+This probe validates sub-skill **S2 "coalescing transform via shared memory"** from [wiki/nvidia/foundations/memory/shared-memory-cache/skill.md](../../../wiki/nvidia/foundations/memory/shared-memory-cache.md). The worked example in CUDA C++ Programming Guide §2.2.4.2.1 (L1484-L1540) — "Matrix Transpose Example Using Shared Memory" — claims that staging the tile through `__shared__ float smem[32][32]` converts a non-coalesced transposed-store kernel into one with coalesced stores on both sides. The guide also warns that the staged layout is vulnerable to 32-way shared-memory bank conflicts on the column read, and that declaring `[TILE][TILE+1]` breaks the conflict. This probe measures both effects end-to-end on an H200.
 
 Three kernels transpose a 4096×4096 fp32 matrix (64 MB per side, 128 MB of HBM traffic counting read + write):
 

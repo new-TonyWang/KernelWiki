@@ -85,11 +85,11 @@ bytes-in-flight = bandwidth x mean_latency
 
 Bandwidth and latency are fixed by hardware; **bytes-in-flight is the only knob** the programmer controls. To achieve high DRAM bandwidth utilization, the software must keep enough bytes in-flight per SM.
 
-![BW trends across generations](<path-removed>)
+!BW trends across generations
 
 DRAM bandwidth per SM is increasing roughly 2x per generation, while SM count grows slowly. A simple `c[i] = a[i] + b[i]` kernel with 2 loads/thread, 4 bytes/load, 256 threads/block, and 8 blocks/SM produces only 16 KiB/SM of bytes-in-flight. The experimental targets for >90% BW utilization are (GTC25-S72683):
 
-![Little's Law bytes-in-flight scaling](<path-removed>)
+!Little's Law bytes-in-flight scaling
 
 - **H100**: ~32 KiB/SM
 - **H200**: ~64 KiB/SM
@@ -102,7 +102,7 @@ There are three techniques to grow bytes-in-flight:
 
 The first two increase bytes-in-flight at the cost of **register pressure**:
 
-![Register pressure vs BW utilization](<path-removed>)
+!Register pressure vs BW utilization
 
 Asynchronous copies avoid this tradeoff by routing data through shared memory instead of registers.
 
@@ -131,7 +131,7 @@ CUDA exposes LDGSTS through three API layers (GTC25-S72683, programming guide L3
 
 ### LDGSTS vs TMA Cheat-Sheet
 
-![LDGSTS / TMA matrix](<path-removed>)
+!LDGSTS / TMA matrix
 
 | Method | Alignment | When to use |
 | --- | --- | --- |
@@ -241,9 +241,9 @@ Async copies are most beneficial in these scenarios:
 
 - **Compute-heavy kernels at low occupancy**: when the compute per element is expensive (sqrt chains, trig functions, etc.), async copies hide the memory latency that would otherwise dominate. GTC25-S72683 showed a **1.305x speedup** on H100 for `sqrt(sqrt(a)/sqrt(b))` vs vanilla.
 
-![2-stage benchmark a*b](<path-removed>)
+!2-stage benchmark a*b
 
-![2-stage benchmark sqrt](<path-removed>)
+!2-stage benchmark sqrt
 
 - **Register-pressure-sensitive kernels**: when ILP/DLP techniques would push register usage too high and cause spilling or low occupancy, async copies provide bytes-in-flight without consuming registers.
 
@@ -261,7 +261,7 @@ Async copies are most beneficial in these scenarios:
 
 ## Optimization Decision Flow
 
-![Optimization flow](<path-removed>)
+!Optimization flow
 
 The GTC25-S72683 flowchart for increasing bytes-in-flight:
 
@@ -292,4 +292,4 @@ Key differences from LDGSTS:
 
 ## Measured Characteristics
 
-- [async-copy-2stage bandwidth probe](../../sources/experience/hw-probes/async-copy/2026-04-16-async-copy.md): On H200 (sm_90a, CUDA 12.9), a **vanilla elementwise kernel** (`c[i] = a[i] * b[i]`, N=256M floats) achieved **3654 GB/s** (median 0.8815 ms). A **2-stage LDGSTS prefetch version** using `__pipeline_memcpy_async` achieved **3295 GB/s** (median 0.9775 ms), approximately **10% slower**. This confirms the GTC guidance: for trivially simple compute, the shared memory staging overhead outweighs the latency-hiding benefit. The async approach delivers significant uplift only with heavier compute intensity or iterative kernels with genuine prefetch opportunities.
+- async-copy-2stage bandwidth probe: On H200 (sm_90a, CUDA 12.9), a **vanilla elementwise kernel** (`c[i] = a[i] * b[i]`, N=256M floats) achieved **3654 GB/s** (median 0.8815 ms). A **2-stage LDGSTS prefetch version** using `__pipeline_memcpy_async` achieved **3295 GB/s** (median 0.9775 ms), approximately **10% slower**. This confirms the GTC guidance: for trivially simple compute, the shared memory staging overhead outweighs the latency-hiding benefit. The async approach delivers significant uplift only with heavier compute intensity or iterative kernels with genuine prefetch opportunities.

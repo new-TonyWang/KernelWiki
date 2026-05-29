@@ -13,14 +13,14 @@ Concrete patterns showing how to translate a user question into a navigation pat
 
 **Navigation path**:
 1. `queries/by-kernel-type.md` → find `gemm` row → lists kernel pages
-2. Read `wiki/nvidia/nvidia/kernels/fp8-block-scale-gemm.md` and `wiki/nvidia/nvidia/kernels/nvfp4-gemm.md`
+2. Read `wiki/nvidia/kernels/fp8-block-scale-gemm.md` and `wiki/nvidia/kernels/nvfp4-gemm.md`
 3. Follow `sources:` to concrete PRs: `pr-cutlass-2139` (blockwise+groupwise GEMM), `pr-vllm-13798` (FP8 GEMM)
-4. For optimization path, read `wiki/nvidia/nvidia/techniques/warp-specialization.md`, `wiki/nvidia/nvidia/techniques/persistent-kernels.md`
+4. For optimization path, read `wiki/nvidia/techniques/warp-specialization.md`, `wiki/nvidia/techniques/persistent-kernels.md`
 5. For progression, cite the tcgen05 tutorial (`sources/blogs/tcgen05-tutorial.md`): Naive 17% → Swizzling 46% → Pipelining 62% → Warp Spec 80% → 2-SM 86% → CLC 98%
 
 **Command**:
 ```bash
-python3 scripts/query.py" --type kernel --tag gemm --architecture sm100
+python3 scripts/query.py --type kernel --tag gemm --architecture sm100
 ```
 
 ---
@@ -29,14 +29,14 @@ python3 scripts/query.py" --type kernel --tag gemm --architecture sm100
 
 **Navigation path**:
 1. `queries/by-problem.md` → find "low-sm-utilization" row
-2. Pattern page: `wiki/nvidia/nvidia/patterns/low-sm-utilization.md`
+2. Pattern page: `wiki/nvidia/patterns/low-sm-utilization.md`
 3. Candidate techniques: `technique-persistent-kernels`, `technique-tile-scheduling`, `hw-clc`
-4. Read the CLC page: `wiki/nvidia/nvidia/hardware/clc.md` for code example
+4. Read the CLC page: `wiki/nvidia/hardware/clc.md` for code example
 5. Cite: tcgen05 tutorial showed 86% → 98% with persistent + CLC
 
 **Command**:
 ```bash
-python3 scripts/query.py" --symptom low-sm-utilization
+python3 scripts/query.py --symptom low-sm-utilization
 python3 scripts/get_page.py" pattern-low-sm-utilization
 ```
 
@@ -51,7 +51,7 @@ python3 scripts/get_page.py" pattern-low-sm-utilization
 
 **Command**:
 ```bash
-python3 scripts/query.py" --tag tcgen05 --repo cutlass --limit 30
+python3 scripts/query.py --tag tcgen05 --repo cutlass --limit 30
 python3 scripts/grep_wiki.py" "tcgen05\\.mma" --only sources
 ```
 
@@ -62,7 +62,7 @@ Tip: the `--tag` filter also accepts aliases, so `--tag UMMA` resolves to `tcgen
 ## Example 4: "Show me the FlashAttention-4 implementation details"
 
 **Navigation path**:
-1. Direct: `wiki/nvidia/nvidia/kernels/flash-attention-4.md`
+1. Direct: `wiki/nvidia/kernels/flash-attention-4.md`
 2. Performance: 1605 TFLOPS on B200 BF16 (71% utilization)
 3. Techniques used: ping-pong scheduling, software exp, 2-CTA backward
 4. Follow sources → `sources/docs/flash-attention-4.md` (paper), `sources/blogs/flash-attention-4.md` (Tri Dao blog)
@@ -77,8 +77,8 @@ python3 scripts/get_page.py" kernel-flash-attention-4 --follow-sources
 ## Example 5: "What's the difference between Hopper wgmma and Blackwell tcgen05?"
 
 **Navigation path**:
-1. `wiki/nvidia/nvidia/migration/wgmma-to-tcgen05.md` — dedicated migration guide with `blackwell_relevance` field
-2. `wiki/nvidia/nvidia/hardware/tcgen05-mma.md` — canonical reference for the new instruction
+1. `wiki/nvidia/migration/wgmma-to-tcgen05.md` — dedicated migration guide with `blackwell_relevance` field
+2. `wiki/nvidia/hardware/tcgen05-mma.md` — canonical reference for the new instruction
 3. Contrast with Hopper behavior implicit in the migration page
 
 **Command**:
@@ -99,7 +99,7 @@ python3 scripts/get_page.py" hw-tcgen05-mma
 
 **Command**:
 ```bash
-python3 scripts/query.py" --type contest --tag nvfp4
+python3 scripts/query.py --type contest --tag nvfp4
 python3 scripts/get_page.py" contest-gpumode-p1
 ```
 
@@ -108,13 +108,13 @@ python3 scripts/get_page.py" contest-gpumode-p1
 ## Example 7: "Write a Triton kernel for GatedDeltaNet decode on Blackwell"
 
 **Navigation path**:
-1. `wiki/nvidia/nvidia/kernels/gated-delta-net.md` — conceptual + code
-2. `wiki/nvidia/nvidia/languages/triton-blackwell.md` — current Triton 3.6+ Blackwell lowering surfaces (tcgen05 + TMEM via descriptor/TMA + warp_specialize, `tl.dot_scaled`, Gluon multi-CTA); pre-3.6 historical context preserved in a clearly-marked subsection
+1. `wiki/nvidia/kernels/gated-delta-net.md` — conceptual + code
+2. `wiki/nvidia/languages/triton-blackwell.md` — current Triton 3.6+ Blackwell lowering surfaces (tcgen05 + TMEM via descriptor/TMA + warp_specialize, `tl.dot_scaled`, Gluon multi-CTA); pre-3.6 historical context preserved in a clearly-marked subsection
 3. Source PRs: `pr-vllm-*` for gated_delta, FlashInfer GDN kernels
 
 **Command**:
 ```bash
-python3 scripts/query.py" "gated delta net decode" --language triton
+python3 scripts/query.py "gated delta net decode" --language triton
 ```
 
 ---
@@ -122,13 +122,13 @@ python3 scripts/query.py" "gated delta net decode" --language triton
 ## Example 8: "What are the memory-bound kernel optimization tricks on B200?"
 
 **Navigation path**:
-1. `wiki/nvidia/nvidia/patterns/memory-bound.md` — candidate techniques list
-2. `wiki/nvidia/nvidia/techniques/vectorized-loads.md` — wide loads + cache policies (covers `evict_first` / `no_allocate`)
-3. Best case study: `wiki/nvidia/nvidia/kernels/nvfp4-gemv.md` (2000μs → 22.4μs progression)
+1. `wiki/nvidia/patterns/memory-bound.md` — candidate techniques list
+2. `wiki/nvidia/techniques/vectorized-loads.md` — wide loads + cache policies (covers `evict_first` / `no_allocate`)
+3. Best case study: `wiki/nvidia/kernels/nvfp4-gemv.md` (2000μs → 22.4μs progression)
 
 **Command**:
 ```bash
-python3 scripts/query.py" --symptom memory-bound
+python3 scripts/query.py --symptom memory-bound
 ```
 
 ---
@@ -137,8 +137,8 @@ python3 scripts/query.py" --symptom memory-bound
 
 **Command**:
 ```bash
-python3 scripts/query.py" --repo flashinfer --tag moe --limit 30
-python3 scripts/query.py" --repo flashinfer --tag fp8 --limit 30
+python3 scripts/query.py --repo flashinfer --tag moe --limit 30
+python3 scripts/query.py --repo flashinfer --tag fp8 --limit 30
 python3 scripts/grep_wiki.py" "fp8" "moe" --only sources --files-only
 ```
 
@@ -147,7 +147,7 @@ python3 scripts/grep_wiki.py" "fp8" "moe" --only sources --files-only
 ## Example 10: "What PTX instructions are unique to SM100?"
 
 **Navigation path**:
-1. `wiki/nvidia/nvidia/languages/ptx-sm100.md` — direct reference
+1. `wiki/nvidia/languages/ptx-sm100.md` — direct reference
 2. Cross-reference: tcgen05.alloc/mma/ld/st/dealloc/fence, clusterlaunchcontrol.try_cancel, cp.async.bulk.tensor multicast
 
 **Command**:
@@ -167,8 +167,8 @@ For most questions, a high-quality answer follows this shape:
    → Pull from wiki/<section>/<topic>.md ## Overview
 
 2. Technical mechanism (cite hardware + technique pages)
-   → wiki/nvidia/nvidia/hardware/*.md for hw details
-   → wiki/nvidia/nvidia/techniques/*.md for optimization patterns
+   → wiki/nvidia/hardware/*.md for hw details
+   → wiki/nvidia/techniques/*.md for optimization patterns
 
 3. Concrete code snippet (copy from wiki page, already validated)
    → Every technique/kernel/language page has a compilable snippet
