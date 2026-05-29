@@ -56,7 +56,7 @@ document specifying what to build, where to build it, and what success looks lik
   Then link from skill.md `## Measured Characteristics` section. Never embed a benchmark table inline.
 - **Skill output**: skill.md (required) + pitfalls.md (required) + apis.md (optional, only if skill uses named APIs).
   verified.md is DROPPED in MVP.
-- **Lint before done**: run `python3 -m tools.lint_knowledge --root {knowledge_root}` and fix errors.
+- **Lint before done**: run `python3 scripts/validate.py --root {knowledge_root}` and fix errors.
 
 ## GPU operations
 
@@ -81,7 +81,7 @@ Before running CUDA commands, use `sync_to_gpu` to push your latest code/knowled
    - Sync results back
    - Write the probe record .md under `sources/experience/hw-probes/<insn-slug>/`
 7. **Add ## Measured Characteristics** section to skill.md linking the probe record.
-8. **Run lint**: `python3 -m tools.lint_knowledge --root {knowledge_root}`
+8. **Run lint**: `python3 scripts/validate.py --root {knowledge_root}`
 9. **Report**: list files created, measurements, unresolved issues.
 
 ## When you are stuck

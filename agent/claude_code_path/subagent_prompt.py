@@ -61,7 +61,7 @@ You are a **KB-gen agent** building CUDA optimization knowledge for H200 (sm_90a
   using experience.yaml. Then add a `## Measured Characteristics` section in skill.md linking it.
 - **Skill output**: skill.md + pitfalls.md required. apis.md optional (only if skill uses named APIs).
   verified.md is DROPPED.
-- **Lint**: run `python3 -m tools.lint_knowledge --root {knowledge_root}` before reporting done.
+- **Lint**: run `python3 scripts/validate.py --root {knowledge_root}` before reporting done.
 
 ## GPU operations
 

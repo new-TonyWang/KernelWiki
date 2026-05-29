@@ -30,9 +30,9 @@ Trigger a probe when any of these conditions is true:
 Before writing any experimental code, query the source corpus:
 
 ```bash
-python -m tools.source_corpus.cli search '<api-symbol>' --scope cuda-official
-python -m tools.source_corpus.cli search '<api-symbol>' --scope source-code/cuda-samples
-python -m tools.source_corpus.cli read 'corpus/nvidia/...' --anchor 'L120-L140'
+python3 -m scripts.source_corpus.cli search '<api-symbol>' --scope cuda-official
+python3 -m scripts.source_corpus.cli search '<api-symbol>' --scope source-code/cuda-samples
+python3 -m scripts.source_corpus.cli read 'corpus/nvidia/...' --anchor 'L120-L140'
 ```
 
 Collect every hit as `{path, line_range}` and store it in the probe record's `referenced_in_corpus:` field. If zero hits, mark the probe `kind: undocumented`, write the stub, and stop — ask a human to decide scope.

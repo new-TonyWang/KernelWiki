@@ -53,22 +53,25 @@ def provenance_walk(knowledge_path: str) -> dict:
 
     fm = _read_frontmatter(path)
     refs = []
+    # Read both source: and source_refs:
     for item in fm.get("source", []) or []:
-        source_path = item.get("path", "")
-        source_id = ""
-        try:
-            entry = entry_for_corpus_path(source_path)
-            if entry is not None:
-                source_id = entry.source_id
-        except Exception:
-            source_id = ""
         refs.append(
             ProvenanceRef(
-                path=source_path,
+                path=item.get("path", ""),
                 anchor=item.get("anchor", ""),
                 excerpt=item.get("excerpt", ""),
-                source_id=source_id,
+                source_id="",
                 note=item.get("note", ""),
+            ).to_dict()
+        )
+    for item in fm.get("source_refs", []) or []:
+        refs.append(
+            ProvenanceRef(
+                path=item.get("path", ""),
+                anchor=item.get("anchor", ""),
+                excerpt="",
+                source_id=item.get("source_id", ""),
+                note="",
             ).to_dict()
         )
     return ResponseEnvelope(

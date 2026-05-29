@@ -5,22 +5,47 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from .registry import SOURCE_CORPUS_ROOT
+from .registry import SOURCE_CORPUS_ROOT, load_localize_variables
 
 from .query_types import ResponseEnvelope, SourceHit, SourceReadResult
 from .reader import heading_before_line, read_by_anchor, read_by_section
-from .registry import find_entries, load_manifest, resolve_corpus_path, to_corpus_path
+from .registry import find_entries, load_manifest, resolve_corpus_path
+
+
+def _derive_category(entry) -> str:
+    """Derive a search category from source_id for scoring."""
+    sid = entry.source_id
+    if "cuda-official" in sid or "cuda-official" in entry.aliases:
+        return "cuda-official"
+    if sid.startswith("source-code/"):
+        return "source-code"
+    if "blogs" in sid:
+        return "blogs"
+    if "whitepapers" in sid:
+        return "whitepapers"
+    return sid.split("/")[0] if "/" in sid else "other"
 
 
 def _search_one_root(query: str, root: Path, regex: bool, top_k: int) -> list[tuple[Path, int, str]]:
-    cmd = ["rg", "--follow", "--line-number", "--color", "never", "-m", str(max(top_k * 5, 20))]
-    cmd.append(query if regex else "-F")
-    if not regex:
-        cmd.append(query)
-    cmd.append(str(root))
-    result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    import shutil
+    if shutil.which("rg"):
+        cmd = ["rg", "--follow", "--line-number", "--color", "never",
+               "-m", str(max(top_k * 5, 20)),
+               "--glob", "!.git/"]
+        cmd.append(query if regex else "-F")
+        if not regex:
+            cmd.append(query)
+        cmd.append(str(root))
+    else:
+        cmd = ["grep", "-r", "-n", "--exclude-dir=.git"]
+        if not regex:
+            cmd.extend(["-F", query])
+        else:
+            cmd.append(query)
+        cmd.append(str(root))
+    result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if result.returncode not in (0, 1):
-        raise RuntimeError(result.stderr.strip() or f"rg exit {result.returncode}")
+        raise RuntimeError(result.stderr.strip() or f"search exit {result.returncode}")
 
     rows: list[tuple[Path, int, str]] = []
     for line in result.stdout.splitlines():
@@ -46,7 +71,7 @@ def source_search(
     entries = find_entries(scope=scope)
     if source_types:
         wanted = set(source_types)
-        entries = [entry for entry in entries if entry.source_type in wanted]
+        entries = [e for e in entries if _derive_category(e) in wanted]
     if not entries:
         return ResponseEnvelope(
             ok=False,
@@ -54,11 +79,14 @@ def source_search(
             message=f"no source entries matched scope={scope!r}",
         ).to_dict()
 
+    variables = load_localize_variables()
     hits: list[SourceHit] = []
     for entry in entries:
-        if not entry.local_path.exists():
+        resolved = entry.resolved_path(variables)
+        if not resolved or not resolved.exists():
             continue
-        for abs_path, line_no, text in _search_one_root(query, entry.local_path, regex, top_k):
+        category = _derive_category(entry)
+        for abs_path, line_no, text in _search_one_root(query, resolved, regex, top_k):
             title = heading_before_line(abs_path, line_no)
             score = 1.0
             lowered = text.lower()
@@ -66,15 +94,21 @@ def source_search(
                 score += 0.5
             if title and query.lower() in title.lower():
                 score += 0.5
-            if entry.source_type == "cuda-official":
+            if category == "cuda-official":
                 score += 0.2
-            if entry.source_type == "source-code" and entity_kind in {"operator", "api"}:
+            if category == "source-code" and entity_kind in {"operator", "api"}:
                 score += 0.2
+            # Make path relative to entry root
+            try:
+                rel_path = str(abs_path.relative_to(resolved))
+            except ValueError:
+                rel_path = str(abs_path)
+            hit_path = f"{entry.source_id}/{rel_path}"
             hits.append(
                 SourceHit(
                     source_id=entry.source_id,
-                    source_type=entry.source_type,
-                    path=to_corpus_path(abs_path, entry),
+                    source_type=category,
+                    path=hit_path,
                     anchor=f"L{line_no}-L{line_no}",
                     title=title,
                     line_start=line_no,
@@ -161,7 +195,7 @@ def source_read(
         content = content[:max_chars] + "\n... (truncated)"
 
     result = SourceReadResult(
-        path=path if path.startswith("05-source-corpus/") else path,
+        path=path,
         anchor=effective_anchor,
         title=title,
         content=content,
@@ -179,13 +213,15 @@ def list_sources(
     year: str | None = None,
     limit: int = 50,
 ) -> dict:
-    del year  # reserved for future manifest enrichment
-    entries = find_entries(scope=scope, source_type=source_type)
+    del year
+    entries = find_entries(scope=scope)
+    if source_type:
+        entries = [e for e in entries if _derive_category(e) == source_type]
     items = []
     for entry in entries:
         if keyword:
             haystack = " ".join(
-                [entry.source_id, entry.title, entry.logical_root, *entry.aliases, *entry.tags]
+                [entry.source_id, entry.title, *entry.aliases, *entry.tags]
             ).lower()
             if keyword.lower() not in haystack:
                 continue
@@ -195,9 +231,15 @@ def list_sources(
 
 
 def resolve_source(ref: str) -> dict:
+    variables = load_localize_variables()
     for entry in load_manifest():
-        if ref in {entry.source_id, entry.logical_root, *entry.aliases}:
-            return ResponseEnvelope(ok=True, data=entry.as_dict()).to_dict()
+        if ref in {entry.source_id, *entry.aliases}:
+            resolved = entry.resolved_path(variables)
+            data = entry.as_dict()
+            if resolved:
+                data["resolved_path"] = str(resolved)
+                data["exists"] = resolved.exists()
+            return ResponseEnvelope(ok=True, data=data).to_dict()
 
     resolved = resolve_corpus_path(ref)
     if resolved.exists():
@@ -207,7 +249,6 @@ def resolve_source(ref: str) -> dict:
                 "input": ref,
                 "resolved_path": str(resolved),
                 "exists": True,
-                "under_source_corpus": str(resolved).startswith(str(SOURCE_CORPUS_ROOT)),
             },
         ).to_dict()
 
