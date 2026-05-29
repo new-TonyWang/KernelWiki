@@ -1,6 +1,6 @@
 input_path	output_path	page_id	page_type	vendor	status	reason
-00-foundation/hardware-spec/h200-specs.md	wiki/nvidia/hardware/foundation/h200-specs.md	hw-foundation-h200-specs	hardware	nvidia	migrated	
-00-foundation/hardware-spec/runtime-introspection/README.md	wiki/nvidia/hardware/foundation/README.md			nvidia	skipped	not-found
+00-foundation/hardware-spec/h200-specs.md	wiki/nvidia/hardware/foundation/h200-specs.md	hw-foundation-h200-specs	hardware	nvidia	migrated	foundation
+00-foundation/hardware-spec/runtime-introspection/README.md	wiki/nvidia/hardware/foundation/README.md			nvidia	migrated	foundation
 05-source-corpus/INDEX/README.md	corpus/nvidia/INDEX/README.md			nvidia	skipped	corpus-not-needed
 05-source-corpus/RETRIEVAL.md	corpus/nvidia/RETRIEVAL.md			nvidia	skipped	corpus-not-needed
 05-source-corpus/blogs/colfax/a-case-study-in-cuda-kernel-fusion-implementing-flashattention-2-on-nvidia-hopper-architecture-using-the-cutlass-library/index.md	corpus/nvidia/blogs/colfax/a-case-study-in-cuda-kernel-fusion-implementing-flashattention-2-on-nvidia-hopper-architecture-using-the-cutlass-library/index.md			nvidia	migrated	corpus-tier1
@@ -711,11 +711,11 @@ input_path	output_path	page_id	page_type	vendor	status	reason
 60-code/cutlass-cute/wgmma-atom-decoding/wgmma_skeleton.md	wiki/nvidia/code-walkthroughs/cutlass-cute/wgmma-atom-decoding/wgmma_skeleton.md	code-cutlass-cute-wgmma_skeleton	code-walkthrough	nvidia	migrated	
 60-code/flash-attention-v3/README.md	wiki/nvidia/code-walkthroughs/flash-attention-v3/README.md	code-flash-attention-v3-README	code-walkthrough	nvidia	migrated	
 60-code/flash-attention-v3/tuning.md	wiki/nvidia/code-walkthroughs/flash-attention-v3/tuning.md	code-flash-attention-v3-tuning	code-walkthrough	nvidia	migrated	
-70-reasoning/api-probing.md	reasoning/api-probing.md			nvidia	migrated	
-70-reasoning/benchmark-protocol.md	reasoning/benchmark-protocol.md			nvidia	migrated	
-70-reasoning/bottleneck-triage.md	reasoning/bottleneck-triage.md			nvidia	migrated	
-70-reasoning/hardware-microbench.md	reasoning/hardware-microbench.md			nvidia	migrated	
-70-reasoning/task-packet.md	reasoning/task-packet.md			nvidia	migrated	
+70-reasoning/api-probing.md	reasoning/api-probing.md			nvidia	migrated	reasoning
+70-reasoning/benchmark-protocol.md	reasoning/benchmark-protocol.md			nvidia	migrated	reasoning
+70-reasoning/bottleneck-triage.md	reasoning/bottleneck-triage.md			nvidia	migrated	reasoning
+70-reasoning/hardware-microbench.md	reasoning/hardware-microbench.md			nvidia	migrated	reasoning
+70-reasoning/task-packet.md	reasoning/task-packet.md			nvidia	migrated	reasoning
 80-experience/api-probes/2026-04-16-runtime-ballot-sync.md	sources/experience/api-probes/2026-04-16-runtime-ballot-sync.md	exp-2026-04-16-runtime-ballot-sync	experience	nvidia	migrated	
 80-experience/api-probes/2026-04-16-runtime-ldg.md	sources/experience/api-probes/2026-04-16-runtime-ldg.md	exp-2026-04-16-runtime-ldg	experience	nvidia	migrated	
 80-experience/api-probes/2026-04-16-runtime-shfl-xor-sync.md	sources/experience/api-probes/2026-04-16-runtime-shfl-xor-sync.md	exp-2026-04-16-runtime-shfl-xor-sync	experience	nvidia	migrated	
@@ -781,9 +781,9 @@ input_path	output_path	page_id	page_type	vendor	status	reason
 80-experience/hw-probes/wgmma-ptx/2026-04-28-wgmma-ptx-hello.md	sources/experience/hw-probes/wgmma-ptx.md	exp-wgmma-ptx	experience	nvidia	migrated	
 80-experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md	sources/experience/hw-probes/wgmma-ptx.md	exp-wgmma-ptx	experience	nvidia	migrated	
 80-experience/kernel-records/2026-04-29-gemm-ws-ptx/README.md	sources/experience/kernel-records/2026-04-29-gemm-ws-ptx.md	exp-2026-04-29-gemm-ws-ptx	experience	nvidia	migrated	
-90-system-level/AGENTS.md	wiki/nvidia/foundations/latency/AGENTS.md			nvidia	skipped	system-level-not-mapped
-90-system-level/launch-overhead/apis.md	wiki/nvidia/foundations/latency/apis.md			nvidia	skipped	system-level-not-mapped
-90-system-level/launch-overhead/pitfalls.md	wiki/nvidia/foundations/latency/pitfalls.md			nvidia	skipped	system-level-not-mapped
-90-system-level/launch-overhead/skill.md	wiki/nvidia/foundations/latency/skill.md			nvidia	skipped	system-level-not-mapped
-AGENTS.md	reasoning/AGENTS.md			nvidia	skipped	
-GLOBAL_VARIABLES.md	corpus/GLOBAL_VARIABLES.md			nvidia	migrated	
+90-system-level/AGENTS.md				nvidia	skipped	system-level-not-mapped
+90-system-level/launch-overhead/apis.md				nvidia	skipped	system-level-not-mapped
+90-system-level/launch-overhead/pitfalls.md				nvidia	skipped	system-level-not-mapped
+90-system-level/launch-overhead/skill.md				nvidia	skipped	system-level-not-mapped
+AGENTS.md	reasoning/AGENTS.md			nvidia	migrated	top-level
+GLOBAL_VARIABLES.md	corpus/GLOBAL_VARIABLES.md			nvidia	migrated	top-level

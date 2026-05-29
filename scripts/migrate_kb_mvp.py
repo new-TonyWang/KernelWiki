@@ -283,7 +283,6 @@ def main():
                    "50-classical-algo", "60-code", "80-experience"}
     # Non-mapped status table for complete coverage
     skip_map = {
-        "05-source-corpus": ("skipped", "corpus-tier1"),
         "70-reasoning": ("migrated", "reasoning"),
         "90-system-level": ("skipped", "system-level-not-mapped"),
         "00-foundation": ("migrated", "foundation"),
@@ -296,6 +295,15 @@ def main():
 
         if top in mapped_dirs:
             target, status, reason = migrate_file(src_file, src_root, inventory, dry_run=args.dry_run)
+        elif top == "05-source-corpus":
+            # Corpus files: map to corpus/nvidia/ target with status based on existence
+            corpus_rel = str(src_rel).replace("05-source-corpus/", "")
+            target = f"corpus/nvidia/{corpus_rel}"
+            target_path = REPO_ROOT / target
+            if target_path.exists():
+                status, reason = "migrated", "corpus-tier1"
+            else:
+                status, reason = "skipped", "corpus-not-needed"
         elif top in skip_map:
             status, reason = skip_map[top]
             target = ""
@@ -349,7 +357,8 @@ def main():
     if args.output_tsv:
         tsv_path = REPO_ROOT / args.output_tsv
     elif args.dry_run:
-        tsv_path = REPO_ROOT / "migration_inventory_dryrun.tsv"
+        import tempfile
+        tsv_path = Path(tempfile.mkdtemp()) / "migration_inventory_dryrun.tsv"
     else:
         tsv_path = REPO_ROOT / "migration_inventory.tsv"
     with open(tsv_path, "w", encoding="utf-8") as f:

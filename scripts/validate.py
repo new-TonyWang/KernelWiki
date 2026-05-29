@@ -1439,6 +1439,32 @@ def validate_bundle(bundle_root, known_source_ids):
     return errors
 
 
+def _resolve_source_ref(full_ref: str):
+    """Resolve a source_refs path like 'source_id/relative/path' using the
+    source-corpus registry. Returns Path if resolved, None if unresolvable
+    (e.g., external without localize.yaml)."""
+    try:
+        sys.path.insert(0, str(REPO_ROOT))
+        from scripts.source_corpus.registry import (
+            resolve_corpus_path, load_manifest, load_localize_variables, PLACEHOLDER_RE,
+        )
+        # Check if this is an external entry that can't be resolved
+        manifest = load_manifest()
+        sid = full_ref.split("/")[0]
+        # Try matching the full source_id (may contain slashes)
+        for entry in manifest:
+            if full_ref.startswith(entry.source_id + "/") or full_ref == entry.source_id:
+                if PLACEHOLDER_RE.search(entry.local_path):
+                    variables = load_localize_variables()
+                    resolved_entry = entry.resolved_path(variables)
+                    if resolved_entry is None:
+                        return None  # External, no localize.yaml
+                break
+        return resolve_corpus_path(full_ref)
+    except ImportError:
+        return None  # Registry not available
+
+
 def main():
     tags = load_yaml_file(DATA_DIR / "tags.yaml")
     schemas = load_yaml_file(DATA_DIR / "schemas.yaml")
@@ -1530,37 +1556,18 @@ def main():
                                 f"{rel_path}: source_refs path "
                                 f"'{rpath}' is absolute; must be source-root-relative"
                             )
-                        # Resolve path through manifest entries
-                        if manifest_entries:
-                            for me in manifest_entries:
-                                if me.get("source_id") == sid:
-                                    tier = me.get("tier", "")
-                                    lp = me.get("local_path", "")
-                                    if tier == "in-git":
-                                        resolved = REPO_ROOT / "corpus" / lp / rpath
-                                        if not resolved.exists():
-                                            all_errors.append(
-                                                f"{rel_path}: source_refs[{i}] "
-                                                f"path '{rpath}' not found under "
-                                                f"in-git source '{sid}'"
-                                            )
-                                    elif tier == "external":
-                                        # Check if localize.yaml exists for external resolution
-                                        localize_path = REPO_ROOT / "corpus" / "localize.yaml"
-                                        if localize_path.exists():
-                                            try:
-                                                from scripts.source_corpus.registry import resolve_corpus_path
-                                                full = f"{sid}/{rpath}"
-                                                resolved = resolve_corpus_path(full)
-                                                if not resolved.exists():
-                                                    all_errors.append(
-                                                        f"{rel_path}: source_refs[{i}] "
-                                                        f"path '{rpath}' not found under "
-                                                        f"localized external source '{sid}'"
-                                                    )
-                                            except Exception:
-                                                pass  # Registry not importable — skip
-                                    break
+                        # Unified path resolution through source-corpus registry
+                        if sid in manifest_source_ids:
+                            full_ref = f"{sid}/{rpath}"
+                            resolved = _resolve_source_ref(full_ref)
+                            if resolved is None:
+                                # Unresolvable (external without localize.yaml)
+                                pass  # AC-1 tier-2 warning handled below
+                            elif not resolved.exists():
+                                all_errors.append(
+                                    f"{rel_path}: source_refs[{i}] "
+                                    f"path '{rpath}' not found under source '{sid}'"
+                                )
 
             # AC-5: Validate related: entries point to existing page IDs
             if fm and isinstance(fm, dict) and "related" in fm:
