@@ -14,20 +14,20 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/occupancy-sweep/artifacts/occupancy_sweep_probe.cu
+  code: sources/experience/hw-probes/occupancy-sweep/artifacts/occupancy_sweep_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o occupancy_sweep_probe
     occupancy_sweep_probe.cu
-  introspection: 80-experience/hw-probes/occupancy-sweep/h200_device_static.json
+  introspection: sources/experience/hw-probes/occupancy-sweep/h200_device_static.json
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1082-L1134
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   line_range: L3824-L3960
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   line_range: L16918-L17230
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture
     Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
   line_range: L30-L42
 - path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/0_Introduction/simpleOccupancy/simpleOccupancy.cu'
@@ -167,7 +167,7 @@ Data size: 64M float elements (256 MB per buffer). 5 warmup + 20 measured launch
 
 ## Introspection
 
-Device static info from `kp_introspect device-static`: `80-experience/hw-probes/occupancy-sweep/h200_device_static.json`
+Device static info from `kp_introspect device-static`: `sources/experience/hw-probes/occupancy-sweep/h200_device_static.json`
 
 Key H200 specs: 132 SMs, 65536 regs/SM, 2048 max threads/SM, 64 max warps/SM, 32 max blocks/SM, 233472 bytes shared mem/SM.
 

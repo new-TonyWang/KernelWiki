@@ -89,10 +89,10 @@ This file lists the APIs touched by the warp-primitives skill. Each entry record
 
 ## Related Probes
 
-- [`__any_sync`](../../../80-experience/api-probes/2026-04-17-runtime-any-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__shfl_xor_sync`](../../../80-experience/api-probes/2026-04-16-runtime-shfl-xor-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__all_sync`](../../../80-experience/api-probes/2026-04-17-runtime-all-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__ballot_sync`](../../../80-experience/api-probes/2026-04-16-runtime-ballot-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__shfl_down_sync`](../../../80-experience/api-probes/2026-04-17-runtime-shfl-down-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__shfl_sync`](../../../80-experience/api-probes/2026-04-17-runtime-shfl-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__shfl_up_sync`](../../../80-experience/api-probes/2026-04-17-runtime-shfl-up-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__any_sync`](../../../sources/experience/api-probes/2026-04-17-runtime-any-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__shfl_xor_sync`](../../../sources/experience/api-probes/2026-04-16-runtime-shfl-xor-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__all_sync`](../../../sources/experience/api-probes/2026-04-17-runtime-all-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__ballot_sync`](../../../sources/experience/api-probes/2026-04-16-runtime-ballot-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__shfl_down_sync`](../../../sources/experience/api-probes/2026-04-17-runtime-shfl-down-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__shfl_sync`](../../../sources/experience/api-probes/2026-04-17-runtime-shfl-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__shfl_up_sync`](../../../sources/experience/api-probes/2026-04-17-runtime-shfl-up-sync.md) — end-to-end example, build command, and H200 measurement. See probe record.

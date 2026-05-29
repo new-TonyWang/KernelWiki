@@ -161,5 +161,5 @@ signature: See documentation
 
 ## Related Probes
 
-- [80-experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md](../../../80-experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md) — 10-variant SASS-audited probe. Load-bearing findings: `fmaxf` is 1.56× the `if/else` form, `fabsf` is 2.36×, `cond-arith` is 1.27× *slower* than the ternary form.
-- [80-experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md](../../../80-experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md) — the real-divergence cost companion measurement.
+- [sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md](../../../sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md) — 10-variant SASS-audited probe. Load-bearing findings: `fmaxf` is 1.56× the `if/else` form, `fabsf` is 2.36×, `cond-arith` is 1.27× *slower* than the ternary form.
+- [sources/experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md](../../../sources/experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md) — the real-divergence cost companion measurement.

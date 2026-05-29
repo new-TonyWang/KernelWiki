@@ -5,7 +5,7 @@ vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/cutlass-cute
 ---
-# 60-code/cutlass-cute/example48-hopper-warp-specialized-gemm
+# wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm
 
 This directory is a CUTLASS reading guide for:
 
@@ -15,7 +15,7 @@ examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
 
 It explains the example as one complete Hopper GEMM, not as separate TMA and warp-specialization topics. The runnable artifact for this path lives at:
 
-- `80-experience/api-probes/gemm/artifacts/gemm_aligned.cu`
+- `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu`
 
 No buildable code lives here.
 
@@ -37,9 +37,9 @@ Read this directory when you want to understand the source file's structure: how
 ## What Belongs Elsewhere
 
 - WGMMA atom name decoding: `../wgmma-atom-decoding/`
-- TMA hardware concept and pitfalls: `40-hardware-feature/tma/`
-- Warp-specialization as a general algorithm: `50-classical-algo/warp-specialization/`
-- Performance probes and measured evidence: `80-experience/api-probes/gemm/`
+- TMA hardware concept and pitfalls: `wiki/nvidia/hardware/tma/`
+- Warp-specialization as a general algorithm: `wiki/nvidia/techniques/warp-specialization/`
+- Performance probes and measured evidence: `sources/experience/api-probes/gemm/`
 
 ## File Map
 
@@ -53,8 +53,8 @@ Read this directory when you want to understand the source file's structure: how
 
 ## Cross-references
 
-- Aligned GEMM probe: `80-experience/api-probes/gemm/2026-04-28-gemm-aligned.md`
-- TMA counters: `80-experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md`
-- WGMMA counters: `80-experience/api-probes/gemm/2026-04-28-wgmma-counters.md`
-- Warp-specialization ablation: `80-experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md`
+- Aligned GEMM probe: `sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md`
+- TMA counters: `sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md`
+- WGMMA counters: `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md`
+- Warp-specialization ablation: `sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md`
 - Upstream (pinned): `cutlass@f74fea9c` (`{{CUTLASS_REPO_REF}}`)

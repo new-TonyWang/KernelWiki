@@ -14,18 +14,18 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/api-probes/artifacts/__any_sync_probe.cu
+  code: sources/experience/api-probes/artifacts/__any_sync_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __any_sync_probe __any_sync_probe.cu
   introspection: ''
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L23864-L23895
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L24197-L24217
-- path: 05-source-corpus/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
   line_range: L46-L80
 source:
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
@@ -51,7 +51,7 @@ conclusions:
   baseline_ms: null
   ratio: null
 back_filled_into:
-- 10-api-raw/runtime/__any_sync.md
+- wiki/nvidia/api-definitions/runtime/__any_sync.md
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
 - Baseline is a CPU OR-reduction check (correctness reference only, not a GPU timing
@@ -182,7 +182,7 @@ Configuration: N = 1024 threads (32 warps), grid = 4, block = 256. 5 warmup laun
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1024 | int32 | 0.005024 | 0.004832 | 0.005376 | cpu-or-reduction-check | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/__any_sync_probe.cu && /tmp/p` |
+| 1024 | int32 | 0.005024 | 0.004832 | 0.005376 | cpu-or-reduction-check | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__any_sync_probe.cu && /tmp/p` |
 
 ## Introspection
 

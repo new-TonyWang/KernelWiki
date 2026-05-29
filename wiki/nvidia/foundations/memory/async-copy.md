@@ -39,7 +39,7 @@ source:
     memory, skipping the register file. Benefits: free up registers for compute, reduce
     L1 traffic, reduce MIO pressure.'
 artifacts:
-  code: 80-experience/hw-probes/async-copy/artifacts/async_copy_probe.cu
+  code: sources/experience/hw-probes/async-copy/artifacts/async_copy_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o async_copy_probe async_copy_probe.cu
   introspection: ''
   profile: ''
@@ -292,4 +292,4 @@ Key differences from LDGSTS:
 
 ## Measured Characteristics
 
-- [async-copy-2stage bandwidth probe](../../80-experience/hw-probes/async-copy/2026-04-16-async-copy.md): On H200 (sm_90a, CUDA 12.9), a **vanilla elementwise kernel** (`c[i] = a[i] * b[i]`, N=256M floats) achieved **3654 GB/s** (median 0.8815 ms). A **2-stage LDGSTS prefetch version** using `__pipeline_memcpy_async` achieved **3295 GB/s** (median 0.9775 ms), approximately **10% slower**. This confirms the GTC guidance: for trivially simple compute, the shared memory staging overhead outweighs the latency-hiding benefit. The async approach delivers significant uplift only with heavier compute intensity or iterative kernels with genuine prefetch opportunities.
+- [async-copy-2stage bandwidth probe](../../sources/experience/hw-probes/async-copy/2026-04-16-async-copy.md): On H200 (sm_90a, CUDA 12.9), a **vanilla elementwise kernel** (`c[i] = a[i] * b[i]`, N=256M floats) achieved **3654 GB/s** (median 0.8815 ms). A **2-stage LDGSTS prefetch version** using `__pipeline_memcpy_async` achieved **3295 GB/s** (median 0.9775 ms), approximately **10% slower**. This confirms the GTC guidance: for trivially simple compute, the shared memory staging overhead outweighs the latency-hiding benefit. The async approach delivers significant uplift only with heavier compute intensity or iterative kernels with genuine prefetch opportunities.

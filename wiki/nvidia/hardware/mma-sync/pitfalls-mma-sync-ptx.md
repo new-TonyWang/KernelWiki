@@ -44,4 +44,4 @@ title: Pitfalls
 
 **Trigger**: Loading A/B from smem via `smem[thread_offset]` into registers and passing to mma.sync without the ldmatrix transpose.
 
-**Mitigation**: Use `ldmatrix` (see `40-hardware-feature/ldmatrix-ptx/skill.md`) to load from smem — it performs the cross-lane shuffle needed by mma.sync in hardware.
+**Mitigation**: Use `ldmatrix` (see `wiki/nvidia/hardware/ldmatrix-ptx/skill.md`) to load from smem — it performs the cross-lane shuffle needed by mma.sync in hardware.

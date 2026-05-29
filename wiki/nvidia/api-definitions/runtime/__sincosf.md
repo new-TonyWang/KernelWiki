@@ -27,7 +27,7 @@ title: __Sincosf
 ---
 # __sincosf
 
-<!-- Auto-seeded stub from `probe_loop seed-stubs`. Agent must probe this API following `70-reasoning/api-probing.md` and fill the `signature`, body sections, and artifacts. -->
+<!-- Auto-seeded stub from `probe_loop seed-stubs`. Agent must probe this API following `reasoning/api-probing.md` and fill the `signature`, body sections, and artifacts. -->
 
 ## Semantics (TBD)
 

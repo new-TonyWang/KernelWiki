@@ -13,7 +13,7 @@ vendor: nvidia
 
 **Detection**: Compile with `-Xptxas=-v` and check for non-zero "spill stores" and "spill loads". Also check `cudaFuncGetAttributes` for `localSizeBytes > 0`.
 
-**Measured example**: On H200, a 48-accumulator kernel at `--maxrregcount=32` showed 660 bytes spill stores + 784 bytes spill loads per thread, causing a 4.84x slowdown despite doubling occupancy from 50% to 100% (see [probe record](../../80-experience/hw-probes/register-pressure/2026-04-15-register-pressure.md)).
+**Measured example**: On H200, a 48-accumulator kernel at `--maxrregcount=32` showed 660 bytes spill stores + 784 bytes spill loads per thread, causing a 4.84x slowdown despite doubling occupancy from 50% to 100% (see [probe record](../../sources/experience/hw-probes/register-pressure/2026-04-15-register-pressure.md)).
 
 **Fix**: Remove or increase the `--maxrregcount` value. Use `-Xptxas=-v` to find the natural register count, then set the cap at or above that value. Alternatively, use `__launch_bounds__` which lets the compiler make occupancy-aware decisions rather than imposing a hard cap.
 

@@ -14,18 +14,18 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/half2-throughput/artifacts/half2_throughput_probe.cu
-  build: 80-experience/hw-probes/half2-throughput/artifacts/build.sh
-  introspection: 80-experience/hw-probes/half2-throughput/artifacts/device.json
+  code: sources/experience/hw-probes/half2-throughput/artifacts/half2_throughput_probe.cu
+  build: sources/experience/hw-probes/half2-throughput/artifacts/build.sh
+  introspection: sources/experience/hw-probes/half2-throughput/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/half2-throughput/2026-04-23/half2_throughput.ncu-rep
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/half2-throughput/2026-04-23/ncu_metrics.csv
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/half2-throughput/2026-04-23/run.log
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1370-L1440
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L25350-L25420
 source:
@@ -82,14 +82,14 @@ open_questions:
   would give per-variant Compute SOL / instruction mix. Wall-clock remains authoritative.
 - Transcendentals (hexp, h2exp, hlog, h2log, hrsqrt, h2rsqrt, tanh.approx.f16/bf16)
   NOT measured in this probe. Legacy pitfall P10 flags that `h2exp` may decompose
-  into fp32 ops on some architectures; H200 coverage is an open follow-up (`80-experience/hw-probes/half-transcendental/`,
+  into fp32 ops on some architectures; H200 coverage is an open follow-up (`sources/experience/hw-probes/half-transcendental/`,
   open).
 - __hfma2_relu (fused FMA+relu) NOT measured. Legacy Skill 5 / pitfall P11 claim 4%
   instruction reduction but no wall-clock benefit in memory-bound kernels. Confirm/refute
-  on H200 in a follow-up (`80-experience/hw-probes/half-fma-relu/`, open).
+  on H200 in a follow-up (`sources/experience/hw-probes/half-fma-relu/`, open).
 - Atomic fp16/bf16 add NOT measured. Legacy pitfall P12 claims native fp16 atomicAdd
   has worse contention than fp32 atomicAdd. half-precision-math skill retains this
-  as inferred; see `80-experience/hw-probes/atomic-reduction-contention/` (smem-tile-reuse
+  as inferred; see `sources/experience/hw-probes/atomic-reduction-contention/` (smem-tile-reuse
   / earlier probe measured fp32 only).
 id: exp-half2-throughput
 type: experience
@@ -98,7 +98,7 @@ title: 2026 04 23 Half2 Throughput
 ---
 ## Summary
 
-This probe backs the compute-throughput claims in [30-skill/compute/half-precision-math/skill.md](../../../30-skill/compute/half-precision-math/skill.md) by sweeping five FMA variants — fp32 scalar, fp16 scalar, fp16 packed (`__hfma2`), bf16 scalar, bf16 packed — in a compute-bound 4-chain ILP harness on H200 sm_9.0a. The legacy skill makes two canonical claims worth re-measuring on H200:
+This probe backs the compute-throughput claims in [wiki/nvidia/foundations/compute/half-precision-math/skill.md](../../../wiki/nvidia/foundations/compute/half-precision-math/skill.md) by sweeping five FMA variants — fp32 scalar, fp16 scalar, fp16 packed (`__hfma2`), bf16 scalar, bf16 packed — in a compute-bound 4-chain ILP harness on H200 sm_9.0a. The legacy skill makes two canonical claims worth re-measuring on H200:
 
 1. **"`__hfma2` gives 2× throughput over `__hfma`"** (Skill 1). Measured on H200: only **1.16×**. The "2× from packing" framing is largely false on sm_9.0a — scalar `__hfma` already runs faster than scalar `fmaf` (1.58× measured), and the additional packing only gains 16% more.
 2. **"bf16 packed has equal throughput to fp16 packed"** (Skill 2). Measured: **bf16 packed is 12% slower than fp16 packed** (46.5 vs 52.6 TFLOPS scalar-equivalent). Scalar bf16 and fp16 are identical at ~45 TFLOPS, so the fp16x2 and bf16x2 packed pipelines differ on H200.

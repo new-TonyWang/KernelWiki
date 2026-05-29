@@ -14,20 +14,20 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu
+  code: sources/experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe
     cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu
   introspection: ''
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   line_range: L3862-L3920
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   line_range: L3824-L3858
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture
     Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
   line_range: L30-L42
-- path: 05-source-corpus/source-code/cuda-samples/Samples/0_Introduction/simpleOccupancy/simpleOccupancy.cu
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleOccupancy/simpleOccupancy.cu
   line_range: L77-L122
 source:
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
@@ -51,7 +51,7 @@ conclusions:
   baseline_ms: 6.85e-05
   ratio: 0.9
 back_filled_into:
-- 10-api-raw/runtime/cudaOccupancyMaxActiveBlocksPerMultiprocessor.md
+- wiki/nvidia/api-definitions/runtime/cudaOccupancyMaxActiveBlocksPerMultiprocessor.md
 open_questions:
 - clock_policy is unknown — GPU clocks were not locked during measurement; host-side
   API latency is CPU-bound so clock policy has limited effect, but the kernel launch/memcpy
@@ -129,7 +129,7 @@ fma_chain(const float* __restrict__ A, const float* __restrict__ B,
 ```bash
 nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v \
      -o cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe \
-     knowledge/80-experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu
+     sources/experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu
 ```
 
 ptxas output: `fma_chain`: 56 regs, 0 bytes spill stores, 0 bytes spill loads.
@@ -140,11 +140,11 @@ Host-side API call latency. Each sample = 1000 back-to-back API calls; 20 sample
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| bs=64, dynSmem=0 | api-call | 0.0000684 | 0.0000642 | 0.0000884 | host-chrono bs=1024 | 0.0000685 | 1.00 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
-| bs=128, dynSmem=0 | api-call | 0.0000758 | 0.0000750 | 0.0000758 | host-chrono bs=1024 | 0.0000685 | 0.90 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
-| bs=256, dynSmem=0 | api-call | 0.0000760 | 0.0000643 | 0.0000772 | host-chrono bs=1024 | 0.0000685 | 0.90 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
-| bs=512, dynSmem=0 | api-call | 0.0000684 | 0.0000684 | 0.0000687 | host-chrono bs=1024 | 0.0000685 | 1.00 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
-| bs=1024, dynSmem=0 | api-call | 0.0000685 | 0.0000685 | 0.0000688 | host-chrono bs=1024 | 0.0000685 | 1.00 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
+| bs=64, dynSmem=0 | api-call | 0.0000684 | 0.0000642 | 0.0000884 | host-chrono bs=1024 | 0.0000685 | 1.00 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
+| bs=128, dynSmem=0 | api-call | 0.0000758 | 0.0000750 | 0.0000758 | host-chrono bs=1024 | 0.0000685 | 0.90 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
+| bs=256, dynSmem=0 | api-call | 0.0000760 | 0.0000643 | 0.0000772 | host-chrono bs=1024 | 0.0000685 | 0.90 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
+| bs=512, dynSmem=0 | api-call | 0.0000684 | 0.0000684 | 0.0000687 | host-chrono bs=1024 | 0.0000685 | 1.00 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
+| bs=1024, dynSmem=0 | api-call | 0.0000685 | 0.0000685 | 0.0000688 | host-chrono bs=1024 | 0.0000685 | 1.00 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu && /tmp/p` |
 
 Units: `latency_ms_*` is per-call host latency in **milliseconds** (0.0000760 ms = 0.076 µs). Single-call resolution is below std::chrono's useful precision; the table reports the batch-normalized mean per sample.
 
@@ -188,7 +188,7 @@ With bs=256, numBlocks=4, grid=528 → 135 168 threads. The kernel launch return
 
 ## Introspection
 
-No `kp_introspect kernel-static` bundle was generated in this probe (cuda-python not available in the H200 shell environment). Device static facts used by this probe are sourced from `cudaGetDeviceProperties` at runtime: 132 SMs, 65536 regs/SM, 2048 max threads/SM, 64 max warps/SM, 32 max blocks/SM. These match the occupancy-sweep skill record (`80-experience/hw-probes/occupancy-sweep/h200_device_static.json`).
+No `kp_introspect kernel-static` bundle was generated in this probe (cuda-python not available in the H200 shell environment). Device static facts used by this probe are sourced from `cudaGetDeviceProperties` at runtime: 132 SMs, 65536 regs/SM, 2048 max threads/SM, 64 max warps/SM, 32 max blocks/SM. These match the occupancy-sweep skill record (`sources/experience/hw-probes/occupancy-sweep/h200_device_static.json`).
 
 ## Notes
 
@@ -200,9 +200,9 @@ No `kp_introspect kernel-static` bundle was generated in this probe (cuda-python
 
 - **Cross-check with hardware model**. With 56 regs/thread, the per-SM register ceiling is `65536 / 56 = 1170` threads. The register-allocation granularity (rounded to 256 per warp) makes actual allocation 1792 regs/warp = 56 × 32 rounded to multiple of 256 = 1792. So effective threads/SM ≤ 32 warps/SM × 32 lanes = 1024 — matching the API's prediction for bs=1024 (1 block) and bs=512 (2 blocks). For bs=64 the API returns 18 blocks × 64 = 1152 threads (36 warps), consistent with the register-limited formula `floor(65536 / (56*32)) warps = 36` rounded to block-size-aware count.
 
-- **Host call latency**. Measured 0.06–0.09 µs per call on H200 + CUDA 12.9. This is well below a typical kernel launch (~5–10 µs) and small enough to call once per operator at init time. Do NOT call it inside a hot path — the skill `30-skill/compute/occupancy-tuning/skill.md` already warns against this.
+- **Host call latency**. Measured 0.06–0.09 µs per call on H200 + CUDA 12.9. This is well below a typical kernel launch (~5–10 µs) and small enough to call once per operator at init time. Do NOT call it inside a hot path — the skill `wiki/nvidia/foundations/compute/occupancy-tuning/skill.md` already warns against this.
 
-- **Reference probe exists**. The earlier skill-build probe at `80-experience/hw-probes/occupancy-sweep/2026-04-16-occupancy-tuning.md` uses this exact API across block sizes on a kernel with identical register pressure and reports the same numBlocks table — this probe therefore also serves as a regression check of that prior data.
+- **Reference probe exists**. The earlier skill-build probe at `sources/experience/hw-probes/occupancy-sweep/2026-04-16-occupancy-tuning.md` uses this exact API across block sizes on a kernel with identical register pressure and reports the same numBlocks table — this probe therefore also serves as a regression check of that prior data.
 
 - **CUDA Samples reference**. `simpleOccupancy.cu` (L77-L122) demonstrates idiomatic use: query the API, derive active warps, and print theoretical occupancy alongside the achieved measured occupancy via `cudaEventElapsedTime` and flops/time math. That sample is the direct template for the `Launch + correctness` block of this probe.
 

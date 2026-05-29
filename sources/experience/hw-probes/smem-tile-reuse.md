@@ -14,21 +14,21 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/smem-tile-reuse/artifacts/smem_tile_reuse_probe.cu
-  build: 80-experience/hw-probes/smem-tile-reuse/artifacts/build.sh
-  introspection: 80-experience/hw-probes/smem-tile-reuse/artifacts/device.json
+  code: sources/experience/hw-probes/smem-tile-reuse/artifacts/smem_tile_reuse_probe.cu
+  build: sources/experience/hw-probes/smem-tile-reuse/artifacts/build.sh
+  introspection: sources/experience/hw-probes/smem-tile-reuse/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/smem-tile-reuse/2026-04-21/smem_tile_reuse.ncu-rep
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/smem-tile-reuse/2026-04-21/run.log
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/smem-tile-reuse/2026-04-21/ncu_metrics.csv
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L719-L732
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L1484-L1540
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L4094-L4130
 source:
@@ -67,10 +67,10 @@ open_questions:
   be retaken under locked clocks.
 - 'Only the S2 sub-skill (coalescing transform via smem) was probed. S1 (in-block
   temporal reuse: e.g. tiled GEMM with A-row reuse across the tile) is a separate
-  probe under `80-experience/hw-probes/smem-tile-reuse-gemm/` (open).'
+  probe under `sources/experience/hw-probes/smem-tile-reuse-gemm/` (open).'
 - 'S3 (dynamic vs static smem cost) and S4 (carveout sweep) are not yet probed. Legacy
-  pitfalls P9-P11 are therefore still anecdotal. Open: `80-experience/hw-probes/smem-carveout-sweep/`.'
-- 'bf16 variant of the padded-transpose kernel is open (T3/T4 seed tasks in `20-pattern/cuda-core/transpose/TASK-PACKET.md`,
+  pitfalls P9-P11 are therefore still anecdotal. Open: `sources/experience/hw-probes/smem-carveout-sweep/`.'
+- 'bf16 variant of the padded-transpose kernel is open (T3/T4 seed tasks in `wiki/nvidia/operator-routing/cuda-core/transpose/TASK-PACKET.md`,
   pending layout-transform migration). Expectation: half the bytes per warp, so `[TILE][TILE+1]`
   may no longer be strictly optimal — `[TILE][TILE+2]` or swizzle may dominate.'
 id: exp-smem-tile-reuse
@@ -80,7 +80,7 @@ title: 2026 04 21 Smem Tile Reuse
 ---
 ## Summary
 
-This probe validates sub-skill **S2 "coalescing transform via shared memory"** from [30-skill/memory/shared-memory-cache/skill.md](../../../30-skill/memory/shared-memory-cache/skill.md). The worked example in CUDA C++ Programming Guide §2.2.4.2.1 (L1484-L1540) — "Matrix Transpose Example Using Shared Memory" — claims that staging the tile through `__shared__ float smem[32][32]` converts a non-coalesced transposed-store kernel into one with coalesced stores on both sides. The guide also warns that the staged layout is vulnerable to 32-way shared-memory bank conflicts on the column read, and that declaring `[TILE][TILE+1]` breaks the conflict. This probe measures both effects end-to-end on an H200.
+This probe validates sub-skill **S2 "coalescing transform via shared memory"** from [wiki/nvidia/foundations/memory/shared-memory-cache/skill.md](../../../wiki/nvidia/foundations/memory/shared-memory-cache/skill.md). The worked example in CUDA C++ Programming Guide §2.2.4.2.1 (L1484-L1540) — "Matrix Transpose Example Using Shared Memory" — claims that staging the tile through `__shared__ float smem[32][32]` converts a non-coalesced transposed-store kernel into one with coalesced stores on both sides. The guide also warns that the staged layout is vulnerable to 32-way shared-memory bank conflicts on the column read, and that declaring `[TILE][TILE+1]` breaks the conflict. This probe measures both effects end-to-end on an H200.
 
 Three kernels transpose a 4096×4096 fp32 matrix (64 MB per side, 128 MB of HBM traffic counting read + write):
 

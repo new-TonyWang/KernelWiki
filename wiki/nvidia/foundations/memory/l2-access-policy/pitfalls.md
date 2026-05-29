@@ -1,7 +1,7 @@
 ---
 title: L2 Access Policy — Pitfalls
 status: verified
-related_skill: 30-skill/memory/l2-access-policy/skill.md
+related_skill: wiki/nvidia/foundations/memory/l2-access-policy/skill.md
 source:
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L4094-L4170
@@ -10,12 +10,12 @@ source:
   anchor: L1561-L1610
   excerpt: BP §10.2.2 usage guidance + warnings.
 experience_refs:
-- 80-experience/hw-probes/l2-residency/2026-04-23-l2-residency.md
+- sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md
 id: pitfall-l2-access-policy
 type: pitfall
 vendor: nvidia
 ---
-Legacy P1–P5 came from L3-sandbox verification on pre-H200 hardware (A100 unless noted). P6–P10 are L3-sandbox findings copied from the legacy KB and annotated with the current H200 measurement where the probe touches them. "**Measured on H200 sm_9.0a**" tags indicate pitfalls validated by [80-experience/hw-probes/l2-residency/](../../80-experience/hw-probes/l2-residency/).
+Legacy P1–P5 came from L3-sandbox verification on pre-H200 hardware (A100 unless noted). P6–P10 are L3-sandbox findings copied from the legacy KB and annotated with the current H200 measurement where the probe touches them. "**Measured on H200 sm_9.0a**" tags indicate pitfalls validated by [sources/experience/hw-probes/l2-residency/](../../sources/experience/hw-probes/l2-residency/).
 
 ## P1. `hitRatio = 1.0` thrashes silently when `num_bytes > set_aside`
 
@@ -40,7 +40,7 @@ cudaCtxResetPersistingL2Cache();
 
 ## P4. Concurrent streams compete for the set-aside
 
-**Symptom**: Two concurrent streams with persisting windows evict each other's data. **Detection**: Both kernels show lower L2 hit rates than when run alone. **Fix**: Reduce `hitRatio` for each stream (e.g. 0.5 and 0.5 for two equal streams) so the **sum** of pinned footprints fits the set-aside. Alternatively, schedule them serially on one stream. **Not re-measured on H200** — the current probe is single-stream. Follow-up: `80-experience/hw-probes/l2-residency-contended/` (open). **Source**: PG §4.13.6 (Manage Utilization of L2 Set-Aside Cache).
+**Symptom**: Two concurrent streams with persisting windows evict each other's data. **Detection**: Both kernels show lower L2 hit rates than when run alone. **Fix**: Reduce `hitRatio` for each stream (e.g. 0.5 and 0.5 for two equal streams) so the **sum** of pinned footprints fits the set-aside. Alternatively, schedule them serially on one stream. **Not re-measured on H200** — the current probe is single-stream. Follow-up: `sources/experience/hw-probes/l2-residency-contended/` (open). **Source**: PG §4.13.6 (Manage Utilization of L2 Set-Aside Cache).
 
 ## P5. `num_bytes` exceeds `accessPolicyMaxWindowSize`
 
@@ -56,7 +56,7 @@ cudaCtxResetPersistingL2Cache();
 
 ## P8. Single-kernel microbench cannot demonstrate the "pinning" benefit
 
-**Symptom**: Probe or benchmark shows no wall-clock difference between "policy on" and "policy off" even when WS ≤ set_aside. **Detection**: Your harness has no concurrent workload to create eviction pressure on the hot buffer. LRU already keeps it resident for the duration of a single kernel. **Fix**: Either (a) accept that the window is a pure insurance policy in single-kernel mode (no measurable benefit but no cost either below set-aside), or (b) design a multi-kernel harness that touches competing memory between passes. Follow-up probe `80-experience/hw-probes/l2-residency-contended/` (open). **Measured on H200 sm_9.0a**: WS=40 MiB soft-null directly confirms this pitfall — legacy P8 upgraded from inferred to measured. **Source**: Level-3 sandbox verification (2026-04-05); probe 2026-04-23.
+**Symptom**: Probe or benchmark shows no wall-clock difference between "policy on" and "policy off" even when WS ≤ set_aside. **Detection**: Your harness has no concurrent workload to create eviction pressure on the hot buffer. LRU already keeps it resident for the duration of a single kernel. **Fix**: Either (a) accept that the window is a pure insurance policy in single-kernel mode (no measurable benefit but no cost either below set-aside), or (b) design a multi-kernel harness that touches competing memory between passes. Follow-up probe `sources/experience/hw-probes/l2-residency-contended/` (open). **Measured on H200 sm_9.0a**: WS=40 MiB soft-null directly confirms this pitfall — legacy P8 upgraded from inferred to measured. **Source**: Level-3 sandbox verification (2026-04-05); probe 2026-04-23.
 
 ## P9. `num_bytes` exceeding the reservable set-aside silently no-ops
 

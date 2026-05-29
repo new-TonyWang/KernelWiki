@@ -111,15 +111,15 @@ Q4. Thread-to-output mapping?
 
 After the basic custom kernel is working and correct, apply optimization skills from ROUTING.md in priority order:
 
-1. **Coalescing** (30-skill/memory/coalescing/) -- ensure the output store is coalesced (adjacent threads write to adjacent memory locations). For NCHW layout, this means the innermost loop dimension (W) should map to consecutive threads. The input loads within the pooling window will have spatial locality but may not be perfectly coalesced depending on the stride and window size.
+1. **Coalescing** (wiki/nvidia/foundations/memory/coalescing/) -- ensure the output store is coalesced (adjacent threads write to adjacent memory locations). For NCHW layout, this means the innermost loop dimension (W) should map to consecutive threads. The input loads within the pooling window will have spatial locality but may not be perfectly coalesced depending on the stride and window size.
 
-2. **Bank-conflict avoidance** (30-skill/memory/bank-conflict/) -- if the kernel stages input tiles into shared memory to reduce redundant global reads (the input windows of neighboring output elements overlap), ensure the shared memory layout avoids bank conflicts. Padding the shared memory tile width by 1 element (`__shared__ float tile[TILE_H][TILE_W + 1]`) is the standard fix.
+2. **Bank-conflict avoidance** (wiki/nvidia/foundations/memory/bank-conflict/) -- if the kernel stages input tiles into shared memory to reduce redundant global reads (the input windows of neighboring output elements overlap), ensure the shared memory layout avoids bank conflicts. Padding the shared memory tile width by 1 element (`__shared__ float tile[TILE_H][TILE_W + 1]`) is the standard fix.
 
-3. **Vectorized access** (30-skill/memory/vectorized-access/) -- when the channel dimension is the innermost dimension (NHWC layout) and multiple channels can be loaded together, use float4 or float2 loads. For NCHW with a single channel per thread, vectorization applies to the width dimension if stride == 1 and kW is small.
+3. **Vectorized access** (wiki/nvidia/foundations/memory/vectorized-access/) -- when the channel dimension is the innermost dimension (NHWC layout) and multiple channels can be loaded together, use float4 or float2 loads. For NCHW with a single channel per thread, vectorization applies to the width dimension if stride == 1 and kW is small.
 
-4. **Instruction-level parallelism** (30-skill/compute/ilp/) -- within the pooling window loop, unrolling with `#pragma unroll` exposes independent loads and comparisons to the instruction scheduler. Most beneficial for larger window sizes (5x5, 7x7).
+4. **Instruction-level parallelism** (wiki/nvidia/foundations/compute/ilp/) -- within the pooling window loop, unrolling with `#pragma unroll` exposes independent loads and comparisons to the instruction scheduler. Most beneficial for larger window sizes (5x5, 7x7).
 
-After each skill application, re-benchmark against the baseline (torch.nn.functional.max_pool2d / avg_pool2d or cuDNN) and follow the bottleneck-triage procedure in 70-reasoning/bottleneck-triage.md.
+After each skill application, re-benchmark against the baseline (torch.nn.functional.max_pool2d / avg_pool2d or cuDNN) and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
 
 ## Step 3 -- Shared memory tiling for large windows
 
@@ -147,4 +147,4 @@ This approach trades shared memory capacity for reduced global memory traffic. T
 - **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
-- **Bottleneck triage after benchmarking**: `70-reasoning/bottleneck-triage.md`
+- **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

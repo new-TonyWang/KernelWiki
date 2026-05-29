@@ -25,7 +25,7 @@ source:
 - path: source-code/cuda-samples/Samples/0_Introduction/simpleIPC/README.md
   anchor: L26-L26
   excerpt: '[CUDA Runtime API](http://docs.nvidia.com/cuda/cuda-runtime-api/index.html)'
-probed_by: 80-experience/api-probes/2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor.md
+probed_by: sources/experience/api-probes/2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor.md
 id: api-cudaOccupancyMaxActiveBlocksPerMultiprocessor
 type: api-definition
 vendor: nvidia
@@ -33,7 +33,7 @@ title: Cudaoccupancymaxactiveblockspermultiprocessor
 ---
 # cudaOccupancyMaxActiveBlocksPerMultiprocessor
 
-<!-- Auto-seeded stub from `probe_loop seed-stubs`. Agent must probe this API following `70-reasoning/api-probing.md` and fill the `signature`, body sections, and artifacts. -->
+<!-- Auto-seeded stub from `probe_loop seed-stubs`. Agent must probe this API following `reasoning/api-probing.md` and fill the `signature`, body sections, and artifacts. -->
 
 ## Semantics (TBD)
 
@@ -41,4 +41,4 @@ Agent: replace this section with parameter list + return semantics + typical use
 
 ## End-to-End Example
 
-See the probe record at [80-experience/api-probes/2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor.md](../../80-experience/api-probes/2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).
+See the probe record at [sources/experience/api-probes/2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor.md](../../sources/experience/api-probes/2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

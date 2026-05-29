@@ -55,10 +55,10 @@ source:
   excerpt: Returns dynamic shared memory available per block when launching numBlocks
     blocks on SM.
 artifacts:
-  code: 80-experience/hw-probes/occupancy-sweep/artifacts/occupancy_sweep_probe.cu
+  code: sources/experience/hw-probes/occupancy-sweep/artifacts/occupancy_sweep_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o occupancy_sweep_probe
     occupancy_sweep_probe.cu
-  introspection: 80-experience/hw-probes/occupancy-sweep/h200_device_static.json
+  introspection: sources/experience/hw-probes/occupancy-sweep/h200_device_static.json
   profile: ''
 related_apis:
 - cudaOccupancyMaxActiveBlocksPerMultiprocessor
@@ -270,7 +270,7 @@ void launch_my_kernel(const float* in, float* out, int n) {
 
 ## Measured Characteristics
 
-- [Occupancy sweep probe](../../80-experience/hw-probes/occupancy-sweep/2026-04-16-occupancy-tuning.md): On H200 (sm_90a, CUDA 12.9), sweeping block sizes 64–1024 on two kernels:
+- [Occupancy sweep probe](../../sources/experience/hw-probes/occupancy-sweep/2026-04-16-occupancy-tuning.md): On H200 (sm_90a, CUDA 12.9), sweeping block sizes 64–1024 on two kernels:
 
   **Simple vec_add (12 regs/thread, memory-bound)**: All block sizes achieve 100% occupancy. Block size 512 is the fastest (0.0057 ms median), 29% faster than block size 64 (0.0080 ms). `cudaOccupancyMaxPotentialBlockSize` suggests 1024, but 512 is 1.7% faster.
 

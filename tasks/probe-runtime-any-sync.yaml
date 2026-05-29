@@ -1,67 +1,67 @@
 task_id: 2026-04-17-probe-runtime-any-sync
 task_type: probe-api
-target_path: 10-api-raw/runtime/__any_sync.md
+target_path: wiki/nvidia/api-definitions/runtime/__any_sync.md
 hardware:
   device: H200
   sm: 9.0a
   cuda_runtime: '12.9'
 upstream_scope:
-- knowledge/05-source-corpus/
+- corpus/nvidia/
 references:
-- 70-reasoning/api-probing.md
-- 70-reasoning/benchmark-protocol.md
+- reasoning/api-probing.md
+- reasoning/benchmark-protocol.md
 success_criteria:
-- file_exists: 80-experience/api-probes/2026-04-17-runtime-any-sync.md
-- file_updated: 10-api-raw/runtime/__any_sync.md
+- file_exists: sources/experience/api-probes/2026-04-17-runtime-any-sync.md
+- file_updated: wiki/nvidia/api-definitions/runtime/__any_sync.md
 - has_end_to_end_example_flipped: true
 - 'lint_clean: true'
 api:
   name: __any_sync
   namespace: runtime
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
   anchor: L22835-L22835
   title: Removed functions and classes
   scope: cuda-official
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23864-L23864
   title: 5.4.6.1. Warp Active Mask
   scope: cuda-official
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23873-L23873
   title: 5.4.6.2. Warp Vote Functions
   scope: cuda-official
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23882-L23882
   title: 5.4.6.2. Warp Vote Functions
   scope: cuda-official
-- path: 05-source-corpus/source-code/cuda-samples/Samples/0_Introduction/README.md
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/README.md
   anchor: L116-L116
   title: '[simpleVoteIntrinsics](./simpleVoteIntrinsics)'
   scope: source-code
-- path: 05-source-corpus/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/README.md
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/README.md
   anchor: L5-L5
   title: Description
   scope: source-code
-- path: 05-source-corpus/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
   anchor: L46-L46
   title: define SIMPLEVOTE_KERNEL_CU
   scope: source-code
-- path: 05-source-corpus/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
   anchor: L70-L70
   title: define SIMPLEVOTE_KERNEL_CU
   scope: source-code
-- path: 05-source-corpus/source-code/cutlass/examples/77_blackwell_fmha/collective/sm100_fmha_fwd_mainloop_tma_warpspecialized.hpp
+- path: corpus/nvidia/source-code/cutlass/examples/77_blackwell_fmha/collective/sm100_fmha_fwd_mainloop_tma_warpspecialized.hpp
   anchor: L1019-L1019
   title: endif
   scope: source-code
 notes: "F10 probe for __any_sync. Follow api-probing.md 6-step protocol.\nPrefetched\
   \ corpus hits are provided in referenced_in_corpus — prefer reading those via source_read\
-  \ before writing new probes.\nDeliverables:\n  1. 80-experience/api-probes/2026-04-17-runtime-any-sync.md\
-  \ (probe record with experience.yaml frontmatter)\n  2. 80-experience/api-probes/artifacts/__any_sync_probe.cu\
-  \ (minimal runnable kernel, compiled on H200 via SSH)\n  3. Update 10-api-raw/runtime/__any_sync.md:\
+  \ before writing new probes.\nDeliverables:\n  1. sources/experience/api-probes/2026-04-17-runtime-any-sync.md\
+  \ (probe record with experience.yaml frontmatter)\n  2. sources/experience/api-probes/artifacts/__any_sync_probe.cu\
+  \ (minimal runnable kernel, compiled on H200 via SSH)\n  3. Update wiki/nvidia/api-definitions/runtime/__any_sync.md:\
   \ flip has_end_to_end_example → true, set probed_by to the probe record path, append\
   \ ## End-to-End Example section\nRun tools.lint_knowledge before declaring done."

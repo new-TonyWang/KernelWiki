@@ -10,7 +10,7 @@ source:
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24562-L24562
   excerpt: 5.4.8.3. Low-Level Load and Store Functions
-probed_by: 80-experience/api-probes/2026-04-17-runtime-ldlu.md
+probed_by: sources/experience/api-probes/2026-04-17-runtime-ldlu.md
 id: api-__ldlu
 type: api-definition
 vendor: nvidia
@@ -18,7 +18,7 @@ title: __Ldlu
 ---
 # __ldlu
 
-<!-- Auto-seeded stub from `probe_loop seed-stubs`. Agent must probe this API following `70-reasoning/api-probing.md` and fill the `signature`, body sections, and artifacts. -->
+<!-- Auto-seeded stub from `probe_loop seed-stubs`. Agent must probe this API following `reasoning/api-probing.md` and fill the `signature`, body sections, and artifacts. -->
 
 ## Semantics (TBD)
 
@@ -26,4 +26,4 @@ Agent: replace this section with parameter list + return semantics + typical use
 
 ## End-to-End Example
 
-See the probe record at [80-experience/api-probes/2026-04-17-runtime-ldlu.md](../../80-experience/api-probes/2026-04-17-runtime-ldlu.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).
+See the probe record at [sources/experience/api-probes/2026-04-17-runtime-ldlu.md](../../sources/experience/api-probes/2026-04-17-runtime-ldlu.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

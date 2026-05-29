@@ -1,6 +1,6 @@
 task_id: 2026-04-16-pattern-normalization
 task_type: build-pattern
-target_path: 20-pattern/cuda-core/normalization/
+target_path: wiki/nvidia/operator-routing/cuda-core/normalization/
 
 hardware:
   device: H200
@@ -8,14 +8,14 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
-  - /home/tongyu/workspace/cuda_repo/cccl/cub/
-  - /home/tongyu/workspace/cuda_repo/cuda-samples/
+  - <local-path>
+  - <local-path> Programming Guides/cuda-c-best-practices-guide/
+  - <local-path>
+  - <local-path>
 
 references:
-  - 70-reasoning/task-packet.md
-  - 70-reasoning/bottleneck-triage.md
+  - reasoning/task-packet.md
+  - reasoning/bottleneck-triage.md
 
 success_criteria:
   - file_exists: INDEX.md

@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/branchless-patterns/artifacts/branchless_patterns_probe.cu
-  build: 80-experience/hw-probes/branchless-patterns/artifacts/build.sh
-  introspection: 80-experience/hw-probes/branchless-patterns/artifacts/device.json
+  code: sources/experience/hw-probes/branchless-patterns/artifacts/branchless_patterns_probe.cu
+  build: sources/experience/hw-probes/branchless-patterns/artifacts/build.sh
+  introspection: sources/experience/hw-probes/branchless-patterns/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/branchless-patterns/2026-04-23/branchless_patterns.ncu-rep
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/branchless-patterns/2026-04-23/ncu_metrics.csv
@@ -82,7 +82,7 @@ open_questions:
   run on the same lane-variant `cond = (threadIdx.x + i) & 1` mix — so the branchful
   variants of this probe do NOT show real divergence cost (they all compile to selp/FMNMX
   at SASS, which is branchless). For measured divergence cost with non-predicable
-  branch bodies, see `80-experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md`.
+  branch bodies, see `sources/experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md`.
 id: exp-branchless-patterns
 type: experience
 vendor: nvidia

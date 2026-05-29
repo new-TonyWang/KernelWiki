@@ -14,17 +14,17 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/api-probes/artifacts/__ballot_sync_probe.cu
+  code: sources/experience/api-probes/artifacts/__ballot_sync_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __ballot_sync_probe __ballot_sync_probe.cu
   introspection: ''
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L23868-L23890
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
   line_range: ''
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Tools/compute-sanitizer/compute-sanitizer_index.html.md
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Tools/compute-sanitizer/compute-sanitizer_index.html.md
   line_range: ''
 - path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu'
   line_range: L491-L507
@@ -44,7 +44,7 @@ conclusions:
   baseline_ms: null
   ratio: null
 back_filled_into:
-- 10-api-raw/runtime/__ballot_sync.md
+- wiki/nvidia/api-definitions/runtime/__ballot_sync.md
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
 - Baseline is a CPU sequential count (correctness reference only, not a GPU timing
@@ -145,7 +145,7 @@ Configuration: N = 1024 random floats, threshold = 0.5, 32 warps, grid = 4, bloc
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1024 | fp32 | 0.005216 | 0.004992 | 0.005536 | cpu-sequential-count | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/__ballot_sync_probe.cu && /tmp/p` |
+| 1024 | fp32 | 0.005216 | 0.004992 | 0.005536 | cpu-sequential-count | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__ballot_sync_probe.cu && /tmp/p` |
 
 ## Introspection
 

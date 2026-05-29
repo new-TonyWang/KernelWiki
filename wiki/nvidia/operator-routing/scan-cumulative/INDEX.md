@@ -87,7 +87,7 @@ Q4. How many elements per scan instance?
         --> Warp-level Hillis-Steele scan using __shfl_up_sync.
             Each warp independently computes an inclusive prefix sum
             in log2(32) = 5 shuffle steps. No shared memory needed.
-            See 30-skill/compute/warp-primitives/skill.md.
+            See wiki/nvidia/foundations/compute/warp-primitives/skill.md.
 
             For exclusive scan: shift the inclusive result right by 1
             lane and insert the identity element at lane 0.
@@ -133,13 +133,13 @@ Q4. How many elements per scan instance?
 
 After the basic custom kernel is working and correct, apply optimization skills from ROUTING.md in priority order:
 
-1. **Warp primitives** (30-skill/compute/warp-primitives/) -- replace shared-memory tree scan within a warp with register-based `__shfl_up_sync` Hillis-Steele scan. This is the single most impactful optimization for scan kernels since the intra-warp scan is on the critical path of every element.
+1. **Warp primitives** (wiki/nvidia/foundations/compute/warp-primitives/) -- replace shared-memory tree scan within a warp with register-based `__shfl_up_sync` Hillis-Steele scan. This is the single most impactful optimization for scan kernels since the intra-warp scan is on the critical path of every element.
 
-2. **Coalescing** (30-skill/memory/coalescing/) -- ensure the input load and output store phases use coalesced (stride-1) global memory access. Scan kernels read and write every element, so both load and store phases matter (unlike reduction, which only loads).
+2. **Coalescing** (wiki/nvidia/foundations/memory/coalescing/) -- ensure the input load and output store phases use coalesced (stride-1) global memory access. Scan kernels read and write every element, so both load and store phases matter (unlike reduction, which only loads).
 
-3. **Bank-conflict avoidance** (30-skill/memory/bank-conflict/) -- if the kernel uses shared memory for inter-warp communication of warp totals, ensure the access pattern does not cause bank conflicts. The standard pattern of writing to `smem[warp_id]` is conflict-free (one thread per bank) but the subsequent read by warp 0 of all entries must also be checked.
+3. **Bank-conflict avoidance** (wiki/nvidia/foundations/memory/bank-conflict/) -- if the kernel uses shared memory for inter-warp communication of warp totals, ensure the access pattern does not cause bank conflicts. The standard pattern of writing to `smem[warp_id]` is conflict-free (one thread per bank) but the subsequent read by warp 0 of all entries must also be checked.
 
-After each skill application, re-benchmark against the baseline (torch.cumsum or cub::DeviceScan) and follow the bottleneck-triage procedure in 70-reasoning/bottleneck-triage.md.
+After each skill application, re-benchmark against the baseline (torch.cumsum or cub::DeviceScan) and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
 
 ## Step 3 -- Advanced techniques
 
@@ -154,11 +154,11 @@ If the library cannot be used but single-pass performance is needed, implement t
 2. After computing its local scan, a block lookbacks through preceding blocks, accumulating their aggregates until it finds a block with status `A`.
 3. The block then updates its own status to `A` and writes its inclusive prefix for subsequent blocks.
 
-This is non-trivial to implement correctly. Memory ordering (`__threadfence()`, `cuda::atomic`) is critical. See 30-skill/sync/memory-ordering/ for the correctness constraints.
+This is non-trivial to implement correctly. Memory ordering (`__threadfence()`, `cuda::atomic`) is critical. See wiki/nvidia/foundations/sync/memory-ordering/ for the correctness constraints.
 
 ## Cross-references
 
 - **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
-- **Bottleneck triage after benchmarking**: `70-reasoning/bottleneck-triage.md`
+- **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

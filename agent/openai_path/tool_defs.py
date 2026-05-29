@@ -307,7 +307,7 @@ TOOL_DEFINITIONS = [
         "type": "function",
         "function": {
             "name": "build_provenance",
-            "description": "Rebuild 05-source-corpus/INDEX/provenance-back.jsonl from frontmatter source refs.",
+            "description": "Rebuild corpus/nvidia/INDEX/provenance-back.jsonl from frontmatter source refs.",
             "parameters": {"type": "object", "properties": {}},
         },
     },
@@ -321,7 +321,7 @@ TOOL_DEFINITIONS = [
                 "properties": {
                     "remote_subpath": {
                         "type": "string",
-                        "description": "Subpath to sync (default: 'knowledge/'). E.g. 'knowledge/80-experience/'.",
+                        "description": "Subpath to sync (default: ''). E.g. 'sources/experience/'.",
                     },
                 },
             },

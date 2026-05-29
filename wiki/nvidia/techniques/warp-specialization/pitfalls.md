@@ -50,4 +50,4 @@ These are pitfalls of cutlass's *implementation* of the algorithm, not of the al
 - Pipeline depth is encoded as the `Stages` template parameter; `StageCountAutoCarveout` computes the maximum stages that fit given the epilogue smem footprint. Recompute when you change epilogue / dtype.
 - `KernelScheduleAuto` is shape-dependent — two callers with the same shape but different SM targets get different schedules. For reproducibility, set the schedule explicitly.
 
-A cutlass-free implementation (composing `40-hardware-feature/{tma-ptx, wgmma-ptx}/`) skips all of the above by making each of these knobs an explicit kernel parameter or template argument.
+A cutlass-free implementation (composing `wiki/nvidia/hardware/{tma-ptx, wgmma-ptx}/`) skips all of the above by making each of these knobs an explicit kernel parameter or template argument.

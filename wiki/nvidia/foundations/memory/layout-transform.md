@@ -43,9 +43,9 @@ source:
     The selector c chooses which bytes of the 8-byte concatenation (a||b) appear in
     each byte of destination d.
 artifacts:
-  code: 80-experience/hw-probes/aos-vs-soa/artifacts/aos_vs_soa_probe.cu
-  build: 80-experience/hw-probes/aos-vs-soa/artifacts/build.sh
-  introspection: 80-experience/hw-probes/aos-vs-soa/artifacts/device.json
+  code: sources/experience/hw-probes/aos-vs-soa/artifacts/aos_vs_soa_probe.cu
+  build: sources/experience/hw-probes/aos-vs-soa/artifacts/build.sh
+  introspection: sources/experience/hw-probes/aos-vs-soa/artifacts/device.json
   profile: ''
 related_apis:
 - cudaMallocPitch
@@ -147,7 +147,7 @@ Use this when `cols * sizeof(elem) % 128 != 0` and the kernel's access pattern i
 
 ### S3. In-kernel transpose (pointer; mechanism in shared-memory-cache)
 
-The `[TILE][TILE+1]`-padded shared-memory transpose is the standard out-of-place layout transform when no SoA split is possible (dense matrix transpose, batched axis swap). The **kernel** lives in [`30-skill/memory/shared-memory-cache/skill.md` §S2](../shared-memory-cache/skill.md); this skill records the *layout decision* — when transposing ahead-of-time beats running every downstream kernel with non-coalesced access. Measured on H200 (4096² fp32): padded tiled transpose hits 1685 GB/s; the per-step cost is ~0.08 ms. If > 3 downstream kernels benefit, the transpose amortizes.
+The `[TILE][TILE+1]`-padded shared-memory transpose is the standard out-of-place layout transform when no SoA split is possible (dense matrix transpose, batched axis swap). The **kernel** lives in [`wiki/nvidia/foundations/memory/shared-memory-cache/skill.md` §S2](../shared-memory-cache/skill.md); this skill records the *layout decision* — when transposing ahead-of-time beats running every downstream kernel with non-coalesced access. Measured on H200 (4096² fp32): padded tiled transpose hits 1685 GB/s; the per-step cost is ~0.08 ms. If > 3 downstream kernels benefit, the transpose amortizes.
 
 ### S4. Byte permutation with `prmt.b32`
 
@@ -173,7 +173,7 @@ The selector `c` in `prmt.b32 d, a, b, c` is a 4-nibble control picking bytes 0.
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using [80-experience/hw-probes/aos-vs-soa/](../../../80-experience/hw-probes/aos-vs-soa/) — AoS-vs-SoA probe on `Particle{x,y,z,vx,vy,vz}` (24 B struct), N = 16,777,216 elements, kernel reads one field. Unlocked clock logged at 1980 MHz. Full record: [80-experience/hw-probes/aos-vs-soa/2026-04-22-aos-vs-soa.md](../../../80-experience/hw-probes/aos-vs-soa/2026-04-22-aos-vs-soa.md).
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using [sources/experience/hw-probes/aos-vs-soa/](../../../sources/experience/hw-probes/aos-vs-soa/) — AoS-vs-SoA probe on `Particle{x,y,z,vx,vy,vz}` (24 B struct), N = 16,777,216 elements, kernel reads one field. Unlocked clock logged at 1980 MHz. Full record: [sources/experience/hw-probes/aos-vs-soa/2026-04-22-aos-vs-soa.md](../../../sources/experience/hw-probes/aos-vs-soa/2026-04-22-aos-vs-soa.md).
 
 | Kernel                        | Median ms | Useful BW GB/s | DRAM SoL | Warp cyc/issue | Speedup |
 | ----------------------------- | --------: | -------------: | -------: | -------------: | ------: |
@@ -202,10 +202,10 @@ Key measured findings:
 ## Open questions
 
 - Q1. What is the break-even number of downstream SoA kernels vs (1 × AoS→SoA convert + N × AoS kernels) on H200 for the 24 B struct shape of the probe? Planned follow-up probe: `aos-vs-soa/amortization-curve/`.
-- Q2. Does `cp.async.bulk.tensor` (TMA with a tensor descriptor, sm_90+) perform an implicit layout transform during copy? If so, pairs of S1 + TMA may collapse into a single-instruction path. Blocked on the `40-hardware-feature/tma/` entry (pending bucket F bootstrap).
+- Q2. Does `cp.async.bulk.tensor` (TMA with a tensor descriptor, sm_90+) perform an implicit layout transform during copy? If so, pairs of S1 + TMA may collapse into a single-instruction path. Blocked on the `wiki/nvidia/hardware/tma/` entry (pending bucket F bootstrap).
 - Q3. On H200, when does pitched allocation's footprint overhead cost more in L2 miss rate than it saves in coalescing? Legacy pitfall P9 claims L2 hit rate dropped 62.7 %→50.1 % on an earlier device; needs re-measurement.
 
 ## Legacy references
 
-- `legacy_sandbox_path`: `KernelPilot/knowledge/optimization/memory/layout-transform/skill.md`. Original 5 sub-skills are routed as: Skill 1 (shared-mem transpose) → lives in sibling `shared-memory-cache` S2 (mechanism); layout decision pointer retained here as S3. Skill 2 (AoS→SoA) → kept as primary S1. Skill 3 (in-place row-to-column reorder) → retained conceptually inside S3 as the in-place variant of the transpose mechanism. Skill 4 (`cudaMallocPitch`) → kept as S2. Skill 5 (`prmt.b32`) → kept as S4.
+- `legacy_sandbox_path`: `KernelPilot/optimization/memory/layout-transform/skill.md`. Original 5 sub-skills are routed as: Skill 1 (shared-mem transpose) → lives in sibling `shared-memory-cache` S2 (mechanism); layout decision pointer retained here as S3. Skill 2 (AoS→SoA) → kept as primary S1. Skill 3 (in-place row-to-column reorder) → retained conceptually inside S3 as the in-place variant of the transpose mechanism. Skill 4 (`cudaMallocPitch`) → kept as S2. Skill 5 (`prmt.b32`) → kept as S4.
 - Legacy Level-3 sandbox findings P5-P9 are retained in `pitfalls.md`; they were run on pre-H200 hardware and require re-measurement.

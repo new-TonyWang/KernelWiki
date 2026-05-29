@@ -98,7 +98,7 @@ Or use `cuda::memcpy_async` with a size argument to do the tail-guarded load coo
 
 **Fix**: Declare the tile as `__shared__ float smem[TILE][TILE + 1];`. The extra column shifts each row by one bank, making column reads conflict-free. This is the default idiom for any 2-D smem tile intended to be read along both axes.
 
-**Measured on H200** (4096² fp32 transpose, sm_90a, CUDA 12.9, probe `80-experience/hw-probes/smem-tile-reuse/`):
+**Measured on H200** (4096² fp32 transpose, sm_90a, CUDA 12.9, probe `sources/experience/hw-probes/smem-tile-reuse/`):
 
 | Kernel                         | Bank conflicts (ld.sum) | Warp cyc/issued | Median ms |
 |--------------------------------|------------------------:|----------------:|----------:|

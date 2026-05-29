@@ -4,7 +4,7 @@ pattern_class: cuda-core
 op: transpose
 status: draft
 source:
-- path: knowledge/70-reasoning/task-packet.md
+- path: reasoning/task-packet.md
   anchor: L1-L109
   excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This
     file is the task packet.'
@@ -15,12 +15,12 @@ operator: transpose
 ---
 # Transpose -- Task Packet Template
 
-This document defines the operator-specific task packet fields for a transpose kernel-writing task. It refines the generic task packet contract in `70-reasoning/task-packet.md` with transpose-specific required and optional fields.
+This document defines the operator-specific task packet fields for a transpose kernel-writing task. It refines the generic task packet contract in `reasoning/task-packet.md` with transpose-specific required and optional fields.
 
 ## Required fields (in addition to base task-packet fields)
 
 ```yaml
-# --- Base fields (from 70-reasoning/task-packet.md) ---
+# --- Base fields (from reasoning/task-packet.md) ---
 task_id: "2026-04-XX-transpose-<variant>"      # date-prefixed, kebab-case
 task_type: write-kernel                         # or benchmark-kernel
 target_path: kernels/transpose/<variant>/       # output directory
@@ -118,7 +118,7 @@ permutation: [1, 0]
 baseline: { name: torch_contiguous, tolerance_pct: 10 }
 expected_bw_gb_s_min: 1500
 # On H200 the custom padded-smem kernel delivers ~1685 GB/s (measured
-# in 80-experience/hw-probes/smem-tile-reuse/). Any kernel below 1500
+# in sources/experience/hw-probes/smem-tile-reuse/). Any kernel below 1500
 # GB/s is likely missing padding or smem.
 ```
 
@@ -173,6 +173,6 @@ Results matrix (dtype × shape) across all four seed tasks is the acceptance del
 
 ## Notes
 
-- For `transpose_kind: aos_to_soa`, the task defers to `30-skill/memory/layout-transform/` sub-skill S1. The kernel is a one-pass copy, not a smem-tiled transpose.
+- For `transpose_kind: aos_to_soa`, the task defers to `wiki/nvidia/foundations/memory/layout-transform/` sub-skill S1. The kernel is a one-pass copy, not a smem-tiled transpose.
 - For `transpose_kind: permute_nd`, collapse to one or more 2-D transposes over the batched remaining dims. See INDEX step 1 Q5b.
 - The task packet should reference ROUTING.md for the applicable skills and INDEX.md for the decision tree that leads to each kernel variant.

@@ -7,7 +7,7 @@ upstream_repo: NVIDIA/cutlass-cute
 ---
 # gemm-aligned — tuning log (skeleton)
 
-Template-parameter search and configuration-strategy notes for the cutlass aligned GEMM. Populate from the canonical artifacts under `80-experience/api-probes/gemm/`; do not duplicate raw csv numbers here — link to them.
+Template-parameter search and configuration-strategy notes for the cutlass aligned GEMM. Populate from the canonical artifacts under `sources/experience/api-probes/gemm/`; do not duplicate raw csv numbers here — link to them.
 
 ## Template axes
 
@@ -23,13 +23,13 @@ Template-parameter search and configuration-strategy notes for the cutlass align
 
 (Fill in as data lands.)
 
-- Small problems (M*N ≤ a few SM-fulls of CTAs): plain WS `<1,1,1>` typically wins. Reference: `80-experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.csv`.
+- Small problems (M*N ≤ a few SM-fulls of CTAs): plain WS `<1,1,1>` typically wins. Reference: `sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.csv`.
 - Medium / large with uniform K: pingpong `<2,1,1>`.
 - Large + cluster-multicast feasible: cooperative `<4,2,1>`.
 
 ## can_implement failures
 
-(Catalogue of `(ClusterShape, KernelSchedule, EpilogueSchedule)` tuples that get rejected. Fill in as encountered — most are documented in `30-skill/compute/gemm/aligned/pitfalls.md` already.)
+(Catalogue of `(ClusterShape, KernelSchedule, EpilogueSchedule)` tuples that get rejected. Fill in as encountered — most are documented in `wiki/nvidia/foundations/compute/gemm/aligned/pitfalls.md` already.)
 
 ## Open questions
 
@@ -38,6 +38,6 @@ Template-parameter search and configuration-strategy notes for the cutlass align
 
 ## References
 
-- Skill: `30-skill/compute/gemm/aligned/skill.md`
-- Pitfalls: `30-skill/compute/gemm/aligned/pitfalls.md`
-- Measured: `80-experience/api-probes/gemm/2026-04-28-gemm-aligned.md`
+- Skill: `wiki/nvidia/foundations/compute/gemm/aligned/skill.md`
+- Pitfalls: `wiki/nvidia/foundations/compute/gemm/aligned/pitfalls.md`
+- Measured: `sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md`

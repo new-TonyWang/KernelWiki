@@ -5,7 +5,7 @@ vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/cutlass-cute
 ---
-# 60-code/cutlass-cute/wgmma-atom-decoding — understanding CUTLASS WGMMA atoms
+# wiki/nvidia/code-walkthroughs/cutlass-cute/wgmma-atom-decoding — understanding CUTLASS WGMMA atoms
 
 This directory is a **CUTLASS reading aid**. Its purpose is to explain how CUTLASS / CuTe represents Hopper WGMMA instructions in C++ types, especially in `48_hopper_warp_specialized_gemm.cu`.
 
@@ -13,7 +13,7 @@ It is not a handwritten-kernel tuning guide. Performance rules, atom recommendat
 
 The canonical runnable artifact for the CUTLASS path lives at:
 
-- `80-experience/api-probes/gemm/artifacts/gemm_aligned.cu`
+- `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu`
 
 ## Reader Question
 
@@ -103,11 +103,11 @@ The naming pattern is `MMA_<M>x<N>x<K>_<accD><dtA><dtB>_<SS|RS>_<TN|NT|NN|TT>` w
 
 ## Cross-references
 
-- Skill: `40-hardware-feature/wgmma/skill.md`
-- Cutlass-free counterpart (raw PTX, same instructions): `40-hardware-feature/wgmma-ptx/skill.md`
-- Pitfalls: `40-hardware-feature/wgmma/pitfalls.md`
-- Canonical artifacts: `80-experience/api-probes/gemm/artifacts/gemm_aligned.cu`
+- Skill: `wiki/nvidia/hardware/wgmma/skill.md`
+- Cutlass-free counterpart (raw PTX, same instructions): `wiki/nvidia/hardware/wgmma-ptx/skill.md`
+- Pitfalls: `wiki/nvidia/hardware/wgmma/pitfalls.md`
+- Canonical artifacts: `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu`
 - Atom skeleton: `wgmma_skeleton.md`
 - Surrounding WS mainloop: `../example48-hopper-warp-specialized-gemm/mainloop_skeleton.md`
-- Atom-shape sweep: `80-experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md`
-- Counter measurements: `80-experience/api-probes/gemm/2026-04-28-wgmma-counters.md`
+- Atom-shape sweep: `sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md`
+- Counter measurements: `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md`

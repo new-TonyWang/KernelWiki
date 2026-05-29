@@ -11,14 +11,14 @@ evidence_level: measured
 clock_policy: as-launched (H200 boost-clock unlocked)
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: 80-experience/api-probes/attention/artifacts/flash_attn_minimal.cu
+- path: sources/experience/api-probes/attention/artifacts/flash_attn_minimal.cu
   anchor: flash_attn_kernel<BM,BN> — templatized thread-level online-softmax attention
 artifacts:
-  code: 80-experience/api-probes/attention/artifacts/flash_attn_minimal.cu
-  build: 80-experience/api-probes/attention/artifacts/build.sh
-  run: 80-experience/api-probes/attention/artifacts/run.sh
-  introspection: 80-experience/api-probes/attention/artifacts/device.json
-  profile: 80-experience/api-probes/attention/artifacts/profiles/attention-sweep.csv
+  code: sources/experience/api-probes/attention/artifacts/flash_attn_minimal.cu
+  build: sources/experience/api-probes/attention/artifacts/build.sh
+  run: sources/experience/api-probes/attention/artifacts/run.sh
+  introspection: sources/experience/api-probes/attention/artifacts/device.json
+  profile: sources/experience/api-probes/attention/artifacts/profiles/attention-sweep.csv
 conclusions:
   workload: Scaled dot-product attention O = softmax(Q@K^T / sqrt(d)) @ V via FlashAttention-2
     online softmax. Thread-level math (no wgmma). fp16 inputs, f32 accumulator, fp16
@@ -87,4 +87,4 @@ H200-SXM, sm_90a, 143771 MiB HBM, driver 570.124.06, CUDA 12.9 (nvcc build cuda_
 
 - This is a **correctness-focused MVP**, not a performance-optimized kernel. Thread-level matmul replaces wgmma; global loads replace TMA. Throughput is orders of magnitude below H200 peak.
 - The 128-thread block underutilizes the H200's 132 SMs at small B×H products.
-- For production attention throughput, see `60-code/cutlass-cute/attention-fmha-example/` (cutlass) or `60-code/flash-attention-v3/` (FAv3).
+- For production attention throughput, see `wiki/nvidia/code-walkthroughs/cutlass-cute/attention-fmha-example/` (cutlass) or `wiki/nvidia/code-walkthroughs/flash-attention-v3/` (FAv3).

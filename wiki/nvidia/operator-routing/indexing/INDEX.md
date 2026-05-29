@@ -138,8 +138,8 @@ Q4b. Can multiple threads write to the same destination index?
      YES (scatter with conflicts) -->
          Use atomicAdd / atomicMax / atomicMin to resolve conflicts.
          This is "scatter-reduce" or "scatter-add".
-         See 30-skill/sync/memory-ordering/ for correctness, and
-         30-skill/sync/atomic-reduction/ for contention control:
+         See wiki/nvidia/foundations/sync/memory-ordering/ for correctness, and
+         wiki/nvidia/foundations/sync/atomic-reduction/ for contention control:
            - small destination set (histogram/bincount) -> S4 shmem atomics
            - large destination with skewed index hot-spots -> S1 hierarchical
              fan-in after sorting/grouping the indices
@@ -194,7 +194,7 @@ Q4d. What is the relationship between k and N?
          Warp-level partial sort using warp shuffle comparisons.
          Each thread holds one candidate; perform a bitonic-like
          tournament to extract the top-k.
-         See 30-skill/compute/warp-primitives/.
+         See wiki/nvidia/foundations/compute/warp-primitives/.
 
      k <= 1024 (fits in a single block) -->
          Block-level radix select: use shared-memory histogram
@@ -228,15 +228,15 @@ The write `out[tid * C + indices[tid]]` is non-coalesced when `indices` values v
 
 After the basic custom kernel is working and correct, apply optimization skills from ROUTING.md in priority order:
 
-1. **Coalescing** (30-skill/memory/coalescing/) -- this is the single most critical concern for indexing kernels. Understand that one side (load or store) is inherently non-coalesced and focus optimization on the coalesced side. Sorting indices to improve spatial locality can help the non-coalesced side benefit from L2 caching.
+1. **Coalescing** (wiki/nvidia/foundations/memory/coalescing/) -- this is the single most critical concern for indexing kernels. Understand that one side (load or store) is inherently non-coalesced and focus optimization on the coalesced side. Sorting indices to improve spatial locality can help the non-coalesced side benefit from L2 caching.
 
-2. **Vectorized access** (30-skill/memory/vectorized-access/) -- when the indices select contiguous ranges (index_select on dim=0), the copy of each selected slice can use float4 loads/stores. For random gather, vectorized access is generally not applicable because each thread accesses a different random location.
+2. **Vectorized access** (wiki/nvidia/foundations/memory/vectorized-access/) -- when the indices select contiguous ranges (index_select on dim=0), the copy of each selected slice can use float4 loads/stores. For random gather, vectorized access is generally not applicable because each thread accesses a different random location.
 
-3. **Warp primitives** (30-skill/compute/warp-primitives/) -- useful for warp-level topk (bitonic sort / tournament) and for warp-level coordination when doing scatter with conflict resolution.
+3. **Warp primitives** (wiki/nvidia/foundations/compute/warp-primitives/) -- useful for warp-level topk (bitonic sort / tournament) and for warp-level coordination when doing scatter with conflict resolution.
 
-4. **Atomic reduction** (30-skill/sync/memory-ordering/) -- required for scatter-add / scatter-max where multiple threads write to the same destination index.
+4. **Atomic reduction** (wiki/nvidia/foundations/sync/memory-ordering/) -- required for scatter-add / scatter-max where multiple threads write to the same destination index.
 
-After each skill application, re-benchmark against the baseline (torch.<op> or thrust equivalent) and follow the bottleneck-triage procedure in 70-reasoning/bottleneck-triage.md.
+After each skill application, re-benchmark against the baseline (torch.<op> or thrust equivalent) and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
 
 ---
 
@@ -245,4 +245,4 @@ After each skill application, re-benchmark against the baseline (torch.<op> or t
 - **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
-- **Bottleneck triage after benchmarking**: `70-reasoning/bottleneck-triage.md`
+- **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

@@ -75,7 +75,7 @@ vendor: nvidia
 
 **Fix**: Pick tile size per shape regime. For large matrices (> 2048² fp32), `[32][33]` is fine. For small matrices, try `[16][17]` (625 B per single-buffer tile, fits 8+ blocks/SM) or drop the smem stage entirely and eat the coalescing cost.
 
-**Source**: KernelPilot legacy L3 sandbox run (2026-04-05). H200 re-measurement scheduled in pattern T2 / T4 seed tasks (see `20-pattern/cuda-core/transpose/TASK-PACKET.md`).
+**Source**: KernelPilot legacy L3 sandbox run (2026-04-05). H200 re-measurement scheduled in pattern T2 / T4 seed tasks (see `wiki/nvidia/operator-routing/cuda-core/transpose/TASK-PACKET.md`).
 
 ## P8. `long_scoreboard` stall after transform — now latency-bound
 
@@ -83,7 +83,7 @@ vendor: nvidia
 
 **Root cause**: The layout transform successfully eliminated bandwidth waste, so the kernel is no longer bandwidth-limited — it is now **memory-latency-bound**. Further speedup requires increasing issued-warps-in-flight (raising occupancy or ILP), not reducing bytes.
 
-**Fix**: Pair the layout transform with an occupancy or ILP pass. See `30-skill/compute/ilp/` and `30-skill/compute/occupancy-tuning/`. Watch register-per-thread count: legacy sandbox observed regs/thread 16 → 18 after vectorization, dropping the occupancy ceiling from 16 to 10 warps — the next bottleneck.
+**Fix**: Pair the layout transform with an occupancy or ILP pass. See `wiki/nvidia/foundations/compute/ilp/` and `wiki/nvidia/foundations/compute/occupancy-tuning/`. Watch register-per-thread count: legacy sandbox observed regs/thread 16 → 18 after vectorization, dropping the occupancy ceiling from 16 to 10 warps — the next bottleneck.
 
 **Source**: KernelPilot legacy L3 sandbox run (2026-04-05). Retained as anecdotal; the latency regime is real but the specific numbers need H200 re-measurement.
 

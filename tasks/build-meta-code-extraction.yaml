@@ -1,10 +1,10 @@
 task_id: 2026-04-28-meta-code-extraction
 task_type: build-skill
-target_path: 30-skill/meta/code-extraction/
+target_path: wiki/nvidia/foundations/meta/code-extraction/
 
 landing_path_choice:
-  selected: "30-skill/meta/code-extraction/"
-  rationale: "AC-9 says the skill 'lives under 30-skill/meta/code-extraction/ (or an equivalent location explained in the report)'. We commit to the canonical path; 'equivalent location' would only apply if 30-skill/ developed a different meta-skill convention before this AC lands, which is not currently the case."
+  selected: "wiki/nvidia/foundations/meta/code-extraction/"
+  rationale: "AC-9 says the skill 'lives under wiki/nvidia/foundations/meta/code-extraction/ (or an equivalent location explained in the report)'. We commit to the canonical path; 'equivalent location' would only apply if wiki/nvidia/foundations/ developed a different meta-skill convention before this AC lands, which is not currently the case."
 
 hardware:
   device: H200            # the worked example uses H200; the skill itself is hw-agnostic
@@ -12,26 +12,26 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_repo/cutlass/
-  - /home/tongyu/workspace/kernel-kb-mvp/knowledge/
+  - <local-path>
+  - <local-path>
 
 references:
   - docs/15-代码仓库抽取知识流程_update_en.md  # AC-9
-  - knowledge/AGENTS.md
-  - knowledge/templates/frontmatter/
+  - AGENTS.md
+  - templates/frontmatter/
 
 success_criteria:
-  - file_exists: 30-skill/meta/code-extraction/skill.md
-  - file_exists: 30-skill/meta/code-extraction/pitfalls.md
+  - file_exists: wiki/nvidia/foundations/meta/code-extraction/skill.md
+  - file_exists: wiki/nvidia/foundations/meta/code-extraction/pitfalls.md
   - lint_clean: true
   - reproducible_step_list_present: true
   - cutlass_worked_example_present: true
   - cited_kb_paths_exist:
-      - 40-hardware-feature/tma/
-      - 40-hardware-feature/wgmma/
-      - 50-classical-algo/warp-specialization/
-      - 50-classical-algo/persistent-kernel/
-      - 30-skill/compute/gemm/
+      - wiki/nvidia/hardware/tma/
+      - wiki/nvidia/hardware/wgmma/
+      - wiki/nvidia/techniques/warp-specialization/
+      - wiki/nvidia/techniques/persistent-kernel/
+      - wiki/nvidia/foundations/compute/gemm/
   - non_coverage_statement_present: true
 
 depends_on:

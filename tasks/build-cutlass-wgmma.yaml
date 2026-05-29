@@ -1,9 +1,9 @@
 task_id: 2026-04-28-cutlass-wgmma
-task_type: build-hardware-feature   # see knowledge/70-reasoning/task-packet.md
-target_path: 40-hardware-feature/wgmma/
+task_type: build-hardware-feature   # see reasoning/task-packet.md
+target_path: wiki/nvidia/hardware/wgmma/
 also_writes:
-  - 60-code/cutlass-cute/wgmma/
-  - 80-experience/hw-probes/wgmma/
+  - wiki/nvidia/code-walkthroughs/cutlass-cute/wgmma/
+  - sources/experience/hw-probes/wgmma/
 
 hardware:
   device: H200
@@ -11,28 +11,28 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_repo/cutlass/
-  - /home/tongyu/workspace/kernel-kb-mvp/knowledge/05-source-corpus/blogs/colfax/
+  - <local-path>
+  - <local-path>
 upstream_repo_pin: "cutlass@f74fea9c"
 
 references:
-  - 70-reasoning/hardware-microbench.md
-  - 70-reasoning/benchmark-protocol.md
-  - knowledge/templates/frontmatter/hardware-feature.yaml
+  - reasoning/hardware-microbench.md
+  - reasoning/benchmark-protocol.md
+  - templates/frontmatter/hardware-feature.yaml
   - docs/15-代码仓库抽取知识流程_update_en.md  # AC-2
 
 source_anchors:
   - examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
   - include/cute/atom/mma_traits_sm90_gmma.hpp
   - include/cute/atom/mma_traits_sm90.hpp
-  - 05-source-corpus/blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  - corpus/nvidia/blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
 
 success_criteria:
-  - file_exists: 40-hardware-feature/wgmma/skill.md
-  - file_exists: 40-hardware-feature/wgmma/pitfalls.md
-  - file_exists: 60-code/cutlass-cute/wgmma/build.sh
-  - file_exists: 60-code/cutlass-cute/wgmma/wgmma_min_viable.cu
-  - dir_nonempty: 80-experience/hw-probes/wgmma/    # date-stamped record authored at execution time
+  - file_exists: wiki/nvidia/hardware/wgmma/skill.md
+  - file_exists: wiki/nvidia/hardware/wgmma/pitfalls.md
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/wgmma/build.sh
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/wgmma/wgmma_min_viable.cu
+  - dir_nonempty: sources/experience/hw-probes/wgmma/    # date-stamped record authored at execution time
   - lint_clean: true
   - skill_status: verified
   - skill_evidence_level: measured

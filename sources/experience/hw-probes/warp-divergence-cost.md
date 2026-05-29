@@ -14,18 +14,18 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/warp-divergence-cost/artifacts/divergence_cost_probe.cu
-  build: 80-experience/hw-probes/warp-divergence-cost/artifacts/build.sh
-  introspection: 80-experience/hw-probes/warp-divergence-cost/artifacts/device.json
+  code: sources/experience/hw-probes/warp-divergence-cost/artifacts/divergence_cost_probe.cu
+  build: sources/experience/hw-probes/warp-divergence-cost/artifacts/build.sh
+  introspection: sources/experience/hw-probes/warp-divergence-cost/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/warp-divergence-cost/2026-04-22/warp_divergence_cost.ncu-rep
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/warp-divergence-cost/2026-04-22/run.log
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/warp-divergence-cost/2026-04-22/ncu_metrics.csv
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1602-L1628
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L3427-L3436
 source:
@@ -77,7 +77,7 @@ open_questions:
   this; adequate as shipped.
 - 'Independent Thread Scheduling (CC 7.0+) correctness effects not probed by this
   experiment — all three variants here are correctness-safe without explicit `__syncwarp`.
-  Follow-up probe for ITS race-observability open: `80-experience/hw-probes/warp-divergence-its-race/`.'
+  Follow-up probe for ITS race-observability open: `sources/experience/hw-probes/warp-divergence-its-race/`.'
 - Compiler predication threshold sweep (BP §13.2 'a certain threshold') not measured.
   migration plan §2 open question Q1 scheduled for a follow-up compile-time-parameterized
   probe.
@@ -88,7 +88,7 @@ title: 2026 04 22 Warp Divergence Cost
 ---
 ## Summary
 
-This probe validates the divergence cost model from BP Guide §13.1 (L1602-L1612: "different execution paths must be executed separately; this increases the total number of instructions executed") and the predication escape hatch from §13.2 (L1614-L1628: "no warp can ever diverge" when predicated), for the skill at [30-skill/compute/warp-divergence/](../../../30-skill/compute/warp-divergence/).
+This probe validates the divergence cost model from BP Guide §13.1 (L1602-L1612: "different execution paths must be executed separately; this increases the total number of instructions executed") and the predication escape hatch from §13.2 (L1614-L1628: "no warp can ever diverge" when predicated), for the skill at [wiki/nvidia/foundations/compute/warp-divergence/](../../../wiki/nvidia/foundations/compute/warp-divergence/).
 
 The workload must be compute-bound to expose the divergence signal — an initial run at N=16M and ~64 FMAs/lane (total 1 G FMAs) was memory-bound and showed zero slowdown from divergence. The present run at N=1M and ~1024 FMAs/lane (total 1 G FMAs, same total work over 16× fewer threads) achieves 89 % Compute(SM) throughput, and the cost model becomes visible.
 

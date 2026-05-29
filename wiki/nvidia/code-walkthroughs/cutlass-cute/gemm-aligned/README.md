@@ -5,11 +5,11 @@ vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/cutlass-cute
 ---
-# 60-code/cutlass-cute/gemm-aligned — aligned GEMM library usage
+# wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-aligned — aligned GEMM library usage
 
 Library-usage knowledge for the cutlass / cute aligned-GEMM API path on Hopper sm_90a. This directory does **not** carry buildable code — the canonical reproducible artifact is
 
-- `80-experience/api-probes/gemm/artifacts/gemm_aligned.cu` (a vendored copy of cutlass example 48 at commit `f74fea9c`) plus its `build.sh` / `run.sh` / `device.json` / `profiles/*.csv` siblings.
+- `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu` (a vendored copy of cutlass example 48 at commit `f74fea9c`) plus its `build.sh` / `run.sh` / `device.json` / `profiles/*.csv` siblings.
 
 Use that path to actually build and run. This directory documents *how* to use the library and *which knobs to turn*.
 
@@ -34,7 +34,7 @@ The `(ClusterShape, KernelSchedule, EpilogueSchedule)` tuple is **co-constrained
 
 ## Cross-references
 
-- Skill prose + measured numbers: `knowledge/30-skill/compute/gemm/aligned/skill.md`
-- Failure modes and template-tuple constraints: `knowledge/30-skill/compute/gemm/aligned/pitfalls.md`
-- Canonical reproducible artifact: `80-experience/api-probes/gemm/artifacts/gemm_aligned.cu` + `build.sh`
-- Measurement record (512³ / 2048³ / 8192³): `80-experience/api-probes/gemm/2026-04-28-gemm-aligned.md`
+- Skill prose + measured numbers: `wiki/nvidia/foundations/compute/gemm/aligned/skill.md`
+- Failure modes and template-tuple constraints: `wiki/nvidia/foundations/compute/gemm/aligned/pitfalls.md`
+- Canonical reproducible artifact: `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu` + `build.sh`
+- Measurement record (512³ / 2048³ / 8192³): `sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md`

@@ -46,9 +46,9 @@ source:
     atom{.sem}{.scope}{.space}.op{.level::cache_hint}.type d, [a], b; .scope = { .cta,
     .cluster, .gpu, .sys }.
 artifacts:
-  code: 80-experience/hw-probes/atomic-reduction-contention/artifacts/atomic_reduction_probe.cu
-  build: 80-experience/hw-probes/atomic-reduction-contention/artifacts/build.sh
-  introspection: 80-experience/hw-probes/atomic-reduction-contention/artifacts/device.json
+  code: sources/experience/hw-probes/atomic-reduction-contention/artifacts/atomic_reduction_probe.cu
+  build: sources/experience/hw-probes/atomic-reduction-contention/artifacts/build.sh
+  introspection: sources/experience/hw-probes/atomic-reduction-contention/artifacts/device.json
   profile: ''
 related_apis:
 - atomicAdd
@@ -200,7 +200,7 @@ PG 3.2.4.1.2 (L3641-L3645) states shared-memory atomics are faster than global-m
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06), summing `N = 33,554,432` floats (128 MB) to one scalar. Full record: [80-experience/hw-probes/atomic-reduction-contention/2026-04-20-atomic-reduction.md](../../../80-experience/hw-probes/atomic-reduction-contention/2026-04-20-atomic-reduction.md).
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06), summing `N = 33,554,432` floats (128 MB) to one scalar. Full record: [sources/experience/hw-probes/atomic-reduction-contention/2026-04-20-atomic-reduction.md](../../../sources/experience/hw-probes/atomic-reduction-contention/2026-04-20-atomic-reduction.md).
 
 | Kernel             | Median ms | Eff. BW GB/s | DRAM SoL | Warp cyc/issue |
 | ------------------ | --------: | -----------: | -------: | -------------: |
@@ -210,7 +210,7 @@ Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06), summing `N = 33,554
 
 - **S1 hierarchical beats naive by 247.8x**; with a grid-stride loop on top of S1, the factor rises to **1498x** and the kernel becomes essentially HBM-bound (75.58% DRAM Speed-of-Light out of H200's ~4.8 TB/s peak).
 - The NCU signature of the atomic-contention pathology on `naive_atomic` is *Warp Cycles Per Issued Instruction ~ 39K* with DRAM SoL near 0, not a conventional memory-bound stall profile.
-- Legacy KernelPilot-sandbox runs for this skill (`KernelPilot/knowledge/experience/2026-04-04-optimization-synchronization-atomic-reduction-*`) were performed on ~4 KB inputs and reported underutilized memory/compute SoL; they are retained as anecdotal only, **not** as measured evidence. The H200 probe above supersedes them for all `evidence_level: measured` claims in this skill.
+- Legacy KernelPilot-sandbox runs for this skill (`KernelPilot/experience/2026-04-04-optimization-synchronization-atomic-reduction-*`) were performed on ~4 KB inputs and reported underutilized memory/compute SoL; they are retained as anecdotal only, **not** as measured evidence. The H200 probe above supersedes them for all `evidence_level: measured` claims in this skill.
 
 ## Correctness finding: naive atomic reduction is also numerically wrong
 
@@ -225,14 +225,14 @@ Hierarchical S1 cures this as a side effect: warp-lane partial sums stay in O(32
 1. **Minimize contention before minimizing per-op cost.** Dropping the per-block atomic count from 1024 to 1 is a larger win than switching `seq_cst` to `relaxed`.
 2. **Scope narrows the cache level; ordering narrows the fence.** Both are independent, and both contribute to the final cost.
 3. **Shared memory is a first-class reduction staging area.** S1 and S4 compose: block-local reduction in shared memory, then one global atomic per block.
-4. **Library first.** CUB `DeviceReduce` applies all four techniques under the hood; only hand-write when the library path is proven insufficient (library-fallback contract in `20-pattern/`).
+4. **Library first.** CUB `DeviceReduce` applies all four techniques under the hood; only hand-write when the library path is proven insufficient (library-fallback contract in `wiki/nvidia/operator-routing/`).
 
 ## Open questions
 
-- Q1. On H200, what is the measured per-atomic cost at scope `cta` / `gpu` / `sys` for a `fetch_add<int>` with relaxed ordering? (Feeds `80-experience/hw-probes/atomic-reduction/scope-latency/`.)
+- Q1. On H200, what is the measured per-atomic cost at scope `cta` / `gpu` / `sys` for a `fetch_add<int>` with relaxed ordering? (Feeds `sources/experience/hw-probes/atomic-reduction/scope-latency/`.)
 - Q2. Does `atom.add.v2.f32` (vectorized FP32 atomic, PTX ISA L19647-L19680) beat two scalar `atomicAdd` calls on H200, and at what alignment?
 - Q3. For FP16 gradient accumulation, does `atom.add.noftz.f16` (PTX ISA L19647-L19680) preserve enough precision vs. accumulating in FP32 on the block side and committing in FP16 at block commit?
 
 ## Legacy references
 
-- `legacy_sandbox_path`: `KernelPilot/knowledge/experience/2026-04-04-optimization-synchronization-atomic-reduction-skill{1,2,3,4}.md`. Treat as anecdotal only; environment (toolchain / driver / clock policy) was not recorded, and input sizes were too small to exercise the reduction path.
+- `legacy_sandbox_path`: `KernelPilot/experience/2026-04-04-optimization-synchronization-atomic-reduction-skill{1,2,3,4}.md`. Treat as anecdotal only; environment (toolchain / driver / clock policy) was not recorded, and input sizes were too small to exercise the reduction path.

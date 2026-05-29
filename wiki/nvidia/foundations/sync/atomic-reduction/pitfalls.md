@@ -140,6 +140,6 @@ vendor: nvidia
 
 **Fix**: Size the benchmark input so the reduction path occupies
 >= 50% of H200 HBM bandwidth for S1/S4 comparisons. Follow
-`70-reasoning/hardware-microbench.md` for the full protocol (warmup / repeat / clock policy / baseline choice). Do not promote a skill to `evidence_level: measured` based on a launch-overhead-bound benchmark.
+`reasoning/hardware-microbench.md` for the full protocol (warmup / repeat / clock policy / baseline choice). Do not promote a skill to `evidence_level: measured` based on a launch-overhead-bound benchmark.
 
 **Source**: Legacy Level-3 sandbox observation, carried forward as anecdotal. See `legacy_sandbox_path` in `skill.md`.

@@ -324,14 +324,11 @@ def generate_by_vendor(pages):
     vendor_types = defaultdict(lambda: defaultdict(list))
     for p in pages:
         rel = p.get("_path", "")
-        # Determine vendor from frontmatter or path
-        vendor = p.get("vendor", "")
-        if not vendor:
-            parts = rel.split("/")
-            if parts[0] == "wiki" and len(parts) > 2:
-                vendor = parts[1]
-        if not vendor:
+        # Only count pages under wiki/{vendor}/ (AC-8: match file counts)
+        parts = rel.split("/")
+        if parts[0] != "wiki" or len(parts) < 3:
             continue
+        vendor = parts[1]
         ptype = p.get("type", "unknown")
         title = p.get("title", Path(rel).stem)
         pid = p.get("id", "")

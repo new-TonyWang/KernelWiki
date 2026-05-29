@@ -1,7 +1,7 @@
 ---
 title: Cache Load Hints — Pitfalls
 status: verified
-related_skill: 30-skill/memory/cache-load-hints/skill.md
+related_skill: wiki/nvidia/foundations/memory/cache-load-hints/skill.md
 source:
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L25083-L25230
@@ -10,7 +10,7 @@ source:
   anchor: L10400-L10490
   excerpt: 'PTX ld.global cache operators: .ca .cg .cs .lu .cv.'
 experience_refs:
-- 80-experience/hw-probes/cache-hint/2026-04-23-cache-hint.md
+- sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md
 id: pitfall-cache-load-hints
 type: pitfall
 vendor: nvidia
@@ -88,7 +88,7 @@ both at 16 inner passes).
 L2** regimes. If you are applying `__ldcs` expecting a "streaming
 benefit" in a single-kernel workload, measure first; it is very
 likely a null. Single-stream MVPs should default-load.
-**Follow-up probe**: `80-experience/hw-probes/cache-hint-contended/`
+**Follow-up probe**: `sources/experience/hw-probes/cache-hint-contended/`
 (open).
 **Source**: PG §5.4.8.3; probe 2026-04-23.
 
@@ -167,7 +167,7 @@ are the bottleneck; in load-latency-bound kernels they are
 irrelevant and may even slightly degrade performance by bypassing
 L2 write-back coalescing."
 **Not re-measured on H200** — this probe is read-only.
-`80-experience/hw-probes/store-hint/` (open) is the follow-up.
+`sources/experience/hw-probes/store-hint/` (open) is the follow-up.
 **Fix (legacy)**: Profile first. If the kernel is load-bound,
 skip store hints; if store-bound, compare `__stwb` (default) vs
 `__stcs` (evict-first) vs `__stcg` (L2-only) vs `__stwt`
@@ -205,7 +205,7 @@ benefit; belongs in the contended follow-up probe.
 of a loop over a temp buffer the kernel is done with) as a low-
 cost documentation hint, but do not expect a measurable speedup
 in a single-kernel harness.
-**Follow-up probe**: `80-experience/hw-probes/cache-hint-contended/`
+**Follow-up probe**: `sources/experience/hw-probes/cache-hint-contended/`
 (open).
 **Source**: Level-3 sandbox verification (2026-04-04).
 

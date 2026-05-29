@@ -4,13 +4,13 @@ pattern_class: tensor-core
 op: gemm
 status: draft
 source:
-- path: 30-skill/compute/gemm/aligned/skill.md
+- path: wiki/nvidia/foundations/compute/gemm/aligned/skill.md
   anchor: Aligned GEMM on Hopper via cutlass cooperative warp-specialized kernel
   excerpt: cutlass-API track baseline at aligned shapes
-- path: 60-code/ptx-gemm/gemm_ptx.cu
+- path: wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu
   anchor: cublasGemmEx call against bf16 inputs / f32 accumulator
   excerpt: row-major-vs-col-major handling for cuBLAS reference at M=64 N=8 K=16
-- path: 30-skill/compute/gemm-ptx/pitfalls.md
+- path: wiki/nvidia/foundations/compute/gemm-ptx/pitfalls.md
   anchor: '#3 cuBLAS row-major-vs-col-major requires careful op_T handling'
 id: routing-gemm-library-fallback
 type: operator-routing
@@ -108,7 +108,7 @@ cublasGemmEx(
     CUBLAS_GEMM_DEFAULT_TENSOR_OP);
 ```
 
-This is the call shape used in the cutlass-free GEMM record's reference (`80-experience/kernel-records/2026-04-29-gemm-ws-ptx/gemm_ws_ptx.cu` and `60-code/ptx-gemm/gemm_ptx.cu`). Get `lda` / `ldb` wrong here and the diff against a custom kernel looks identical to a layout-mapped kernel bug -- which is hard to disentangle. Sanity-check with all-1.0 inputs first (output should equal K).
+This is the call shape used in the cutlass-free GEMM record's reference (`sources/experience/kernel-records/2026-04-29-gemm-ws-ptx/gemm_ws_ptx.cu` and `wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu`). Get `lda` / `ldb` wrong here and the diff against a custom kernel looks identical to a layout-mapped kernel bug -- which is hard to disentangle. Sanity-check with all-1.0 inputs first (output should equal K).
 
 **Supported compute types** (CUDA 12.9):
 
@@ -164,7 +164,7 @@ cublasLtMatmulDescSetAttribute(op_desc, CUBLASLT_MATMUL_DESC_BIAS_POINTER, &dBia
 
 **When to use**: cuBLASLt does not cover the dtype / layout / fusion pattern, but the project allows cutlass as a header dependency. Cutlass's collective builder selects a tile / pipeline / scheduler combination tuned for the target shape.
 
-This is the entry point that `30-skill/compute/gemm/aligned/skill.md` (aligned shapes) and `30-skill/compute/gemm/non-aligned-tail/skill.md` (M / N not divisible by the wgmma atom) build on. The canonical reproducible artifact lives at `80-experience/api-probes/gemm/artifacts/gemm_compare_ws.cu` (plain WS) / `gemm_compare_pingpong.cu` / `gemm_aligned.cu` (cooperative auto-selected). CUTLASS example 48 source-reading notes live at `60-code/cutlass-cute/example48-hopper-warp-specialized-gemm/`; persistent-schedule notes live at `60-code/cutlass-cute/persistent-kernel/`.
+This is the entry point that `wiki/nvidia/foundations/compute/gemm/aligned/skill.md` (aligned shapes) and `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md` (M / N not divisible by the wgmma atom) build on. The canonical reproducible artifact lives at `sources/experience/api-probes/gemm/artifacts/gemm_compare_ws.cu` (plain WS) / `gemm_compare_pingpong.cu` / `gemm_aligned.cu` (cooperative auto-selected). CUTLASS example 48 source-reading notes live at `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/`; persistent-schedule notes live at `wiki/nvidia/code-walkthroughs/cutlass-cute/persistent-kernel/`.
 
 **Shape range**: full Hopper coverage. The cutlass `KernelTmaWarpSpecialized*` schedules fall through three variants (plain WS / pingpong / cooperative); `KernelScheduleAuto` picks one based on shape and SM target. For reproducibility, pin the schedule explicitly (WS pitfall #8 list bullet).
 
@@ -181,4 +181,4 @@ This is the entry point that `30-skill/compute/gemm/aligned/skill.md` (aligned s
 | C++ + cutlass allowed | cutlass GemmUniversalAdapter | cutlass + custom epilogue (skill `gemm-fused/cutlass-epilogue-prologue`) | cutlass + custom epilogue |
 | C++ cutlass-free | `cublasGemmEx` for the reference; **custom only** for the production kernel | custom (cutlass-free PTX track) | custom (cutlass-free PTX track) |
 
-**Note on the cutlass-free row**: cuBLAS itself is not part of cutlass and using it as a *reference* in a cutlass-free build is fine. What the cutlass-free track forbids is shipping cutlass headers in the production kernel binary. The kernel records under `80-experience/kernel-records/` use cuBLAS exclusively for verification.
+**Note on the cutlass-free row**: cuBLAS itself is not part of cutlass and using it as a *reference* in a cutlass-free build is fine. What the cutlass-free track forbids is shipping cutlass headers in the production kernel binary. The kernel records under `sources/experience/kernel-records/` use cuBLAS exclusively for verification.

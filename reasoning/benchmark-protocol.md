@@ -90,7 +90,7 @@ Never report a speedup without naming the baseline.
 
 ## Mandatory output schema
 
-Every probe record under `80-experience/api-probes/` or `80-experience/hw-probes/` MUST include a table with exactly these columns (MVP: `verified.md` is dropped; benchmark data never lives in `skill.md` directly, it lives in the probe record and `skill.md` links to it):
+Every probe record under `sources/experience/api-probes/` or `sources/experience/hw-probes/` MUST include a table with exactly these columns (MVP: `verified.md` is dropped; benchmark data never lives in `skill.md` directly, it lives in the probe record and `skill.md` links to it):
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 

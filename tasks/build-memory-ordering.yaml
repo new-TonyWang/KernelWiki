@@ -1,6 +1,6 @@
 task_id: 2026-04-16-memory-ordering
 task_type: build-skill
-target_path: 30-skill/sync/memory-ordering/
+target_path: wiki/nvidia/foundations/sync/memory-ordering/
 
 hardware:
   device: H200
@@ -8,14 +8,14 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/ptx-isa/
-  - /home/tongyu/workspace/cuda_repo/cccl/libcudacxx/
+  - <local-path>
+  - <local-path>
+  - <local-path>
 
 references:
-  - 70-reasoning/api-probing.md
-  - 70-reasoning/benchmark-protocol.md
-  - 70-reasoning/bottleneck-triage.md
+  - reasoning/api-probing.md
+  - reasoning/benchmark-protocol.md
+  - reasoning/bottleneck-triage.md
 
 success_criteria:
   - file_exists: skill.md
@@ -29,7 +29,7 @@ related_skills: [async-copy, warp-primitives]
 notes: |
   This skill is derived from GTC25-S72683 Part 2 (Allart's section on the CUDA
   memory model). Source transcript at:
-  /home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/gtc25-s72683.md
+  <local-path>
   (search for "Part 2 — The CUDA Memory Model")
 
   READ THAT FILE — Part 2 section — for the complete structured notes.

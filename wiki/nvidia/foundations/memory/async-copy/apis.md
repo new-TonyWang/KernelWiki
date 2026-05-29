@@ -109,6 +109,6 @@ This file lists the APIs touched by the async-copy skill. Each entry records the
 
 ## Related Probes
 
-- [`__pipeline_memcpy_async`](../../../80-experience/api-probes/2026-04-17-runtime-pipeline-memcpy-async.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__pipeline_commit`](../../../80-experience/api-probes/2026-04-17-runtime-pipeline-commit.md) — end-to-end example, build command, and H200 measurement. See probe record.
-- [`__pipeline_wait_prior`](../../../80-experience/api-probes/2026-04-17-runtime-pipeline-wait-prior.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__pipeline_memcpy_async`](../../../sources/experience/api-probes/2026-04-17-runtime-pipeline-memcpy-async.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__pipeline_commit`](../../../sources/experience/api-probes/2026-04-17-runtime-pipeline-commit.md) — end-to-end example, build command, and H200 measurement. See probe record.
+- [`__pipeline_wait_prior`](../../../sources/experience/api-probes/2026-04-17-runtime-pipeline-wait-prior.md) — end-to-end example, build command, and H200 measurement. See probe record.

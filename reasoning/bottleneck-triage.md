@@ -30,11 +30,11 @@ Q1b. Does wall-clock exceed on-GPU kernel time by a fixed host-side offset?
     NO  → Continue.
 
 Q2. Is `kernel.dynamic.limit_factor` known from the introspection bundle?
-    register-bound → pull 30-skill/memory/register-pressure/
-                   + 30-skill/compute/compiler-hints/
+    register-bound → pull wiki/nvidia/foundations/memory/register-pressure/
+                   + wiki/nvidia/foundations/compute/compiler-hints/
                    (reduce regs/thread via __launch_bounds__, -maxrregcount,
                     or by splitting loops)
-    shmem-bound    → pull 30-skill/memory/bank-conflict/
+    shmem-bound    → pull wiki/nvidia/foundations/memory/bank-conflict/
                    + check vectorized-access / layout-transform
                    (reduce shmem per block or the bank-conflict factor)
     thread-bound   → DEFERRED in MVP — report and ask human.
@@ -48,19 +48,19 @@ Q3. Compare median latency against baseline_ms:
 
 Q4. Micro-diagnosis by inspection (no NCU required):
     - Reads/writes memory with stride > 1 per thread
-      → pull 30-skill/memory/coalescing/
+      → pull wiki/nvidia/foundations/memory/coalescing/
     - Per-element scalar load/store when dtype * 4 fits a vector
-      → pull 30-skill/memory/vectorized-access/
+      → pull wiki/nvidia/foundations/memory/vectorized-access/
     - Thread 0 (or lane 0) does a serial reduction
-      → pull 30-skill/compute/warp-primitives/
+      → pull wiki/nvidia/foundations/compute/warp-primitives/
     - Small tight loop inside kernel without #pragma unroll / ILP
-      → pull 30-skill/compute/ilp/
+      → pull wiki/nvidia/foundations/compute/ilp/
     - Heavy use of sinf/cosf/expf/logf on fp32 with relaxed precision ok
-      → pull 30-skill/compute/fast-math/
+      → pull wiki/nvidia/foundations/compute/fast-math/
     - Narrow reduction into smem with heavy bank contention
-      → pull 30-skill/memory/bank-conflict/
+      → pull wiki/nvidia/foundations/memory/bank-conflict/
     - Data race or inconsistent cross-thread reads
-      → pull 30-skill/sync/memory-ordering/
+      → pull wiki/nvidia/foundations/sync/memory-ordering/
 
 Q4b. Bytes-in-flight analysis (Little's Law, from GTC25-S72683):
     If Q4 skills have been applied but BW utilization (from ncu or wall-clock
@@ -72,7 +72,7 @@ Q4b. Bytes-in-flight analysis (Little's Law, from GTC25-S72683):
     Target: H200 needs ~64 KiB/SM for >90% BW utilization.
     If BiF < target:
       - Already using unroll + vectorized loads (register prefetch)?
-        → consider 30-skill/memory/async-copy/ (LDGSTS + cuda::pipeline)
+        → consider wiki/nvidia/foundations/memory/async-copy/ (LDGSTS + cuda::pipeline)
         → async copies skip the register file, freeing regs for compute
         → BUT: only helps compute-heavy or iterative kernels (GTC25-S72683
           showed trivial a*b got NO benefit; sqrt-heavy got 1.3× uplift)

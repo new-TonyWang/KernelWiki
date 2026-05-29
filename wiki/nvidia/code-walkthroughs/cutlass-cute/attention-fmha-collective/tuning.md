@@ -43,7 +43,7 @@ These are derived or fixed inside the collective implementation.
 
 ## Interaction with the rest of the tuning space
 
-The FMHA collective's tile shapes interact with the GEMM-level wgmma atom selection (the collective uses `SM90_64xNxK_*_SS_TN` atoms internally). The atom N-size is determined by BLOCK_N and HEAD_DIM. See `40-hardware-feature/wgmma/skill.md` for atom shape selection guidance.
+The FMHA collective's tile shapes interact with the GEMM-level wgmma atom selection (the collective uses `SM90_64xNxK_*_SS_TN` atoms internally). The atom N-size is determined by BLOCK_N and HEAD_DIM. See `wiki/nvidia/hardware/wgmma/skill.md` for atom shape selection guidance.
 
 ## Source reference
 

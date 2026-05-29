@@ -1,5 +1,5 @@
 ---
-api: meta-skill — `30-skill/meta/code-extraction/skill.md` applied to `cutlass@f74fea9c`
+api: meta-skill — `wiki/nvidia/foundations/meta/code-extraction/skill.md` applied to `cutlass@f74fea9c`
 namespace: meta
 probe_slug: cutlass-meta-extraction-walkthrough
 status: partial
@@ -10,13 +10,13 @@ clock_policy: as-applied
 measured_on: developer workstation + H200-SXM | sm_90a | cuda 12.9.86
 verdict: partial
 source:
-- path: 30-skill/meta/code-extraction/skill.md
+- path: wiki/nvidia/foundations/meta/code-extraction/skill.md
   anchor: the procedure under test
 artifacts:
-  code: 30-skill/meta/code-extraction/skill.md
-  build: knowledge/80-experience/api-probes/code-extraction/2026-04-28-cutlass-walkthrough.md
-  introspection: knowledge/30-skill/meta/code-extraction/skill.md
-  profile: knowledge/80-experience/api-probes/gemm/artifacts/profiles/2026-04-28-gemm-aligned.csv
+  code: wiki/nvidia/foundations/meta/code-extraction/skill.md
+  build: sources/experience/api-probes/code-extraction/2026-04-28-cutlass-walkthrough.md
+  introspection: wiki/nvidia/foundations/meta/code-extraction/skill.md
+  profile: sources/experience/api-probes/gemm/artifacts/profiles/2026-04-28-gemm-aligned.csv
 upstream_repo: cutlass@f74fea9c
 id: exp-code-extraction
 type: experience
@@ -25,7 +25,7 @@ title: 2026 04 28 Cutlass Walkthrough
 ---
 # Probe — Meta-skill walkthrough applied to cutlass end-to-end
 
-**Goal**: execute the meta-skill procedure (`30-skill/meta/code-extraction/skill.md`) against cutlass `f74fea9c` and record the exact commands + evidence paths produced. The output of this probe is what an agent following the meta-skill procedure should produce; the per-topic landings (TMA, wgmma, aligned GEMM, non-aligned tail, warp-specialization, persistent-kernel, fused GEMM) are the verifiable downstream artifacts.
+**Goal**: execute the meta-skill procedure (`wiki/nvidia/foundations/meta/code-extraction/skill.md`) against cutlass `f74fea9c` and record the exact commands + evidence paths produced. The output of this probe is what an agent following the meta-skill procedure should produce; the per-topic landings (TMA, wgmma, aligned GEMM, non-aligned tail, warp-specialization, persistent-kernel, fused GEMM) are the verifiable downstream artifacts.
 
 ## Method
 
@@ -72,13 +72,13 @@ For each hardware-feature pattern in the meta-skill's table, `grep`-located in c
 rg -l 'cp\.async\.bulk\.tensor|cuTensorMapEncodeTiled|SM90_TMA_LOAD' include/
 # -> include/cute/arch/copy_sm90_tma.hpp, include/cute/atom/copy_traits_sm90_tma.hpp,
 #    include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized.hpp, ...
-# Landed at: 40-hardware-feature/tma/skill.md + 80-experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md
+# Landed at: wiki/nvidia/hardware/tma/skill.md + sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md
 
 # wgmma atom scan:
 rg -l 'wgmma\.mma_async|MMA_64xNxK|cute::SM90::GMMA::MMA_' include/
 # -> include/cute/arch/mma_sm90_gmma.hpp, include/cute/atom/mma_traits_sm90_gmma.hpp, ...
-# Landed at: 40-hardware-feature/wgmma/skill.md + 80-experience/api-probes/gemm/2026-04-28-wgmma-counters.md
-# Plus atom-shape sweep: 80-experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md
+# Landed at: wiki/nvidia/hardware/wgmma/skill.md + sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md
+# Plus atom-shape sweep: sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md
 ```
 
 **Output**: Two hardware-feature skills landed (TMA, wgmma) with hw-probes capturing measured TMA bandwidth (5.37 GB/launch at the 5120×4096×4096 anchor) and wgmma instruction counts. Atom-shape sweep covers `MMA_64x64x8`, `MMA_64x128x8`, `MMA_64x256x8` with measured TFLOPS.
@@ -92,14 +92,14 @@ For each end-to-end optimization pattern, `grep`-located + landed:
 rg -l 'KernelTmaWarpSpecialized|MainloopSm90TmaGmmaWarpSpecialized' include/ examples/
 # -> include/cutlass/gemm/dispatch_policy.hpp, include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized*.hpp,
 #    examples/49_hopper_gemm_with_collective_builder/49_collective_builder.cu (multi-schedule sweep)
-# Landed at: 50-classical-algo/warp-specialization/skill.md + 80-experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md
+# Landed at: wiki/nvidia/techniques/warp-specialization/skill.md + sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md
 
 # Persistent-kernel scan:
 rg -l 'PersistentScheduler|StreamKScheduler|TileSchedulerType' include/
 # -> include/cutlass/gemm/kernel/tile_scheduler.hpp,
 #    include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_pingpong.hpp,
 #    include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_cooperative.hpp
-# Landed at: 50-classical-algo/persistent-kernel/skill.md + 80-experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md
+# Landed at: wiki/nvidia/techniques/persistent-kernel/skill.md + sources/experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md
 ```
 
 **Output**: Two classical-algo skills landed (warp-specialization, persistent-kernel) with measured A/B at 2048³: TMA-only (warp-spec OFF) 178.9 TFLOPS, plain WS 195.4, pingpong 193.8, cooperative 186.9 — all bit-identical to cuBLAS, +9.2% from enabling warp-specialization.
@@ -110,13 +110,13 @@ For each operator-level pattern, `grep`-located + landed:
 
 ```bash
 # Aligned GEMM scan: (use TMA + wgmma primitives directly)
-# Landed at: 30-skill/compute/gemm/aligned/skill.md + 80-experience/api-probes/gemm/2026-04-28-gemm-aligned.md
+# Landed at: wiki/nvidia/foundations/compute/gemm/aligned/skill.md + sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md
 # Measured at 512^3 / 2048^3 / 8192^3, all bit-identical to cuBLAS.
 
 # Non-aligned tail handling scan:
 rg -l 'predicate\|kErrorInvalidProblem\|gemm\.can_implement' include/cutlass/gemm/
 # -> include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized.hpp (predicate-tail mainloop)
-# Landed at: 30-skill/compute/gemm/non-aligned-tail/skill.md + 80-experience/api-probes/gemm/2026-04-28-gemm-tail.md
+# Landed at: wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md + sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md
 # (status: partial — strategy A/B documented as adjacent-shape proxy with confounders)
 
 # Fused GEMM scan:
@@ -125,8 +125,8 @@ rg -l 'LinCombEltAct|LinearCombinationRelu|FusionOperation|MainloopMixedDtype' i
 #    include/cutlass/epilogue/thread/linear_combination_relu.h, activation.h,
 #    include/cutlass/gemm/collective/...sm90_mixed_input...hpp (mixed-dtype mainloop),
 #    examples/{50,55,61}_hopper_*.cu (fusion examples)
-# Landed at: 30-skill/compute/gemm-fused/cutlass-epilogue-prologue/skill.md +
-#            80-experience/api-probes/gemm/2026-04-28-gemm-fused.md (epilogue verified, prologue follow-up)
+# Landed at: wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md +
+#            sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md (epilogue verified, prologue follow-up)
 # Measured at 2048^3: fused 86.83 us vs non-fused 100.21 us = 12.65% savings.
 ```
 
@@ -152,14 +152,14 @@ ssh h200_ncu '
 
 | Skill | Probe path | Key measurement |
 |---|---|---|
-| `40-hardware-feature/tma/skill.md` | `80-experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md` | TMA load bw 5.37 GB at 5120×4096×4096 |
-| `40-hardware-feature/wgmma/skill.md` | `80-experience/api-probes/gemm/2026-04-28-wgmma-counters.md` | wgmma instruction count via ncu `smsp__inst_executed_pipe_tensor_op_hmma_cycles_active.sum` |
-| `40-hardware-feature/wgmma/skill.md` (atom-shape sweep) | `80-experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md` | M64xN{64,128,256}xK8 throughput sweep |
-| `30-skill/compute/gemm/aligned/skill.md` | `80-experience/api-probes/gemm/2026-04-28-gemm-aligned.md` | 512³ 21.7, 2048³ 188.7, 8192³ 292.7 TFLOPS, all max_abs=0 vs cuBLAS |
-| `30-skill/compute/gemm/non-aligned-tail/skill.md` | `80-experience/api-probes/gemm/2026-04-28-gemm-tail.md` | 80³ 0.185, 200³ 1.85, 1440³ 130.2 TFLOPS, all max_abs=0 vs cuBLAS |
-| `50-classical-algo/warp-specialization/skill.md` | `80-experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md` | TMA-only 178.9, plain WS 195.4 → +9.2% from warp-spec |
-| `50-classical-algo/persistent-kernel/skill.md` | `80-experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md` | pingpong 193.8 vs cooperative 186.9 vs plain WS 195.4 TFLOPS at 2048³ |
-| `30-skill/compute/gemm-fused/cutlass-epilogue-prologue/skill.md` (status: partial) | `80-experience/api-probes/gemm/2026-04-28-gemm-fused.md` (epilogue path independently verified: fused 86.83 vs non-fused 100.21 μs = ~13% savings; bit-identical to the fused-vs-fused-reference oracle) | Prologue path (cutlass example 55 mixed-dtype int4 × bf16) is **not yet implemented**, so the skill stays partial |
+| `wiki/nvidia/hardware/tma/skill.md` | `sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md` | TMA load bw 5.37 GB at 5120×4096×4096 |
+| `wiki/nvidia/hardware/wgmma/skill.md` | `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md` | wgmma instruction count via ncu `smsp__inst_executed_pipe_tensor_op_hmma_cycles_active.sum` |
+| `wiki/nvidia/hardware/wgmma/skill.md` (atom-shape sweep) | `sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md` | M64xN{64,128,256}xK8 throughput sweep |
+| `wiki/nvidia/foundations/compute/gemm/aligned/skill.md` | `sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md` | 512³ 21.7, 2048³ 188.7, 8192³ 292.7 TFLOPS, all max_abs=0 vs cuBLAS |
+| `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md` | `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md` | 80³ 0.185, 200³ 1.85, 1440³ 130.2 TFLOPS, all max_abs=0 vs cuBLAS |
+| `wiki/nvidia/techniques/warp-specialization/skill.md` | `sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md` | TMA-only 178.9, plain WS 195.4 → +9.2% from warp-spec |
+| `wiki/nvidia/techniques/persistent-kernel/skill.md` | `sources/experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md` | pingpong 193.8 vs cooperative 186.9 vs plain WS 195.4 TFLOPS at 2048³ |
+| `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md` (status: partial) | `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md` (epilogue path independently verified: fused 86.83 vs non-fused 100.21 μs = ~13% savings; bit-identical to the fused-vs-fused-reference oracle) | Prologue path (cutlass example 55 mixed-dtype int4 × bf16) is **not yet implemented**, so the skill stays partial |
 
 ## Step 6: Cross-reference
 

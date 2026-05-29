@@ -35,9 +35,9 @@ source:
     for const __restrict__ inputs. On modern architectures the compiler routes const
     __restrict__ loads through this path automatically.
 artifacts:
-  code: 80-experience/hw-probes/cache-hint/artifacts/cache_hint_probe.cu
-  build: 80-experience/hw-probes/cache-hint/artifacts/build.sh
-  introspection: 80-experience/hw-probes/cache-hint/artifacts/device.json
+  code: sources/experience/hw-probes/cache-hint/artifacts/cache_hint_probe.cu
+  build: sources/experience/hw-probes/cache-hint/artifacts/build.sh
+  introspection: sources/experience/hw-probes/cache-hint/artifacts/device.json
   profile: ''
 related_apis:
 - __ldg
@@ -58,7 +58,7 @@ related_skills:
 - vectorized-access
 - register-pressure
 experience_refs:
-- 80-experience/hw-probes/cache-hint/2026-04-23-cache-hint.md
+- sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md
 id: skill-cache-load-hints
 type: skill
 vendor: nvidia
@@ -222,7 +222,7 @@ Maps to `ld.global.lu`. Tags the line for eviction after this load.
 Its effect is on **subsequent** L2 pressure from later kernels — a
 cross-kernel optimization that a single-kernel harness cannot
 surface. Retained as inferred pending a multi-kernel probe
-(`80-experience/hw-probes/cache-hint-contended/`, open).
+(`sources/experience/hw-probes/cache-hint-contended/`, open).
 
 ## When NOT to use
 
@@ -243,9 +243,9 @@ surface. Retained as inferred pending a multi-kernel probe
 ## Measured Characteristics
 
 Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using
-[80-experience/hw-probes/cache-hint/](../../../80-experience/hw-probes/cache-hint/) —
+[sources/experience/hw-probes/cache-hint/](../../../sources/experience/hw-probes/cache-hint/) —
 6 load variants × 2 working-set regimes. Full record:
-[80-experience/hw-probes/cache-hint/2026-04-23-cache-hint.md](../../../80-experience/hw-probes/cache-hint/2026-04-23-cache-hint.md).
+[sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md](../../../sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md).
 
 ### DRAM regime (256 MiB, single pass) — variants collapse to DRAM BW
 
@@ -290,10 +290,10 @@ Key measured findings:
 
 Follow-up probes open:
 
-- `80-experience/hw-probes/cache-hint-contended/` — add a second
+- `sources/experience/hw-probes/cache-hint-contended/` — add a second
   stream touching 50+ MiB of distinct data so the evict-first tag
   (`__ldcs`) and last-use tag (`__ldlu`) can be measured.
-- `80-experience/hw-probes/store-hint/` — counterpart for
+- `sources/experience/hw-probes/store-hint/` — counterpart for
   `__stcs` / `__stwb` / `__stwt`; legacy Skill 4 not re-measured.
 
 ## Principles
@@ -317,11 +317,11 @@ Follow-up probes open:
 
 - Q1. Does `__ldcs` measurably help when a concurrent stream is
   evicting the hot buffer? Follow-up probe
-  `80-experience/hw-probes/cache-hint-contended/` (open).
+  `sources/experience/hw-probes/cache-hint-contended/` (open).
 - Q2. **RESOLVED** (audit 2026-04-23): `nvcc -arch=sm_90a -O3 -ptx` emits six distinct `ld.global.{nc,ca,cg,cs,lu,cv}` instructions — no compiler folding. `cuobjdump --dump-sass` confirms six distinct SASS opcodes (`LDG.E.CONSTANT` / `LDG.E.STRONG.SM` / `LDG.E.STRONG.GPU` / `LDG.E.EF` / `LDG.E.STRONG.SYS`). The DRAM-regime 0.5% collapse is 'all hints honoured identically at DRAM-bound scale', not compiler folding. Default and `__ldg` share the same SASS (`LDG.E.CONSTANT`) with `const __restrict__` pointers, explaining the 0.1-0.4% wall-clock identity. See probe record §"PTX / SASS audit".
 - Q3. How do `__stcs` / `__stwb` / `__stwt` store hints behave on
   H200? Legacy Skill 4 claimed use cases but was never re-measured.
-  Follow-up probe `80-experience/hw-probes/store-hint/` (open).
+  Follow-up probe `sources/experience/hw-probes/store-hint/` (open).
 - Q4. Is `cudaFuncSetCacheConfig` observable on sm_9.0a? Legacy
   pitfall P10 claims "no observable effect on Ampere+". Not
   re-measured in this pass — belongs in a dedicated `L1/shared
@@ -330,7 +330,7 @@ Follow-up probes open:
 ## Legacy references
 
 - `legacy_sandbox_path`:
-  `corpus/nvidia/legacy-knowledge/optimization/memory/cache-load-hints/skill.md`.
+  `corpus/nvidia/legacy-optimization/memory/cache-load-hints/skill.md`.
   Legacy kept six sub-skills (S1 `__ldg`, S2 `__ldcg`, S3 `__ldcs`,
   S4 store hints, S5 `cudaFuncSetCacheConfig`, S6 `__ldlu`); this
   port reorganises by the H200 measurement:
@@ -350,7 +350,7 @@ Follow-up probes open:
   (default ≈ `__ldcg` on streaming), P8 (DRAM-bytes shift without
   wall-clock impact) are **upgraded to measured** by the H200 probe.
 - **Related but distinct**:
-  - `30-skill/memory/l2-access-policy/` operates at the stream-level
+  - `wiki/nvidia/foundations/memory/l2-access-policy/` operates at the stream-level
     — which lines L2 keeps under pressure. Composes with this skill.
-  - `30-skill/memory/coalescing/` fixes the address pattern; cache
+  - `wiki/nvidia/foundations/memory/coalescing/` fixes the address pattern; cache
     hints are a downstream concern.

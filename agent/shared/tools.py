@@ -125,7 +125,7 @@ def provenance_back_tool(path: str, anchor: str | None = None) -> str:
 
 
 def build_provenance_tool() -> str:
-    """Rebuild the provenance-back index under 05-source-corpus/INDEX."""
+    """Rebuild the provenance-back index under corpus/nvidia/INDEX."""
     return json.dumps(build_provenance_index(), ensure_ascii=False)
 
 
@@ -227,7 +227,7 @@ def run_on_gpu(command: str, timeout: int = 180) -> str:
 
 
 def sync_to_gpu() -> str:
-    """Rsync local knowledge/ and tools/ to the remote GPU host."""
+    """Rsync local  and tools/ to the remote GPU host."""
     cmd = (
         f"rsync -avz --exclude '.git' --exclude '__pycache__' "
         f"{PROJECT_ROOT}/ {REMOTE_HOST}:{REMOTE_DIR}/"
@@ -239,7 +239,7 @@ def sync_to_gpu() -> str:
     return result.stdout[-2000:] if result.stdout else "(no output)"
 
 
-def sync_from_gpu(remote_subpath: str = "knowledge/") -> str:
+def sync_from_gpu(remote_subpath: str = "") -> str:
     """Rsync a subpath from the remote GPU host back to local."""
     cmd = (
         f"rsync -avz {REMOTE_HOST}:{REMOTE_DIR}/{remote_subpath} "

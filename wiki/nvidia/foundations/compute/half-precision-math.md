@@ -64,9 +64,9 @@ source:
     / fma.rn.relu.f16{,x2} (fused FMA+ReLU) / tanh.approx.f16 / tanh.approx.bf16 /
     atom.add.noftz.f16.'
 artifacts:
-  code: 80-experience/hw-probes/half2-throughput/artifacts/half2_throughput_probe.cu
-  build: 80-experience/hw-probes/half2-throughput/artifacts/build.sh
-  introspection: 80-experience/hw-probes/half2-throughput/artifacts/device.json
+  code: sources/experience/hw-probes/half2-throughput/artifacts/half2_throughput_probe.cu
+  build: sources/experience/hw-probes/half2-throughput/artifacts/build.sh
+  introspection: sources/experience/hw-probes/half2-throughput/artifacts/device.json
   profile: ''
 related_apis:
 - __hadd
@@ -103,7 +103,7 @@ related_skills:
 - register-pressure
 - atomic-reduction
 experience_refs:
-- 80-experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md
+- sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md
 id: skill-half-precision-math
 type: skill
 vendor: nvidia
@@ -259,7 +259,7 @@ Available on sm_70+ (fp16) and sm_80+ (bf16). PTX maps to `atom.add.noftz.f16` /
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using [80-experience/hw-probes/half2-throughput/](../../../80-experience/hw-probes/half2-throughput/) — five FMA variants in a 4-chain ILP compute-bound harness. Full record: [80-experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md](../../../80-experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md).
+Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using [sources/experience/hw-probes/half2-throughput/](../../../sources/experience/hw-probes/half2-throughput/) — five FMA variants in a 4-chain ILP compute-bound harness. Full record: [sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md](../../../sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md).
 
 ### Scalar-equivalent GFLOPS (counts 2 FP ops per packed instruction)
 
@@ -290,13 +290,13 @@ Key measured findings on H200 sm_9.0a:
 
 - Q1. **RESOLVED** (SASS audit 2026-04-23): `__hfma2` is only 1.16× scalar `__hfma` because **nvcc auto-packs scalar `__hfma` chains into `HFMA2.MMA` SASS opcodes**. Both the scalar and packed templates produce the same `HFMA2.MMA` instruction mix; "scalar vs packed" at C-source is largely erased at SASS when ILP provides independent pairs. The 1.16× residual is register-layout / alignment cost, not the packing gain itself. See probe record §"PTX / SASS audit".
 - Q2. **PARTIALLY RESOLVED** (SASS audit 2026-04-23): bf16 packed is 12% slower than fp16 packed because it emits `HFMA2.MMA.BF16_V2` opcodes — a distinct HFMA2 variant, **not** a fall-through to `FFMA`. Both remain on the half-precision FMA pipe family; the BF16_V2 variant simply has lower measured throughput than the base `HFMA2.MMA` on sm_9.0a hardware. Root cause (pipeline width, multiplier latency, or register port allocation) would need an isolated-instruction microbench to resolve — out of scope here. The compiler hypothesis "bf16 uses FP32 slot" is refuted.
-- Q3. On sm_9.0a do `h2exp`, `h2log`, `h2rsqrt` emit single instructions (as PG §5.4.11.2 implies) or decompose into fp32 ops (pitfall P10)? Follow-up probe `80-experience/hw-probes/half-transcendental/` (open).
-- Q4. Is `__hfma2_relu` measurably faster than `__hfma2` + explicit `max(x, 0)` in a compute-bound kernel? ~4% instruction reduction is documented; wall-clock gain in compute-bound kernels is not (pitfall P11). Follow-up probe `80-experience/hw-probes/half-fma-relu/` (open).
+- Q3. On sm_9.0a do `h2exp`, `h2log`, `h2rsqrt` emit single instructions (as PG §5.4.11.2 implies) or decompose into fp32 ops (pitfall P10)? Follow-up probe `sources/experience/hw-probes/half-transcendental/` (open).
+- Q4. Is `__hfma2_relu` measurably faster than `__hfma2` + explicit `max(x, 0)` in a compute-bound kernel? ~4% instruction reduction is documented; wall-clock gain in compute-bound kernels is not (pitfall P11). Follow-up probe `sources/experience/hw-probes/half-fma-relu/` (open).
 - Q5. Does native `atomicAdd(__half*, __half)` on H200 contention match the "worse than fp32" behavior described in pitfall P12? Not re-measured. Follow-up.
 
 ## Legacy references
 
-- `legacy_sandbox_path`: `corpus/nvidia/legacy-knowledge/optimization/compute/half-precision-math/skill.md`. The legacy skill kept six sub-skills (S1 packed h2, S2 bf16, S3 mixed-precision accumulation, S4 transcendentals, S5 hfma_relu, S6 native atomics). This port:
+- `legacy_sandbox_path`: `corpus/nvidia/legacy-optimization/compute/half-precision-math/skill.md`. The legacy skill kept six sub-skills (S1 packed h2, S2 bf16, S3 mixed-precision accumulation, S4 transcendentals, S5 hfma_relu, S6 native atomics). This port:
   - Re-orders by the measured H200 hierarchy: memory-bw-first (§S1), packed-is-marginal (§S2, fp16 only), accumulation-in-fp32 (§S3), transcendentals (§S4), fused FMA+ReLU (§S5), native atomics (§S6).
   - Adds the **Precision** section before any sub-skill — making the correctness-risk annotation the first thing a pattern-level INDEX or ROUTING caller reads.
   - The legacy "2× from packing" claim is corrected by the half2-throughput probe to 1.16× on fp16 / 1.02× on bf16.
@@ -304,6 +304,6 @@ Key measured findings on H200 sm_9.0a:
 - Legacy sandbox-only pitfalls dropped from body (no independent doc source, not re-measured by the half2-throughput probe): "L1 cache hit rate drop with half2" and "BF16 packed changes cache-line reuse" — these were empirical observations without authoritative grounding; they are available in the legacy-knowledge tree if needed but are not carried forward as measured facts.
 - Measured pitfalls added by the half2-throughput probe (2026-04-23): P14 (`__hfma2` is 1.16× not 2×), P15 (bf16 packed is 12% slower than fp16 packed), P16 (`<cuda_bf16.h>` overload-resolution gotcha).
 - **Related but distinct**:
-  - `30-skill/compute/fast-math/` covers fp32-specific fast-math approximations (`-use_fast_math` only affects fp32). The two don't compose automatically.
-  - `30-skill/memory/vectorized-access/`: packed `half2` aligns naturally to 4-byte loads. Use vectorized-access for load/store widening, this skill for the arithmetic inside.
-  - `30-skill/memory/register-pressure/`: packed formats double accumulator width; check regs-per-thread after adopting §S2.
+  - `wiki/nvidia/foundations/compute/fast-math/` covers fp32-specific fast-math approximations (`-use_fast_math` only affects fp32). The two don't compose automatically.
+  - `wiki/nvidia/foundations/memory/vectorized-access/`: packed `half2` aligns naturally to 4-byte loads. Use vectorized-access for load/store widening, this skill for the arithmetic inside.
+  - `wiki/nvidia/foundations/memory/register-pressure/`: packed formats double accumulator width; check regs-per-thread after adopting §S2.

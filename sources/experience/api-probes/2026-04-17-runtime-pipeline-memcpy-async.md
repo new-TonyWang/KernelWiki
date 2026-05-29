@@ -14,18 +14,18 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
-  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o /tmp/pipeline_probe knowledge/80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
+  code: sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o /tmp/pipeline_probe sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
   introspection: ''
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L3905-L3945
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L11100-L11160
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L960-L1000
 source:
@@ -54,7 +54,7 @@ back_filled_into: []
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
 - Baseline is a CPU pass-through reference (correctness only), so no GPU timing ratio
-  is reported. For bandwidth comparisons against a sync copy, see 80-experience/hw-probes/async-copy/2026-04-16-async-copy.md.
+  is reported. For bandwidth comparisons against a sync copy, see sources/experience/hw-probes/async-copy/2026-04-16-async-copy.md.
 - kp_introspect kernel-static not generated (cuda-python not installed).
 id: exp-2026-04-17-runtime-pipeline-memcpy-async
 type: experience
@@ -88,14 +88,14 @@ __global__ void kernel_single_stage(const float4* __restrict__ in,
 }
 ```
 
-Full source: `80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu`.
+Full source: `sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu`.
 
 ## Build
 
 ```bash
 nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo \
   -o /tmp/pipeline_probe \
-  knowledge/80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
+  sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
 ```
 
 ## Measurement
@@ -104,7 +104,7 @@ Configuration: N_VEC = 1,048,576 `float4` elements (16 MiB), grid = 4096 blocks,
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| N_VEC=1048576 | float4 | 0.009984 | 0.009760 | 0.010368 | cpu-pass-through-reference | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu && /tmp/p` |
+| N_VEC=1048576 | float4 | 0.009984 | 0.009760 | 0.010368 | cpu-pass-through-reference | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu && /tmp/p` |
 
 ## Introspection
 
@@ -117,5 +117,5 @@ No `kp_introspect kernel-static` bundle generated (cuda-python not installed in 
 - **Scope**: the pipeline is thread-scoped. When a subset of threads does the copies (producer / consumer pattern with 16-byte-per-thread tiles), a `__syncthreads()` is still required before the consumers read smem, because the `__pipeline_wait_prior` only synchronises the calling thread's own pending pipeline (Programming Guide §4.10.6 example at L11100-L11160).
 - **Alignment**: the L1 BYPASS path requires both source and destination 16-byte aligned. The probe uses `__align__(16) float4 smem[...]` and a `float4*` input pointer to guarantee alignment.
 - **Upstream corroboration**: CUDA C++ Best Practices Guide §10.2.3.4 (L960-L1000) shows the canonical "issue in a loop, commit, wait_prior(0)" usage and confirms the L1-bypass rule at L985.
-- **Relation to higher-level API**: the primitives API is the lowest level; `cuda::pipeline<thread_scope_thread>` and `cuda::memcpy_async` build on top of it. See `30-skill/memory/async-copy/skill.md` and `80-experience/hw-probes/async-copy/2026-04-16-async-copy.md` for the skill-level discussion and a bandwidth comparison against a vanilla elementwise kernel.
+- **Relation to higher-level API**: the primitives API is the lowest level; `cuda::pipeline<thread_scope_thread>` and `cuda::memcpy_async` build on top of it. See `wiki/nvidia/foundations/memory/async-copy/skill.md` and `sources/experience/hw-probes/async-copy/2026-04-16-async-copy.md` for the skill-level discussion and a bandwidth comparison against a vanilla elementwise kernel.
 - **No correctness issues observed**: max_abs_err = 0.0 across all 4,194,304 float elements in the pass-through test.

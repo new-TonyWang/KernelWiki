@@ -14,17 +14,17 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu
+  code: sources/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o cudaFuncSetAttribute_probe
     cudaFuncSetAttribute_probe.cu
   introspection: ''
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   line_range: L3372-L3440
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   line_range: L15838-L15870
-- path: 05-source-corpus/source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
+- path: corpus/nvidia/source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
   line_range: L774-L785
 source:
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
@@ -49,7 +49,7 @@ conclusions:
   baseline_ms: null
   ratio: null
 back_filled_into:
-- 10-api-raw/runtime/cudaFuncSetAttribute.md
+- wiki/nvidia/api-definitions/runtime/cudaFuncSetAttribute.md
 open_questions:
 - clock_policy is unknown — GPU clocks were not locked during the post-optin kernel
   launch; the kernel is short enough (6.6 µs median) that free-running clocks could
@@ -122,7 +122,7 @@ __global__ void big_smem_kernel(float* out, int n_floats_per_block) {
 ```bash
 nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo \
      -o cudaFuncSetAttribute_probe \
-     knowledge/80-experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu
+     sources/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu
 ```
 
 ## Measurement
@@ -135,7 +135,7 @@ Two separate measurements:
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 block × 256 threads × 200 KB dynSmem | fp32 | 0.006624 | 0.006432 | 0.006976 | pre-optin-launch (cudaErrorInvalidValue) | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu && /tmp/p` |
+| 1 block × 256 threads × 200 KB dynSmem | fp32 | 0.006624 | 0.006432 | 0.006976 | pre-optin-launch (cudaErrorInvalidValue) | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu && /tmp/p` |
 
 The baseline here is semantic rather than numeric: the same launch config **fails** before `cudaFuncSetAttribute` is called (returning `cudaErrorInvalidValue` at launch time). This is the "before/after" baseline the API exists to serve.
 

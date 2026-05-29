@@ -1,7 +1,7 @@
 ---
 title: Half-Precision Math — Pitfalls
 status: verified
-related_skill: 30-skill/compute/half-precision-math/skill.md
+related_skill: wiki/nvidia/foundations/compute/half-precision-math/skill.md
 source:
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L25350-L25420
@@ -10,7 +10,7 @@ source:
   anchor: L11000-L11200
   excerpt: PTX f16 / bf16 arithmetic; atom.add.noftz.f16 denormal handling.
 experience_refs:
-- 80-experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md
+- sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md
 id: pitfall-half-precision-math
 type: pitfall
 vendor: nvidia
@@ -68,7 +68,7 @@ Pitfalls group: P1–P6 are numerical-format and availability facts grounded in 
 **Symptom**: `h2exp` does not map to a single native instruction; it decomposes into a multi-step fp32 approximation that increases instruction count rather than reducing it.
 **Detection**: Inspect SASS; expect a single `ex2.approx.f16x2` but may see `ex2.approx.f32` + conversions.
 **Fix**: Verify per architecture. If the decomposition happens on your target, either do the exp in fp32 explicitly (saves the wrapper overhead) or use `__expf` + cast at the boundary.
-**Status**: Not re-measured on H200 sm_9.0a. Follow-up probe `80-experience/hw-probes/half-transcendental/` (open).
+**Status**: Not re-measured on H200 sm_9.0a. Follow-up probe `sources/experience/hw-probes/half-transcendental/` (open).
 **Source**: PG §5.4.11.2 (documents the packed intrinsics but does not guarantee single-instruction lowering on all SMs).
 
 ## P11. `__hfma2_relu` benefit invisible in memory-bound kernels
@@ -76,7 +76,7 @@ Pitfalls group: P1–P6 are numerical-format and availability facts grounded in 
 **Symptom**: Switching to `__hfma2_relu` reduces instruction count by ~4% but produces no measurable wall-clock speedup.
 **Detection**: Compare wall-clock of (FMA then max) vs `__hfma2_relu` variants on your actual kernel, not a microbench.
 **Fix**: Use `__hfma2_relu` only when the kernel is compute-bound (skill §S5). In the memory-bound regime the activation epilogue is a tiny fraction of wall-clock; code complexity not worth the 4% instruction saving.
-**Status**: Not re-measured on H200 sm_9.0a. Follow-up probe `80-experience/hw-probes/half-fma-relu/` (open).
+**Status**: Not re-measured on H200 sm_9.0a. Follow-up probe `sources/experience/hw-probes/half-fma-relu/` (open).
 **General principle**: instruction-count reduction ≠ wall-clock speedup; always measure end-to-end before committing to a fused intrinsic.
 
 ## P12. Native fp16 atomicAdd has worse contention than fp32

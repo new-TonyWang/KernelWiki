@@ -77,7 +77,7 @@ Step 1  Write a custom elementwise kernel.
  +---> 1a. CHOOSE DTYPE FIRST (precision + range decision).
  |       BEFORE selecting any optimization skill, pin down T.
  |       This is a CORRECTNESS decision, not a perf decision.
- |       Reference: 30-skill/compute/half-precision-math/ §Precision.
+ |       Reference: wiki/nvidia/foundations/compute/half-precision-math/ §Precision.
  |
  |       Decision questions (answer in order):
  |
@@ -134,7 +134,7 @@ Step 2  Optimize via skills from ROUTING.md.
  +---> 2a. Coalescing (critical for every elementwise kernel).
  |       Ensure stride-1 access: tid = blockIdx.x * blockDim.x + threadIdx.x
  |       and data[tid] indexing.
- |       See: 30-skill/memory/coalescing/
+ |       See: wiki/nvidia/foundations/memory/coalescing/
  |
  +---> 2b. Vectorized loads (float4 / half8).
  |       When dtype size * 4 fits a vector register, cast pointers
@@ -153,7 +153,7 @@ Step 2  Optimize via skills from ROUTING.md.
  +---> 2d. Bank conflict avoidance (rarely needed).
  |       Only relevant if the kernel stages data through __shared__
  |       memory (uncommon for pure elementwise).
- |       See: 30-skill/memory/bank-conflict/
+ |       See: wiki/nvidia/foundations/memory/bank-conflict/
  |
  +---> DONE.  Measure effective bandwidth vs. device peak.
         For a well-optimized elementwise kernel on H200, expect

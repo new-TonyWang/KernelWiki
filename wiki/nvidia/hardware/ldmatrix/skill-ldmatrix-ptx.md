@@ -87,6 +87,6 @@ Each thread in the warp provides the smem address for its own row's 8-element st
 
 ## How it connects to the rest of the KB
 
-- Required companion to `40-hardware-feature/mma-sync-ptx/` — mma.sync expects fragments in ldmatrix's output layout.
+- Required companion to `wiki/nvidia/hardware/mma-sync-ptx/` — mma.sync expects fragments in ldmatrix's output layout.
 - Superseded on Hopper by TMA + smem descriptors for the wgmma path.
 - cutlass-cute wraps ldmatrix in `Copy_Traits<SM75_U32x{1,2,4}_LDSM_N>` (see `copy_traits_sm75.hpp`).

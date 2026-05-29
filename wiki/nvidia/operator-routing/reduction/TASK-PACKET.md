@@ -4,7 +4,7 @@ pattern_class: cuda-core
 op: reduction
 status: draft
 source:
-- path: knowledge/70-reasoning/task-packet.md
+- path: reasoning/task-packet.md
   anchor: L1-L109
   excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This
     file is the task packet.'
@@ -15,12 +15,12 @@ operator: reduction
 ---
 # Reduction -- Task Packet Template
 
-This document defines the operator-specific task packet fields for a reduction kernel-writing task. It refines the generic task packet contract in `70-reasoning/task-packet.md` with reduction-specific required and optional fields.
+This document defines the operator-specific task packet fields for a reduction kernel-writing task. It refines the generic task packet contract in `reasoning/task-packet.md` with reduction-specific required and optional fields.
 
 ## Required fields (in addition to base task-packet fields)
 
 ```yaml
-# --- Base fields (from 70-reasoning/task-packet.md) ---
+# --- Base fields (from reasoning/task-packet.md) ---
 task_id: "2026-04-XX-reduction-<variant>"      # date-prefixed, kebab-case
 task_type: write-kernel                         # or benchmark-kernel
 target_path: kernels/reduction/<variant>/       # output directory
@@ -128,9 +128,9 @@ success_criteria:
   - correctness: "max_abs_error < 1e-5"
   - performance: "median_latency <= 1.1 * baseline_latency"
 references:
-  - 20-pattern/cuda-core/reduction/INDEX.md
-  - 20-pattern/cuda-core/reduction/ROUTING.md
-  - 70-reasoning/bottleneck-triage.md
+  - wiki/nvidia/operator-routing/cuda-core/reduction/INDEX.md
+  - wiki/nvidia/operator-routing/cuda-core/reduction/ROUTING.md
+  - reasoning/bottleneck-triage.md
 ```
 
 ## Example: per-row fp32 max reduction
@@ -164,8 +164,8 @@ notes: |
 
 ## Agent workflow when receiving a reduction task packet
 
-1. Read `20-pattern/cuda-core/reduction/INDEX.md` -- follow the decision tree starting at Step 0.
+1. Read `wiki/nvidia/operator-routing/cuda-core/reduction/INDEX.md` -- follow the decision tree starting at Step 0.
 2. If the library path suffices, report the recommended library call and stop (no custom kernel needed).
 3. If a custom kernel is needed, read `ROUTING.md` for the skill whitelist, then implement the kernel following Step 1/Step 2 of INDEX.md.
-4. Benchmark against `baseline` and apply bottleneck triage (`70-reasoning/bottleneck-triage.md`) if the success criteria are not met.
+4. Benchmark against `baseline` and apply bottleneck triage (`reasoning/bottleneck-triage.md`) if the success criteria are not met.
 5. After at most 3 optimization iterations, finalize or report `status: stuck`.

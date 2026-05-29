@@ -12,7 +12,7 @@ source:
   excerpt: '__any_sync(unsigned mask, predicate): Evaluates predicate for all non-exited
     threads in mask and returns non-zero if predicate evaluates to non-zero for any
     of them.'
-probed_by: 80-experience/api-probes/2026-04-17-runtime-any-sync.md
+probed_by: sources/experience/api-probes/2026-04-17-runtime-any-sync.md
 id: api-__any_sync
 type: api-definition
 vendor: nvidia
@@ -38,4 +38,4 @@ Warp vote intrinsic. Evaluates `predicate` for all non-exited threads in `mask` 
 
 ## End-to-End Example
 
-See the probe record at [80-experience/api-probes/2026-04-17-runtime-any-sync.md](../../80-experience/api-probes/2026-04-17-runtime-any-sync.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).
+See the probe record at [sources/experience/api-probes/2026-04-17-runtime-any-sync.md](../../sources/experience/api-probes/2026-04-17-runtime-any-sync.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

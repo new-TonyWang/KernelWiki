@@ -16,7 +16,7 @@ evidence_level: spec
 
 ## Compile-time parameters
 
-All aligned-GEMM tuning knobs apply (see `30-skill/compute/gemm/aligned/tuning.md`). Additional knobs for fusion:
+All aligned-GEMM tuning knobs apply (see `wiki/nvidia/foundations/compute/gemm/aligned/tuning.md`). Additional knobs for fusion:
 
 | Knob | cutlass template param | Default | Range | Effect |
 |---|---|---|---|---|
@@ -51,4 +51,4 @@ When testing fused kernels, the reference must replicate the fusion. See BitLess
 
 ## Measured sweep reference
 
-Fused ReLU epilogue: `80-experience/api-probes/gemm/2026-04-28-gemm-fused.md`
+Fused ReLU epilogue: `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md`

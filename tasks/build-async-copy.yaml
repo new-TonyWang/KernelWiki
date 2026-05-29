@@ -1,6 +1,6 @@
 task_id: 2026-04-16-async-copy
 task_type: build-skill
-target_path: 30-skill/memory/async-copy/
+target_path: wiki/nvidia/foundations/memory/async-copy/
 
 hardware:
   device: H200
@@ -8,16 +8,16 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/ptx-isa/
-  - /home/tongyu/workspace/cuda_repo/cccl/
+  - <local-path>
+  - <local-path> Programming Guides/cuda-c-best-practices-guide/
+  - <local-path>
+  - <local-path>
 
 references:
-  - 70-reasoning/api-probing.md
-  - 70-reasoning/hardware-microbench.md
-  - 70-reasoning/benchmark-protocol.md
-  - 70-reasoning/bottleneck-triage.md
+  - reasoning/api-probing.md
+  - reasoning/hardware-microbench.md
+  - reasoning/benchmark-protocol.md
+  - reasoning/bottleneck-triage.md
 
 success_criteria:
   - file_exists: skill.md
@@ -31,7 +31,7 @@ related_skills: [ilp, vectorized-access, register-pressure, coalescing]
 notes: |
   This skill is derived from GTC25-S72683 "CUDA Techniques to Maximize Memory
   Bandwidth and Hide Latency". The source transcript is at:
-  /home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/gtc25-s72683.md
+  <local-path>
 
   READ THAT FILE FIRST — it contains the complete structured notes from the talk
   including benchmark tables, API examples, and optimization guidelines.
@@ -66,13 +66,13 @@ notes: |
      H200: 2 stages minimum (32 KiB target at 100% occupancy with 256 threads/block)
 
   6. Include these GTC slide images as markdown references in skill.md:
-     - ![BW trends](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0016.jpg)
-     - ![Little's Law](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0028.jpg)
-     - ![Register vs BW](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0066.jpg)
-     - ![LDGSTS/TMA matrix](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0089.jpg)
-     - ![2-stage benchmark a*b](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0152.jpg)
-     - ![2-stage benchmark sqrt](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0157.jpg)
-     - ![Optimization flow](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0215.jpg)
+     - ![BW trends](<local-path>
+     - ![Little's Law](<local-path>
+     - ![Register vs BW](<local-path>
+     - ![LDGSTS/TMA matrix](<local-path>
+     - ![2-stage benchmark a*b](<local-path>
+     - ![2-stage benchmark sqrt](<local-path>
+     - ![Optimization flow](<local-path>
 
   apis.md: cuda::memcpy_async, __pipeline_memcpy_async, cuda::pipeline<thread_scope_thread>,
     cuda::barrier<thread_scope_block>, cuda::aligned_size_t, cooperative_groups::memcpy_async,

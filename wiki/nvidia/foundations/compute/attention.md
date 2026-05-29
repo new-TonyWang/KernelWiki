@@ -18,17 +18,17 @@ measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
 - path: '{{CUTLASS_REPO_REF}}/examples/88_hopper_fmha/88_hopper_fmha.cu'
   anchor: Hopper FMHA example — used as algorithmic reference only, not as code dependency
-- path: 80-experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
+- path: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
   anchor: wgmma PTX inline-asm pattern reused for attention Q@K^T and P@V tiles
-- path: 80-experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
+- path: sources/experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
   anchor: TMA load PTX pattern reused for Q/K/V tile loads
-- path: 80-experience/api-probes/attention/artifacts/flash_attn_tma_wgmma.cu
+- path: sources/experience/api-probes/attention/artifacts/flash_attn_tma_wgmma.cu
   anchor: flash_attn_tma_wgmma_kernel — TMA+wgmma online-softmax attention
 artifacts:
-  code: 80-experience/api-probes/attention/artifacts/flash_attn_tma_wgmma.cu
-  build: 80-experience/api-probes/attention/artifacts/build.sh
-  introspection: 80-experience/api-probes/attention/artifacts/device.json
-  profile: 80-experience/api-probes/attention/artifacts/profiles/tma-wgmma-ncu.csv
+  code: sources/experience/api-probes/attention/artifacts/flash_attn_tma_wgmma.cu
+  build: sources/experience/api-probes/attention/artifacts/build.sh
+  introspection: sources/experience/api-probes/attention/artifacts/device.json
+  profile: sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-ncu.csv
 related_apis: []
 related_skills:
 - compute/attention/cutlass-fmha
@@ -129,14 +129,14 @@ H200-SXM, sm_90a, cuda 12.9.86, driver 570.124.06. fp16 inputs, f32 accumulator.
 | Tensor ops (hmma) | 1,024 instructions | 32 wgmma calls |
 
 Evidence:
-- Primary probe: [2026-05-08-mvp-attention-tma-wgmma.md](../../../../80-experience/api-probes/attention/2026-05-08-mvp-attention-tma-wgmma.md)
-- ncu CSV: `80-experience/api-probes/attention/artifacts/profiles/tma-wgmma-ncu.csv`
-- Correctness log: `80-experience/api-probes/attention/artifacts/profiles/tma-wgmma-correctness.log`
-- Sanitizer log: `80-experience/api-probes/attention/artifacts/profiles/tma-wgmma-sanitizer.log`
+- Primary probe: [2026-05-08-mvp-attention-tma-wgmma.md](../../../../sources/experience/api-probes/attention/2026-05-08-mvp-attention-tma-wgmma.md)
+- ncu CSV: `sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-ncu.csv`
+- Correctness log: `sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-correctness.log`
+- Sanitizer log: `sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-sanitizer.log`
 
 Secondary thread-level reference:
-- Probe record: [80-experience/api-probes/attention/2026-05-08-mvp-attention.md](../../../../80-experience/api-probes/attention/2026-05-08-mvp-attention.md)
-- Tuning sweep: [80-experience/hw-probes/attention-tuning/2026-05-08-attention-tile-sweep.md](../../../../80-experience/hw-probes/attention-tuning/2026-05-08-attention-tile-sweep.md)
+- Probe record: [sources/experience/api-probes/attention/2026-05-08-mvp-attention.md](../../../../sources/experience/api-probes/attention/2026-05-08-mvp-attention.md)
+- Tuning sweep: [sources/experience/hw-probes/attention-tuning/2026-05-08-attention-tile-sweep.md](../../../../sources/experience/hw-probes/attention-tuning/2026-05-08-attention-tile-sweep.md)
 
 ## When to use it
 
@@ -151,7 +151,7 @@ Secondary thread-level reference:
 
 ## How it connects to the rest of the KB
 
-- Builds on `40-hardware-feature/wgmma-ptx/` (wgmma PTX patterns) and `40-hardware-feature/tma-ptx/` (TMA load patterns).
-- Complemented by `30-skill/compute/attention/cutlass-fmha/` (cutlass's production FMHA).
-- Compared against FlashAttention v3 at `60-code/flash-attention-v3/`.
+- Builds on `wiki/nvidia/hardware/wgmma-ptx/` (wgmma PTX patterns) and `wiki/nvidia/hardware/tma-ptx/` (TMA load patterns).
+- Complemented by `wiki/nvidia/foundations/compute/attention/cutlass-fmha/` (cutlass's production FMHA).
+- Compared against FlashAttention v3 at `wiki/nvidia/code-walkthroughs/flash-attention-v3/`.
 - Tuning parameter space: [tuning.md](tuning.md).

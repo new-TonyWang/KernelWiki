@@ -11,9 +11,9 @@ measured_on:
   cuda_runtime: '12.8'
   driver: '570'
 ---
-# 80-experience/hw-probes/
+# sources/experience/hw-probes/
 
-Hardware microbench probe records. Sibling of `80-experience/api-probes/`. Schema: `../../templates/frontmatter/experience.yaml` (shared with api-probes).
+Hardware microbench probe records. Sibling of `sources/experience/api-probes/`. Schema: `../../templates/frontmatter/experience.yaml` (shared with api-probes).
 
 ## Two data sources co-exist
 
@@ -54,8 +54,8 @@ Format: Markdown with `experience.yaml` frontmatter, body sections per `api-prob
 ## Who reads what
 
 - **`h200-specs.md` (auto-generated section)**: reads `canonical/**` for the reference latency table shown at the top of the hardware spec.
-- **`30-skill/<family>/<skill>/skill.md` (§ Measured Characteristics)**: reads the skill-specific probe records and links to them as evidence for narrative claims.
-- **`lint_knowledge.py`**: validates that every bullet under `## Measured Characteristics` of a skill resolves to an existing probe record under `80-experience/hw-probes/...`.
+- **`wiki/nvidia/foundations/<family>/<skill>/skill.md` (§ Measured Characteristics)**: reads the skill-specific probe records and links to them as evidence for narrative claims.
+- **`lint_knowledge.py`**: validates that every bullet under `## Measured Characteristics` of a skill resolves to an existing probe record under `sources/experience/hw-probes/...`.
 
 ## Why two sources instead of one
 

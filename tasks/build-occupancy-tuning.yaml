@@ -1,6 +1,6 @@
 task_id: 2026-04-16-occupancy-tuning
 task_type: build-skill
-target_path: 30-skill/compute/occupancy-tuning/
+target_path: wiki/nvidia/foundations/compute/occupancy-tuning/
 
 hardware:
   device: H200
@@ -8,15 +8,15 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
-  - /home/tongyu/workspace/cuda_repo/cuda-samples/
+  - <local-path>
+  - <local-path> Programming Guides/cuda-c-best-practices-guide/
+  - <local-path>
 
 references:
-  - 70-reasoning/api-probing.md
-  - 70-reasoning/hardware-microbench.md
-  - 70-reasoning/benchmark-protocol.md
-  - 70-reasoning/bottleneck-triage.md
+  - reasoning/api-probing.md
+  - reasoning/hardware-microbench.md
+  - reasoning/benchmark-protocol.md
+  - reasoning/bottleneck-triage.md
 
 success_criteria:
   - file_exists: skill.md

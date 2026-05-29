@@ -1,9 +1,9 @@
 task_id: 2026-04-28-cutlass-tiling-search
 task_type: build-skill
 status: deferred-pending-decision   # AC-8 is OPTIONAL per the plan
-target_path: 30-skill/compute/gemm-tiling-search/
+target_path: wiki/nvidia/foundations/compute/gemm-tiling-search/
 also_writes:
-  - 60-code/cutlass-cute/tiling-search/
+  - wiki/nvidia/code-walkthroughs/cutlass-cute/tiling-search/
 
 hardware:
   device: H200
@@ -11,7 +11,7 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_repo/cutlass/
+  - <local-path>
 upstream_repo_pin: "cutlass@f74fea9c"
 
 references:
@@ -21,9 +21,9 @@ success_criteria:
   - interface_accepts: [M, N, K, dtype, hw]
   - returns_recommendation_with_confidence_score: true
   - beats_no_search_default_in_h200_scenarios_count_min: 3
-  - file_exists: 30-skill/compute/gemm-tiling-search/skill.md
-  - file_exists: 30-skill/compute/gemm-tiling-search/pitfalls.md
-  - dir_nonempty: 60-code/cutlass-cute/tiling-search/
+  - file_exists: wiki/nvidia/foundations/compute/gemm-tiling-search/skill.md
+  - file_exists: wiki/nvidia/foundations/compute/gemm-tiling-search/pitfalls.md
+  - dir_nonempty: wiki/nvidia/code-walkthroughs/cutlass-cute/tiling-search/
 
 depends_on:
   - extract-cutlass-warp-specialize.yaml

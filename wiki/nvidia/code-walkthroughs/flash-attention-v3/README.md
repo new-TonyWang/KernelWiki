@@ -58,7 +58,7 @@ FlashAttention v3 implements the same core algorithm as FlashAttention-2:
 | MLA decode | Yes (specialized kernel) | No |
 | Backward | Yes | Yes |
 
-### Comparison with MVP minimal attention (`30-skill/compute/attention/mvp-minimal`)
+### Comparison with MVP minimal attention (`wiki/nvidia/foundations/compute/attention/mvp-minimal`)
 
 | Aspect | FlashAttention v3 | MVP minimal |
 |---|---|---|
@@ -76,4 +76,4 @@ See `tuning.md` for the parameter space.
 ## Status
 
 - Registered in `corpus/nvidia/MANIFEST.yaml` with commit hash and local path.
-- No measured artifacts from this KB's H200 infrastructure yet. If measured, artifacts would follow the standard layout at `80-experience/api-probes/attention/artifacts/`.
+- No measured artifacts from this KB's H200 infrastructure yet. If measured, artifacts would follow the standard layout at `sources/experience/api-probes/attention/artifacts/`.

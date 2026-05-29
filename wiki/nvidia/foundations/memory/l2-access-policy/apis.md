@@ -215,8 +215,8 @@ signature: See documentation
 - **`cache-load-hints` skill** (pending): `__ldcs` / `__ldca` / `.cg` / `.cs` are the per-instruction cousins of the runtime-level window. The two compose — a stream with `hitProp=Persisting` together with `__ldcs` loads inside the kernel signals both "keep this region hot at L2" and "do not pollute L1 with this access".
 - **`async-copy` skill**: `cp.async.bulk.prefetch` + persisting window is the canonical "prime L2, then stream through L1/smem" recipe.
 - **`coalescing` skill**: neither the window nor the PTX hints change memory-access *coalescing*. Fix coalescing first; L2 policy is downstream.
-- **`40-hardware-feature/thread-block-cluster/`** (pending bucket F): cluster-scope kernels share an L2 across blocks; the window semantics generalize but are not re-measured.
+- **`wiki/nvidia/hardware/thread-block-cluster/`** (pending bucket F): cluster-scope kernels share an L2 across blocks; the window semantics generalize but are not re-measured.
 
 ## Related Probes
 
-- [80-experience/hw-probes/l2-residency/2026-04-23-l2-residency.md](../../../80-experience/hw-probes/l2-residency/2026-04-23-l2-residency.md) — 3 WS × 3 policy sweep on H200. Load-bearing result: `hitRatio = set_aside / WS` at WS = 80 MiB gives +17.7% effective BW.
+- [sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md](../../../sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md) — 3 WS × 3 policy sweep on H200. Load-bearing result: `hitRatio = set_aside / WS` at WS = 80 MiB gives +17.7% effective BW.

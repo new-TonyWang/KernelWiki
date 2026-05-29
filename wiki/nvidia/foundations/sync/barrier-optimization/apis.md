@@ -136,7 +136,7 @@ apis:
   namespace: ptx
   kind: ptx-cluster-barrier
   notes: Cluster-scope barrier arrival (sm_90+). For DSMEM / multi-block kernels.
-    See 40-hardware-feature/thread-block-cluster/ (pending).
+    See wiki/nvidia/hardware/thread-block-cluster/ (pending).
 - func_name: barrier.cluster.wait
   namespace: ptx
   kind: ptx-cluster-barrier
@@ -185,4 +185,4 @@ signature: See documentation
 - **`warp-primitives` skill**: warp shuffles are `_sync` variants with an embedded barrier; usually removes the need for explicit `__syncwarp`.
 - **`async-copy` skill**: `cp.async` / TMA + `mbarrier.arrive.expect_tx` is the canonical producer-consumer shape on sm_80+.
 - **`warp-divergence` skill** (pitfall P1): re-converge divergent warps with `__syncwarp` before `mbarrier.arrive` to avoid per-lane arrivals.
-- **`40-hardware-feature/thread-block-cluster/`** (pending bucket F): cluster-scope barriers belong there.
+- **`wiki/nvidia/hardware/thread-block-cluster/`** (pending bucket F): cluster-scope barriers belong there.

@@ -114,11 +114,11 @@ signature: See documentation
 | `ld.shared[.vec][.type]` | Shared-memory load |
 | `st.shared[.vec][.type]` | Shared-memory store |
 | `cp.async.ca.shared.global[.vec]` | Async global->shared (sm_80+); overlaps with compute |
-| `cp.async.bulk` | TMA bulk async copy (sm_90+); see `40-hardware-feature/tma/` |
+| `cp.async.bulk` | TMA bulk async copy (sm_90+); see `wiki/nvidia/hardware/tma/` |
 
 ## Cross-references
 
-- **Bank conflicts**: `30-skill/memory/bank-conflict/` — covers the `[TILE][TILE+1]` padding rule and 4 B vs 8 B stride rules that make the staged smem access itself fast.
-- **Coalescing**: `30-skill/memory/coalescing/` — the prerequisite for the global-to-smem load to be efficient.
-- **Async copy**: `30-skill/memory/async-copy/` — covers `cp.async` / `cuda::memcpy_async` that replace a blocking `load + __syncthreads` pair.
-- **Distributed shared memory (>one block)**: `40-hardware-feature/thread-block-cluster/` (pending bucket F bootstrap) — covers `cluster.map_shared_rank` and `ld.shared::cluster`.
+- **Bank conflicts**: `wiki/nvidia/foundations/memory/bank-conflict/` — covers the `[TILE][TILE+1]` padding rule and 4 B vs 8 B stride rules that make the staged smem access itself fast.
+- **Coalescing**: `wiki/nvidia/foundations/memory/coalescing/` — the prerequisite for the global-to-smem load to be efficient.
+- **Async copy**: `wiki/nvidia/foundations/memory/async-copy/` — covers `cp.async` / `cuda::memcpy_async` that replace a blocking `load + __syncthreads` pair.
+- **Distributed shared memory (>one block)**: `wiki/nvidia/hardware/thread-block-cluster/` (pending bucket F bootstrap) — covers `cluster.map_shared_rank` and `ld.shared::cluster`.

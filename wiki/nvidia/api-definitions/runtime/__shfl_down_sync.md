@@ -25,7 +25,7 @@ source:
 - path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
   anchor: L78-L78
   excerpt: include <stdio.h>
-probed_by: 80-experience/api-probes/2026-04-17-runtime-shfl-down-sync.md
+probed_by: sources/experience/api-probes/2026-04-17-runtime-shfl-down-sync.md
 id: api-__shfl_down_sync
 type: api-definition
 vendor: nvidia
@@ -33,7 +33,7 @@ title: __Shfl_Down_Sync
 ---
 # __shfl_down_sync
 
-<!-- Auto-seeded stub from `probe_loop seed-stubs`. Agent must probe this API following `70-reasoning/api-probing.md` and fill the `signature`, body sections, and artifacts. -->
+<!-- Auto-seeded stub from `probe_loop seed-stubs`. Agent must probe this API following `reasoning/api-probing.md` and fill the `signature`, body sections, and artifacts. -->
 
 ## Semantics (TBD)
 
@@ -41,4 +41,4 @@ Agent: replace this section with parameter list + return semantics + typical use
 
 ## End-to-End Example
 
-See the probe record at [80-experience/api-probes/2026-04-17-runtime-shfl-down-sync.md](../../80-experience/api-probes/2026-04-17-runtime-shfl-down-sync.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).
+See the probe record at [sources/experience/api-probes/2026-04-17-runtime-shfl-down-sync.md](../../sources/experience/api-probes/2026-04-17-runtime-shfl-down-sync.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

@@ -104,7 +104,7 @@ __syncthreads();                  // all threads see initialized bar
 
 **Fix**: Reach for `cuda::barrier` only when (a) the kernel has independent producer/consumer work that can overlap across arrive/wait, OR (b) you need `expect_tx` for async-copy tracking. For simple fence-between-phases, `__syncthreads` is still the right tool.
 
-**Measured on H200 sm_90a** (`80-experience/hw-probes/barrier-cost/2026-04-22-barrier-cost.md`): bare arrive+wait cost per call is 1.59× (at B=128) to **2.23× (at B=1024) slower** than `__syncthreads`. Scaling factor across 128→1024 is 2.72× for mbarrier vs 1.93× for `__syncthreads` — the mbarrier gap widens with block size, so the "no overlap" loss is worst at exactly the block sizes where barrier cost matters most.
+**Measured on H200 sm_90a** (`sources/experience/hw-probes/barrier-cost/2026-04-22-barrier-cost.md`): bare arrive+wait cost per call is 1.59× (at B=128) to **2.23× (at B=1024) slower** than `__syncthreads`. Scaling factor across 128→1024 is 2.72× for mbarrier vs 1.93× for `__syncthreads` — the mbarrier gap widens with block size, so the "no overlap" loss is worst at exactly the block sizes where barrier cost matters most.
 
 **Source**: H200 probe (measured, 2026-04-22), supersedes KernelPilot legacy L3 sandbox (2026-04-04) which was directionally correct but un-quantified.
 

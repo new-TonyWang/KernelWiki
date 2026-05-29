@@ -66,7 +66,7 @@ Q2. For library-GEMM downstream: does cublasLtMatrix{Transform,Layout}
 
 Q3. Is this an AoS → SoA split (struct-of-fields → array-per-field)?
     YES --> This is a layout transform, not a transpose. Follow
-            30-skill/memory/layout-transform/skill.md S1; the kernel
+            wiki/nvidia/foundations/memory/layout-transform/skill.md S1; the kernel
             is a one-pass conversion, not a smem-tiled transpose.
     NO  --> Continue to Q4.
 
@@ -91,8 +91,8 @@ Thread `(y, x)` reads `in[y*N + x]` and writes `out[x*N + y]`. The read is coale
 ```
 Q5a. Is M == N (square) and a multiple of 32?
      YES --> Use the standard [TILE][TILE+1] padded smem tile (see
-             30-skill/memory/shared-memory-cache/ skill S2 and its
-             probe 80-experience/hw-probes/smem-tile-reuse/ — 3.19x
+             wiki/nvidia/foundations/memory/shared-memory-cache/ skill S2 and its
+             probe sources/experience/hw-probes/smem-tile-reuse/ — 3.19x
              faster than naive, 1685 GB/s on H200 at 4096x4096 fp32).
      NO   --> Same kernel works; add boundary predicates on the load
              AND the store (sibling skill pitfall P2). Expect slightly
@@ -117,7 +117,7 @@ __global__ void transpose_smem(const float* __restrict__ in,
 }
 ```
 
-Measured on H200 (fp32, 4096×4096): unpadded `[32][32]` gives 985 GB/s; padded `[32][33]` gives 1685 GB/s (3.19× over naive). See `30-skill/memory/shared-memory-cache/` and its probe record.
+Measured on H200 (fp32, 4096×4096): unpadded `[32][32]` gives 985 GB/s; padded `[32][33]` gives 1685 GB/s (3.19× over naive). See `wiki/nvidia/foundations/memory/shared-memory-cache/` and its probe record.
 
 ### High-dim permute (N-D)
 
@@ -173,13 +173,13 @@ Q5d. Can you get away with NOT materializing the transpose, by
 
 After the basic custom kernel is working and correct, apply optimization skills from `ROUTING.md` in priority order:
 
-1. **Shared memory cache** (`30-skill/memory/shared-memory-cache/`) — the central mechanism of the smem-tiled transpose. Applies to Q5a.
-2. **Bank-conflict avoidance** (`30-skill/memory/bank-conflict/`) — the `[TILE][TILE+1]` padding rule. Measured on H200: 488× bank- conflict reduction, 1.71× speedup.
-3. **Layout transform** (`30-skill/memory/layout-transform/`) — skill S1 covers AoS↔SoA (Q5c); S2 covers pitched allocation when rows are not naturally aligned.
-4. **Vectorized access** (`30-skill/memory/vectorized-access/`) — when the tile element is float or fp16, wider loads (float4 / bfloat162) reduce instruction count. Applies most to Q5a's large-shape regime.
-5. **Coalescing** (`30-skill/memory/coalescing/`) — sanity-check that both the smem-load and smem-store sides of the transpose are stride-1 on global memory.
+1. **Shared memory cache** (`wiki/nvidia/foundations/memory/shared-memory-cache/`) — the central mechanism of the smem-tiled transpose. Applies to Q5a.
+2. **Bank-conflict avoidance** (`wiki/nvidia/foundations/memory/bank-conflict/`) — the `[TILE][TILE+1]` padding rule. Measured on H200: 488× bank- conflict reduction, 1.71× speedup.
+3. **Layout transform** (`wiki/nvidia/foundations/memory/layout-transform/`) — skill S1 covers AoS↔SoA (Q5c); S2 covers pitched allocation when rows are not naturally aligned.
+4. **Vectorized access** (`wiki/nvidia/foundations/memory/vectorized-access/`) — when the tile element is float or fp16, wider loads (float4 / bfloat162) reduce instruction count. Applies most to Q5a's large-shape regime.
+5. **Coalescing** (`wiki/nvidia/foundations/memory/coalescing/`) — sanity-check that both the smem-load and smem-store sides of the transpose are stride-1 on global memory.
 
-After each skill application, re-benchmark against the baseline (`torch.permute` / `cublasLtMatrixTransform`) and follow the bottleneck-triage procedure in `70-reasoning/bottleneck-triage.md`.
+After each skill application, re-benchmark against the baseline (`torch.permute` / `cublasLtMatrixTransform`) and follow the bottleneck-triage procedure in `reasoning/bottleneck-triage.md`.
 
 ---
 
@@ -188,6 +188,6 @@ After each skill application, re-benchmark against the baseline (`torch.permute`
 - **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
-- **Central mechanism**: `30-skill/memory/shared-memory-cache/`
-- **Layout decision (AoS/SoA/pitched)**: `30-skill/memory/layout-transform/`
-- **Bottleneck triage after benchmarking**: `70-reasoning/bottleneck-triage.md`
+- **Central mechanism**: `wiki/nvidia/foundations/memory/shared-memory-cache/`
+- **Layout decision (AoS/SoA/pitched)**: `wiki/nvidia/foundations/memory/layout-transform/`
+- **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

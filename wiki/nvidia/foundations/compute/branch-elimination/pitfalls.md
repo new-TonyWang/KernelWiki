@@ -1,14 +1,14 @@
 ---
 title: Branch Elimination — Pitfalls
 status: verified
-related_skill: 30-skill/compute/branch-elimination/skill.md
+related_skill: wiki/nvidia/foundations/compute/branch-elimination/skill.md
 source:
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L6800-L6950
   excerpt: PTX `selp` predicated-select semantics; conditions under which ptxas promotes
     if-conversion.
 experience_refs:
-- 80-experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md
+- sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md
 id: pitfall-branch-elimination
 type: pitfall
 vendor: nvidia

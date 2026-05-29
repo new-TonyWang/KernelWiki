@@ -14,18 +14,18 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/api-probes/artifacts/__ldg_probe.cu
+  code: sources/experience/api-probes/artifacts/__ldg_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __ldg_probe __ldg_probe.cu
   introspection: ''
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L25102-L25130
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L22347-L22353
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L24547-L24557
 source:
@@ -41,7 +41,7 @@ conclusions:
   baseline_ms: 0.007744
   ratio: 1.0041
 back_filled_into:
-- 10-api-raw/runtime/__ldg.md
+- wiki/nvidia/api-definitions/runtime/__ldg.md
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
 - On sm_90a, the compiler typically routes const __restrict__ loads through the read-only
@@ -158,7 +158,7 @@ Configuration: N = 1048576 (1M) floats, grid = 4096, block = 256. 5 warmup launc
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1048576 | fp32 | 0.007712 | 0.007552 | 0.008096 | plain-global-load | 0.007744 | 1.0041 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/__ldg_probe.cu && /tmp/p` |
+| 1048576 | fp32 | 0.007712 | 0.007552 | 0.008096 | plain-global-load | 0.007744 | 1.0041 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__ldg_probe.cu && /tmp/p` |
 
 ## Introspection
 

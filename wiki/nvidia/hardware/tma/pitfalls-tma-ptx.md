@@ -49,7 +49,7 @@ The driver API requires `cuInit(0)` before any `cu*` call. If your program previ
 | `64B`  | 64 (= 32 bf16 = 16 fp32) |
 | `128B` | 128 (= 64 bf16 = 32 fp32) |
 
-A "swizzle sweep" at fixed tile-bytes therefore is impossible by spec — what you actually scan is *fast-axis bytes*, not the swizzle layout. Throughput differences across swizzle modes in such a sweep are **dominated by tile-bytes scaling**, not by the swizzle layout itself. To compare swizzle layouts apples-to-apples, hold fast-axis = 128 bytes and compare `SWIZZLE_NONE` vs `SWIZZLE_128B` (both legal at that width). The probe at `80-experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md` shows they differ by < 0.5 % — swizzle layout itself is bandwidth-neutral; its role is downstream wgmma smem-descriptor compatibility, not raw load bandwidth.
+A "swizzle sweep" at fixed tile-bytes therefore is impossible by spec — what you actually scan is *fast-axis bytes*, not the swizzle layout. Throughput differences across swizzle modes in such a sweep are **dominated by tile-bytes scaling**, not by the swizzle layout itself. To compare swizzle layouts apples-to-apples, hold fast-axis = 128 bytes and compare `SWIZZLE_NONE` vs `SWIZZLE_128B` (both legal at that width). The probe at `sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md` shows they differ by < 0.5 % — swizzle layout itself is bandwidth-neutral; its role is downstream wgmma smem-descriptor compatibility, not raw load bandwidth.
 
 ## 10. Tile size, not swizzle, is the throughput knob
 

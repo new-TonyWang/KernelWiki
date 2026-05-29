@@ -14,18 +14,18 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/aos-vs-soa/artifacts/aos_vs_soa_probe.cu
-  build: 80-experience/hw-probes/aos-vs-soa/artifacts/build.sh
-  introspection: 80-experience/hw-probes/aos-vs-soa/artifacts/device.json
+  code: sources/experience/hw-probes/aos-vs-soa/artifacts/aos_vs_soa_probe.cu
+  build: sources/experience/hw-probes/aos-vs-soa/artifacts/build.sh
+  introspection: sources/experience/hw-probes/aos-vs-soa/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/aos-vs-soa/2026-04-22/aos_vs_soa.ncu-rep
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/aos-vs-soa/2026-04-22/run.log
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/aos-vs-soa/2026-04-22/ncu_metrics.csv
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L606-L634
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L1379-L1411
 source:
@@ -63,7 +63,7 @@ open_questions:
   headroom on H200 for further ILP tuning (S6 in the skill's open questions).
 - 'struct size = 24B is the canonical Particle example. Break-even is sensitive to
   struct size: larger struct -> bigger AoS waste ratio -> faster break-even. Open:
-  sweep struct sizes 16B / 24B / 48B / 96B under `80-experience/hw-probes/aos-vs-soa/struct-size-sweep/`.'
+  sweep struct sizes 16B / 24B / 48B / 96B under `sources/experience/hw-probes/aos-vs-soa/struct-size-sweep/`.'
 - On H200 the AoS kernel achieves 89% HBM SOL despite moving 4x more bytes than strictly
   needed — the L2 is absorbing the wasted sectors. L1/TEX hit rate on AoS is 0% (every
   load misses L1) and L2 hit rate is 15%, vs L2 hit rate 50% on SoA. Shape is small
@@ -75,7 +75,7 @@ title: 2026 04 22 Aos Vs Soa
 ---
 ## Summary
 
-This probe validates sub-skill **S1 "AoS → SoA conversion"** from [30-skill/memory/layout-transform/skill.md](../../../30-skill/memory/layout-transform/skill.md). BP Guide §10.2.1.4 (L606-L634) asserts that non-unit-stride global accesses waste bandwidth proportional to the stride; this probe measures the penalty on H200 for a 24-byte struct when the kernel touches only a 4-byte field (stride = 6× the useful bytes).
+This probe validates sub-skill **S1 "AoS → SoA conversion"** from [wiki/nvidia/foundations/memory/layout-transform/skill.md](../../../wiki/nvidia/foundations/memory/layout-transform/skill.md). BP Guide §10.2.1.4 (L606-L634) asserts that non-unit-stride global accesses waste bandwidth proportional to the stride; this probe measures the penalty on H200 for a 24-byte struct when the kernel touches only a 4-byte field (stride = 6× the useful bytes).
 
 Four kernels over `N = 16,777,216` particles:
 

@@ -46,9 +46,9 @@ source:
     and wait phases, transaction-count tracking for async copies, and hardware-accelerated
     phase advancement on sm_80+.'
 artifacts:
-  code: 80-experience/hw-probes/barrier-cost/artifacts/barrier_cost_probe.cu
-  build: 80-experience/hw-probes/barrier-cost/artifacts/build.sh
-  introspection: 80-experience/hw-probes/barrier-cost/artifacts/device.json
+  code: sources/experience/hw-probes/barrier-cost/artifacts/barrier_cost_probe.cu
+  build: sources/experience/hw-probes/barrier-cost/artifacts/build.sh
+  introspection: sources/experience/hw-probes/barrier-cost/artifacts/device.json
   profile: ''
 related_apis:
 - __syncthreads
@@ -185,7 +185,7 @@ bar.wait(bar.arrive());    // blocks until tx count is satisfied
 
 When a reduction / scan has to span more than one block, a common anti-pattern is a global counter with `atomicCAS`-based spin-locks. The right answer is almost always **two-pass launch** — each block reduces into a per-block slot, then a second kernel reduces the slots. See the `atomic-reduction` skill (S1 hierarchical pattern).
 
-The only time cluster-level `barrier.cluster.*` is appropriate is when the kernel uses distributed shared memory across blocks of the same cluster (sm_90+); that is a separate skill under `40-hardware-feature/thread-block-cluster/` (pending bucket F).
+The only time cluster-level `barrier.cluster.*` is appropriate is when the kernel uses distributed shared memory across blocks of the same cluster (sm_90+); that is a separate skill under `wiki/nvidia/hardware/thread-block-cluster/` (pending bucket F).
 
 ## When NOT to use
 
@@ -196,7 +196,7 @@ The only time cluster-level `barrier.cluster.*` is appropriate is when the kerne
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using [80-experience/hw-probes/barrier-cost/](../../../80-experience/hw-probes/barrier-cost/) — per-call cost of three barrier primitives at block sizes {128, 256, 512, 1024}. 10,000 barrier calls per inner loop, CUDA-events timing. Full record: [80-experience/hw-probes/barrier-cost/2026-04-22-barrier-cost.md](../../../80-experience/hw-probes/barrier-cost/2026-04-22-barrier-cost.md).
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using [sources/experience/hw-probes/barrier-cost/](../../../sources/experience/hw-probes/barrier-cost/) — per-call cost of three barrier primitives at block sizes {128, 256, 512, 1024}. 10,000 barrier calls per inner loop, CUDA-events timing. Full record: [sources/experience/hw-probes/barrier-cost/2026-04-22-barrier-cost.md](../../../sources/experience/hw-probes/barrier-cost/2026-04-22-barrier-cost.md).
 
 ### ns per barrier call
 
@@ -222,7 +222,7 @@ Key measured findings:
 - **mbarrier bare cost is a loss without overlap**: 1.6–2.2× slower than `__syncthreads` in a tight arrive+wait loop. The skill's §S2 (arrive/wait split) pays off **only** when there is real independent work of ≥ 100 cycles between arrive and wait — pitfall P6 upgraded from legacy-anecdotal to measured.
 - **NCU Compute SOL for single-block kernels sits near 0.11 %** — the 131 unused SMs idle. This is expected and the NCU pass is useful only as corroboration; wall-clock ns/call is the authoritative measurement for barrier primitives.
 
-The "arrive/wait overlap" variant of this probe (workload-dependent; real compute between `arrive` and `wait`) is a follow-up at `80-experience/hw-probes/barrier-async-overlap/` (open).
+The "arrive/wait overlap" variant of this probe (workload-dependent; real compute between `arrive` and `wait`) is a follow-up at `sources/experience/hw-probes/barrier-async-overlap/` (open).
 
 ## Principles
 
@@ -234,11 +234,11 @@ The "arrive/wait overlap" variant of this probe (workload-dependent; real comput
 ## Open questions
 
 - Q1. What is the actual per-call cycle cost of `__syncthreads` vs `mbarrier arrive+wait` on sm_90a H200 at block sizes 128 / 256 / 512 / 1024? Probe 2026-04-22 targets exactly this; measured section populated on completion.
-- Q2. For the overlap case (S2 with real independent work), what is the minimum independent-work size where mbarrier-split beats `__syncthreads`? Follow-up probe: `80-experience/hw-probes/barrier-async-overlap/`.
-- Q3. Does `barrier.cluster.arrive` / `wait` on sm_90 add enough cost over `__syncthreads` that cluster-level kernels should budget one extra pass? Depends on DSMEM probe at `40-hardware-feature/thread-block-cluster/` (pending bucket F).
+- Q2. For the overlap case (S2 with real independent work), what is the minimum independent-work size where mbarrier-split beats `__syncthreads`? Follow-up probe: `sources/experience/hw-probes/barrier-async-overlap/`.
+- Q3. Does `barrier.cluster.arrive` / `wait` on sm_90 add enough cost over `__syncthreads` that cluster-level kernels should budget one extra pass? Depends on DSMEM probe at `wiki/nvidia/hardware/thread-block-cluster/` (pending bucket F).
 
 ## Legacy references
 
-- `legacy_sandbox_path`: `KernelPilot/knowledge/optimization/synchronization/barrier-optimization/skill.md`. Legacy kept six sub-skills (S1–S6); this port keeps the four that are single-kernel-relevant (S1 async barriers → S2, S2 warp vs block → S1, S3 mbarrier expect_tx → S3, S6 minimize scope → S1 guidance). S4 cluster barriers is routed to the pending `40-hardware-feature/thread-block-cluster/` skill. S5 `__nanosleep` applies to spin-wait patterns (lock-based producer-consumer) and fits better under a future `30-skill/sync/spin-wait/` if one materializes — not migrated in this pass; pitfall P8 in `pitfalls.md` records the measurement caveat.
+- `legacy_sandbox_path`: `KernelPilot/optimization/synchronization/barrier-optimization/skill.md`. Legacy kept six sub-skills (S1–S6); this port keeps the four that are single-kernel-relevant (S1 async barriers → S2, S2 warp vs block → S1, S3 mbarrier expect_tx → S3, S6 minimize scope → S1 guidance). S4 cluster barriers is routed to the pending `wiki/nvidia/hardware/thread-block-cluster/` skill. S5 `__nanosleep` applies to spin-wait patterns (lock-based producer-consumer) and fits better under a future `wiki/nvidia/foundations/sync/spin-wait/` if one materializes — not migrated in this pass; pitfall P8 in `pitfalls.md` records the measurement caveat.
 - Legacy L3 sandbox findings P6–P9 are retained in `pitfalls.md` pending H200 re-measurement.
-- **Related but distinct**: `30-skill/sync/memory-ordering/` covers the *visibility* semantics around barriers; this skill covers the *cost and placement* of the barriers themselves. The two are complementary.
+- **Related but distinct**: `wiki/nvidia/foundations/sync/memory-ordering/` covers the *visibility* semantics around barriers; this skill covers the *cost and placement* of the barriers themselves. The two are complementary.

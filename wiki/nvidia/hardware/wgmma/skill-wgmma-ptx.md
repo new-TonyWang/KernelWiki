@@ -48,18 +48,18 @@ source:
 - path: '{{CUTLASS_REPO_REF}}/include/cute/arch/mma_sm90_gmma.hpp'
   anchor: cutlass's wgmma inline-PTX wrapper (used as a reference for descriptor construction;
     not included in our binary)
-- path: 80-experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
+- path: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
   anchor: cutlass-free hello-world (single m64n8k16 bf16 atom)
-- path: 80-experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
+- path: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
   anchor: cutlass-free zoo (11 configs across N-shape, dtype, layout, A-source)
 artifacts:
-  code: 80-experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
-  build: 80-experience/hw-probes/wgmma-ptx/artifacts/build.sh
-  zoo_code: 80-experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
-  zoo_codegen: 80-experience/hw-probes/wgmma-ptx/artifacts/gen_wgmma_zoo.py
-  zoo_build: 80-experience/hw-probes/wgmma-ptx/artifacts/build_zoo.sh
-  zoo_run: 80-experience/hw-probes/wgmma-ptx/artifacts/run_zoo.sh
-  profile: 80-experience/hw-probes/wgmma-ptx/artifacts/profiles/2026-04-29-wgmma-zoo.csv
+  code: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
+  build: sources/experience/hw-probes/wgmma-ptx/artifacts/build.sh
+  zoo_code: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
+  zoo_codegen: sources/experience/hw-probes/wgmma-ptx/artifacts/gen_wgmma_zoo.py
+  zoo_build: sources/experience/hw-probes/wgmma-ptx/artifacts/build_zoo.sh
+  zoo_run: sources/experience/hw-probes/wgmma-ptx/artifacts/run_zoo.sh
+  profile: sources/experience/hw-probes/wgmma-ptx/artifacts/profiles/2026-04-29-wgmma-zoo.csv
 related_apis: []
 related_skills:
 - wgmma
@@ -137,7 +137,7 @@ __device__ __forceinline__ uint64_t make_smem_desc(
 
 ## Atom-shape and dtype family covered
 
-The cutlass-free PTX path covers the full Hopper wgmma family. The 11-config zoo at `80-experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md` exercises four orthogonal axes — *N-shape*, *element dtype*, *AB layout*, *A-source location* — all verified cutlass-free.
+The cutlass-free PTX path covers the full Hopper wgmma family. The 11-config zoo at `sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md` exercises four orthogonal axes — *N-shape*, *element dtype*, *AB layout*, *A-source location* — all verified cutlass-free.
 
 | Axis | Values measured | Notes |
 |---|---|---|
@@ -221,12 +221,12 @@ wgmma.wait_group.sync.aligned 0;
 
 The number of accumulator registers per thread scales with N: N=8 gives 4 floats, N=64 gives 32, N=128 gives 64, N=256 gives 128. The immediate arguments also vary by dtype family (see the table in "Atom-shape and dtype family covered" above).
 
-A complete self-contained atomic skeleton is at [40-hardware-feature/wgmma-ptx/atomic_skeleton.md](atomic_skeleton.md). The skeleton compiles and runs on H200 as a single m64n8k16 bf16 atom, producing the expected output (all 512 elements = K = 16). Build command: `nvcc -gencode=arch=compute_90a,code=sm_90a -o wgmma_hello wgmma_hello.cu` (see `80-experience/hw-probes/wgmma-ptx/artifacts/build.sh`).
+A complete self-contained atomic skeleton is at [wiki/nvidia/hardware/wgmma-ptx/atomic_skeleton.md](atomic_skeleton.md). The skeleton compiles and runs on H200 as a single m64n8k16 bf16 atom, producing the expected output (all 512 elements = K = 16). Build command: `nvcc -gencode=arch=compute_90a,code=sm_90a -o wgmma_hello wgmma_hello.cu` (see `sources/experience/hw-probes/wgmma-ptx/artifacts/build.sh`).
 
 ## Cross-references
 
-- wgmma reference (cutlass-API path): `40-hardware-feature/wgmma/skill.md` + `80-experience/api-probes/gemm/2026-04-28-wgmma-counters.md`.
-- 11-config zoo with full sweep + open questions: `80-experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md`.
-- TMA-PTX sibling (also cutlass-free): `40-hardware-feature/tma-ptx/skill.md`.
-- Cutlass-free GEMM (composes both PTX primitives): `30-skill/compute/gemm-ptx/skill.md`.
-- Failure modes: `40-hardware-feature/wgmma-ptx/pitfalls.md`.
+- wgmma reference (cutlass-API path): `wiki/nvidia/hardware/wgmma/skill.md` + `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md`.
+- 11-config zoo with full sweep + open questions: `sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md`.
+- TMA-PTX sibling (also cutlass-free): `wiki/nvidia/hardware/tma-ptx/skill.md`.
+- Cutlass-free GEMM (composes both PTX primitives): `wiki/nvidia/foundations/compute/gemm-ptx/skill.md`.
+- Failure modes: `wiki/nvidia/hardware/wgmma-ptx/pitfalls.md`.

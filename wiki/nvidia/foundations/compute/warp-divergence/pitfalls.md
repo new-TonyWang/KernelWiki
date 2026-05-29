@@ -164,7 +164,7 @@ float r = condA ? (condB ? (condC ? vABC : vABnC) : 0.f) : 0.f;
 
 Look at `inst_issued.avg_per_cycle_active` instead to detect doubled-issue-rate from serialization; pair with wall-clock at constant occupancy to confirm.
 
-**Source**: `80-experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md` (measured on H200).
+**Source**: `sources/experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md` (measured on H200).
 
 ## P9. Mis-categorizing `__syncwarp()` as a latency optimization
 

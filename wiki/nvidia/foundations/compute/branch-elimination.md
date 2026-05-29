@@ -35,9 +35,9 @@ source:
     is the canonical branchless conditional-assignment primitive emitted by ptxas
     for simple-body if/else and ternary expressions.'
 artifacts:
-  code: 80-experience/hw-probes/branchless-patterns/artifacts/branchless_patterns_probe.cu
-  build: 80-experience/hw-probes/branchless-patterns/artifacts/build.sh
-  introspection: 80-experience/hw-probes/branchless-patterns/artifacts/device.json
+  code: sources/experience/hw-probes/branchless-patterns/artifacts/branchless_patterns_probe.cu
+  build: sources/experience/hw-probes/branchless-patterns/artifacts/build.sh
+  introspection: sources/experience/hw-probes/branchless-patterns/artifacts/device.json
   profile: ''
 related_apis:
 - fmaxf
@@ -56,7 +56,7 @@ related_skills:
 - fast-math
 - compiler-hints
 experience_refs:
-- 80-experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md
+- sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md
 id: skill-branch-elimination
 type: skill
 vendor: nvidia
@@ -158,7 +158,7 @@ This trades some wasted compute for guaranteed predication. The trade-off is usu
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using [80-experience/hw-probes/branchless-patterns/](../../../80-experience/hw-probes/branchless-patterns/) — 10 variants × 3 pattern families, compute-bound 4-chain ILP × 1024 inner iters harness, lane-variant input so branchful variants would see worst-case 50% divergence if the compiler had actually emitted branches. Full record: [80-experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md](../../../80-experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md).
+Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using [sources/experience/hw-probes/branchless-patterns/](../../../sources/experience/hw-probes/branchless-patterns/) — 10 variants × 3 pattern families, compute-bound 4-chain ILP × 1024 inner iters harness, lane-variant input so branchful variants would see worst-case 50% divergence if the compiler had actually emitted branches. Full record: [sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md](../../../sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md).
 
 ### Per-iter cost on one SM chain
 
@@ -203,11 +203,11 @@ Key measured findings:
 
 ## Open questions
 
-- Q1. Does `fminf`/`fmaxf` scale the same way with fp16 (`__hmax`, `__hmin`) and bf16 inputs? Not measured here. Follow-up probe `80-experience/hw-probes/half-minmax/` (open).
+- Q1. Does `fminf`/`fmaxf` scale the same way with fp16 (`__hmax`, `__hmin`) and bf16 inputs? Not measured here. Follow-up probe `sources/experience/hw-probes/half-minmax/` (open).
 - Q2. Does `copysignf` emit a single `LOP3.LUT` like `fabsf`, or a different sequence? Not measured here; SASS inspection sufficient if needed.
 - Q3. When the `if/else` body performs a memory store (not a register update), does the compiler still emit `FSEL` or does it fall back to a real branch? Probe not done; expected answer from PTX documentation is "predicated store". Follow-up if a specific workload exhibits surprising divergence.
 - Q4. How much harder does it become to force predication as the predicated body grows? The `warp-divergence` probe establishes the upper-bound cost (1.82×) when predication fails; the crossover point from "compiler predicates" to "compiler emits branch" is compiler-version-dependent and not measured here.
 
 ## Legacy references
 
-The legacy KB at `corpus/nvidia/legacy-knowledge/advanced/branch-elimination/{branchless-patterns.md, predicated-execution.md, uniform-control-flow.md}` consisted of three empty placeholder files; there is no prior content to import. This skill is a fresh build whose structure and findings come entirely from the branchless-patterns probe and from the PG / PTX ISA citations above. The legacy placeholder path is recorded here solely so future migrations can confirm the "no content to import" state; all pattern recommendations in the body of this skill stand on the probe 2026-04-23 SASS audit and measured wall-clock.
+The legacy KB at `corpus/nvidia/legacy-advanced/branch-elimination/{branchless-patterns.md, predicated-execution.md, uniform-control-flow.md}` consisted of three empty placeholder files; there is no prior content to import. This skill is a fresh build whose structure and findings come entirely from the branchless-patterns probe and from the PG / PTX ISA citations above. The legacy placeholder path is recorded here solely so future migrations can confirm the "no content to import" state; all pattern recommendations in the body of this skill stand on the probe 2026-04-23 SASS audit and measured wall-clock.

@@ -23,7 +23,7 @@ document specifying what to build, where to build it, and what success looks lik
 
 - Project root: {project_root}
 - Knowledge base: {knowledge_root}/ (this is where you write output)
-- Source corpus: {knowledge_root}/05-source-corpus/ (use source_* tools for upstream material)
+- Source corpus: {knowledge_root}/corpus/nvidia/ (use source_* tools for upstream material)
 - Tools: {project_root}/tools/ (lint, introspect, probe scan)
 - Tasks: {project_root}/tasks/ (input YAML files)
 
@@ -31,7 +31,7 @@ document specifying what to build, where to build it, and what success looks lik
 
 1. Read `{knowledge_root}/AGENTS.md` — your operating contract (9 hard constraints).
 2. Parse the task YAML from the user message — identify task_type, target_path, upstream_scope.
-3. Read the relevant meta-skills under `{knowledge_root}/70-reasoning/`:
+3. Read the relevant meta-skills under `{knowledge_root}/reasoning/`:
    - For **build-skill**: read api-probing.md, hardware-microbench.md, benchmark-protocol.md, bottleneck-triage.md
    - For **probe-api**: read api-probing.md, benchmark-protocol.md
    - For **build-pattern**: read task-packet.md, bottleneck-triage.md
@@ -51,8 +51,8 @@ document specifying what to build, where to build it, and what success looks lik
   `source_read`, `source_list`, and provenance tools. Do not grep `/home/tongyu/workspace/cuda_document`
   or `/home/tongyu/workspace/cuda_repo` directly unless debugging the retrieval layer itself.
 - **Frontmatter mandatory**: every .md you write starts with YAML per the template.
-- **English only**: all content in knowledge/ is English.
-- **Measured data → probe record**: write to `knowledge/80-experience/hw-probes/<slug>/<date>-<task>.md`.
+- **English only**: all content in  is English.
+- **Measured data → probe record**: write to `sources/experience/hw-probes/<slug>/<date>-<task>.md`.
   Then link from skill.md `## Measured Characteristics` section. Never embed a benchmark table inline.
 - **Skill output**: skill.md (required) + pitfalls.md (required) + apis.md (optional, only if skill uses named APIs).
   verified.md is DROPPED in MVP.
@@ -76,10 +76,10 @@ Before running CUDA commands, use `sync_to_gpu` to push your latest code/knowled
 4. **Write pitfalls.md** with known failure modes.
 5. **Write apis.md** (if applicable) listing each API with namespace, signature, link.
 6. **Design a microbench probe** following `hardware-microbench.md` protocol:
-   - Write a probe .cu file under `knowledge/80-experience/hw-probes/<insn-slug>/artifacts/`
+   - Write a probe .cu file under `sources/experience/hw-probes/<insn-slug>/artifacts/`
    - Sync to GPU, compile with nvcc, run, collect JSON output
    - Sync results back
-   - Write the probe record .md under `knowledge/80-experience/hw-probes/<insn-slug>/`
+   - Write the probe record .md under `sources/experience/hw-probes/<insn-slug>/`
 7. **Add ## Measured Characteristics** section to skill.md linking the probe record.
 8. **Run lint**: `python3 -m tools.lint_knowledge --root {knowledge_root}`
 9. **Report**: list files created, measurements, unresolved issues.

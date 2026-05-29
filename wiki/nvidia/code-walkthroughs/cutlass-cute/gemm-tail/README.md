@@ -5,12 +5,12 @@ vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/cutlass-cute
 ---
-# 60-code/cutlass-cute/gemm-tail — non-aligned tail-handling library usage
+# wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-tail — non-aligned tail-handling library usage
 
 Library-usage knowledge for cutlass GEMM at non-CtaTile-multiple problem shapes. The kernel template is the same warp-specialized cooperative kernel as `gemm-aligned`; what differs is the predicate / mask path that activates on the boundary CTA tile when M / N / K are not CtaTile multiples. Canonical reproducible artifacts:
 
-- Cooperative `<128, 128, 32>` + Cluster `<4, 2, 1>` for tile-misaligned and kilo-scale cases: `80-experience/api-probes/gemm/artifacts/gemm_tail.cu`
-- Smaller-tile non-cooperative `<64, 64, 32>` + Cluster `<1, 1, 1>` for "far smaller than tile" (M < 128): `80-experience/api-probes/gemm/artifacts/gemm_tail_small.cu`
+- Cooperative `<128, 128, 32>` + Cluster `<4, 2, 1>` for tile-misaligned and kilo-scale cases: `sources/experience/api-probes/gemm/artifacts/gemm_tail.cu`
+- Smaller-tile non-cooperative `<64, 64, 32>` + Cluster `<1, 1, 1>` for "far smaller than tile" (M < 128): `sources/experience/api-probes/gemm/artifacts/gemm_tail_small.cu`
 
 Use those paths to build and run.
 
@@ -29,11 +29,11 @@ The cooperative kernel's `can_implement` rejects shapes below ~128 in M because 
 | Far larger with non-aligned tail | 1440³ | cooperative `<128,128,32>` | `<4,2,1>` | most of grid is aligned fast path; tail is ~32 % overhead |
 | Sub-wgmma-M-floor (M < 64) | 30³ | refused — both templates return `kErrorInvalidProblem` | — | use non-wgmma fallback (mma.sync / SIMT FMA) |
 
-Reference numbers in `80-experience/api-probes/gemm/2026-04-28-gemm-tail.md`.
+Reference numbers in `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md`.
 
 ## Cross-references
 
-- Skill: `30-skill/compute/gemm/non-aligned-tail/skill.md`
-- Pitfalls: `30-skill/compute/gemm/non-aligned-tail/pitfalls.md`
-- Canonical artifacts: `80-experience/api-probes/gemm/artifacts/gemm_tail.cu` + `gemm_tail_small.cu`
-- Measurement record: `80-experience/api-probes/gemm/2026-04-28-gemm-tail.md`
+- Skill: `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md`
+- Pitfalls: `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/pitfalls.md`
+- Canonical artifacts: `sources/experience/api-probes/gemm/artifacts/gemm_tail.cu` + `gemm_tail_small.cu`
+- Measurement record: `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md`

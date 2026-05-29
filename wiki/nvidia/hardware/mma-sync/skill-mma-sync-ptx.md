@@ -91,6 +91,6 @@ Key differences from wgmma:
 
 ## How it connects to the rest of the KB
 
-- Predecessor to `40-hardware-feature/wgmma-ptx/` — wgmma replaces mma.sync on Hopper with warpgroup-level granularity and an async issue model.
-- Pairs with `40-hardware-feature/ldmatrix-ptx/` — ldmatrix loads A/B fragments from smem into registers in the layout mma.sync expects.
+- Predecessor to `wiki/nvidia/hardware/wgmma-ptx/` — wgmma replaces mma.sync on Hopper with warpgroup-level granularity and an async issue model.
+- Pairs with `wiki/nvidia/hardware/ldmatrix-ptx/` — ldmatrix loads A/B fragments from smem into registers in the layout mma.sync expects.
 - cutlass-cute wraps mma.sync in `MMA_Atom<MMA_Traits<SM80_*>>` (see `mma_traits_sm80.hpp`).

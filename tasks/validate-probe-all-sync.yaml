@@ -1,6 +1,6 @@
 task_id: 2026-04-17-validate-probe-all-sync
 task_type: probe-api
-target_path: 10-api-raw/runtime/
+target_path: wiki/nvidia/api-definitions/runtime/
 
 hardware:
   device: H200
@@ -8,15 +8,15 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2
-  - /home/tongyu/workspace/cuda_repo/cuda-samples
+  - <local-path>
+  - <local-path>
 
 references:
-  - 70-reasoning/api-probing.md
-  - 70-reasoning/benchmark-protocol.md
+  - reasoning/api-probing.md
+  - reasoning/benchmark-protocol.md
 
 success_criteria:
-  - file_exists: 10-api-raw/runtime/__all_sync.md
+  - file_exists: wiki/nvidia/api-definitions/runtime/__all_sync.md
   - source_corpus_used: true
   - final_report_mentions_probe: true
 
@@ -27,8 +27,8 @@ notes: |
   Requirements:
   1. Use `source_search` and `source_read` to find the original semantics first.
   2. If the API is sufficiently documented, create or update
-     `10-api-raw/runtime/__all_sync.md`.
+     `wiki/nvidia/api-definitions/runtime/__all_sync.md`.
   3. If you can complete the minimal runnable probe, also write the probe record
-     under `80-experience/api-probes/`.
+     under `sources/experience/api-probes/`.
   4. If the task cannot finish within the current turn budget, still report the
      retrieval hits you used and what remains blocked.

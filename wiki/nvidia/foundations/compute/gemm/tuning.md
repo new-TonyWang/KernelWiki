@@ -16,7 +16,7 @@ evidence_level: spec
 
 ## Compile-time parameters
 
-All aligned-GEMM tuning knobs apply (see `30-skill/compute/gemm/aligned/tuning.md`). Additional knobs specific to non-aligned shapes:
+All aligned-GEMM tuning knobs apply (see `wiki/nvidia/foundations/compute/gemm/aligned/tuning.md`). Additional knobs specific to non-aligned shapes:
 
 | Knob | cutlass template param | Default | Range | Effect |
 |---|---|---|---|---|
@@ -31,5 +31,5 @@ See BitLesson `BL-20260428-shape-non-aligned-on-executing-kernel` for the diagno
 
 ## Measured sweep reference
 
-Non-aligned shapes: `80-experience/api-probes/gemm/2026-04-28-gemm-tail.md`
-Adjacent-shape proxy measurement (1440 vs 1536): `80-experience/api-probes/gemm/artifacts/profiles/2026-04-28-gemm-tail.csv`
+Non-aligned shapes: `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md`
+Adjacent-shape proxy measurement (1440 vs 1536): `sources/experience/api-probes/gemm/artifacts/profiles/2026-04-28-gemm-tail.csv`

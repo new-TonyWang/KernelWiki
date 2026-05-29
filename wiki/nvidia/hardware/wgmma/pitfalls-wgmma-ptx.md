@@ -44,7 +44,7 @@ The `wgmma.mma_async` instruction takes a different number of trailing immediate
 | `.f32.tf32.tf32` | 3 | `scaleD, scaleA, scaleB` (A and B are fixed K-major; no trans) |
 | `.s32.s8.s8`, `.s32.u8.u8`, mixed-sign | 1 | `scaleD` only (no scaleA / scaleB / trans) |
 
-This is easy to miss because the ptxas error message points only at the line number. The codegen at `80-experience/hw-probes/wgmma-ptx/artifacts/gen_wgmma_zoo.py` enumerates the cases.
+This is easy to miss because the ptxas error message points only at the line number. The codegen at `sources/experience/hw-probes/wgmma-ptx/artifacts/gen_wgmma_zoo.py` enumerates the cases.
 
 ## 9. TF32 wgmma supports only the TN format
 

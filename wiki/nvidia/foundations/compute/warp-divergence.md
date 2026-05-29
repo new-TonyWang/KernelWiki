@@ -48,9 +48,9 @@ source:
     diverge and reconverge at sub-warp granularity makes such assumptions invalid.
     Developers should explicitly synchronize with __syncwarp() to ensure correct behavior.
 artifacts:
-  code: 80-experience/hw-probes/warp-divergence-cost/artifacts/divergence_cost_probe.cu
-  build: 80-experience/hw-probes/warp-divergence-cost/artifacts/build.sh
-  introspection: 80-experience/hw-probes/warp-divergence-cost/artifacts/device.json
+  code: sources/experience/hw-probes/warp-divergence-cost/artifacts/divergence_cost_probe.cu
+  build: sources/experience/hw-probes/warp-divergence-cost/artifacts/build.sh
+  introspection: sources/experience/hw-probes/warp-divergence-cost/artifacts/device.json
   profile: ''
 related_apis:
 - __ballot_sync
@@ -186,7 +186,7 @@ Pitfall P8 (legacy, measured): the compaction overhead itself can dominate if th
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using [80-experience/hw-probes/warp-divergence-cost/](../../../80-experience/hw-probes/warp-divergence-cost/) — per-lane predicate with probability `p` of taking path B; compute-bound workload (~1024 FMAs per lane per kernel, 1 M lanes, Compute SM throughput ~89 %). Unlocked clock logged at 1980 MHz. Full record: [80-experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md](../../../80-experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md).
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using [sources/experience/hw-probes/warp-divergence-cost/](../../../sources/experience/hw-probes/warp-divergence-cost/) — per-lane predicate with probability `p` of taking path B; compute-bound workload (~1024 FMAs per lane per kernel, 1 M lanes, Compute SM throughput ~89 %). Unlocked clock logged at 1980 MHz. Full record: [sources/experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md](../../../sources/experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md).
 
 | Kernel               | p=0.00 | p=0.25 | p=0.50 | p=0.75 | p=1.00 | Slowdown vs own p=0 |
 | -------------------- | -----: | -----: | -----: | -----: | -----: | ------------------: |
@@ -217,11 +217,11 @@ See probe record for NCU breakdown, the memory-bound vs compute-bound comparison
 ## Open questions
 
 - Q1. What is the exact predication threshold for `nvcc 12.9` on sm_90a? Legacy guidance says "approximately 7 instructions"; the probe opens with a compile-time sweep to land the modern number.
-- Q2. How does divergence cost interact with Hopper's thread-block- cluster scheduling? Currently no data; follow-up probe blocked on `40-hardware-feature/thread-block-cluster/` bootstrap (bucket F).
-- Q3. For the "early-exit via warp vote" idiom (S3), what fraction of warps-with-zero-work is needed for the vote-early-exit to pay back its own `__any_sync` cost? Open follow-up: `80-experience/hw-probes/warp-vote-early-exit-amortization/`.
+- Q2. How does divergence cost interact with Hopper's thread-block- cluster scheduling? Currently no data; follow-up probe blocked on `wiki/nvidia/hardware/thread-block-cluster/` bootstrap (bucket F).
+- Q3. For the "early-exit via warp vote" idiom (S3), what fraction of warps-with-zero-work is needed for the vote-early-exit to pay back its own `__any_sync` cost? Open follow-up: `sources/experience/hw-probes/warp-vote-early-exit-amortization/`.
 
 ## Legacy references
 
-- `legacy_sandbox_path`: `KernelPilot/knowledge/optimization/latency/warp-divergence/skill.md`. Legacy kept five sub-skills (S1-S5); this port collapses S1+S4 of the legacy version into the measured quadrant (S1 warp-align, S4 data-compaction), keeps S2 predication / S3 warp-vote, and promotes S5 `__syncwarp()` from "skill" to a pitfall (P1 in the sibling pitfalls file) because it is a **correctness** fix, not a throughput optimization.
+- `legacy_sandbox_path`: `KernelPilot/optimization/latency/warp-divergence/skill.md`. Legacy kept five sub-skills (S1-S5); this port collapses S1+S4 of the legacy version into the measured quadrant (S1 warp-align, S4 data-compaction), keeps S2 predication / S3 warp-vote, and promotes S5 `__syncwarp()` from "skill" to a pitfall (P1 in the sibling pitfalls file) because it is a **correctness** fix, not a throughput optimization.
 - Legacy L3 sandbox findings P6-P9 are retained in `pitfalls.md` pending H200 re-measurement.
-- **Related but distinct**: `30-skill/compute/branch-elimination/` (pending migration) covers the catalog of branch-rewriting patterns; this skill covers the divergence cost model and measurement. Cross-ref is one-line in each skill's body.
+- **Related but distinct**: `wiki/nvidia/foundations/compute/branch-elimination/` (pending migration) covers the catalog of branch-rewriting patterns; this skill covers the divergence cost model and measurement. Cross-ref is one-line in each skill's body.

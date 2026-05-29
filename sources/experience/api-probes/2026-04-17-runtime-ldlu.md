@@ -14,15 +14,15 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/api-probes/artifacts/__ldlu_probe.cu
+  code: sources/experience/api-probes/artifacts/__ldlu_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __ldlu_probe __ldlu_probe.cu
   introspection: ''
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L24559-L24565
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   line_range: L12971-L13050
 source:
@@ -92,10 +92,10 @@ __global__ void plain_add(const float* in, float* out, int n) {
 }
 // host code: 5 warmup + 20 measured CUDA-event launches per kernel;
 // D2H copy and CPU-reference verification. See the full file under
-// 80-experience/api-probes/artifacts/__ldlu_probe.cu.
+// sources/experience/api-probes/artifacts/__ldlu_probe.cu.
 ```
 
-Full source: `80-experience/api-probes/artifacts/__ldlu_probe.cu`.
+Full source: `sources/experience/api-probes/artifacts/__ldlu_probe.cu`.
 
 ## Build
 
@@ -109,7 +109,7 @@ Configuration: N = 67108864 (64M) floats = 256 MB, grid = 262144, block = 256. 5
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 67108864 | fp32 | 0.202880 | 0.202496 | 0.203840 | plain-global-load | 0.204096 | 1.0060 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/__ldlu_probe.cu && /tmp/p` |
+| 67108864 | fp32 | 0.202880 | 0.202496 | 0.203840 | plain-global-load | 0.204096 | 1.0060 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__ldlu_probe.cu && /tmp/p` |
 
 ## Introspection
 

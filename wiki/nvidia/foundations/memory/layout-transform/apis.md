@@ -52,7 +52,7 @@ apis:
   namespace: ptx
   kind: ptx-tma
   notes: Hopper TMA instruction; tensor descriptor can specify stride/swizzle, performing
-    a layout transform during the copy. Details belong to 40-hardware-feature/tma/
+    a layout transform during the copy. Details belong to wiki/nvidia/hardware/tma/
     (pending bucket F bootstrap).
 - func_name: tensormap.replace
   namespace: ptx
@@ -105,8 +105,8 @@ signature: See documentation
 
 ## Cross-references
 
-- **Coalescing**: `30-skill/memory/coalescing/` — the reason layout transform exists. Coalescing is a kernel-side fix for stride = 1; layout transform is a pre-kernel fix for when the kernel cannot be made stride-1 on its hot field.
-- **Shared memory cache**: `30-skill/memory/shared-memory-cache/` — owns the transpose *mechanism* (S2 coalescing transform via smem). This skill's S3 only records the *choice* to do the transpose.
-- **Vectorized access**: `30-skill/memory/vectorized-access/` — pairs naturally with S1: once SoA makes a field stride-1, `float4` / `bfloat162` loads become applicable.
-- **Bank-conflict avoidance**: `30-skill/memory/bank-conflict/` — the `[TILE][TILE+1]` padding cited by S3 is this skill's rule.
-- **TMA**: `40-hardware-feature/tma/` (pending bucket F) — `cp.async.bulk.tensor` is a potential single-instruction replacement for S1 + S3 on sm_90+.
+- **Coalescing**: `wiki/nvidia/foundations/memory/coalescing/` — the reason layout transform exists. Coalescing is a kernel-side fix for stride = 1; layout transform is a pre-kernel fix for when the kernel cannot be made stride-1 on its hot field.
+- **Shared memory cache**: `wiki/nvidia/foundations/memory/shared-memory-cache/` — owns the transpose *mechanism* (S2 coalescing transform via smem). This skill's S3 only records the *choice* to do the transpose.
+- **Vectorized access**: `wiki/nvidia/foundations/memory/vectorized-access/` — pairs naturally with S1: once SoA makes a field stride-1, `float4` / `bfloat162` loads become applicable.
+- **Bank-conflict avoidance**: `wiki/nvidia/foundations/memory/bank-conflict/` — the `[TILE][TILE+1]` padding cited by S3 is this skill's rule.
+- **TMA**: `wiki/nvidia/hardware/tma/` (pending bucket F) — `cp.async.bulk.tensor` is a potential single-instruction replacement for S1 + S3 on sm_90+.

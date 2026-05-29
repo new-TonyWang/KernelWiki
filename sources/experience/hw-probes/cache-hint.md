@@ -14,19 +14,19 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/cache-hint/artifacts/cache_hint_probe.cu
-  build: 80-experience/hw-probes/cache-hint/artifacts/build.sh
-  introspection: 80-experience/hw-probes/cache-hint/artifacts/device.json
+  code: sources/experience/hw-probes/cache-hint/artifacts/cache_hint_probe.cu
+  build: sources/experience/hw-probes/cache-hint/artifacts/build.sh
+  introspection: sources/experience/hw-probes/cache-hint/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/cache-hint/2026-04-23/cache_hint.ncu-rep
   ncu_txt_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/cache-hint/2026-04-23/ncu.txt
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/cache-hint/2026-04-23/ncu_metrics.csv
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/cache-hint/2026-04-23/run.log
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L25083-L25130
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   line_range: L10400-L10490
 source:
@@ -103,11 +103,11 @@ open_questions:
   Pitfall retained as legacy-anecdotal.'
 - Store hints (`__stcs`, `__stwb`, `__stwt`) are out of scope for this probe — the
   kernel never writes to the hot buffer. Legacy skill's Skill 4 sub-skill retained
-  as inferred pending a dedicated store-hint probe (`80-experience/hw-probes/store-hint/`,
+  as inferred pending a dedicated store-hint probe (`sources/experience/hw-probes/store-hint/`,
   open).
 - '`__ldlu` (last-use) not measured. Its effect is coupled with subsequent kernels''
   L2 pressure; single-kernel microbench cannot reveal benefit. Same regime-gap pattern
-  as the `l2-residency` probe. Follow-up: `80-experience/hw-probes/cache-hint-contended/`
+  as the `l2-residency` probe. Follow-up: `sources/experience/hw-probes/cache-hint-contended/`
   (open).'
 - 'The L2 regime''s `__ldcs` (evict-first) result is *identical* to default. Reason:
   with an 8 MiB buffer in a 60 MiB L2 with no competing traffic, the evict-first tag
@@ -121,7 +121,7 @@ title: 2026 04 23 Cache Hint
 ---
 ## Summary
 
-This probe backs the cost model in [30-skill/memory/cache-load-hints/skill.md](../../../30-skill/memory/cache-load-hints/skill.md) by sweeping six load variants — default (`*p`), `__ldg`, `__ldca`, `__ldcg`, `__ldcs`, `__ldcv` — across two working-set regimes on H200 sm_9.0a. The canonical claim (PG §5.4.8.3, L25083-L25130) is that cache operators let the programmer steer a load into the desired cache level; the legacy skill extrapolated that `__ldcg` (L2-only) saves L1 pressure and `__ldcs` (streaming) reduces cache pollution. Neither source quantifies the effect on Hopper sm_9.0a, and the legacy L3-sandbox work flagged P6 ("`const __restrict__` already emits the non-coherent path; `__ldg` is redundant") as inferred. This probe answers three decision-level questions:
+This probe backs the cost model in [wiki/nvidia/foundations/memory/cache-load-hints/skill.md](../../../wiki/nvidia/foundations/memory/cache-load-hints/skill.md) by sweeping six load variants — default (`*p`), `__ldg`, `__ldca`, `__ldcg`, `__ldcs`, `__ldcv` — across two working-set regimes on H200 sm_9.0a. The canonical claim (PG §5.4.8.3, L25083-L25130) is that cache operators let the programmer steer a load into the desired cache level; the legacy skill extrapolated that `__ldcg` (L2-only) saves L1 pressure and `__ldcs` (streaming) reduces cache pollution. Neither source quantifies the effect on Hopper sm_9.0a, and the legacy L3-sandbox work flagged P6 ("`const __restrict__` already emits the non-coherent path; `__ldg` is redundant") as inferred. This probe answers three decision-level questions:
 
 1. **Is `__ldg` still meaningful on H200's unified cache?** No. Measured 0.1-0.4% spread between `default` and `__ldg` across both regimes — within noise. The compiler-auto-emit claim is empirically correct.
 2. **Do evict-first hints (`__ldcs`) speed up streaming?** No. In a single-kernel DRAM-bound scan they are identical to default; in an L2-resident reuse pattern they are also identical because the L2 is under-subscribed.

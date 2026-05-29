@@ -1,6 +1,6 @@
 task_id: 2026-04-16-pattern-elementwise
 task_type: build-pattern
-target_path: 20-pattern/cuda-core/elementwise/
+target_path: wiki/nvidia/operator-routing/cuda-core/elementwise/
 
 hardware:
   device: H200
@@ -8,14 +8,14 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
-  - /home/tongyu/workspace/cuda_repo/cccl/cub/
-  - /home/tongyu/workspace/cuda_repo/cuda-samples/
+  - <local-path>
+  - <local-path> Programming Guides/cuda-c-best-practices-guide/
+  - <local-path>
+  - <local-path>
 
 references:
-  - 70-reasoning/task-packet.md
-  - 70-reasoning/bottleneck-triage.md
+  - reasoning/task-packet.md
+  - reasoning/bottleneck-triage.md
 
 success_criteria:
   - file_exists: INDEX.md
@@ -43,10 +43,10 @@ notes: |
     Step 2: Optimization iteration — apply skills from ROUTING.md
 
   ROUTING.md — Skill whitelist for elementwise:
-    Must ONLY reference skills that exist under knowledge/30-skill/:
-      - 30-skill/memory/coalescing/ (critical: elementwise is memory-bound)
-      - 30-skill/memory/bank-conflict/ (only if using shared memory staging)
-      - 30-skill/compute/warp-primitives/ (rarely needed for pure elementwise)
+    Must ONLY reference skills that exist under wiki/nvidia/foundations/:
+      - wiki/nvidia/foundations/memory/coalescing/ (critical: elementwise is memory-bound)
+      - wiki/nvidia/foundations/memory/bank-conflict/ (only if using shared memory staging)
+      - wiki/nvidia/foundations/compute/warp-primitives/ (rarely needed for pure elementwise)
     Do NOT reference skills that don't exist yet (vectorized-access, fast-math, etc.)
 
   library-fallback.md — Document the library paths:

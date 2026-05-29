@@ -19,7 +19,7 @@ source:
 - path: source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
   anchor: L58-L58
   excerpt: result[tx] = __all_sync(mask, input[tx]);
-probed_by: 80-experience/api-probes/2026-04-17-runtime-all-sync.md
+probed_by: sources/experience/api-probes/2026-04-17-runtime-all-sync.md
 id: api-__all_sync
 type: api-definition
 vendor: nvidia
@@ -64,4 +64,4 @@ Warp vote intrinsic. Evaluates `predicate` for all non-exited threads in `mask` 
 
 ## End-to-End Example
 
-See the probe record at [80-experience/api-probes/2026-04-17-runtime-all-sync.md](../../80-experience/api-probes/2026-04-17-runtime-all-sync.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).
+See the probe record at [sources/experience/api-probes/2026-04-17-runtime-all-sync.md](../../sources/experience/api-probes/2026-04-17-runtime-all-sync.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

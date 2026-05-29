@@ -52,7 +52,7 @@ The example follows cutlass's standard 4-layer architecture:
 
 3. **Kernel layer** (`kernel/fmha_kernel_builder.hpp` → `fmha_kernel_tma_warpspecialized.hpp`): The kernel entry point. `FmhaKernelBuilder` dispatches to the warp-specialized kernel template based on options. The kernel template manages the main loop, CTA scheduling, and interfaces with the collective layer.
 
-4. **Collective layer** (`collective/fmha_collective_tma_warpspecialized.hpp`): Contains the core FMHA logic — TMA-based Q/K/V loads, wgmma-based S=Q@K^T and O=P@V tiles, online softmax, and epilogue writeback. This is the most complex layer and is documented separately at `60-code/cutlass-cute/attention-fmha-collective/`.
+4. **Collective layer** (`collective/fmha_collective_tma_warpspecialized.hpp`): Contains the core FMHA logic — TMA-based Q/K/V loads, wgmma-based S=Q@K^T and O=P@V tiles, online softmax, and epilogue writeback. This is the most complex layer and is documented separately at `wiki/nvidia/code-walkthroughs/cutlass-cute/attention-fmha-collective/`.
 
 ## Key types and entry points
 
@@ -81,12 +81,12 @@ It is not the primary extraction target (sm_90a/H200 requires `88_hopper_fmha`) 
 
 ## How to build and run
 
-Repo-local extracted wrapper: `80-experience/api-probes/attention/artifacts/cutlass_88_hopper_fmha.cu`
-Build script: `80-experience/api-probes/attention/artifacts/build_cutlass_fmha.sh`
+Repo-local extracted wrapper: `sources/experience/api-probes/attention/artifacts/cutlass_88_hopper_fmha.cu`
+Build script: `sources/experience/api-probes/attention/artifacts/build_cutlass_fmha.sh`
 
 ```bash
 # Set CUTLASS_DIR to your cutlass checkout (default: {{CUTLASS_REPO_REF}})
-cd knowledge/80-experience/api-probes/attention/artifacts/
+cd sources/experience/api-probes/attention/artifacts/
 CUTLASS_DIR=/path/to/cutlass bash build_cutlass_fmha.sh
 ./88_hopper_fmha --b=2 --h=16 --q=1024 --k=1024 --d=128 --verify
 ```
@@ -95,7 +95,7 @@ The wrapper includes the upstream source via `#include "88_hopper_fmha.cu"` and 
 
 ## H200 measured results
 
-See [80-experience/api-probes/attention/2026-05-08-cutlass-88-hopper-fmha.md](../../../80-experience/api-probes/attention/2026-05-08-cutlass-88-hopper-fmha.md).
+See [sources/experience/api-probes/attention/2026-05-08-cutlass-88-hopper-fmha.md](../../../sources/experience/api-probes/attention/2026-05-08-cutlass-88-hopper-fmha.md).
 
 | Config | Shape | TFLOPS/s | Correctness |
 |--------|-------|----------|-------------|

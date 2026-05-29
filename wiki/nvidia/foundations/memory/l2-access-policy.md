@@ -41,9 +41,9 @@ source:
     can be evicted like normal lines. Called between phases of work that use different
     persisting regions.
 artifacts:
-  code: 80-experience/hw-probes/l2-residency/artifacts/l2_residency_probe.cu
-  build: 80-experience/hw-probes/l2-residency/artifacts/build.sh
-  introspection: 80-experience/hw-probes/l2-residency/artifacts/device.json
+  code: sources/experience/hw-probes/l2-residency/artifacts/l2_residency_probe.cu
+  build: sources/experience/hw-probes/l2-residency/artifacts/build.sh
+  introspection: sources/experience/hw-probes/l2-residency/artifacts/device.json
   profile: ''
 related_apis:
 - cudaStreamSetAttribute
@@ -62,7 +62,7 @@ related_skills:
 - async-copy
 - coalescing
 experience_refs:
-- 80-experience/hw-probes/l2-residency/2026-04-23-l2-residency.md
+- sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md
 id: skill-l2-access-policy
 type: skill
 vendor: nvidia
@@ -128,7 +128,7 @@ cudaStreamSetAttribute(stream, cudaStreamAttributeAccessPolicyWindow, &attr);
 // launch the hot-region kernels on `stream` here
 ```
 
-Measured result on H200 (WS = 80 MiB, set_aside = 37.5 MiB, hitRatio ≈ 0.469): median launch time drops from 1.870 ms to 1.589 ms, a **+17.7%** speedup. See [80-experience/hw-probes/l2-residency/](../../../80-experience/hw-probes/l2-residency/).
+Measured result on H200 (WS = 80 MiB, set_aside = 37.5 MiB, hitRatio ≈ 0.469): median launch time drops from 1.870 ms to 1.589 ms, a **+17.7%** speedup. See [sources/experience/hw-probes/l2-residency/](../../../sources/experience/hw-probes/l2-residency/).
 
 ### S3. Reset persisting lines between phases
 
@@ -162,7 +162,7 @@ Semantics are identical to the stream variant; pick whichever matches the submis
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using [80-experience/hw-probes/l2-residency/](../../../80-experience/hw-probes/l2-residency/) — a `repeat_read_sum` kernel with N_REPEATS=32 inner passes, swept over working-set sizes {4, 40, 80} MiB and policies {none, persist@1.0, persist@tuned}. Full record: [80-experience/hw-probes/l2-residency/2026-04-23-l2-residency.md](../../../80-experience/hw-probes/l2-residency/2026-04-23-l2-residency.md).
+Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using [sources/experience/hw-probes/l2-residency/](../../../sources/experience/hw-probes/l2-residency/) — a `repeat_read_sum` kernel with N_REPEATS=32 inner passes, swept over working-set sizes {4, 40, 80} MiB and policies {none, persist@1.0, persist@tuned}. Full record: [sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md](../../../sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md).
 
 ### Effective bandwidth by (WS, policy)
 
@@ -187,7 +187,7 @@ Key measured findings:
 - **`hitRatio = set_aside / WS` gives +17.7% at WS = 80 MiB** on H200. This is the skill's one measurably good recommendation and the probe's load-bearing result.
 - **H200's persisting set-aside cap is 37.5 MiB** — only 62.5% of the 60 MiB L2. The fraction is hardware-fixed and not user-tunable above that cap.
 
-The probe's WS = 40 MiB result is a **soft null** because the harness has no competing memory pressure. In a multi-kernel or multi-stream context the policy should still pin this buffer even below the set-aside limit. Follow-up probe `80-experience/hw-probes/l2-residency-contended/` is open to measure that regime.
+The probe's WS = 40 MiB result is a **soft null** because the harness has no competing memory pressure. In a multi-kernel or multi-stream context the policy should still pin this buffer even below the set-aside limit. Follow-up probe `sources/experience/hw-probes/l2-residency-contended/` is open to measure that regime.
 
 ## Principles
 
@@ -198,13 +198,13 @@ The probe's WS = 40 MiB result is a **soft null** because the harness has no com
 
 ## Open questions
 
-- Q1. Does a **concurrent second stream** touching non-window data reveal the window's pinning effect at WS = 40 MiB? The current probe is single-kernel; follow-up `80-experience/hw-probes/l2-residency-contended/` (open) is the minimal shape to show this.
+- Q1. Does a **concurrent second stream** touching non-window data reveal the window's pinning effect at WS = 40 MiB? The current probe is single-kernel; follow-up `sources/experience/hw-probes/l2-residency-contended/` (open) is the minimal shape to show this.
 - Q2. Is the **CUDA-Graph node attribute** exactly equivalent to the stream attribute on H200? PG §4.13.2 says yes; not re-measured.
 - Q3. What is the **PTX-level `.L2::cache_hint` + `createpolicy`** behavior relative to the runtime-level window, and do they compose (stack) or override? Not measured in this pass; belongs in the `cache-load-hints` skill (cache-load-hints) follow-up.
 - Q4. Does the set-aside reservation **persist across CUDA contexts** on H200, or is it reset at context destruction? PG implies per-context; unverified.
 
 ## Legacy references
 
-- `legacy_sandbox_path`: `corpus/nvidia/legacy-knowledge/optimization/memory/l2-cache-control/skill.md`. Legacy kept five sub-skills (S1 set up window → this S1+S2, S2 tune hitRatio → S2, S3 reset → S3, S4 graph node → S4, S5 query props → folded into S1).
+- `legacy_sandbox_path`: `corpus/nvidia/legacy-optimization/memory/l2-cache-control/skill.md`. Legacy kept five sub-skills (S1 set up window → this S1+S2, S2 tune hitRatio → S2, S3 reset → S3, S4 graph node → S4, S5 query props → folded into S1).
 - Legacy pitfalls P1 (thrashing) and P6 (policy on already-cached data) are upgraded from legacy-anecdotal to measured, with the qualitative claim *softened* on H200: both degenerate to silent nulls rather than catastrophic slowdowns. Full audit in `pitfalls.md`.
-- **Related but distinct**: `30-skill/memory/cache-load-hints/` (pending) operates at the instruction level (`__ldcs`, `__ldca`, `.cg`/`.cs` PTX operators); this skill operates at the runtime-attribute level. The two are complementary — you can apply a persisting window **and** issue `__ldcs` loads inside the kernel, and the policies compose.
+- **Related but distinct**: `wiki/nvidia/foundations/memory/cache-load-hints/` (pending) operates at the instruction level (`__ldcs`, `__ldca`, `.cg`/`.cs` PTX operators); this skill operates at the runtime-attribute level. The two are complementary — you can apply a persisting window **and** issue `__ldcs` loads inside the kernel, and the policies compose.

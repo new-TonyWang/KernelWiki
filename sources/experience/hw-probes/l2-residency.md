@@ -14,19 +14,19 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/l2-residency/artifacts/l2_residency_probe.cu
-  build: 80-experience/hw-probes/l2-residency/artifacts/build.sh
-  introspection: 80-experience/hw-probes/l2-residency/artifacts/device.json
+  code: sources/experience/hw-probes/l2-residency/artifacts/l2_residency_probe.cu
+  build: sources/experience/hw-probes/l2-residency/artifacts/build.sh
+  introspection: sources/experience/hw-probes/l2-residency/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/l2_residency.ncu-rep
   ncu_txt_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/ncu.txt
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/ncu_metrics.csv
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/run.log
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L4094-L4130
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1561-L1581
 source:
@@ -86,7 +86,7 @@ open_questions:
   Cause is that 40 MiB fits naturally in H200''s 60 MiB L2 after the first of 32 inner
   passes, so accessPolicyWindow cannot pin data that is not in contention. A competing
   workload (concurrent kernel on a second stream that touches > 20 MiB) would reveal
-  the window''s pinning effect; not measured in this probe. Follow-up: `80-experience/hw-probes/l2-residency-contended/`
+  the window''s pinning effect; not measured in this probe. Follow-up: `sources/experience/hw-probes/l2-residency-contended/`
   (open).'
 - persistingL2CacheMaxSize on H200 is 37.5 MiB — only 62.5% of the 60 MiB L2 physical
   size. The set-aside ratio is a hardware-fixed fraction, not user-tunable beyond
@@ -102,7 +102,7 @@ title: 2026 04 23 L2 Residency
 ---
 ## Summary
 
-This probe backs the cost/benefit claims in [30-skill/memory/l2-access-policy/skill.md](../../../30-skill/memory/l2-access-policy/skill.md) by sweeping a repeat-read kernel across three working-set sizes and three L2 policies on H200 (sm_9.0a). The canonical claim from BP Guide §10.2.2 (L1561-L1581) is that `accessPolicyWindow` with `hitProp = Persisting` protects a hot buffer from eviction so repeat reads hit L2 instead of DRAM; PG §4.13 (L4094-L4130) adds that `hitRatio` tuning is the remedy when the hot region exceeds the L2 set-aside. Neither source quantifies the threshold or the cost of misapplication on H200. This probe gives the three data points that matter for the skill's decision tree:
+This probe backs the cost/benefit claims in [wiki/nvidia/foundations/memory/l2-access-policy/skill.md](../../../wiki/nvidia/foundations/memory/l2-access-policy/skill.md) by sweeping a repeat-read kernel across three working-set sizes and three L2 policies on H200 (sm_9.0a). The canonical claim from BP Guide §10.2.2 (L1561-L1581) is that `accessPolicyWindow` with `hitProp = Persisting` protects a hot buffer from eviction so repeat reads hit L2 instead of DRAM; PG §4.13 (L4094-L4130) adds that `hitRatio` tuning is the remedy when the hot region exceeds the L2 set-aside. Neither source quantifies the threshold or the cost of misapplication on H200. This probe gives the three data points that matter for the skill's decision tree:
 
 1. When WS ≪ L2, the policy is a null (or slight loss due to overhead).
 2. When WS ≈ L2 naturally, the policy is still a null — the data is already resident.
@@ -145,7 +145,7 @@ All three policies land at ≈4527 GB/s, within 0.2% of each other. The 4 MiB bu
 
 ### 2. At the edge (WS = 40 MiB, slightly above set-aside of 37.5 MiB): still a soft null
 
-40 MiB is 2.5 MiB above the set-aside limit but 20 MiB below the full L2. All three policies land at ≈4357 GB/s, again a soft null. The probe has no competing memory traffic, so even "no policy" keeps the buffer resident after pass 1/32. The window's **pinning** role only matters when *something else* would otherwise evict — a scenario that needs a concurrent competing kernel. Follow-up probe `80-experience/hw-probes/l2-residency-contended/` (open).
+40 MiB is 2.5 MiB above the set-aside limit but 20 MiB below the full L2. All three policies land at ≈4357 GB/s, again a soft null. The probe has no competing memory traffic, so even "no policy" keeps the buffer resident after pass 1/32. The window's **pinning** role only matters when *something else* would otherwise evict — a scenario that needs a concurrent competing kernel. Follow-up probe `sources/experience/hw-probes/l2-residency-contended/` (open).
 
 ### 3. Above L2 (WS = 80 MiB): tuned-hitRatio wins +17.7%
 

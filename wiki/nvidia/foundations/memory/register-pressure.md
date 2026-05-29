@@ -44,7 +44,7 @@ source:
   excerpt: Higher occupancy does not always equate to higher performance-there is
     a point above which additional occupancy does not improve performance.
 artifacts:
-  code: 80-experience/hw-probes/register-pressure/artifacts/reg_pressure_probe.cu
+  code: sources/experience/hw-probes/register-pressure/artifacts/reg_pressure_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -Xptxas=-v -o probe_default reg_pressure_probe.cu
   introspection: ''
   profile: ''
@@ -76,9 +76,9 @@ The three key mechanisms at play:
 
 3. **Spill cost dominates occupancy gain.** A register access costs zero extra cycles. A spill load/store traverses the L1/L2/HBM hierarchy with latencies ranging from tens to hundreds of cycles. Our probe shows that doubling occupancy via forced spilling caused a 4.84x slowdown.
 
-The compiler manages register allocation automatically using heuristics that balance register usage, spill cost, and instruction count. The programmer can influence this via `__launch_bounds__`, `__maxnreg__`, and `--maxrregcount` (see the [compiler-hints](../../../30-skill/compute/compiler-hints/skill.md) skill).
+The compiler manages register allocation automatically using heuristics that balance register usage, spill cost, and instruction count. The programmer can influence this via `__launch_bounds__`, `__maxnreg__`, and `--maxrregcount` (see the [compiler-hints](../../../wiki/nvidia/foundations/compute/compiler-hints/skill.md) skill).
 
-Register allocation also interacts with ILP: more independent accumulator chains require more registers. The [ILP skill](../../../30-skill/compute/ilp/skill.md) discusses this tradeoff -- specifically, 4 accumulators for FP32 on H200 is the sweet spot for pipeline saturation, using approximately 4 extra registers per chain.
+Register allocation also interacts with ILP: more independent accumulator chains require more registers. The [ILP skill](../../../wiki/nvidia/foundations/compute/ilp/skill.md) discusses this tradeoff -- specifically, 4 accumulators for FP32 on H200 is the sweet spot for pipeline saturation, using approximately 4 extra registers per chain.
 
 ## Why
 
@@ -113,13 +113,13 @@ Register pressure management is relevant in these situations:
 
 - **Do not add `--maxrregcount` without checking spill output.** This flag is a blunt instrument that affects all kernels in a compilation unit. If it causes spilling, it will hurt performance. Always verify with `-Xptxas=-v`.
 
-- **Do not over-constrain `__launch_bounds__`.** Setting `minBlocksPerMultiprocessor` too high forces the compiler to reduce register usage, potentially causing spilling. See the [compiler-hints](../../../30-skill/compute/compiler-hints/skill.md) skill for proper usage.
+- **Do not over-constrain `__launch_bounds__`.** Setting `minBlocksPerMultiprocessor` too high forces the compiler to reduce register usage, potentially causing spilling. See the [compiler-hints](../../../wiki/nvidia/foundations/compute/compiler-hints/skill.md) skill for proper usage.
 
-- **Do not sacrifice ILP to save registers unless profiling shows register pressure is the bottleneck.** Reducing from 4 accumulators to 1 saves ~3 registers but costs a 4x throughput reduction in compute-bound phases (see the [ILP skill](../../../30-skill/compute/ilp/skill.md)).
+- **Do not sacrifice ILP to save registers unless profiling shows register pressure is the bottleneck.** Reducing from 4 accumulators to 1 saves ~3 registers but costs a 4x throughput reduction in compute-bound phases (see the [ILP skill](../../../wiki/nvidia/foundations/compute/ilp/skill.md)).
 
 ## Techniques to reduce register pressure
 
-1. **`__launch_bounds__(maxTPB, minBlocks)`** -- Tells the compiler the expected launch configuration so it can compute a register ceiling L = regsPerSM / (maxTPB * minBlocks). The compiler will reduce register usage to stay at or below L, spilling only if necessary. (Link: [compiler-hints skill](../../../30-skill/compute/compiler-hints/skill.md))
+1. **`__launch_bounds__(maxTPB, minBlocks)`** -- Tells the compiler the expected launch configuration so it can compute a register ceiling L = regsPerSM / (maxTPB * minBlocks). The compiler will reduce register usage to stay at or below L, spilling only if necessary. (Link: [compiler-hints skill](../../../wiki/nvidia/foundations/compute/compiler-hints/skill.md))
 
 2. **`__maxnreg__(N)` or `--maxrregcount=N`** -- Directly caps the per-thread register count. Cannot be combined with `__launch_bounds__` on the same kernel. Only use when you know the target register count will not cause excessive spilling.
 
@@ -206,4 +206,4 @@ Note: the actual occupancy depends on the interplay of register count, shared me
 
 ## Measured Characteristics
 
-- [Register pressure spill tradeoff probe](../../80-experience/hw-probes/register-pressure/2026-04-15-register-pressure.md): On H200 (sm_90a, CUDA 12.9), a 48-accumulator FMA kernel compiled with default register allocation used **64 registers/thread** with **zero spills** (0.1738 ms median, 4 blocks/SM, 50% occupancy). The same kernel compiled with `--maxrregcount=32` used **32 registers/thread** but generated **660 bytes of spill stores** and **784 bytes of spill loads** per thread (0.8414 ms median, 8 blocks/SM, 100% occupancy). Result: **4.84x slowdown** despite doubled occupancy, confirming that spill cost vastly outweighs occupancy gain when the spill volume is large.
+- [Register pressure spill tradeoff probe](../../sources/experience/hw-probes/register-pressure/2026-04-15-register-pressure.md): On H200 (sm_90a, CUDA 12.9), a 48-accumulator FMA kernel compiled with default register allocation used **64 registers/thread** with **zero spills** (0.1738 ms median, 4 blocks/SM, 50% occupancy). The same kernel compiled with `--maxrregcount=32` used **32 registers/thread** but generated **660 bytes of spill stores** and **784 bytes of spill loads** per thread (0.8414 ms median, 8 blocks/SM, 100% occupancy). Result: **4.84x slowdown** despite doubled occupancy, confirming that spill cost vastly outweighs occupancy gain when the spill volume is large.

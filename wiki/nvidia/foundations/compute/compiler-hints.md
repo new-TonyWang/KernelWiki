@@ -49,7 +49,7 @@ source:
   excerpt: cudaFuncSetAttribute... cudaFuncAttributeMaxDynamicSharedMemorySize...
     cudaFuncAttributePreferredSharedMemoryCarveout
 artifacts:
-  code: 80-experience/hw-probes/compiler-hints/artifacts/launch_bounds_probe.cu
+  code: sources/experience/hw-probes/compiler-hints/artifacts/launch_bounds_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o launch_bounds_probe
     launch_bounds_probe.cu
   introspection: ''
@@ -186,4 +186,4 @@ ptxas info: Used 14 registers, 0 bytes spill stores, 0 bytes spill loads
 
 ## Measured Characteristics
 
-- [launch-bounds register-effect probe](../../80-experience/hw-probes/compiler-hints/2026-04-15-compiler-hints.md): On H200 (sm_90a, CUDA 12.9), a register-heavy kernel (32 accumulators, 3 rounds of cross-dependent FMA) showed that `__launch_bounds__(256, 4)` caused the compiler to allocate **56 registers** (vs 48 without launch bounds), with zero spills in both cases. The compiler increased register usage to reduce instruction count, staying within the 64-register occupancy cap. Latency was identical (0.120 ms) because both variants achieved 100% occupancy at block size 256. This confirms the programming guide statement that the compiler "may increase register usage up to L in order to reduce the number of instructions."
+- [launch-bounds register-effect probe](../../sources/experience/hw-probes/compiler-hints/2026-04-15-compiler-hints.md): On H200 (sm_90a, CUDA 12.9), a register-heavy kernel (32 accumulators, 3 rounds of cross-dependent FMA) showed that `__launch_bounds__(256, 4)` caused the compiler to allocate **56 registers** (vs 48 without launch bounds), with zero spills in both cases. The compiler increased register usage to reduce instruction count, staying within the 64-register occupancy cap. Latency was identical (0.120 ms) because both variants achieved 100% occupancy at block size 256. This confirms the programming guide statement that the compiler "may increase register usage up to L in order to reduce the number of instructions."

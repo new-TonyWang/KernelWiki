@@ -49,23 +49,23 @@ source:
 - path: '{{CUTLASS_REPO_REF}}/include/cute/arch/copy_sm90_tma.hpp'
   anchor: cutlass's TMA inline-PTX wrapper (used as a reference; not included in our
     binary)
-- path: 80-experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
+- path: sources/experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
   anchor: cutlass-free hello-world (correctness)
-- path: 80-experience/hw-probes/tma-ptx/artifacts/tma_throughput_probe.cu
+- path: sources/experience/hw-probes/tma-ptx/artifacts/tma_throughput_probe.cu
   anchor: cutlass-free throughput sweep over swizzle × pipeline-depth × box-rows (16
     configs)
 artifacts:
-  code: 80-experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
-  build: 80-experience/hw-probes/tma-ptx/artifacts/build.sh
-  throughput_code: 80-experience/hw-probes/tma-ptx/artifacts/tma_throughput_probe.cu
-  throughput_build: 80-experience/hw-probes/tma-ptx/artifacts/build_throughput.sh
-  throughput_run: 80-experience/hw-probes/tma-ptx/artifacts/run_throughput.sh
-  multicast_code: 80-experience/hw-probes/tma-ptx/artifacts/tma_multicast_probe.cu
-  multicast_build: 80-experience/hw-probes/tma-ptx/artifacts/build_multicast.sh
-  multicast_run: 80-experience/hw-probes/tma-ptx/artifacts/run_multicast.sh
-  multicast_v2_code: 80-experience/hw-probes/tma-ptx/artifacts/tma_multicast_v2.cu
-  multicast_v2_run: 80-experience/hw-probes/tma-ptx/artifacts/run_multicast_v2.sh
-  profile: 80-experience/hw-probes/tma-ptx/artifacts/profiles/2026-04-29-tma-throughput.csv
+  code: sources/experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
+  build: sources/experience/hw-probes/tma-ptx/artifacts/build.sh
+  throughput_code: sources/experience/hw-probes/tma-ptx/artifacts/tma_throughput_probe.cu
+  throughput_build: sources/experience/hw-probes/tma-ptx/artifacts/build_throughput.sh
+  throughput_run: sources/experience/hw-probes/tma-ptx/artifacts/run_throughput.sh
+  multicast_code: sources/experience/hw-probes/tma-ptx/artifacts/tma_multicast_probe.cu
+  multicast_build: sources/experience/hw-probes/tma-ptx/artifacts/build_multicast.sh
+  multicast_run: sources/experience/hw-probes/tma-ptx/artifacts/run_multicast.sh
+  multicast_v2_code: sources/experience/hw-probes/tma-ptx/artifacts/tma_multicast_v2.cu
+  multicast_v2_run: sources/experience/hw-probes/tma-ptx/artifacts/run_multicast_v2.sh
+  profile: sources/experience/hw-probes/tma-ptx/artifacts/profiles/2026-04-29-tma-throughput.csv
 related_apis: []
 related_skills:
 - tma
@@ -205,9 +205,9 @@ The two main throughput levers are **tile size** (linear in TFLOPS up to ~16 KiB
 
 ## Cross-references
 
-- TMA reference (cutlass-API path): `40-hardware-feature/tma/skill.md` + `80-experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md`.
-- Throughput probe with full sweep + open questions: `80-experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md`.
-- Cluster-multicast probe (this skill's `multicast::cluster` PTX variant): `80-experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md` (v1, 3 cluster sizes) + `80-experience/hw-probes/tma-ptx/2026-04-30-tma-multicast-v2.md` (follow-up: cluster sizes 1–16, multi-producer-warp, L2 promotion, cross-CTA empty mbarrier protocol via `mapa` + `mbarrier.arrive.release.cluster`, numeric correctness).
-- wgmma-PTX sibling (also cutlass-free): `40-hardware-feature/wgmma-ptx/skill.md`.
-- Cutlass-free GEMM (composes both PTX primitives): `30-skill/compute/gemm-ptx/skill.md`.
-- Failure modes: `40-hardware-feature/tma-ptx/pitfalls.md`.
+- TMA reference (cutlass-API path): `wiki/nvidia/hardware/tma/skill.md` + `sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md`.
+- Throughput probe with full sweep + open questions: `sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md`.
+- Cluster-multicast probe (this skill's `multicast::cluster` PTX variant): `sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md` (v1, 3 cluster sizes) + `sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast-v2.md` (follow-up: cluster sizes 1–16, multi-producer-warp, L2 promotion, cross-CTA empty mbarrier protocol via `mapa` + `mbarrier.arrive.release.cluster`, numeric correctness).
+- wgmma-PTX sibling (also cutlass-free): `wiki/nvidia/hardware/wgmma-ptx/skill.md`.
+- Cutlass-free GEMM (composes both PTX primitives): `wiki/nvidia/foundations/compute/gemm-ptx/skill.md`.
+- Failure modes: `wiki/nvidia/hardware/tma-ptx/pitfalls.md`.

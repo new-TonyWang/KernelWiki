@@ -1,9 +1,9 @@
 task_id: 2026-04-28-cutlass-tma
-task_type: build-hardware-feature   # see knowledge/70-reasoning/task-packet.md
-target_path: 40-hardware-feature/tma/
+task_type: build-hardware-feature   # see reasoning/task-packet.md
+target_path: wiki/nvidia/hardware/tma/
 also_writes:
-  - 60-code/cutlass-cute/tma/
-  - 80-experience/hw-probes/tma/
+  - wiki/nvidia/code-walkthroughs/cutlass-cute/tma/
+  - sources/experience/hw-probes/tma/
 
 hardware:
   device: H200
@@ -11,29 +11,29 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_repo/cutlass/                 # pinned commit f74fea9c
-  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
-  - /home/tongyu/workspace/kernel-kb-mvp/knowledge/05-source-corpus/blogs/colfax/
+  - <local-path>                 # pinned commit f74fea9c
+  - <local-path>
+  - <local-path>
 upstream_repo_pin: "cutlass@f74fea9c"
 
 references:
-  - 70-reasoning/hardware-microbench.md
-  - 70-reasoning/benchmark-protocol.md
-  - knowledge/templates/frontmatter/hardware-feature.yaml
+  - reasoning/hardware-microbench.md
+  - reasoning/benchmark-protocol.md
+  - templates/frontmatter/hardware-feature.yaml
   - docs/15-代码仓库抽取知识流程_update_en.md  # AC-1
 
 source_anchors:
   - examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
   - include/cute/atom/copy_traits_sm90_tma.hpp
   - include/cute/atom/copy_traits_sm90_tma_swizzle.hpp
-  - 05-source-corpus/blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  - corpus/nvidia/blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
 
 success_criteria:
-  - file_exists: 40-hardware-feature/tma/skill.md
-  - file_exists: 40-hardware-feature/tma/pitfalls.md
-  - file_exists: 60-code/cutlass-cute/tma/build.sh
-  - file_exists: 60-code/cutlass-cute/tma/tma_end_to_end.cu
-  - dir_nonempty: 80-experience/hw-probes/tma/    # date-stamped record authored at execution time
+  - file_exists: wiki/nvidia/hardware/tma/skill.md
+  - file_exists: wiki/nvidia/hardware/tma/pitfalls.md
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/tma/build.sh
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/tma/tma_end_to_end.cu
+  - dir_nonempty: sources/experience/hw-probes/tma/    # date-stamped record authored at execution time
   - lint_clean: true
   - skill_status: verified
   - skill_evidence_level: measured

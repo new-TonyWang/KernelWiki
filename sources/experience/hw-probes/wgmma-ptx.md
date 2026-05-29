@@ -13,11 +13,11 @@ source:
 - path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: Hopper wgmma walkthrough
 artifacts:
-  code: 80-experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
-  codegen: 80-experience/hw-probes/wgmma-ptx/artifacts/gen_wgmma_zoo.py
-  build: 80-experience/hw-probes/wgmma-ptx/artifacts/build_zoo.sh
-  run: 80-experience/hw-probes/wgmma-ptx/artifacts/run_zoo.sh
-  profile: 80-experience/hw-probes/wgmma-ptx/artifacts/profiles/2026-04-29-wgmma-zoo.csv
+  code: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
+  codegen: sources/experience/hw-probes/wgmma-ptx/artifacts/gen_wgmma_zoo.py
+  build: sources/experience/hw-probes/wgmma-ptx/artifacts/build_zoo.sh
+  run: sources/experience/hw-probes/wgmma-ptx/artifacts/run_zoo.sh
+  profile: sources/experience/hw-probes/wgmma-ptx/artifacts/profiles/2026-04-29-wgmma-zoo.csv
 upstream_repo: none (hand-rolled cutlass-free implementation)
 conclusions:
   workload: single CTA × 1 warpgroup (128 threads) × N_INNER=1024 serialized wgmma
@@ -84,7 +84,7 @@ open_questions:
   `make_gmma_desc`). For all-ones inputs, descriptor errors are masked because every
   read yields 1.0; layout bugs would only surface against non-uniform inputs.
 referenced_in_corpus:
-- path: 05-source-corpus/blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+- path: corpus/nvidia/blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   line_range: Sections on the GMMA atom shapes table + smem-descriptor format
 id: exp-wgmma-ptx
 type: experience

@@ -13,13 +13,13 @@ source:
 - path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: Hopper wgmma GEMM walkthrough
 artifacts:
-  code: 80-experience/api-probes/gemm-ptx/artifacts/gemm_ptx.cu
-  build: 80-experience/api-probes/gemm-ptx/artifacts/build.sh
-  run: 80-experience/api-probes/gemm-ptx/artifacts/run.sh
-  introspection: 80-experience/api-probes/gemm-ptx/artifacts/device.json
-  profile: 80-experience/api-probes/gemm-ptx/artifacts/profiles/2026-04-28-gemm-ptx-hello.csv
-  distilled_view: 60-code/ptx-gemm/gemm_ptx.cu
-  distilled_build: 60-code/ptx-gemm/build.sh
+  code: sources/experience/api-probes/gemm-ptx/artifacts/gemm_ptx.cu
+  build: sources/experience/api-probes/gemm-ptx/artifacts/build.sh
+  run: sources/experience/api-probes/gemm-ptx/artifacts/run.sh
+  introspection: sources/experience/api-probes/gemm-ptx/artifacts/device.json
+  profile: sources/experience/api-probes/gemm-ptx/artifacts/profiles/2026-04-28-gemm-ptx-hello.csv
+  distilled_view: wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu
+  distilled_build: wiki/nvidia/code-walkthroughs/ptx-gemm/build.sh
 upstream_repo: none (hand-rolled cutlass-free implementation)
 id: exp-gemm-ptx
 type: experience
@@ -74,7 +74,7 @@ $ ./gemm_ptx
 
 ## Verdict
 
-**partial.** The cutlass-abandonment gates **PASS** (zero `cutlass::` / `cute::` matches at both preprocessor and linked-binary levels — the structural-correctness gate). The numeric-correctness gate still **FAILS**: 497/512 mismatches after two-of-three diagnosed fixes (B host-side transpose to col-major K×N for `.SS_TN`, descriptor SBO 256→16 per cutlass `make_gmma_desc`). The residual error is in the per-thread fragment-store mapping in `gemm_ptx_kernel`, which uses an Ampere-style `(warp_id*16 + lane_id/4, lane_id%4*2)` layout incorrect for Hopper's 4-warp m64 atom. See `30-skill/compute/gemm-ptx/pitfalls.md` Pitfall #0 (B-layout, fixed) and Pitfall #1 (fragment-store, still open).
+**partial.** The cutlass-abandonment gates **PASS** (zero `cutlass::` / `cute::` matches at both preprocessor and linked-binary levels — the structural-correctness gate). The numeric-correctness gate still **FAILS**: 497/512 mismatches after two-of-three diagnosed fixes (B host-side transpose to col-major K×N for `.SS_TN`, descriptor SBO 256→16 per cutlass `make_gmma_desc`). The residual error is in the per-thread fragment-store mapping in `gemm_ptx_kernel`, which uses an Ampere-style `(warp_id*16 + lane_id/4, lane_id%4*2)` layout incorrect for Hopper's 4-warp m64 atom. See `wiki/nvidia/foundations/compute/gemm-ptx/pitfalls.md` Pitfall #0 (B-layout, fixed) and Pitfall #1 (fragment-store, still open).
 
 ## What works
 
@@ -93,7 +93,7 @@ $ ./gemm_ptx
 1. Read PTX ISA §"Asynchronous Warpgroup-Level Matrix Instructions / Matrix Fragments / m64nNk16" to extract the exact per-thread (row, col) mapping.
 2. Cross-check by extracting the same layout from cutlass's `cute::SM90::GMMA::MMA_64x8x16_F32BF16BF16_SS_TN` atom (the kernel never includes this; cross-checking happens in a separate audit binary).
 3. Update `gemm_ptx.cu`'s store stage with the corrected mapping; rerun.
-4. Promote `30-skill/compute/gemm-ptx/skill.md` from `partial` to `verified` once 0 mismatches against cuBLAS.
+4. Promote `wiki/nvidia/foundations/compute/gemm-ptx/skill.md` from `partial` to `verified` once 0 mismatches against cuBLAS.
 
 ## Known caveats
 

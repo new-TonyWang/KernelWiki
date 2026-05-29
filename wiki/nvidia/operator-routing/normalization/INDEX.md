@@ -32,7 +32,7 @@ This document guides the kernel-writing agent through a normalization task (Laye
 
 All four normalization variants follow a two-phase structure:
 
-1. **Reduction phase** -- compute statistics (mean, variance, or root-mean-square) over a normalization axis. This is a per-token / per-channel / per-group reduction identical in structure to the reduction pattern (`20-pattern/cuda-core/reduction/`).
+1. **Reduction phase** -- compute statistics (mean, variance, or root-mean-square) over a normalization axis. This is a per-token / per-channel / per-group reduction identical in structure to the reduction pattern (`wiki/nvidia/operator-routing/cuda-core/reduction/`).
 2. **Elementwise scaling phase** -- subtract the mean (if applicable), divide by `sqrt(variance + eps)`, and optionally apply learned affine parameters (gamma, beta). This is a pointwise map over every element.
 
 The reduction axis distinguishes the variants:
@@ -123,7 +123,7 @@ Q4. How many elements per normalization instance (reduction width)?
 
 ## Step 1b -- Choose dtypes (precision/range decision; correctness-critical)
 
-Normalization has a **reduction phase** (mean / variance / RMS over the axis) and an **elementwise scaling phase** (`(x - mean) * rstd * gamma + beta`). These two phases have different numerical requirements and are usually assigned different dtypes. This is a **correctness decision**, not a perf tuning step. Reference: [`30-skill/compute/half-precision-math/`](../../../30-skill/compute/half-precision-math/) §Precision.
+Normalization has a **reduction phase** (mean / variance / RMS over the axis) and an **elementwise scaling phase** (`(x - mean) * rstd * gamma + beta`). These two phases have different numerical requirements and are usually assigned different dtypes. This is a **correctness decision**, not a perf tuning step. Reference: [`wiki/nvidia/foundations/compute/half-precision-math/`](../../../wiki/nvidia/foundations/compute/half-precision-math/) §Precision.
 
 ```
 Q3a. Storage dtype (input activation, gamma, beta, output) — fp16 / bf16 / fp32?
@@ -222,15 +222,15 @@ For **GroupNorm**, the reduction is over (H/G, W) spatial dims within each group
 
 After the basic custom kernel is working and correct, apply optimization skills from ROUTING.md in priority order:
 
-1. **Warp primitives** (`30-skill/compute/warp-primitives/`) -- the reduction phase must use `__shfl_down_sync` butterfly reduction within each warp, avoiding shared-memory round-trips for intra-warp communication.
+1. **Warp primitives** (`wiki/nvidia/foundations/compute/warp-primitives/`) -- the reduction phase must use `__shfl_down_sync` butterfly reduction within each warp, avoiding shared-memory round-trips for intra-warp communication.
 
-2. **Coalescing** (`30-skill/memory/coalescing/`) -- the elementwise scaling phase reads input[row, i] and writes output[row, i] with stride-1 across threads. Verify that the load/store phase is coalesced. For BatchNorm, the NCHW layout may cause non-coalesced access along the spatial axes; consider NHWC layout.
+2. **Coalescing** (`wiki/nvidia/foundations/memory/coalescing/`) -- the elementwise scaling phase reads input[row, i] and writes output[row, i] with stride-1 across threads. Verify that the load/store phase is coalesced. For BatchNorm, the NCHW layout may cause non-coalesced access along the spatial axes; consider NHWC layout.
 
-3. **Vectorized access** (`30-skill/memory/vectorized-access/`) -- load/store `float4` (128-bit) in the elementwise phase to increase bytes-in-flight. Requires H to be divisible by 4 and 16-byte alignment.
+3. **Vectorized access** (`wiki/nvidia/foundations/memory/vectorized-access/`) -- load/store `float4` (128-bit) in the elementwise phase to increase bytes-in-flight. Requires H to be divisible by 4 and 16-byte alignment.
 
-4. **Bank-conflict avoidance** (`30-skill/memory/bank-conflict/`) -- if the block-level reduction uses shared memory for inter-warp communication (warp leaders writing partials to smem[warpId]), ensure no bank conflicts.
+4. **Bank-conflict avoidance** (`wiki/nvidia/foundations/memory/bank-conflict/`) -- if the block-level reduction uses shared memory for inter-warp communication (warp leaders writing partials to smem[warpId]), ensure no bank conflicts.
 
-After each skill application, re-benchmark against the baseline (torch.nn.functional op or Apex fused kernel) and follow the bottleneck-triage procedure in `70-reasoning/bottleneck-triage.md`.
+After each skill application, re-benchmark against the baseline (torch.nn.functional op or Apex fused kernel) and follow the bottleneck-triage procedure in `reasoning/bottleneck-triage.md`.
 
 ## Step 4 -- Advanced techniques
 
@@ -243,5 +243,5 @@ After each skill application, re-benchmark against the baseline (torch.nn.functi
 - **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
-- **Reduction pattern (shared primitive)**: `20-pattern/cuda-core/reduction/INDEX.md`
-- **Bottleneck triage after benchmarking**: `70-reasoning/bottleneck-triage.md`
+- **Reduction pattern (shared primitive)**: `wiki/nvidia/operator-routing/cuda-core/reduction/INDEX.md`
+- **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

@@ -106,6 +106,6 @@ The MMA instruction is issued via cutlass's `SM100_MMA_*` traits which dispatch 
 
 ## How it connects to the rest of the KB
 
-- **Successor to** `40-hardware-feature/wgmma-ptx/` — tcgen05 replaces wgmma as the primary tensor core interface on Blackwell.
+- **Successor to** `wiki/nvidia/hardware/wgmma-ptx/` — tcgen05 replaces wgmma as the primary tensor core interface on Blackwell.
 - **Same conceptual pattern**: load tiles into an opaque register space (tcgen05 regs vs wgmma smem descriptors), issue async MMA, wait for completion.
 - cutlass-cute wraps tcgen05 in `MMA_Traits<SM100_MMA_*>` (see `mma_traits_sm100.hpp`) and `Copy_Traits` for tcgen05.cp/ld (see `copy_traits_sm100.hpp`).

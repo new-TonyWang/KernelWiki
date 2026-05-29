@@ -9,7 +9,7 @@ has_end_to_end_example: true
 source:
 - path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L25102-L25130
-probed_by: 80-experience/api-probes/2026-04-16-runtime-ldg.md
+probed_by: sources/experience/api-probes/2026-04-16-runtime-ldg.md
 id: api-__ldg
 type: api-definition
 vendor: nvidia
@@ -33,4 +33,4 @@ On sm_70+ with `const __restrict__` pointers, the compiler may automatically rou
 
 ## End-to-End Example
 
-See [probe record](../../../80-experience/api-probes/2026-04-16-runtime-ldg.md) for a complete end-to-end example: host allocation of 1M floats, H2D copy, `__ldg`-based load + add kernel, D2H copy, correctness verification, and a side-by-side comparison with a plain global load baseline. Tested on H200 (sm_90a, CUDA 12.9). Result: `__ldg` and plain loads show identical latency (ratio ~1.00), confirming the compiler auto-optimizes `const __restrict__` loads on this architecture.
+See [probe record](../../../sources/experience/api-probes/2026-04-16-runtime-ldg.md) for a complete end-to-end example: host allocation of 1M floats, H2D copy, `__ldg`-based load + add kernel, D2H copy, correctness verification, and a side-by-side comparison with a plain global load baseline. Tested on H200 (sm_90a, CUDA 12.9). Result: `__ldg` and plain loads show identical latency (ratio ~1.00), confirming the compiler auto-optimizes `const __restrict__` loads on this architecture.

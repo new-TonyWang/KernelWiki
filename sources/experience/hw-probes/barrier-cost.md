@@ -14,18 +14,18 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/barrier-cost/artifacts/barrier_cost_probe.cu
-  build: 80-experience/hw-probes/barrier-cost/artifacts/build.sh
-  introspection: 80-experience/hw-probes/barrier-cost/artifacts/device.json
+  code: sources/experience/hw-probes/barrier-cost/artifacts/barrier_cost_probe.cu
+  build: sources/experience/hw-probes/barrier-cost/artifacts/build.sh
+  introspection: sources/experience/hw-probes/barrier-cost/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/barrier-cost/2026-04-22/barrier_cost.ncu-rep
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/barrier-cost/2026-04-22/run.log
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/barrier-cost/2026-04-22/ncu_metrics.csv
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L1402-L1404
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L3647-L3704
 source:
@@ -60,7 +60,7 @@ open_questions:
   `wait` for mbarrier. The skill''s S2 (arrive/wait split for overlap) requires a
   separate probe with real independent compute in the overlap window. Current result
   confirms pitfall P6: on bare cost, mbarrier is 1.6-2.2x slower than __syncthreads.
-  Follow-up probe: `80-experience/hw-probes/barrier-async-overlap/`.'
+  Follow-up probe: `sources/experience/hw-probes/barrier-async-overlap/`.'
 - 'NCU CSV captured only the first kernel''s launches (syncwarp_loop; --launch-count
   12 slots exhausted before reaching syncthreads/mbarrier). This is acceptable because
   wall-clock ns/call is the authoritative measurement; the NCU pass''s value was corroboration
@@ -72,7 +72,7 @@ open_questions:
   a 1024-thread block, but a direct throughput probe (N warps all calling __syncthreads
   simultaneously) is open.
 - Cluster-level barrier (`barrier.cluster.arrive/wait`, sm_90+) not measured — blocked
-  on 40-hardware-feature/thread-block-cluster/ bootstrap (bucket F).
+  on wiki/nvidia/hardware/thread-block-cluster/ bootstrap (bucket F).
 id: exp-barrier-cost
 type: experience
 vendor: nvidia
@@ -80,7 +80,7 @@ title: 2026 04 22 Barrier Cost
 ---
 ## Summary
 
-This probe measures the **bare per-call cost** of three synchronization primitives at four block sizes, to back the cost model in [30-skill/sync/barrier-optimization/skill.md](../../../30-skill/sync/barrier-optimization/skill.md). BP Guide §12.1.3 (L1402-L1404) gives the per-SM throughput for `__syncthreads` (16 ops/clock on sm_7.x / sm_8.x) but does not compare against `__syncwarp` or `cuda::barrier` arrive+wait. PG §3.2.4.2 (L3647-L3704) documents that async barriers give benefit *via overlap*, but does not quantify the bare-cost gap when there is no overlap.
+This probe measures the **bare per-call cost** of three synchronization primitives at four block sizes, to back the cost model in [wiki/nvidia/foundations/sync/barrier-optimization/skill.md](../../../wiki/nvidia/foundations/sync/barrier-optimization/skill.md). BP Guide §12.1.3 (L1402-L1404) gives the per-SM throughput for `__syncthreads` (16 ops/clock on sm_7.x / sm_8.x) but does not compare against `__syncwarp` or `cuda::barrier` arrive+wait. PG §3.2.4.2 (L3647-L3704) documents that async barriers give benefit *via overlap*, but does not quantify the bare-cost gap when there is no overlap.
 
 Three kernels over block sizes {128, 256, 512, 1024}:
 
@@ -151,7 +151,7 @@ With a single 128–1024 thread block on a 132-SM H200, 131 SMs sit idle for the
 1. **The block-barrier cost hierarchy on H200 sm_9.0a is warp → block → mbarrier**, with ratios ~1 : ~2–3 : ~3–6 at typical block sizes. Skill §S1 "narrow the scope" is backed by these numbers: dropping from `__syncthreads` to `__syncwarp` where correct saves ~2× the per-call cost.
 2. **mbarrier bare cost is a loss without overlap**. Pitfall P6 (legacy-anecdotal) is upgraded to measured: mbarrier arrive+wait alone costs 1.6–2.2× a `__syncthreads`; only S2 (real independent work) recovers the gap.
 3. **`__syncthreads` cost scales sub-linearly with block size** on H200 (1.93× for 8× the threads). Increasing block size doesn't double the barrier cost — it's mostly additive waiting, bounded by the "slowest warp" cost.
-4. **Cluster barriers not measured.** Follow-up probe blocked on `40-hardware-feature/thread-block-cluster/` bootstrap.
+4. **Cluster barriers not measured.** Follow-up probe blocked on `wiki/nvidia/hardware/thread-block-cluster/` bootstrap.
 
 ## Files
 

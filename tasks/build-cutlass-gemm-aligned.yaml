@@ -1,9 +1,9 @@
 task_id: 2026-04-28-cutlass-gemm-aligned
 task_type: build-skill
-target_path: 30-skill/compute/gemm/aligned/
+target_path: wiki/nvidia/foundations/compute/gemm/aligned/
 also_writes:
-  - 60-code/cutlass-cute/gemm-aligned/
-  - 80-experience/api-probes/gemm/
+  - wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-aligned/
+  - sources/experience/api-probes/gemm/
 
 hardware:
   device: H200
@@ -11,26 +11,26 @@ hardware:
   cuda_runtime: "12.9"
 
 upstream_scope:
-  - /home/tongyu/workspace/cuda_repo/cutlass/
-  - /home/tongyu/workspace/kernel-kb-mvp/knowledge/05-source-corpus/blogs/colfax/
+  - <local-path>
+  - <local-path>
 upstream_repo_pin: "cutlass@f74fea9c"
 
 references:
-  - 70-reasoning/api-probing.md
-  - 70-reasoning/benchmark-protocol.md
+  - reasoning/api-probing.md
+  - reasoning/benchmark-protocol.md
   - docs/15-代码仓库抽取知识流程_update_en.md  # AC-4
 
 source_anchors:
   - examples/49_hopper_gemm_with_collective_builder/
   - include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized.hpp
-  - 05-source-corpus/blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
+  - corpus/nvidia/blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
 
 success_criteria:
-  - file_exists: 30-skill/compute/gemm/aligned/skill.md
-  - file_exists: 30-skill/compute/gemm/aligned/pitfalls.md
-  - file_exists: 60-code/cutlass-cute/gemm-aligned/build.sh
-  - file_exists: 60-code/cutlass-cute/gemm-aligned/gemm_aligned.cu
-  - dir_nonempty: 80-experience/api-probes/gemm/   # date-stamped record at execution time
+  - file_exists: wiki/nvidia/foundations/compute/gemm/aligned/skill.md
+  - file_exists: wiki/nvidia/foundations/compute/gemm/aligned/pitfalls.md
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-aligned/build.sh
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-aligned/gemm_aligned.cu
+  - dir_nonempty: sources/experience/api-probes/gemm/   # date-stamped record at execution time
   - lint_clean: true
   - skill_status: verified
   - skill_evidence_level: measured

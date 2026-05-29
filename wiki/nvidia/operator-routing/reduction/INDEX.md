@@ -76,7 +76,7 @@ Q4. How many elements per reduction instance?
         --> Warp-level butterfly reduction using __shfl_xor_sync.
             Each warp independently reduces its 32 (or fewer) elements
             in log2(32) = 5 shuffle steps. No shared memory needed.
-            See 30-skill/compute/warp-primitives/skill.md.
+            See wiki/nvidia/foundations/compute/warp-primitives/skill.md.
 
     33..1024 (single block)
         --> Block-level reduction:
@@ -100,7 +100,7 @@ Q4. How many elements per reduction instance?
             NOT one per thread. A naive "every-thread atomicAdd to one
             scalar" pattern is both 248x slower AND numerically wrong
             for FP32 sums with N > ~1e5 (the running sum saturates the
-            24-bit mantissa). Use skill 30-skill/sync/atomic-reduction/
+            24-bit mantissa). Use skill wiki/nvidia/foundations/sync/atomic-reduction/
             (S1 hierarchical) for the grid-level combining step. On H200,
             S1 + grid-stride loop achieves 1498x speedup over naive and
             75% of HBM peak bandwidth for sum-reduction.
@@ -110,15 +110,15 @@ Q4. How many elements per reduction instance?
 
 After the basic custom kernel is working and correct, apply optimization skills from ROUTING.md in priority order:
 
-1. **Coalescing** (30-skill/memory/coalescing/) -- ensure the input load phase uses coalesced (stride-1) global memory access. This is the single most impactful optimization for memory-bound reduction kernels.
+1. **Coalescing** (wiki/nvidia/foundations/memory/coalescing/) -- ensure the input load phase uses coalesced (stride-1) global memory access. This is the single most impactful optimization for memory-bound reduction kernels.
 
-2. **Warp primitives** (30-skill/compute/warp-primitives/) -- replace shared-memory tree reduction within a warp with register-based `__shfl_xor_sync` / `__shfl_down_sync` butterfly reduction. Eliminates shared-memory round-trips for the final 32-element reduce stage.
+2. **Warp primitives** (wiki/nvidia/foundations/compute/warp-primitives/) -- replace shared-memory tree reduction within a warp with register-based `__shfl_xor_sync` / `__shfl_down_sync` butterfly reduction. Eliminates shared-memory round-trips for the final 32-element reduce stage.
 
-3. **Bank-conflict avoidance** (30-skill/memory/bank-conflict/) -- if the kernel uses shared memory for the block-level reduction tree, ensure the layout avoids bank conflicts. For a standard tree reduction, sequential addressing (reduce2 pattern from cuda-samples) is conflict-free; but interleaved addressing (reduce1 pattern) causes conflicts.
+3. **Bank-conflict avoidance** (wiki/nvidia/foundations/memory/bank-conflict/) -- if the kernel uses shared memory for the block-level reduction tree, ensure the layout avoids bank conflicts. For a standard tree reduction, sequential addressing (reduce2 pattern from cuda-samples) is conflict-free; but interleaved addressing (reduce1 pattern) causes conflicts.
 
-4. **Atomic reduction contention control** (30-skill/sync/atomic-reduction/) -- for the grid-level combining step in multi-block reductions, the atomic tail must issue **one atomic per block**, not one per thread. The S1 hierarchical pattern (warp shuffle -> shmem -> block-level atomicAdd) is required when the kernel's final stage is a global atomicAdd. Pair with skill 2 (warp-primitives, for the inner shuffle) and skill 9 (memory-ordering, for scope / ordering correctness). Measured on H200: 247.8x speedup over the naive per-thread atomic pattern; 1498x with grid-stride loop on top of S1.
+4. **Atomic reduction contention control** (wiki/nvidia/foundations/sync/atomic-reduction/) -- for the grid-level combining step in multi-block reductions, the atomic tail must issue **one atomic per block**, not one per thread. The S1 hierarchical pattern (warp shuffle -> shmem -> block-level atomicAdd) is required when the kernel's final stage is a global atomicAdd. Pair with skill 2 (warp-primitives, for the inner shuffle) and skill 9 (memory-ordering, for scope / ordering correctness). Measured on H200: 247.8x speedup over the naive per-thread atomic pattern; 1498x with grid-stride loop on top of S1.
 
-After each skill application, re-benchmark against the baseline (torch.<op> or cub::DeviceReduce) and follow the bottleneck-triage procedure in 70-reasoning/bottleneck-triage.md.
+After each skill application, re-benchmark against the baseline (torch.<op> or cub::DeviceReduce) and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
 
 ## Step 3 -- Advanced techniques (Brent's theorem)
 
@@ -141,4 +141,4 @@ while (i < n) {
 - **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
-- **Bottleneck triage after benchmarking**: `70-reasoning/bottleneck-triage.md`
+- **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

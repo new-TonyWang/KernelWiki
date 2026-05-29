@@ -34,16 +34,16 @@ source:
   anchor: persistent-kernel + stream-K walkthrough — tile-scheduler abstraction
 - path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
   anchor: pingpong vs cooperative scheduling section
-- path: 40-hardware-feature/tma-ptx/skill.md
+- path: wiki/nvidia/hardware/tma-ptx/skill.md
   anchor: cutlass-free TMA primitive (composes per-tile in the persistent loop)
-- path: 40-hardware-feature/wgmma-ptx/skill.md
+- path: wiki/nvidia/hardware/wgmma-ptx/skill.md
   anchor: cutlass-free wgmma primitive
 artifacts:
-  code: 80-experience/api-probes/gemm/artifacts/gemm_compare_pingpong.cu
-  build: 80-experience/api-probes/gemm/artifacts/build_persistent.sh
-  introspection: 80-experience/api-probes/gemm/artifacts/device.json
-  profile: 80-experience/api-probes/gemm/artifacts/profiles/2026-04-28-persistent-kernel-ablation.csv
-  ablation: 80-experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md
+  code: sources/experience/api-probes/gemm/artifacts/gemm_compare_pingpong.cu
+  build: sources/experience/api-probes/gemm/artifacts/build_persistent.sh
+  introspection: sources/experience/api-probes/gemm/artifacts/device.json
+  profile: sources/experience/api-probes/gemm/artifacts/profiles/2026-04-28-persistent-kernel-ablation.csv
+  ablation: sources/experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md
 upstream_repo: cutlass@f74fea9c (one possible implementation; see "References")
 related_apis: []
 related_skills:
@@ -91,7 +91,7 @@ The pattern composes naturally with warp-specialization: the producer warps stre
 |---|---|---|
 | **Plain persistent** | 1 | one tile, then advance to next |
 | **Pingpong persistent** | 2 (alternating) | consumer-A computes tile T, consumer-B prepares T+1; on tile T+2 they swap |
-| **Cooperative persistent** | 2 (cooperating on same tile) | both consumers split the wgmma rows of one tile; advance jointly to next; pair with cluster-multicast TMA (cutlass-free PTX measured at [`80-experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md`](../../80-experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md), 1.26× / 1.79× effective-bandwidth at C=2 / C=4) |
+| **Cooperative persistent** | 2 (cooperating on same tile) | both consumers split the wgmma rows of one tile; advance jointly to next; pair with cluster-multicast TMA (cutlass-free PTX measured at [`sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md`](../../sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md), 1.26× / 1.79× effective-bandwidth at C=2 / C=4) |
 
 Cutlass spells these as `KernelTmaWarpSpecializedPingpong` and `KernelTmaWarpSpecializedCooperative`; those names label *the warp-spec variant + persistent loop combination*. The persistent loop itself is independent of warp-spec — a non-warp-specialized persistent kernel also exists in principle, just not landed in cutlass for sm_90.
 
@@ -111,7 +111,7 @@ __global__ void persistent_kernel(/* tensor maps, problem dims */) {
         int tile_n = scheduler_col(t);
 
         // 3. Per-tile work — composes the warp-specialized mainloop from
-        //    50-classical-algo/warp-specialization/skill.md (producer/consumer
+        //    wiki/nvidia/techniques/warp-specialization/skill.md (producer/consumer
         //    + mbarrier-pipelined TMA→wgmma), accumulating into per-thread
         //    fragment registers across all K iterations of this tile.
         accum = {0};
@@ -147,7 +147,7 @@ The scheduler functions `scheduler_row/col` are pure host-precomputable function
 ## Implementations on disk
 
 - **Cutlass realization** — `cutlass::gemm::kernel::tile_scheduler.hpp` (`PersistentScheduler` / `StreamKScheduler`), composed into `sm90_gemm_tma_warpspecialized_pingpong.hpp` and `_cooperative.hpp` mainloops. Cluster-shape constraints, multicast pairings, and per-stage smem allocators are cutlass-implementation details; see `pitfalls.md`.
-- **Cutlass-free building blocks** — TMA-PTX (`40-hardware-feature/tma-ptx/skill.md`) and wgmma-PTX (`40-hardware-feature/wgmma-ptx/skill.md`) provide the per-tile inner kernel; the persistent loop above is plain CUDA C++. No cutlass dependency at the algorithm level.
+- **Cutlass-free building blocks** — TMA-PTX (`wiki/nvidia/hardware/tma-ptx/skill.md`) and wgmma-PTX (`wiki/nvidia/hardware/wgmma-ptx/skill.md`) provide the per-tile inner kernel; the persistent loop above is plain CUDA C++. No cutlass dependency at the algorithm level.
 
 ## Measured Characteristics
 
@@ -163,12 +163,12 @@ At 2048³ on H200 the persistent advantage is small (within 1% of non-persistent
 
 ## Cross-references
 
-- Warp-specialization sibling (intra-CTA pattern): `50-classical-algo/warp-specialization/skill.md`
-- TMA-PTX (cutlass-free producer side): `40-hardware-feature/tma-ptx/skill.md`
-- wgmma-PTX (cutlass-free consumer side): `40-hardware-feature/wgmma-ptx/skill.md`
-- Aligned GEMM consumer: `30-skill/compute/gemm/aligned/skill.md`
-- Cutlass library-usage notes + tuning log: `60-code/cutlass-cute/persistent-kernel/{README.md, tuning.md}`
-- Probe + ablation: `80-experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md`
-- Underlying TMA hw-probe (composed per tile): `80-experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md`
-- Underlying wgmma hw-probe (composed per tile): `80-experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md`
-- Failure modes: `50-classical-algo/persistent-kernel/pitfalls.md`
+- Warp-specialization sibling (intra-CTA pattern): `wiki/nvidia/techniques/warp-specialization/skill.md`
+- TMA-PTX (cutlass-free producer side): `wiki/nvidia/hardware/tma-ptx/skill.md`
+- wgmma-PTX (cutlass-free consumer side): `wiki/nvidia/hardware/wgmma-ptx/skill.md`
+- Aligned GEMM consumer: `wiki/nvidia/foundations/compute/gemm/aligned/skill.md`
+- Cutlass library-usage notes + tuning log: `wiki/nvidia/code-walkthroughs/cutlass-cute/persistent-kernel/{README.md, tuning.md}`
+- Probe + ablation: `sources/experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md`
+- Underlying TMA hw-probe (composed per tile): `sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md`
+- Underlying wgmma hw-probe (composed per tile): `sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md`
+- Failure modes: `wiki/nvidia/techniques/persistent-kernel/pitfalls.md`

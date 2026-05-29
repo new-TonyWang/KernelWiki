@@ -4,11 +4,11 @@ pattern_class: tensor-core
 op: gemm
 status: draft
 source:
-- path: 70-reasoning/task-packet.md
+- path: reasoning/task-packet.md
   anchor: L1-L109
   excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This
     file is the task packet.'
-- path: 20-pattern/cuda-core/reduction/TASK-PACKET.md
+- path: wiki/nvidia/operator-routing/cuda-core/reduction/TASK-PACKET.md
   anchor: Reduction -- Task Packet Template
   excerpt: Reference shape for the operator-specific task packet refinement
 id: routing-gemm-TASK-PACKET
@@ -18,12 +18,12 @@ operator: gemm
 ---
 # Tensor-core GEMM -- Task Packet Template
 
-This document defines the operator-specific task packet fields for a Hopper tensor-core GEMM kernel-writing task. It refines the generic task packet contract in `70-reasoning/task-packet.md` with GEMM-specific required and optional fields.
+This document defines the operator-specific task packet fields for a Hopper tensor-core GEMM kernel-writing task. It refines the generic task packet contract in `reasoning/task-packet.md` with GEMM-specific required and optional fields.
 
 ## Required fields (in addition to base task-packet fields)
 
 ```yaml
-# --- Base fields (from 70-reasoning/task-packet.md) ---
+# --- Base fields (from reasoning/task-packet.md) ---
 task_id: "2026-04-XX-gemm-<variant>"            # date-prefixed, kebab-case
 task_type: write-kernel                          # or benchmark-kernel
 target_path: kernels/gemm/<variant>/             # output directory
@@ -64,7 +64,7 @@ layout:
   C: row-major
   D: row-major
   # Cutlass-free PTX track: B in conceptual K-major (= col-major K x N) is
-  # required for wgmma .SS_TN (see 30-skill/compute/gemm-ptx/pitfalls.md #0).
+  # required for wgmma .SS_TN (see wiki/nvidia/foundations/compute/gemm-ptx/pitfalls.md #0).
   # The host driver typically transposes B accordingly. Document this in
   # `notes:` when relevant.
 
@@ -82,7 +82,7 @@ baseline:
   # When set, the build script MUST run BOTH:
   #   nvcc -E <src>.cu | grep -E 'cutlass::|cute::'        # expect 0
   #   cuobjdump --dump-elf-symbols <bin> | grep -E 'cutlass::|cute::'  # expect 0
-  # See 30-skill/compute/gemm-ptx/skill.md "Cutlass-free verification".
+  # See wiki/nvidia/foundations/compute/gemm-ptx/skill.md "Cutlass-free verification".
 
 track:
   - cutlass-api    # one of:  cutlass-api  |  cutlass-free
@@ -135,8 +135,8 @@ notes: |
   Free-form guidance for the kernel-writing agent.
   Example: "Cutlass-free build: B must be physically transposed to col-major K x N
   before TMA load (wgmma .SS_TN expects K-major B); use the host-side transpose
-  pattern from 60-code/ptx-gemm/gemm_ptx.cu. Inherit the per-thread fragment-store
-  layout from 30-skill/compute/gemm-ptx/skill.md verbatim until the upstream
+  pattern from wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu. Inherit the per-thread fragment-store
+  layout from wiki/nvidia/foundations/compute/gemm-ptx/skill.md verbatim until the upstream
   fix for pitfall #1 lands."
 ```
 
@@ -168,11 +168,11 @@ success_criteria:
   - performance: "median_latency <= 1.05 * cublasLtMatmul_latency"
 
 references:
-  - 20-pattern/tensor-core/gemm/INDEX.md
-  - 20-pattern/tensor-core/gemm/ROUTING.md
-  - 30-skill/compute/gemm/aligned/skill.md
-  - 50-classical-algo/warp-specialization/skill.md
-  - 70-reasoning/bottleneck-triage.md
+  - wiki/nvidia/operator-routing/tensor-core/gemm/INDEX.md
+  - wiki/nvidia/operator-routing/tensor-core/gemm/ROUTING.md
+  - wiki/nvidia/foundations/compute/gemm/aligned/skill.md
+  - wiki/nvidia/techniques/warp-specialization/skill.md
+  - reasoning/bottleneck-triage.md
 
 notes: |
   Aligned shape (2048 % 64 == 0, % 128 == 0). Use the cutlass collective
@@ -186,7 +186,7 @@ notes: |
 ```yaml
 task_id: 2026-04-29-gemm-ws-ptx-min
 task_type: write-kernel
-target_path: knowledge/80-experience/kernel-records/2026-04-29-gemm-ws-ptx/
+target_path: sources/experience/kernel-records/2026-04-29-gemm-ws-ptx/
 hardware:
   device: H200
   sm: "9.0a"
@@ -215,21 +215,21 @@ success_criteria:
   #   - correctness: "max_rel_diff < 1e-2 vs cublasGemmEx"
 
 references:
-  - 20-pattern/tensor-core/gemm/INDEX.md
-  - 20-pattern/tensor-core/gemm/ROUTING.md
-  - 30-skill/compute/gemm-ptx/skill.md
-  - 30-skill/compute/gemm-ptx/pitfalls.md
-  - 40-hardware-feature/tma-ptx/skill.md
-  - 40-hardware-feature/wgmma-ptx/skill.md
-  - 50-classical-algo/warp-specialization/skill.md
-  - 50-classical-algo/warp-specialization/pitfalls.md
+  - wiki/nvidia/operator-routing/tensor-core/gemm/INDEX.md
+  - wiki/nvidia/operator-routing/tensor-core/gemm/ROUTING.md
+  - wiki/nvidia/foundations/compute/gemm-ptx/skill.md
+  - wiki/nvidia/foundations/compute/gemm-ptx/pitfalls.md
+  - wiki/nvidia/hardware/tma-ptx/skill.md
+  - wiki/nvidia/hardware/wgmma-ptx/skill.md
+  - wiki/nvidia/techniques/warp-specialization/skill.md
+  - wiki/nvidia/techniques/warp-specialization/pitfalls.md
 
 notes: |
   Smallest shape that exercises the WS pipeline: STAGES=2, N_K_TILES=2.
   Producer warp = warp 4; consumer warpgroup = warps 0..3. mbarrier
   full / empty pair per stage, expected_tx = TILE_BYTES_A + TILE_BYTES_B.
   B is host-transposed to col-major K x N before TMA load (gemm-ptx pitfall #0).
-  See 80-experience/kernel-records/2026-04-29-gemm-ws-ptx/README.md for
+  See sources/experience/kernel-records/2026-04-29-gemm-ws-ptx/README.md for
   the full design walkthrough.
 ```
 
@@ -239,5 +239,5 @@ notes: |
 2. If the library path suffices, report the recommended call shape and stop (no custom kernel needed).
 3. If a custom kernel is needed, read `ROUTING.md` for the skill whitelist; instantiate the producer side (skill #6) and consumer side (skill #7) under the warp-spec mainloop (skill #1).
 4. (Cutlass-free track only) Run BOTH cutlass-free gates (`nvcc -E | grep` and `cuobjdump --dump-elf-symbols | grep`) before reporting success. The structural gate is non-negotiable; the numeric gate may be deferred if a known upstream issue applies, in which case document the deferral in `notes:`.
-5. Benchmark against the `baseline.library` and apply bottleneck triage (`70-reasoning/bottleneck-triage.md`) if the success criteria are not met.
+5. Benchmark against the `baseline.library` and apply bottleneck triage (`reasoning/bottleneck-triage.md`) if the success criteria are not met.
 6. After at most 3 optimization iterations, finalize or report `status: stuck`.

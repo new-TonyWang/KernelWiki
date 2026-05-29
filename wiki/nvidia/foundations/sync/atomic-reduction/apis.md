@@ -50,7 +50,7 @@ signature: See documentation
 ---
 # Atomic Reduction API Surface
 
-This file enumerates the APIs touched by the atomic-reduction skill. Entries marked "ptx-atom" / "ptx-red" are only cited for completeness; typical CUDA C++ code should reach for the `cuda::atomic` wrappers first. Promotion of any entry to `10-api-raw/` is gated on a full end-to-end example under this skill's probe task.
+This file enumerates the APIs touched by the atomic-reduction skill. Entries marked "ptx-atom" / "ptx-red" are only cited for completeness; typical CUDA C++ code should reach for the `cuda::atomic` wrappers first. Promotion of any entry to `wiki/nvidia/api-definitions/` is gated on a full end-to-end example under this skill's probe task.
 
 ## Legacy atomic functions (`cuda_runtime.h`)
 

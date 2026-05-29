@@ -14,18 +14,18 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
-  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o /tmp/pipeline_probe knowledge/80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
+  code: sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o /tmp/pipeline_probe sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
   introspection: ''
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L3905-L3945
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L11100-L11160
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   line_range: L960-L1000
 source:
@@ -99,14 +99,14 @@ __global__ void kernel_multi_stage(const float* in, unsigned int* check, int n) 
 }
 ```
 
-Full source: `80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu`.
+Full source: `sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu`.
 
 ## Build
 
 ```bash
 nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo \
   -o /tmp/pipeline_probe \
-  knowledge/80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
+  sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
 ```
 
 ## Measurement
@@ -115,7 +115,7 @@ Single-stage kernel configuration: N_VEC = 1,048,576 `float4` elements (16 MiB),
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| N_VEC=1048576 | float4 | 0.009984 | 0.009760 | 0.010368 | cpu-pass-through-reference | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu && /tmp/p` |
+| N_VEC=1048576 | float4 | 0.009984 | 0.009760 | 0.010368 | cpu-pass-through-reference | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu && /tmp/p` |
 
 Per-stage multi-drain verification (bit-exact):
 
@@ -135,7 +135,7 @@ No `kp_introspect kernel-static` bundle generated. Device-static info: NVIDIA H2
 - **`N = 0` is a full drain** (Best Practices Guide §10.2.3.4, L985: "The __pipeline_wait_prior(0) will wait until all the instructions in the pipe object have been executed.").
 - **Ordering model (verified by the multi-stage probe)**: commits form a per-thread FIFO. When `pending == 3` and the thread calls `wait_prior(2)`, exactly stage 0 is drained; a subsequent `wait_prior(1)` drains stage 1; `wait_prior(0)` drains stage 2. Data in `smem[s]` for the drained stage is visible **to the calling thread** on return.
 - **Scope is thread-local**: on return, data is visible to the calling thread only. A `__syncthreads()` is still required if peer threads need to read what this thread's copy landed in shared memory. The Programming Guide §4.10.6 L11100-L11160 example puts `__syncthreads()` after each `__pipeline_wait_prior` for this reason.
-- **Double-buffering pattern**: the canonical 2-stage prefetch (`NUM_STAGES = 2`, see `30-skill/memory/async-copy/skill.md`) calls `__pipeline_wait_prior(NUM_STAGES - 1)` each iteration so exactly one stage remains in flight (the freshly-committed prefetch), and the oldest stage becomes available for compute. This is the same primitive exercised here but with `N = NUM_STAGES - 1 = 1`.
+- **Double-buffering pattern**: the canonical 2-stage prefetch (`NUM_STAGES = 2`, see `wiki/nvidia/foundations/memory/async-copy/skill.md`) calls `__pipeline_wait_prior(NUM_STAGES - 1)` each iteration so exactly one stage remains in flight (the freshly-committed prefetch), and the oldest stage becomes available for compute. This is the same primitive exercised here but with `N = NUM_STAGES - 1 = 1`.
 - **`N > pending` is not useful** and not tested; behaviorally it is a no-op because the wait asks "at most N stages pending" and the condition is already satisfied.
 - **`N` is effectively a compile-time constant**: the Ampere LDGSTS lowering emits a `CP.ASYNC.WAIT_GROUP` instruction whose immediate operand is N. GTC25-S72683 (see async-copy skill) explicitly notes that `NUM_STAGES` passed into `cuda::pipeline_consumer_wait_prior<N>` must be compile-time so the bookkeeping disappears; the same consideration applies here. The probe uses literal 0, 1, 2.
 - **Does not block other threads**: like the rest of the primitives API, `__pipeline_wait_prior` is thread-scoped. It is cheaper than a `cuda::barrier::wait` when only one thread's staging needs to drain.

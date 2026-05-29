@@ -62,9 +62,9 @@ source:
     function. Kernels relying on shared memory allocations over 48 KB per block must
     use dynamic shared memory and require an explicit opt-in.'
 artifacts:
-  code: 80-experience/hw-probes/smem-tile-reuse/artifacts/smem_tile_reuse_probe.cu
-  build: 80-experience/hw-probes/smem-tile-reuse/artifacts/build.sh
-  introspection: 80-experience/hw-probes/smem-tile-reuse/artifacts/device.json
+  code: sources/experience/hw-probes/smem-tile-reuse/artifacts/smem_tile_reuse_probe.cu
+  build: sources/experience/hw-probes/smem-tile-reuse/artifacts/build.sh
+  introspection: sources/experience/hw-probes/smem-tile-reuse/artifacts/device.json
   profile: ''
 related_apis:
 - __syncthreads
@@ -203,11 +203,11 @@ The driver rounds up to the next supported capacity. PG §3.2.6 notes the setter
 - **No reuse, no coalescing problem, no cross-warp communication.** If each smem element is read exactly once per block and the global access pattern is already coalesced, the smem stage adds a `__syncthreads()` barrier and a register round-trip for zero benefit. Let the hardware L1 handle the one-shot read (BP §10.2.3 L719-L727 — "effects of shared memory" cautions against this exact case, and pitfall P5 describes the symptom).
 - **Tile size forces occupancy below the bandwidth knee.** When the per-block smem claim drops occupancy to 1 block/SM, memory-latency hiding collapses. Budget the tile to keep ≥2 blocks/SM on the target device (BP §11.4, L1132-L1150). For the H200-specific breakpoint, see the measured section below.
 - **`cp.async` would do the job better.** For a fresh tile used once, `cuda::memcpy_async` + `cuda::pipeline` overlaps the load with compute and avoids blocking the warp on the barrier (see the `async-copy` skill). Shared memory is still the destination, but the path is different.
-- **Distributed smem fits the shape better.** Histograms / reductions that need >one-block smem can use sm_90 distributed shared memory via thread-block clusters (`cluster.map_shared_rank`). That is not covered by this skill — see the `thread-block-cluster` entry under `40-hardware-feature/` once bootstrapped.
+- **Distributed smem fits the shape better.** Histograms / reductions that need >one-block smem can use sm_90 distributed shared memory via thread-block clusters (`cluster.map_shared_rank`). That is not covered by this skill — see the `thread-block-cluster` entry under `wiki/nvidia/hardware/` once bootstrapped.
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using `80-experience/hw-probes/smem-tile-reuse/` — S2 coalescing-transform variant on matrix transpose, N = 4096×4096 fp32, default L1/smem carveout, unlocked clock logged at 1980 MHz. Full record: [80-experience/hw-probes/smem-tile-reuse/2026-04-21-smem-tile-reuse.md](../../../80-experience/hw-probes/smem-tile-reuse/2026-04-21-smem-tile-reuse.md).
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using `sources/experience/hw-probes/smem-tile-reuse/` — S2 coalescing-transform variant on matrix transpose, N = 4096×4096 fp32, default L1/smem carveout, unlocked clock logged at 1980 MHz. Full record: [sources/experience/hw-probes/smem-tile-reuse/2026-04-21-smem-tile-reuse.md](../../../sources/experience/hw-probes/smem-tile-reuse/2026-04-21-smem-tile-reuse.md).
 
 | Kernel                          | Median ms | Eff. BW GB/s | DRAM SoL | Warp cyc/issue | Bank conflicts (ld) |
 | ------------------------------- | --------: | -----------: | -------: | -------------: | ------------------: |
@@ -237,5 +237,5 @@ Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using `80-experience
 
 ## Legacy references
 
-- `legacy_sandbox_path`: `KernelPilot/knowledge/optimization/memory/shared-memory-cache/skill.md`. Original source had six sub-skills; this MVP port keeps S1–S4 and routes Skill 5 (large dynamic smem >48 KB) into S3 as the opt-in footnote, and Skill 6 (distributed shared memory) to the `40-hardware-feature/thread-block-cluster/` skill (pending bucket F bootstrap).
+- `legacy_sandbox_path`: `KernelPilot/optimization/memory/shared-memory-cache/skill.md`. Original source had six sub-skills; this MVP port keeps S1–S4 and routes Skill 5 (large dynamic smem >48 KB) into S3 as the opt-in footnote, and Skill 6 (distributed shared memory) to the `wiki/nvidia/hardware/thread-block-cluster/` skill (pending bucket F bootstrap).
 - Legacy Level-3 sandbox findings are retained in `pitfalls.md` as P7 through P11; they were run on small inputs and do not constitute measured evidence until re-run on the H200 probe.

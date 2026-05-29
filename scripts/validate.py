@@ -1604,6 +1604,33 @@ def main():
     # AC-10 discoverability + sources/upstreams forbidden.
     all_errors.extend(validate_discoverability())
 
+    # AC-5.1: Body markdown link validation — reject old kb-mvp numbered-layer paths
+    old_path_patterns = [
+        "80-experience/", "30-skill/", "40-hardware-feature/",
+        "50-classical-algo/", "60-code/", "10-api-raw/", "20-pattern/",
+        "70-reasoning/", "05-source-corpus/", "knowledge/",
+    ]
+    body_link_errors = 0
+    for search_dir in [WIKI_DIR, SOURCES_DIR]:
+        if not search_dir.exists():
+            continue
+        for md_file in sorted(search_dir.rglob("*.md")):
+            try:
+                content = md_file.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            rel = md_file.relative_to(REPO_ROOT)
+            for pattern in old_path_patterns:
+                if pattern in content:
+                    all_errors.append(
+                        f"{rel}: body contains old kb-mvp path '{pattern}...' "
+                        f"(must be rewritten to new layout)"
+                    )
+                    body_link_errors += 1
+                    break  # One error per file
+    if body_link_errors:
+        print(f"  Body-link validation: {body_link_errors} files with old paths")
+
     print(f"Validated {file_count} files ({len(all_source_ids)} source IDs collected)")
     if bundle_count or orphans:
         print(f"Validated {bundle_count} asset bundles "

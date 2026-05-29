@@ -9,14 +9,14 @@ operator: elementwise
 ---
 # Elementwise -- Task Packet Input Contract
 
-This document refines the generic task packet contract (`70-reasoning/task-packet.md`) for elementwise operations. When a downstream kernel-writing agent receives an elementwise task, the task YAML must include all fields listed below. If any required field is missing, the agent refuses to start.
+This document refines the generic task packet contract (`reasoning/task-packet.md`) for elementwise operations. When a downstream kernel-writing agent receives an elementwise task, the task YAML must include all fields listed below. If any required field is missing, the agent refuses to start.
 
 ---
 
 ## Required fields (elementwise-specific)
 
 ```yaml
-# -- Standard task packet fields (see 70-reasoning/task-packet.md) --
+# -- Standard task packet fields (see reasoning/task-packet.md) --
 task_id: <date>-<slug>                   # e.g., 2026-04-20-fused-bias-gelu
 task_type: write-kernel                  # or: optimize-kernel
 target_path: <output directory>          # relative to project root
@@ -186,10 +186,10 @@ vectorize: true
 
 ## Agent workflow after receiving this packet
 
-1. Consult `20-pattern/cuda-core/elementwise/INDEX.md` -- run through the decision tree. If the library fallback is sufficient, report that and stop.
+1. Consult `wiki/nvidia/operator-routing/cuda-core/elementwise/INDEX.md` -- run through the decision tree. If the library fallback is sufficient, report that and stop.
 
 2. If a custom kernel is needed, write the kernel following the canonical structure from INDEX.md Step 1.
 
-3. Apply skills from `20-pattern/cuda-core/elementwise/ROUTING.md` in priority order, guided by `70-reasoning/bottleneck-triage.md`.
+3. Apply skills from `wiki/nvidia/operator-routing/cuda-core/elementwise/ROUTING.md` in priority order, guided by `reasoning/bottleneck-triage.md`.
 
 4. Measure effective bandwidth and compare against the baseline specified in the task packet.

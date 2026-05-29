@@ -40,16 +40,16 @@ source:
   anchor: Hopper wgmma GEMM walkthrough — descriptor format + fragment layout
 - path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: TMA tile-load protocol that this kernel's mainloop composes
-- path: 60-code/ptx-gemm/gemm_ptx.cu
+- path: wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu
   anchor: this skill's harness — TMA-PTX + wgmma-PTX composed into a single GEMM kernel
 artifacts:
-  code: 80-experience/api-probes/gemm-ptx/artifacts/gemm_ptx.cu
-  build: 80-experience/api-probes/gemm-ptx/artifacts/build.sh
-  run: 80-experience/api-probes/gemm-ptx/artifacts/run.sh
-  introspection: 80-experience/api-probes/gemm-ptx/artifacts/device.json
-  profile: 80-experience/api-probes/gemm-ptx/artifacts/profiles/2026-04-28-gemm-ptx-hello.csv
-  distilled_view: 60-code/ptx-gemm/gemm_ptx.cu
-  distilled_build: 60-code/ptx-gemm/build.sh
+  code: sources/experience/api-probes/gemm-ptx/artifacts/gemm_ptx.cu
+  build: sources/experience/api-probes/gemm-ptx/artifacts/build.sh
+  run: sources/experience/api-probes/gemm-ptx/artifacts/run.sh
+  introspection: sources/experience/api-probes/gemm-ptx/artifacts/device.json
+  profile: sources/experience/api-probes/gemm-ptx/artifacts/profiles/2026-04-28-gemm-ptx-hello.csv
+  distilled_view: wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu
+  distilled_build: wiki/nvidia/code-walkthroughs/ptx-gemm/build.sh
 related_apis: []
 related_skills:
 - tma-ptx
@@ -130,7 +130,7 @@ The cutlass-abandonment gate (zero symbols) is the hard verification gate. That 
 
 ## Cross-references
 
-- cutlass-API aligned GEMM (the correctness reference at scale): `30-skill/compute/gemm/aligned/skill.md`.
-- wgmma-PTX primitive: `40-hardware-feature/wgmma-ptx/skill.md`. Underlying hw-probe evidence: `80-experience/hw-probes/wgmma-ptx/2026-04-28-wgmma-ptx-hello.md` (cutlass-free wgmma m64n8k16 verified element-by-element).
-- TMA-PTX primitive: `40-hardware-feature/tma-ptx/skill.md`. Underlying hw-probe evidence: `80-experience/hw-probes/tma-ptx/2026-04-28-tma-ptx-hello.md` (cutlass-free TMA tile load verified element-by-element).
+- cutlass-API aligned GEMM (the correctness reference at scale): `wiki/nvidia/foundations/compute/gemm/aligned/skill.md`.
+- wgmma-PTX primitive: `wiki/nvidia/hardware/wgmma-ptx/skill.md`. Underlying hw-probe evidence: `sources/experience/hw-probes/wgmma-ptx/2026-04-28-wgmma-ptx-hello.md` (cutlass-free wgmma m64n8k16 verified element-by-element).
+- TMA-PTX primitive: `wiki/nvidia/hardware/tma-ptx/skill.md`. Underlying hw-probe evidence: `sources/experience/hw-probes/tma-ptx/2026-04-28-tma-ptx-hello.md` (cutlass-free TMA tile load verified element-by-element).
 - Failure modes: not yet committed; the fragment-layout fix is follow-up work and the pitfalls.md will land alongside.

@@ -18,9 +18,9 @@ The purpose of a probe is to turn an API that the knowledge base merely *lists* 
 
 Trigger a probe when any of these conditions is true:
 
-- A `10-api-raw/<ns>/<func>.md` exists but has no `## End-to-End Example` section.
-- A `30-skill/**/apis.md` lists an API that is absent from `10-api-raw/`.
-- The gap queue (`80-experience/api-probes/_gap-queue.md`) has a pending entry pointing at this API.
+- A `wiki/nvidia/api-definitions/<ns>/<func>.md` exists but has no `## End-to-End Example` section.
+- A `wiki/nvidia/foundations/**/apis.md` lists an API that is absent from `wiki/nvidia/api-definitions/`.
+- The gap queue (`sources/experience/api-probes/_gap-queue.md`) has a pending entry pointing at this API.
 - A skill build task (M4c/M5) needs an API whose semantics you cannot fully justify from `upstream_scope` grep alone.
 
 ## Protocol (6 steps, all mandatory)
@@ -32,7 +32,7 @@ Before writing any experimental code, query the source corpus:
 ```bash
 python -m tools.source_corpus.cli search '<api-symbol>' --scope cuda-official
 python -m tools.source_corpus.cli search '<api-symbol>' --scope source-code/cuda-samples
-python -m tools.source_corpus.cli read '05-source-corpus/...' --anchor 'L120-L140'
+python -m tools.source_corpus.cli read 'corpus/nvidia/...' --anchor 'L120-L140'
 ```
 
 Collect every hit as `{path, line_range}` and store it in the probe record's `referenced_in_corpus:` field. If zero hits, mark the probe `kind: undocumented`, write the stub, and stop — ask a human to decide scope.
@@ -66,7 +66,7 @@ Follow `benchmark-protocol.md` strictly:
 
 ### Step 5 — Write the probe record
 
-Path: `80-experience/api-probes/<YYYY-MM-DD>-<ns>-<func-slug>.md`. Frontmatter: exactly what `templates/frontmatter/experience.yaml` specifies — no extra fields, no missing fields. Body sections, in order:
+Path: `sources/experience/api-probes/<YYYY-MM-DD>-<ns>-<func-slug>.md`. Frontmatter: exactly what `templates/frontmatter/experience.yaml` specifies — no extra fields, no missing fields. Body sections, in order:
 
 1. `## Summary` — one paragraph: what was probed, on what hardware, result in one sentence.
 2. `## Minimal Kernel` — the `.cu` source verbatim (fenced code block).
@@ -75,9 +75,9 @@ Path: `80-experience/api-probes/<YYYY-MM-DD>-<ns>-<func-slug>.md`. Frontmatter: 
 5. `## Introspection` — one-line summary plus path to the bundle json.
 6. `## Notes` — pitfalls, reference hits from Step 1, open questions.
 
-### Step 6 — Back-fill `10-api-raw/`
+### Step 6 — Back-fill `wiki/nvidia/api-definitions/`
 
-If `10-api-raw/<ns>/<func>.md` already exists: append a `## End-to-End Example` section with a link to the probe record, and flip `has_end_to_end_example: true` in the frontmatter.
+If `wiki/nvidia/api-definitions/<ns>/<func>.md` already exists: append a `## End-to-End Example` section with a link to the probe record, and flip `has_end_to_end_example: true` in the frontmatter.
 
 If it doesn't exist: create it now using `templates/frontmatter/api-raw.yaml`, with the signature extracted from upstream (Step 1) and a link to the probe record under `probed_by:`.
 

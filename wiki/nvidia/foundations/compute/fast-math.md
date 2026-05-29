@@ -51,7 +51,7 @@ source:
   excerpt: __fdividef(x, y) provides faster single-precision floating-point division.
     rsqrtf() should be invoked directly where desired.
 artifacts:
-  code: 80-experience/hw-probes/fast-math/artifacts/expf_probe.cu
+  code: sources/experience/hw-probes/fast-math/artifacts/expf_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o expf_probe expf_probe.cu
   introspection: ''
   profile: ''
@@ -171,4 +171,4 @@ __device__ float fast_inv_sqrt(float variance_plus_eps) {
 
 ## Measured Characteristics
 
-- [expf-vs-fast-expf probe](../../80-experience/hw-probes/fast-math/2026-04-16-fast-math.md): On H200 (sm_90a, CUDA 12.9), a compute-bound loop of 128 chained expf calls per thread (1M threads) measured `__expf` at **0.0404 ms** (3318 Gop/s) vs standard `expf` at **0.0516 ms** (2604 Gop/s), a **1.27x speedup**. Single-call precision: `expf` max ULP error = 2, `__expf` max ULP error = 8, both measured against double-precision reference over 1M random inputs in [-10, 10]. The speedup vanishes in memory-bound kernels where both versions are bottlenecked by global memory bandwidth.
+- [expf-vs-fast-expf probe](../../sources/experience/hw-probes/fast-math/2026-04-16-fast-math.md): On H200 (sm_90a, CUDA 12.9), a compute-bound loop of 128 chained expf calls per thread (1M threads) measured `__expf` at **0.0404 ms** (3318 Gop/s) vs standard `expf` at **0.0516 ms** (2604 Gop/s), a **1.27x speedup**. Single-call precision: `expf` max ULP error = 2, `__expf` max ULP error = 8, both measured against double-precision reference over 1M random inputs in [-10, 10]. The speedup vanishes in memory-bound kernels where both versions are bottlenecked by global memory bandwidth.

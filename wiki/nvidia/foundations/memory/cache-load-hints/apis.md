@@ -18,7 +18,7 @@ apis:
   notes: 'Non-coherent read-only cache load (PTX ld.global.nc). On sm_70+ the compiler
     auto-emits this for `const __restrict__` pointers; explicit __ldg is redundant
     on H200. Measured on sm_9.0a: 0.1-0.4% difference vs default (within noise).'
-  ten_api_raw: 10-api-raw/runtime/__ldg.md
+  ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldg.md
 - func_name: __ldca
   namespace: cuda-runtime
   kind: load-intrinsic-cache-all
@@ -28,7 +28,7 @@ apis:
     / LDG.E.CONSTANT); __ldca forces the L1 + L2 cache-all path. Use for any load
     where data is reused within the SM but the pointer is not const-qualified (otherwise
     default does the same thing via the .nc path).
-  ten_api_raw: 10-api-raw/runtime/__ldca.md
+  ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldca.md
 - func_name: __ldcg
   namespace: cuda-runtime
   kind: load-intrinsic-cache-global
@@ -36,7 +36,7 @@ apis:
   notes: 'Cache-global load (PTX ld.global.cg). Caches in L2 only, bypasses L1. Measured
     on H200: 2.26x slower than default at L2-resident 16-pass regime because L1 staging
     is bypassed. Use ONLY when data is not reused within the SM.'
-  ten_api_raw: 10-api-raw/runtime/__ldcg.md
+  ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldcg.md
 - func_name: __ldcs
   namespace: cuda-runtime
   kind: load-intrinsic-cache-streaming
@@ -45,7 +45,7 @@ apis:
     Measured on H200: identical to default in un-contended L2 (8 MiB buffer in 60
     MiB L2); the evict-first tag only matters when another workload is fighting for
     L2. Legacy P4.'
-  ten_api_raw: 10-api-raw/runtime/__ldcs.md
+  ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldcs.md
 - func_name: __ldlu
   namespace: cuda-runtime
   kind: load-intrinsic-last-use
@@ -53,7 +53,7 @@ apis:
   notes: Last-use load (PTX ld.global.lu). Marks the cache line for eviction after
     this load retires. Effect is on subsequent kernels' L2 state; not observable in
     single-kernel microbenches. Retained as inferred pending multi-kernel probe.
-  ten_api_raw: 10-api-raw/runtime/__ldlu.md
+  ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldlu.md
 - func_name: __ldcv
   namespace: cuda-runtime
   kind: load-intrinsic-volatile
@@ -62,7 +62,7 @@ apis:
     tag check). Use ONLY for flags written by other threads/kernels (correctness).
     Measured on H200: 2.26x slower than default at L2 regime — same penalty as __ldcg
     — with no compensating benefit for non-volatile data.'
-  ten_api_raw: 10-api-raw/runtime/__ldcv.md
+  ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldcv.md
 - func_name: __stwb
   namespace: cuda-runtime
   kind: store-intrinsic-write-back
@@ -202,7 +202,7 @@ signature: See documentation
 
 ## Related Probes
 
-- [80-experience/hw-probes/cache-hint/2026-04-23-cache-hint.md](../../../80-experience/hw-probes/cache-hint/2026-04-23-cache-hint.md) —
+- [sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md](../../../sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md) —
   6 variants × 2 regimes sweep. Load-bearing results: `__ldg` ≡
   default on H200; `__ldcg` and `__ldcv` 2.26× slower on L2-resident
   reuse; `__ldcs` is a null in un-contended L2.

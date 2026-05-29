@@ -77,7 +77,7 @@ See `tuning.md` for the full table. Key distinction:
 
 ## H200 measured collective datapoint
 
-See [80-experience/api-probes/attention/2026-05-08-cutlass-fmha-collective.md](../../../80-experience/api-probes/attention/2026-05-08-cutlass-fmha-collective.md).
+See [sources/experience/api-probes/attention/2026-05-08-cutlass-fmha-collective.md](../../../sources/experience/api-probes/attention/2026-05-08-cutlass-fmha-collective.md).
 
 Configuration: B=2 H=16 Q=2048 K=2048 D=128, causal mask, kNumMmaWarpGroups=2 (BLOCK_M=128).
 
@@ -90,6 +90,6 @@ Measured on H200-SXM, sm_90a, CUDA 12.9.
 
 ## How this fits in the KB
 
-- Detailed per-knob documentation: `60-code/cutlass-cute/attention-fmha-example/tuning.md`
-- Code flow skeleton: `60-code/cutlass-cute/attention-fmha-example/fmha_skeleton.md`
-- Hand-built minimal attention kernel (no cutlass dependency): `30-skill/compute/attention/mvp-minimal/skill.md`
+- Detailed per-knob documentation: `wiki/nvidia/code-walkthroughs/cutlass-cute/attention-fmha-example/tuning.md`
+- Code flow skeleton: `wiki/nvidia/code-walkthroughs/cutlass-cute/attention-fmha-example/fmha_skeleton.md`
+- Hand-built minimal attention kernel (no cutlass dependency): `wiki/nvidia/foundations/compute/attention/mvp-minimal/skill.md`

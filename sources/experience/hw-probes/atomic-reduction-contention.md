@@ -14,18 +14,18 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: 80-experience/hw-probes/atomic-reduction-contention/artifacts/atomic_reduction_probe.cu
-  build: 80-experience/hw-probes/atomic-reduction-contention/artifacts/build.sh
-  introspection: 80-experience/hw-probes/atomic-reduction-contention/artifacts/device.json
+  code: sources/experience/hw-probes/atomic-reduction-contention/artifacts/atomic_reduction_probe.cu
+  build: sources/experience/hw-probes/atomic-reduction-contention/artifacts/build.sh
+  introspection: sources/experience/hw-probes/atomic-reduction-contention/artifacts/device.json
   profile: ''
 referenced_in_corpus:
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L3435-L3436
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L3641-L3645
-- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
     Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   line_range: L23252-L23295
 source:
@@ -59,10 +59,10 @@ open_questions:
   stay small before the final atomic. This finding has been back-filled into `skill.md`
   as a new sub-pitfall note.
 - Scope-latency measurement (cta vs gpu vs sys) from the S2 technique is not yet probed;
-  follow-up probe under `80-experience/hw-probes/atomic-reduction-scope-latency/`
+  follow-up probe under `sources/experience/hw-probes/atomic-reduction-scope-latency/`
   is open.
 - 'Histogram variant (S4: shared-memory atomics vs global-only) is not yet probed;
-  follow-up under `80-experience/hw-probes/atomic-reduction-histogram/` is open.'
+  follow-up under `sources/experience/hw-probes/atomic-reduction-histogram/` is open.'
 id: exp-atomic-reduction-contention
 type: experience
 vendor: nvidia
@@ -70,7 +70,7 @@ title: 2026 04 20 Atomic Reduction
 ---
 ## Summary
 
-This probe validates the **S1 hierarchical reduction** technique from `30-skill/sync/atomic-reduction/skill.md` on H200 (sm_90a, CUDA 12.9). Three kernels sum `N = 33,554,432` floats (128 MB) to a single scalar:
+This probe validates the **S1 hierarchical reduction** technique from `wiki/nvidia/foundations/sync/atomic-reduction/skill.md` on H200 (sm_90a, CUDA 12.9). Three kernels sum `N = 33,554,432` floats (128 MB) to a single scalar:
 
 - **`naive_atomic`** — every thread issues one `atomicAdd(&out, x[i])` to a single global address. Pathological contention.
 - **`hierarchical_s1`** — warp shuffle -> shared-memory per-warp partials -> first warp reduces across warps -> **one atomic per block**. The textbook S1 pattern.
@@ -163,7 +163,7 @@ By contrast `grid_stride_s1` lands at 75.58% DRAM SoL — within striking distan
 
 ```bash
 # On H200 (sm_90a, CUDA 12.9):
-cd 80-experience/hw-probes/atomic-reduction-contention/artifacts
+cd sources/experience/hw-probes/atomic-reduction-contention/artifacts
 bash build.sh
 CUDA_VISIBLE_DEVICES=0 ./atomic_reduction_probe
 # Expected: naive ~58.9 ms FAIL, hierarchical ~0.24 ms OK, grid-stride ~0.04 ms OK.
