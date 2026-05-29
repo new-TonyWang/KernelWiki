@@ -3,7 +3,7 @@
 *Auto-generated. Do not edit.*
 
 
-## nvidia (224 pages)
+## nvidia (225 pages)
 
 
 ### algorithm (4)
@@ -86,10 +86,11 @@
 - [Tuning](../wiki/nvidia/code-walkthroughs/flash-attention-v3/tuning.md) (`code-flash-attention-v3-tuning`)
 - [Wgmma_Skeleton](../wiki/nvidia/code-walkthroughs/cutlass-cute/wgmma-atom-decoding/wgmma_skeleton.md) (`code-cutlass-cute-wgmma_skeleton`)
 
-### hardware (12)
+### hardware (13)
 
 - [Cluster Launch Control (CLC)](../wiki/nvidia/hardware/clc.md) (`hw-clc`)
 - [H200 Specs](../wiki/nvidia/hardware/foundation/h200-specs.md) (`hw-foundation-h200-specs`)
+- [Hardware Runtime Introspection](../wiki/nvidia/hardware/foundation/README.md) (`hw-foundation-runtime-introspection`)
 - [Memory Hierarchy](../wiki/nvidia/hardware/foundation/memory-hierarchy.md) (`hw-foundation-memory-hierarchy`)
 - [NVFP4 and Block-Scaled Narrow Precision](../wiki/nvidia/hardware/nvfp4.md) (`hw-nvfp4`)
 - [Programmatic Dependent Launch / Grid Dependency Control](../wiki/nvidia/hardware/pdl-gdc.md) (`hw-pdl-gdc`)
