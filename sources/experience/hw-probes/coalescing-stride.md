@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/hw-probes/coalescing-stride/artifacts/coalescing_probe.cu
+  code: artifacts/experience/hw-probes/coalescing-stride/artifacts/coalescing_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o coalescing_probe coalescing_probe.cu
   introspection: ''
   profile: ''

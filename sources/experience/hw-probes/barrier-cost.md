@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/hw-probes/barrier-cost/artifacts/barrier_cost_probe.cu
-  build: sources/experience/hw-probes/barrier-cost/artifacts/build.sh
-  introspection: sources/experience/hw-probes/barrier-cost/artifacts/device.json
+  code: artifacts/experience/hw-probes/barrier-cost/artifacts/barrier_cost_probe.cu
+  build: artifacts/experience/hw-probes/barrier-cost/artifacts/build.sh
+  introspection: artifacts/experience/hw-probes/barrier-cost/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/barrier-cost/2026-04-22/barrier_cost.ncu-rep
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/barrier-cost/2026-04-22/run.log

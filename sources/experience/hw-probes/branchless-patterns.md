@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/hw-probes/branchless-patterns/artifacts/branchless_patterns_probe.cu
-  build: sources/experience/hw-probes/branchless-patterns/artifacts/build.sh
-  introspection: sources/experience/hw-probes/branchless-patterns/artifacts/device.json
+  code: artifacts/experience/hw-probes/branchless-patterns/artifacts/branchless_patterns_probe.cu
+  build: artifacts/experience/hw-probes/branchless-patterns/artifacts/build.sh
+  introspection: artifacts/experience/hw-probes/branchless-patterns/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/branchless-patterns/2026-04-23/branchless_patterns.ncu-rep
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/branchless-patterns/2026-04-23/ncu_metrics.csv

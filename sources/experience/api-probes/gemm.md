@@ -13,10 +13,10 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/api-probes/gemm/artifacts/gemm_compare.cu
-  build: sources/experience/api-probes/gemm/artifacts/run_problem_size_sweep.sh
-  introspection: sources/experience/api-probes/gemm/artifacts/device.json
-  profile: sources/experience/api-probes/gemm/artifacts/profiles/2026-04-28-wgmma-problem-size-sweep.csv
+  code: artifacts/experience/api-probes/gemm/artifacts/gemm_compare.cu
+  build: artifacts/experience/api-probes/gemm/artifacts/run_problem_size_sweep.sh
+  introspection: artifacts/experience/api-probes/gemm/artifacts/device.json
+  profile: artifacts/experience/api-probes/gemm/artifacts/profiles/2026-04-28-wgmma-problem-size-sweep.csv
 upstream_repo: cutlass@f74fea9c
 id: exp-gemm
 type: experience
@@ -34,15 +34,15 @@ source_refs:
 
 **What this is**: cutlass example 48 GEMM compiled with the canonical `MMA_64x128x8_F32TF32TF32_SS_TN` atom and run at 5 problem-size points to quantify how throughput / latency scale with shape. The .cu artifact is the cutlass GEMM; the *measurement focus* is shape scaling at fixed atom.
 
-**What this is NOT**: an isolated wgmma instance-throughput probe. For wgmma-only, cutlass-free serialized-issue characterization across N-shape see `sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md`.
+**What this is NOT**: an isolated wgmma instance-throughput probe. For wgmma-only, cutlass-free serialized-issue characterization across N-shape see `artifacts/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md`.
 
 **Goal**: quantify how throughput / latency / occupancy scale across representative GEMM problem sizes when driven by the canonical Hopper wgmma atom (`MMA_64x128x8_F32TF32TF32_SS_TN`).
 
 ## Method
 
-Reuse the cutlass GEMM probe binary (`sources/experience/api-probes/gemm/artifacts/gemm_compare.cu` = vendored cutlass example 48 + cuBLAS comparator at commit `f74fea9c`). The example accepts `--m=<int> --n=<int> --k=<int>`; we drive five `(M, N, K)` triples covering small / medium / medium-rectangular / large. The wgmma atom is fixed; what varies is the **gemm problem size** that the same atom is tiled over.
+Reuse the cutlass GEMM probe binary (`artifacts/experience/api-probes/gemm/artifacts/gemm_compare.cu` = vendored cutlass example 48 + cuBLAS comparator at commit `f74fea9c`). The example accepts `--m=<int> --n=<int> --k=<int>`; we drive five `(M, N, K)` triples covering small / medium / medium-rectangular / large. The wgmma atom is fixed; what varies is the **gemm problem size** that the same atom is tiled over.
 
-Run script: `sources/experience/api-probes/gemm/artifacts/run_problem_size_sweep.sh`. Reproduces the table verbatim on a re-run (modulo per-launch noise; cutlass averages 20 iterations/shape via `--iterations=20`).
+Run script: `artifacts/experience/api-probes/gemm/artifacts/run_problem_size_sweep.sh`. Reproduces the table verbatim on a re-run (modulo per-launch noise; cutlass averages 20 iterations/shape via `--iterations=20`).
 
 ## Measured results
 

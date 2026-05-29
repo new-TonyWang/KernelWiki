@@ -13,11 +13,11 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/api-probes/gemm-ptx/artifacts/gemm_ptx.cu
-  build: sources/experience/api-probes/gemm-ptx/artifacts/build.sh
-  run: sources/experience/api-probes/gemm-ptx/artifacts/run.sh
-  introspection: sources/experience/api-probes/gemm-ptx/artifacts/device.json
-  profile: sources/experience/api-probes/gemm-ptx/artifacts/profiles/2026-04-28-gemm-ptx-hello.csv
+  code: artifacts/experience/api-probes/gemm-ptx/artifacts/gemm_ptx.cu
+  build: artifacts/experience/api-probes/gemm-ptx/artifacts/build.sh
+  run: artifacts/experience/api-probes/gemm-ptx/artifacts/run.sh
+  introspection: artifacts/experience/api-probes/gemm-ptx/artifacts/device.json
+  profile: artifacts/experience/api-probes/gemm-ptx/artifacts/profiles/2026-04-28-gemm-ptx-hello.csv
   distilled_view: wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu
   distilled_build: wiki/nvidia/code-walkthroughs/ptx-gemm/build.sh
 upstream_repo: none (hand-rolled cutlass-free implementation)

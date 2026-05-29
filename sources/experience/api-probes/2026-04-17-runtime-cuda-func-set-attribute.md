@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu
+  code: artifacts/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o cudaFuncSetAttribute_probe
     cudaFuncSetAttribute_probe.cu
   introspection: ''
@@ -120,7 +120,7 @@ __global__ void big_smem_kernel(float* out, int n_floats_per_block) {
 ```bash
 nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo \
      -o cudaFuncSetAttribute_probe \
-     sources/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu
+     artifacts/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu
 ```
 
 ## Measurement
@@ -133,7 +133,7 @@ Two separate measurements:
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 block × 256 threads × 200 KB dynSmem | fp32 | 0.006624 | 0.006432 | 0.006976 | pre-optin-launch (cudaErrorInvalidValue) | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu && /tmp/p` |
+| 1 block × 256 threads × 200 KB dynSmem | fp32 | 0.006624 | 0.006432 | 0.006976 | pre-optin-launch (cudaErrorInvalidValue) | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p artifacts/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu && /tmp/p` |
 
 The baseline here is semantic rather than numeric: the same launch config **fails** before `cudaFuncSetAttribute` is called (returning `cudaErrorInvalidValue` at launch time). This is the "before/after" baseline the API exists to serve.
 

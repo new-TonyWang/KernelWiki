@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/hw-probes/cache-hint/artifacts/cache_hint_probe.cu
-  build: sources/experience/hw-probes/cache-hint/artifacts/build.sh
-  introspection: sources/experience/hw-probes/cache-hint/artifacts/device.json
+  code: artifacts/experience/hw-probes/cache-hint/artifacts/cache_hint_probe.cu
+  build: artifacts/experience/hw-probes/cache-hint/artifacts/build.sh
+  introspection: artifacts/experience/hw-probes/cache-hint/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/cache-hint/2026-04-23/cache_hint.ncu-rep
   ncu_txt_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/cache-hint/2026-04-23/ncu.txt

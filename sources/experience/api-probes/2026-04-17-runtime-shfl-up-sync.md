@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/api-probes/artifacts/__shfl_up_sync_probe.cu
+  code: artifacts/experience/api-probes/artifacts/__shfl_up_sync_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __shfl_up_sync_probe __shfl_up_sync_probe.cu
   introspection: ''
   profile: ''
@@ -109,7 +109,7 @@ Configuration: N = 1024 floats, 32 warps, grid = 4, block = 256. Three `__shfl_u
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1024 | fp32 | 0.005216 | 0.005056 | 0.005568 | cpu-reference-permutation | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__shfl_up_sync_probe.cu && /tmp/p` |
+| 1024 | fp32 | 0.005216 | 0.005056 | 0.005568 | cpu-reference-permutation | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p artifacts/experience/api-probes/artifacts/__shfl_up_sync_probe.cu && /tmp/p` |
 
 ## Introspection
 
@@ -121,4 +121,4 @@ No `kp_introspect` bundle was generated for this probe (tool not available in th
 - Boundary behavior verified by this probe: the lower `delta` lanes (lane < delta) retain their own value — consistent with the Programming Guide statement that the source lane ID does not wrap around the width.
 - Typical usage pattern: prefix-scan building blocks (Hillis-Steele and Kogge-Stone style inclusive scans), and inter-lane carry propagation.
 - The mask `0xFFFFFFFF` selects all 32 lanes, which is the standard full-warp usage.
-- Per-instruction (cycle-level) latency is out of scope here; see the warp-primitives hw-probe records under `sources/experience/hw-probes/` for that.
+- Per-instruction (cycle-level) latency is out of scope here; see the warp-primitives hw-probe records under `artifacts/experience/hw-probes/` for that.

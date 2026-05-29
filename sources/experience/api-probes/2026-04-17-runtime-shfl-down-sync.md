@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/api-probes/artifacts/__shfl_down_sync_probe.cu
+  code: artifacts/experience/api-probes/artifacts/__shfl_down_sync_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __shfl_down_sync_probe __shfl_down_sync_probe.cu
   introspection: ''
   profile: ''
@@ -106,7 +106,7 @@ Configuration: N = 1024 floats, 32 warps, grid = 4, block = 256. Three `__shfl_d
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1024 | fp32 | 0.005152 | 0.004960 | 0.005600 | cpu-reference-permutation | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__shfl_down_sync_probe.cu && /tmp/p` |
+| 1024 | fp32 | 0.005152 | 0.004960 | 0.005600 | cpu-reference-permutation | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p artifacts/experience/api-probes/artifacts/__shfl_down_sync_probe.cu && /tmp/p` |
 
 ## Introspection
 
@@ -119,4 +119,4 @@ No `kp_introspect` bundle was generated for this probe (tool not available in th
 - Typical usage pattern: warp-level reduction (shift-then-combine halving pattern), and reading "next" lane values for stencil-like computations.
 - The mask `0xFFFFFFFF` selects all 32 lanes, which is the standard full-warp usage.
 - `__shfl_down_sync` is the classic warp reduction primitive; the butterfly-reduction sibling `__shfl_xor_sync` (see `2026-04-16-runtime-shfl-xor-sync.md`) is generally preferred when all lanes need the final reduced value, while `__shfl_down_sync` is sufficient when only lane 0 needs the final result.
-- Per-instruction (cycle-level) latency is out of scope here; see the warp-primitives hw-probe records under `sources/experience/hw-probes/` for that.
+- Per-instruction (cycle-level) latency is out of scope here; see the warp-primitives hw-probe records under `artifacts/experience/hw-probes/` for that.

@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/api-probes/artifacts/__ballot_sync_probe.cu
+  code: artifacts/experience/api-probes/artifacts/__ballot_sync_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __ballot_sync_probe __ballot_sync_probe.cu
   introspection: ''
   profile: ''
@@ -142,7 +142,7 @@ Configuration: N = 1024 random floats, threshold = 0.5, 32 warps, grid = 4, bloc
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1024 | fp32 | 0.005216 | 0.004992 | 0.005536 | cpu-sequential-count | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__ballot_sync_probe.cu && /tmp/p` |
+| 1024 | fp32 | 0.005216 | 0.004992 | 0.005536 | cpu-sequential-count | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p artifacts/experience/api-probes/artifacts/__ballot_sync_probe.cu && /tmp/p` |
 
 ## Introspection
 

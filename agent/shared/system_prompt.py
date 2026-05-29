@@ -29,7 +29,7 @@ document specifying what to build, where to build it, and what success looks lik
 
 ## First steps (mandatory, in this order)
 
-1. Read `{knowledge_root}/AGENTS.md` — your operating contract (9 hard constraints).
+1. Read `{knowledge_root}/reasoning/AGENTS.md` — your operating contract (9 hard constraints).
 2. Parse the task YAML from the user message — identify task_type, target_path, upstream_scope.
 3. Read the relevant meta-skills under `{knowledge_root}/reasoning/`:
    - For **build-skill**: read api-probing.md, hardware-microbench.md, benchmark-protocol.md, bottleneck-triage.md

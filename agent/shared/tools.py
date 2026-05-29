@@ -154,13 +154,13 @@ def read_file(path: str, max_lines: int = 500) -> str:
 def write_file(path: str, content: str) -> str:
     """Write content to a file. Only allows paths under the project root."""
     p = Path(path)
-    if p.is_absolute():
-        try:
-            p.relative_to(PROJECT_ROOT)
-        except ValueError:
-            return f"(error: write rejected — path outside project root: {path})"
-    else:
+    if not p.is_absolute():
         p = PROJECT_ROOT / p
+    p = p.resolve()
+    try:
+        p.relative_to(PROJECT_ROOT.resolve())
+    except ValueError:
+        return f"(error: write rejected — path outside project root: {path})"
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(content)
     return f"(wrote {len(content)} bytes to {p})"

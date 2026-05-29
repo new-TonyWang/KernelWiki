@@ -14,11 +14,11 @@ source:
 - path: sources/experience/api-probes/attention/artifacts/flash_attn_minimal.cu
   anchor: flash_attn_kernel<BM,BN> — templatized thread-level online-softmax attention
 artifacts:
-  code: sources/experience/api-probes/attention/artifacts/flash_attn_minimal.cu
-  build: sources/experience/api-probes/attention/artifacts/build.sh
-  run: sources/experience/api-probes/attention/artifacts/run.sh
-  introspection: sources/experience/api-probes/attention/artifacts/device.json
-  profile: sources/experience/api-probes/attention/artifacts/profiles/attention-sweep.csv
+  code: artifacts/experience/api-probes/attention/artifacts/flash_attn_minimal.cu
+  build: artifacts/experience/api-probes/attention/artifacts/build.sh
+  run: artifacts/experience/api-probes/attention/artifacts/run.sh
+  introspection: artifacts/experience/api-probes/attention/artifacts/device.json
+  profile: artifacts/experience/api-probes/attention/artifacts/profiles/attention-sweep.csv
 conclusions:
   workload: Scaled dot-product attention O = softmax(Q@K^T / sqrt(d)) @ V via FlashAttention-2
     online softmax. Thread-level math (no wgmma). fp16 inputs, f32 accumulator, fp16

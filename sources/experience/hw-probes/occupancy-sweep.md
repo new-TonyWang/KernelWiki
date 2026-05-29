@@ -14,10 +14,10 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/hw-probes/occupancy-sweep/artifacts/occupancy_sweep_probe.cu
+  code: artifacts/experience/hw-probes/occupancy-sweep/artifacts/occupancy_sweep_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o occupancy_sweep_probe
     occupancy_sweep_probe.cu
-  introspection: sources/experience/hw-probes/occupancy-sweep/h200_device_static.json
+  introspection: artifacts/experience/hw-probes/occupancy-sweep/h200_device_static.json
   profile: ''
 source:
 - path: spec
@@ -163,7 +163,7 @@ Data size: 64M float elements (256 MB per buffer). 5 warmup + 20 measured launch
 
 ## Introspection
 
-Device static info from `kp_introspect device-static`: `sources/experience/hw-probes/occupancy-sweep/h200_device_static.json`
+Device static info from `kp_introspect device-static`: `artifacts/experience/hw-probes/occupancy-sweep/h200_device_static.json`
 
 Key H200 specs: 132 SMs, 65536 regs/SM, 2048 max threads/SM, 64 max warps/SM, 32 max blocks/SM, 233472 bytes shared mem/SM.
 

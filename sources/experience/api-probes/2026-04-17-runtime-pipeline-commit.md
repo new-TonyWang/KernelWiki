@@ -14,8 +14,8 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
-  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o /tmp/pipeline_probe sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
+  code: artifacts/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o /tmp/pipeline_probe artifacts/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
   introspection: ''
   profile: ''
 source:
@@ -92,14 +92,14 @@ __global__ void kernel_multi_stage(const float* __restrict__ in,
 }
 ```
 
-Full source: `sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu`.
+Full source: `artifacts/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu`.
 
 ## Build
 
 ```bash
 nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo \
   -o /tmp/pipeline_probe \
-  sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
+  artifacts/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu
 ```
 
 ## Measurement
@@ -108,7 +108,7 @@ Configuration: single-stage pass-through kernel, N_VEC = 1,048,576 `float4` elem
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| N_VEC=1048576 | float4 | 0.009984 | 0.009760 | 0.010368 | cpu-pass-through-reference | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu && /tmp/p` |
+| N_VEC=1048576 | float4 | 0.009984 | 0.009760 | 0.010368 | cpu-pass-through-reference | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p artifacts/experience/api-probes/artifacts/__pipeline_memcpy_async_probe.cu && /tmp/p` |
 
 Multi-stage stage-checksum results (bit-exact):
 

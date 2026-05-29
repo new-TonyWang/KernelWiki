@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/api-probes/artifacts/__ldg_probe.cu
+  code: artifacts/experience/api-probes/artifacts/__ldg_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __ldg_probe __ldg_probe.cu
   introspection: ''
   profile: ''
@@ -160,7 +160,7 @@ Configuration: N = 1048576 (1M) floats, grid = 4096, block = 256. 5 warmup launc
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1048576 | fp32 | 0.007712 | 0.007552 | 0.008096 | plain-global-load | 0.007744 | 1.0041 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__ldg_probe.cu && /tmp/p` |
+| 1048576 | fp32 | 0.007712 | 0.007552 | 0.008096 | plain-global-load | 0.007744 | 1.0041 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p artifacts/experience/api-probes/artifacts/__ldg_probe.cu && /tmp/p` |
 
 ## Introspection
 

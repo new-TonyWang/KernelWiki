@@ -15,7 +15,7 @@ measured_on:
 
 > Produced by `tools/probe_gap_scan.py` (M2). One row per pending probe.
 > MVP rule: rows are appended at the tail; rows removed only when the probe
-> record lands under `sources/experience/api-probes/<date>-<slug>.md` AND
+> record lands under `artifacts/experience/api-probes/<date>-<slug>.md` AND
 > `lint_knowledge.py` passes on the result.
 
 | priority | api | namespace | gap_reason | referenced_in_corpus | referenced_by | added_at | claimed_by | status |

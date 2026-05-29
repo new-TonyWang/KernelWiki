@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/api-probes/artifacts/__shfl_xor_sync_probe.cu
+  code: artifacts/experience/api-probes/artifacts/__shfl_xor_sync_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __shfl_xor_sync_probe __shfl_xor_sync_probe.cu
   introspection: ''
   profile: ''
@@ -143,7 +143,7 @@ Configuration: N = 1024 floats, 32 warps, grid = 4, block = 256. 5 warmup launch
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1024 | fp32 | 0.005280 | 0.005056 | 0.005984 | cpu-sequential-sum | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__shfl_xor_sync_probe.cu && /tmp/p` |
+| 1024 | fp32 | 0.005280 | 0.005056 | 0.005984 | cpu-sequential-sum | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p artifacts/experience/api-probes/artifacts/__shfl_xor_sync_probe.cu && /tmp/p` |
 
 ## Introspection
 
@@ -155,4 +155,4 @@ No `kp_introspect` bundle was generated for this probe (tool not available in th
 - CUTLASS uses `__shfl_xor_sync` extensively for warp-level reductions (e.g., `device_utils.h` line 48-56).
 - The probe uses `0xFFFFFFFF` as the mask (all 32 lanes), which is the standard usage for full-warp operations.
 - Correctness is exact (max_abs_err = 0) because fp32 addition of small integers is exact.
-- This probe measures end-to-end kernel latency (not per-instruction latency); for per-instruction cycle counts see `sources/experience/hw-probes/shfl-sync-bfly/2026-04-16-warp-primitives.md`.
+- This probe measures end-to-end kernel latency (not per-instruction latency); for per-instruction cycle counts see `artifacts/experience/hw-probes/shfl-sync-bfly/2026-04-16-warp-primitives.md`.

@@ -43,7 +43,7 @@ You are a **KB-gen agent** building CUDA optimization knowledge for H200 (sm_90a
 
 ## Mandatory first steps
 
-1. Use the Read tool to read `{knowledge_root}/AGENTS.md` — your 9 hard constraints.
+1. Use the Read tool to read `{knowledge_root}/reasoning/AGENTS.md` — your 9 hard constraints.
 2. Read relevant meta-skills under `{knowledge_root}/reasoning/`:
    - For **build-skill**: api-probing.md, hardware-microbench.md, benchmark-protocol.md, bottleneck-triage.md
    - For **probe-api**: api-probing.md, benchmark-protocol.md

@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/hw-probes/async-copy/artifacts/async_copy_probe.cu
+  code: artifacts/experience/hw-probes/async-copy/artifacts/async_copy_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o async_copy_probe async_copy_probe.cu
   introspection: ''
   profile: ''

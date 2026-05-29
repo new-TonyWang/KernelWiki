@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/api-probes/artifacts/__ldcs_probe.cu
+  code: artifacts/experience/api-probes/artifacts/__ldcs_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __ldcs_probe __ldcs_probe.cu
   introspection: ''
   profile: ''
@@ -89,10 +89,10 @@ __global__ void plain_add(const float* in, float* out, int n) {
 }
 // host code: 5 warmup + 20 measured CUDA-event launches per kernel;
 // D2H copy and CPU-reference verification. See the full file under
-// sources/experience/api-probes/artifacts/__ldcs_probe.cu.
+// artifacts/experience/api-probes/artifacts/__ldcs_probe.cu.
 ```
 
-Full source: `sources/experience/api-probes/artifacts/__ldcs_probe.cu`.
+Full source: `artifacts/experience/api-probes/artifacts/__ldcs_probe.cu`.
 
 ## Build
 
@@ -106,7 +106,7 @@ Configuration: N = 67108864 (64M) floats = 256 MB, grid = 262144, block = 256. 5
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 67108864 | fp32 | 0.202976 | 0.202688 | 0.203840 | plain-global-load | 0.204320 | 1.0066 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__ldcs_probe.cu && /tmp/p` |
+| 67108864 | fp32 | 0.202976 | 0.202688 | 0.203840 | plain-global-load | 0.204320 | 1.0066 | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p artifacts/experience/api-probes/artifacts/__ldcs_probe.cu && /tmp/p` |
 
 ## Introspection
 

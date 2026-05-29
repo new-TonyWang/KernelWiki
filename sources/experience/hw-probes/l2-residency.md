@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/hw-probes/l2-residency/artifacts/l2_residency_probe.cu
-  build: sources/experience/hw-probes/l2-residency/artifacts/build.sh
-  introspection: sources/experience/hw-probes/l2-residency/artifacts/device.json
+  code: artifacts/experience/hw-probes/l2-residency/artifacts/l2_residency_probe.cu
+  build: artifacts/experience/hw-probes/l2-residency/artifacts/build.sh
+  introspection: artifacts/experience/hw-probes/l2-residency/artifacts/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/l2_residency.ncu-rep
   ncu_txt_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/ncu.txt
@@ -142,7 +142,7 @@ All three policies land at ≈4527 GB/s, within 0.2% of each other. The 4 MiB bu
 
 ### 2. At the edge (WS = 40 MiB, slightly above set-aside of 37.5 MiB): still a soft null
 
-40 MiB is 2.5 MiB above the set-aside limit but 20 MiB below the full L2. All three policies land at ≈4357 GB/s, again a soft null. The probe has no competing memory traffic, so even "no policy" keeps the buffer resident after pass 1/32. The window's **pinning** role only matters when *something else* would otherwise evict — a scenario that needs a concurrent competing kernel. Follow-up probe `sources/experience/hw-probes/l2-residency-contended/` (open).
+40 MiB is 2.5 MiB above the set-aside limit but 20 MiB below the full L2. All three policies land at ≈4357 GB/s, again a soft null. The probe has no competing memory traffic, so even "no policy" keeps the buffer resident after pass 1/32. The window's **pinning** role only matters when *something else* would otherwise evict — a scenario that needs a concurrent competing kernel. Follow-up probe `artifacts/experience/hw-probes/l2-residency-contended/` (open).
 
 ### 3. Above L2 (WS = 80 MiB): tuned-hitRatio wins +17.7%
 

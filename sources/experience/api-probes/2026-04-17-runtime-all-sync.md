@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/api-probes/artifacts/__all_sync_probe.cu
+  code: artifacts/experience/api-probes/artifacts/__all_sync_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __all_sync_probe __all_sync_probe.cu
   introspection: ''
   profile: ''
@@ -173,7 +173,7 @@ Configuration: N = 1024 threads (32 warps), grid = 4, block = 256. 5 warmup laun
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1024 | int32 | 0.005152 | 0.004960 | 0.005344 | cpu-sequential-check | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p sources/experience/api-probes/artifacts/__all_sync_probe.cu && /tmp/p` |
+| 1024 | int32 | 0.005152 | 0.004960 | 0.005344 | cpu-sequential-check | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p artifacts/experience/api-probes/artifacts/__all_sync_probe.cu && /tmp/p` |
 
 ## Introspection
 

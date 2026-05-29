@@ -1,7 +1,7 @@
 """Agent configuration — paths and runtime constants for the merged KernelWiki layout.
 
 All paths point to the new KernelWiki directory structure.
-Runtime constants are environment-overridable.
+Runtime constants are environment-overridable via KP_* (preferred) or legacy names.
 """
 import os
 from pathlib import Path
@@ -23,8 +23,12 @@ REMOTE_DIR = os.environ.get("KB_REMOTE_DIR", "/tmp/kb-agent")
 REMOTE_CUDA_PATH = os.environ.get("KB_REMOTE_CUDA_PATH", "/usr/local/cuda")
 REMOTE_PYLIB = os.environ.get("KB_REMOTE_PYLIB", "python3")
 
-# OpenAI path settings (environment-overridable)
-MAX_AGENT_TURNS = int(os.environ.get("KB_MAX_AGENT_TURNS", "30"))
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
-OPENAI_BASE_URL = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1")
-OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-4o")
+# OpenAI path settings — KP_* takes precedence per agent/openai_path/README.md
+MAX_AGENT_TURNS = int(os.environ.get("KP_MAX_AGENT_TURNS",
+                      os.environ.get("KB_MAX_AGENT_TURNS", "30")))
+OPENAI_API_KEY = os.environ.get("KP_OPENAI_API_KEY",
+                 os.environ.get("OPENAI_API_KEY", ""))
+OPENAI_BASE_URL = os.environ.get("KP_OPENAI_BASE_URL",
+                  os.environ.get("OPENAI_BASE_URL", "https://api.openai.com/v1"))
+OPENAI_MODEL = os.environ.get("KP_OPENAI_MODEL",
+               os.environ.get("OPENAI_MODEL", "gpt-4o"))

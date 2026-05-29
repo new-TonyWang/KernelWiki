@@ -14,10 +14,10 @@ source:
 - path: wiki/nvidia/hardware/tma-ptx/skill.md
   anchor: cutlass-free TMA primitive (this probe extends it with multicast::cluster)
 artifacts:
-  code: sources/experience/hw-probes/tma-ptx/artifacts/tma_multicast_probe.cu
-  build: sources/experience/hw-probes/tma-ptx/artifacts/build_multicast.sh
-  run: sources/experience/hw-probes/tma-ptx/artifacts/run_multicast.sh
-  profile: sources/experience/hw-probes/tma-ptx/artifacts/profiles/2026-04-30-tma-multicast.csv
+  code: artifacts/experience/hw-probes/tma-ptx/artifacts/tma_multicast_probe.cu
+  build: artifacts/experience/hw-probes/tma-ptx/artifacts/build_multicast.sh
+  run: artifacts/experience/hw-probes/tma-ptx/artifacts/run_multicast.sh
+  profile: artifacts/experience/hw-probes/tma-ptx/artifacts/profiles/2026-04-30-tma-multicast.csv
 upstream_repo: none (hand-rolled cutlass-free implementation)
 conclusions:
   workload: 132 CTAs (= H200 SM count) arranged as 132/C clusters of size C ∈ {1,

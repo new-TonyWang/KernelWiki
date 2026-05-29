@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: sources/experience/hw-probes/atomic-reduction-contention/artifacts/atomic_reduction_probe.cu
-  build: sources/experience/hw-probes/atomic-reduction-contention/artifacts/build.sh
-  introspection: sources/experience/hw-probes/atomic-reduction-contention/artifacts/device.json
+  code: artifacts/experience/hw-probes/atomic-reduction-contention/artifacts/atomic_reduction_probe.cu
+  build: artifacts/experience/hw-probes/atomic-reduction-contention/artifacts/build.sh
+  introspection: artifacts/experience/hw-probes/atomic-reduction-contention/artifacts/device.json
   profile: ''
 source:
 - path: spec
@@ -161,7 +161,7 @@ By contrast `grid_stride_s1` lands at 75.58% DRAM SoL — within striking distan
 
 ```bash
 # On H200 (sm_90a, CUDA 12.9):
-cd sources/experience/hw-probes/atomic-reduction-contention/artifacts
+cd artifacts/experience/hw-probes/atomic-reduction-contention/artifacts
 bash build.sh
 CUDA_VISIBLE_DEVICES=0 ./atomic_reduction_probe
 # Expected: naive ~58.9 ms FAIL, hierarchical ~0.24 ms OK, grid-stride ~0.04 ms OK.
