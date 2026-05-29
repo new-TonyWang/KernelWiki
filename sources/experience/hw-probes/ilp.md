@@ -18,19 +18,6 @@ artifacts:
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o ilp_fma_probe ilp_fma_probe.cu
   introspection: ''
   profile: ''
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L1113
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L1124
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L1229-L1232
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
-  line_range: L9106-L9155
 source:
 - path: spec
   anchor: Reference
@@ -60,6 +47,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1229-L1232
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1113
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1124
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1229-L1232
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  anchor: L9106-L9155
 ---
 ## Summary
 

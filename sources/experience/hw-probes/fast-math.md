@@ -18,19 +18,6 @@ artifacts:
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o expf_probe expf_probe.cu
   introspection: ''
   profile: ''
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L26993-L26995
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L27041-L27094
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L1243-L1244
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L1556-L1581
 source:
 - path: spec
   anchor: Reference
@@ -59,6 +46,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1243-L1244
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L26993-L26995
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L27041-L27094
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1243-L1244
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1556-L1581
 ---
 ## Summary
 

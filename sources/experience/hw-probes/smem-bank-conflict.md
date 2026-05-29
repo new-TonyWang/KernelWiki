@@ -18,21 +18,6 @@ artifacts:
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o smem_bank_conflict_probe smem_bank_conflict_probe.cu
   introspection: ''
   profile: ''
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L1450-L1482
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L1604-L1655
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L720-L726
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L888-L900
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/Miscellaneous/cupti/cupti_index.html.md
-  line_range: L4506-L4510
 source:
 - path: spec
   anchor: Reference
@@ -60,6 +45,21 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L1640-L1647
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1450-L1482
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1604-L1655
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L720-L726
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L888-L900
+- source_id: cuda-official/toolkit-docs-13.2
+  path: Miscellaneous/cupti/cupti_index.html.md
+  anchor: L4506-L4510
 ---
 ## Summary
 

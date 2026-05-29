@@ -18,19 +18,6 @@ artifacts:
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __shfl_down_sync_probe __shfl_down_sync_probe.cu
   introspection: ''
   profile: ''
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L23954-L23954
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L23973-L23973
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L24011-L24025
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L24206-L24206
 source:
 - path: spec
   anchor: Reference
@@ -59,6 +46,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23973-L23973
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23954-L23954
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23973-L23973
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24011-L24025
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24206-L24206
 ---
 ## Summary
 

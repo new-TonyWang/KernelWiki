@@ -19,13 +19,6 @@ artifacts:
     cudaFuncSetAttribute_probe.cu
   introspection: ''
   profile: ''
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  line_range: L3372-L3440
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  line_range: L15838-L15870
-- path: corpus/nvidia/source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
-  line_range: L774-L785
 source:
 - path: spec
   anchor: Reference
@@ -63,6 +56,12 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   anchor: L15841-L15841
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3372-L3440
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L15838-L15870
 ---
 ## Summary
 

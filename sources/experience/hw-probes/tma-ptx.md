@@ -62,9 +62,6 @@ open_questions:
 - Q6 [RESOLVED in v2] Numeric correctness — element-by-element compare of every loaded
   tile against deterministic source pattern. **0 / 67 043 328 mismatches** across
   C=1, C=2, C=4. Multicast PTX path is byte-identical to non-multicast.
-referenced_in_corpus:
-- path: corpus/nvidia/blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
-  line_range: section on multicast TMA + cooperative kernel
 id: exp-tma-ptx
 type: experience
 vendor: nvidia
@@ -73,6 +70,9 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: Hopper TMA walkthrough — multicast variant for cooperative GEMM
+- source_id: blogs/colfax
+  path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  anchor: section on multicast TMA + cooperative kernel
 ---
 ## Summary
 

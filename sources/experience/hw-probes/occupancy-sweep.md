@@ -19,19 +19,6 @@ artifacts:
     occupancy_sweep_probe.cu
   introspection: sources/experience/hw-probes/occupancy-sweep/h200_device_static.json
   profile: ''
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L1082-L1134
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  line_range: L3824-L3960
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  line_range: L16918-L17230
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture
-    Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
-  line_range: L30-L42
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/0_Introduction/simpleOccupancy/simpleOccupancy.cu'
-  line_range: L77-L122
 source:
 - path: spec
   anchor: Reference
@@ -69,6 +56,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   anchor: L3862-L3890
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1082-L1134
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3824-L3960
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L16918-L17230
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Architecture Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
+  anchor: L30-L42
 ---
 ## Summary
 

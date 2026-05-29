@@ -19,16 +19,6 @@ artifacts:
     cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu
   introspection: ''
   profile: ''
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  line_range: L3862-L3920
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
-  line_range: L3824-L3858
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Architecture
-    Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
-  line_range: L30-L42
-- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleOccupancy/simpleOccupancy.cu
-  line_range: L77-L122
 source:
 - path: spec
   anchor: Reference
@@ -65,6 +55,15 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Architecture Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
   anchor: L35-L42
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3862-L3920
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3824-L3858
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Architecture Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
+  anchor: L30-L42
 ---
 ## Summary
 

@@ -21,13 +21,6 @@ artifacts:
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/aos-vs-soa/2026-04-22/aos_vs_soa.ncu-rep
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/aos-vs-soa/2026-04-22/run.log
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/aos-vs-soa/2026-04-22/ncu_metrics.csv
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L606-L634
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L1379-L1411
 source:
 - path: spec
   anchor: Reference
@@ -72,6 +65,12 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L606-L634
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L606-L634
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1379-L1411
 ---
 ## Summary
 

@@ -18,14 +18,6 @@ artifacts:
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __shfl_xor_sync_probe __shfl_xor_sync_probe.cu
   introspection: ''
   profile: ''
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L23945-L24034
-- path: '{{CUTLASS_REPO_REF}}/tools/util/include/cutlass/util/device_utils.h'
-  line_range: L48-L56
-- path: '{{LESSION_REPO_REF}}/04_warp_level_primitives/lesson.md'
-  line_range: L118-L144
 source:
 - path: spec
   anchor: Reference
@@ -48,6 +40,9 @@ type: experience
 vendor: nvidia
 title: 2026 04 16 Runtime Shfl Xor Sync
 source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23945-L24034
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23945-L24034

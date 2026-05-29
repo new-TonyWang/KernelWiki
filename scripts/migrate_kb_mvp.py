@@ -278,30 +278,61 @@ def main():
     migrated = 0
     skipped = 0
 
-    # Process all .md files in knowledge/
-    for top_dir in sorted(["10-api-raw", "20-pattern", "30-skill", "40-hardware-feature",
-                           "50-classical-algo", "60-code", "80-experience"]):
-        dir_path = knowledge / top_dir
-        if not dir_path.exists():
-            continue
-        for src_file in sorted(dir_path.rglob("*.md")):
-            src_rel = src_file.relative_to(knowledge)
+    # Process ALL .md files in knowledge/ (covering the full 788-file inventory)
+    mapped_dirs = {"10-api-raw", "20-pattern", "30-skill", "40-hardware-feature",
+                   "50-classical-algo", "60-code", "80-experience"}
+    # Non-mapped status table for complete coverage
+    skip_map = {
+        "05-source-corpus": ("skipped", "corpus-tier1"),
+        "70-reasoning": ("migrated", "reasoning"),
+        "90-system-level": ("skipped", "system-level-not-mapped"),
+        "00-foundation": ("migrated", "foundation"),
+        "templates": ("migrated", "templates"),
+    }
+
+    for src_file in sorted(knowledge.rglob("*.md")):
+        src_rel = src_file.relative_to(knowledge)
+        top = src_rel.parts[0]
+
+        if top in mapped_dirs:
             target, status, reason = migrate_file(src_file, src_root, inventory, dry_run=args.dry_run)
-
-            inventory.append({
-                "input_path": str(src_rel),
-                "output_path": target or "",
-                "page_id": "",
-                "page_type": "",
-                "vendor": "nvidia",
-                "status": status,
-                "reason": reason,
-            })
-
+        elif top in skip_map:
+            status, reason = skip_map[top]
+            target = ""
             if status == "migrated":
-                migrated += 1
-            else:
-                skipped += 1
+                if top == "70-reasoning":
+                    target = f"reasoning/{'/'.join(src_rel.parts[1:])}"
+                elif top == "00-foundation":
+                    target = f"wiki/nvidia/hardware/foundation/{src_rel.stem}.md"
+        elif src_rel.name in ("AGENTS.md", "GLOBAL_VARIABLES.md"):
+            status, reason = "migrated", "top-level"
+            target = f"reasoning/{src_rel.name}" if src_rel.name == "AGENTS.md" else f"corpus/GLOBAL_VARIABLES.md"
+        else:
+            target, status, reason = None, "skipped", f"unmapped-dir-{top}"
+
+        # Extract page metadata from target if it exists
+        page_id, page_type = "", ""
+        if target:
+            target_path = REPO_ROOT / target
+            if target_path.exists() and target_path.suffix == ".md":
+                tfm = extract_frontmatter(target_path)
+                if tfm and isinstance(tfm, dict):
+                    page_id = tfm.get("id", "")
+                    page_type = tfm.get("type", "")
+
+        inventory.append({
+            "input_path": str(src_rel),
+            "output_path": target or "",
+            "page_id": page_id,
+            "page_type": page_type,
+            "vendor": "nvidia",
+            "status": status,
+            "reason": reason,
+        })
+        if status == "migrated":
+            migrated += 1
+        else:
+            skipped += 1
 
     # Also process artifact files in 80-experience
     exp_dir = knowledge / "80-experience"
@@ -313,6 +344,7 @@ def main():
                 inventory.append({
                     "input_path": str(src_rel),
                     "output_path": target or "",
+                    "page_id": "", "page_type": "", "vendor": "nvidia",
                     "status": status,
                     "reason": reason,
                 })
@@ -323,8 +355,7 @@ def main():
     if args.output_tsv:
         tsv_path = REPO_ROOT / args.output_tsv
     elif args.dry_run:
-        import tempfile
-        tsv_path = Path(tempfile.mktemp(suffix="_migration_inventory.tsv"))
+        tsv_path = REPO_ROOT / "migration_inventory_dryrun.tsv"
     else:
         tsv_path = REPO_ROOT / "migration_inventory.tsv"
     with open(tsv_path, "w", encoding="utf-8") as f:

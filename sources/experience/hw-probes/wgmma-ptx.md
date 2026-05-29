@@ -83,9 +83,6 @@ open_questions:
 - Descriptor SBO/LBO encoding (256, 16) is held at the cutlass canonical values (`cute/arch/mma_sm90_desc.hpp`
   `make_gmma_desc`). For all-ones inputs, descriptor errors are masked because every
   read yields 1.0; layout bugs would only surface against non-uniform inputs.
-referenced_in_corpus:
-- path: corpus/nvidia/blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
-  line_range: Sections on the GMMA atom shapes table + smem-descriptor format
 id: exp-wgmma-ptx
 type: experience
 vendor: nvidia
@@ -94,6 +91,9 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: Hopper wgmma walkthrough
+- source_id: blogs/colfax
+  path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  anchor: Sections on the GMMA atom shapes table + smem-descriptor format
 ---
 ## Summary
 

@@ -22,13 +22,6 @@ artifacts:
   ncu_txt_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/ncu.txt
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/ncu_metrics.csv
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/run.log
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L4094-L4130
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
-  line_range: L1561-L1581
 source:
 - path: spec
   anchor: Reference
@@ -91,6 +84,12 @@ type: experience
 vendor: nvidia
 title: 2026 04 23 L2 Residency
 source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L4094-L4130
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L1561-L1581
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L4094-L4130

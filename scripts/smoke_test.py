@@ -47,45 +47,62 @@ def test_tools():
     return f"{len(TOOL_REGISTRY)} tools"
 
 
-@check("Source search (tier-1)")
+@check("Source search via TOOL_REGISTRY (tier-1)")
 def test_search():
-    from scripts.source_corpus.service import source_search
-    result = source_search("__shfl_sync", scope="cuda-official", top_k=3)
+    import json
+    from agent.shared.tools import TOOL_REGISTRY
+    search_fn = TOOL_REGISTRY["source_search"]
+    result_str = search_fn("__shfl_sync", scope="cuda-official", top_k=3)
+    result = json.loads(result_str) if isinstance(result_str, str) else result_str
     assert result["ok"], f"Search failed: {result.get('message')}"
     assert result["data"]["total_hits"] > 0
     return f"{result['data']['total_hits']} hits"
 
 
-@check("Source read (roundtrip from search)")
+@check("Source read via TOOL_REGISTRY (roundtrip)")
 def test_read():
-    from scripts.source_corpus.service import source_search, source_read
-    sr = source_search("__shfl_sync", scope="cuda-official", top_k=1)
+    import json
+    from agent.shared.tools import TOOL_REGISTRY
+    search_fn = TOOL_REGISTRY["source_search"]
+    read_fn = TOOL_REGISTRY["source_read"]
+    sr_str = search_fn("__shfl_sync", scope="cuda-official", top_k=1)
+    sr = json.loads(sr_str) if isinstance(sr_str, str) else sr_str
     hit_path = sr["data"]["hits"][0]["path"]
-    result = source_read(hit_path)
-    assert result["ok"], f"Read failed: {result.get('message')}"
+    result_str = read_fn(hit_path)
+    result = json.loads(result_str) if isinstance(result_str, str) else result_str
+    assert result["ok"], f"Read failed for '{hit_path}': {result.get('message')}"
     return f"title={result['data']['title']}"
 
 
-@check("Source list")
+@check("Source list via TOOL_REGISTRY")
 def test_list():
-    from scripts.source_corpus.service import list_sources
-    result = list_sources(scope="cuda-official")
+    import json
+    from agent.shared.tools import TOOL_REGISTRY
+    list_fn = TOOL_REGISTRY["source_list"]
+    result_str = list_fn(scope="cuda-official")
+    result = json.loads(result_str) if isinstance(result_str, str) else result_str
     assert result["ok"]
     return f"count={result['data']['count']}"
 
 
-@check("Source resolve")
+@check("Source resolve via TOOL_REGISTRY")
 def test_resolve():
-    from scripts.source_corpus.service import resolve_source
-    result = resolve_source("cuda-official")
+    import json
+    from agent.shared.tools import TOOL_REGISTRY
+    resolve_fn = TOOL_REGISTRY["source_resolve"]
+    result_str = resolve_fn("cuda-official")
+    result = json.loads(result_str) if isinstance(result_str, str) else result_str
     assert result["ok"]
     return "resolved"
 
 
-@check("Provenance walk")
+@check("Provenance walk via TOOL_REGISTRY")
 def test_provenance():
-    from scripts.source_corpus.provenance import provenance_walk
-    result = provenance_walk("wiki/nvidia/foundations/compute/gemm.md")
+    import json
+    from agent.shared.tools import TOOL_REGISTRY
+    prov_fn = TOOL_REGISTRY["provenance_walk"]
+    result_str = prov_fn("wiki/nvidia/foundations/compute/gemm.md")
+    result = json.loads(result_str) if isinstance(result_str, str) else result_str
     assert result["ok"], f"Provenance failed: {result.get('message')}"
     return f"refs={result['data']['count']}"
 

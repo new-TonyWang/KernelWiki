@@ -92,7 +92,7 @@ python3 -m scripts.source_corpus.cli search "<topic or api>" --scope cuda-offici
 2. **Read** the most relevant hits, for example:
 
 ```bash
-python3 -m scripts.source_corpus.cli read "corpus/nvidia/..." --anchor "L120-L140"
+python3 -m scripts.source_corpus.cli read "cuda-official/toolkit-docs-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md" --anchor "L120-L140"
 ```
 
 3. **Write skill.md** (frontmatter + narrative: what / why / when / when-not).

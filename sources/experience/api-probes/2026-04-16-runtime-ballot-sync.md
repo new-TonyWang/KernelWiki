@@ -18,18 +18,6 @@ artifacts:
   build: nvcc -arch=sm_90a -O3 -std=c++17 -o __ballot_sync_probe __ballot_sync_probe.cu
   introspection: ''
   profile: ''
-referenced_in_corpus:
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
-    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
-  line_range: L23868-L23890
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
-  line_range: ''
-- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Tools/compute-sanitizer/compute-sanitizer_index.html.md
-  line_range: ''
-- path: '{{CUDA_SAMPLES_REPO_REF}}/Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu'
-  line_range: L491-L507
-- path: '{{LESSION_REPO_REF}}/04_warp_level_primitives/lesson.md'
-  line_range: L195-L202
 source:
 - path: spec
   anchor: Reference
@@ -55,6 +43,13 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23868-L23890
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23868-L23890
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA API References/cccl/cccl.md
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Tools/compute-sanitizer/compute-sanitizer_index.html.md
 ---
 ## Summary
 
