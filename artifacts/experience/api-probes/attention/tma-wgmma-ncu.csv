@@ -1,0 +1,9 @@
+metric,unit,value,notes
+sm__cycles_active.avg.pct_of_peak_sustained_elapsed,%,2.75,SM active cycles percentage
+sm__throughput.avg.pct_of_peak_sustained_elapsed,%,0.20,SM throughput percentage
+sm__warps_active.avg.pct_of_peak_sustained_active,%,6.25,Active warps percentage
+dram__bytes_read.sum,byte,123648,HBM bytes read per kernel invocation
+dram__bytes_write.sum,byte,0,No TMA store; uses global store
+smsp__inst_executed_pipe_tensor_op_hmma.sum,inst,1024,Tensor core instructions executed
+hbm_bandwidth_achieved,GB/s,5.15,"123648 B / 0.024 ms = 5.15 GB/s"
+hbm_bandwidth_utilization,%,0.11,"5.15 / 4800 GB/s (H200 peak) = 0.11%"

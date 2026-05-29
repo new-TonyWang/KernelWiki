@@ -1,0 +1,32 @@
+origin_url: https://github.com/internal/kernel-kb-mvp
+upstream_repo: kernel-kb-mvp
+license: proprietary
+retrieved_at: '2026-05-29'
+asset_mode: verbatim
+upstream_sha: HEAD
+files:
+- local_path: build.sh
+  role: upstream-file
+  mode: verbatim
+  sha256: 212aeb5ec2b5149098a51122f6a80d09c5d78495e44e7fce59150191a0fa9cab
+  upstream_path: 80-experience/hw-probes/cache-hint/build.sh
+- local_path: cache_hint_probe.cu
+  role: upstream-file
+  mode: verbatim
+  sha256: 8e9c7b64441180c3dca751df70f7596d0dfa482eeb50be0d9ed1cbf09836b103
+  upstream_path: 80-experience/hw-probes/cache-hint/cache_hint_probe.cu
+- local_path: cache_hint_probe.ptx
+  role: upstream-file
+  mode: verbatim
+  sha256: 3ee2d1b71a90a0ee0f2edfcf4408a6eabefa30fac036f50241fcfece87bc4dc8
+  upstream_path: 80-experience/hw-probes/cache-hint/cache_hint_probe.ptx
+- local_path: device.json
+  role: upstream-file
+  mode: verbatim
+  sha256: b44549ab1e37bbdd501663022372348777f2995f6e779d0fa0ffd137dc5716b2
+  upstream_path: 80-experience/hw-probes/cache-hint/device.json
+- local_path: run.sh
+  role: upstream-file
+  mode: verbatim
+  sha256: 21e3a8b6e1395fa339e26da5fa203e4c6cb1a709cd0acf208ba31c7522c4b8fe
+  upstream_path: 80-experience/hw-probes/cache-hint/run.sh

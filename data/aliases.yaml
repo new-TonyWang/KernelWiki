@@ -119,3 +119,40 @@ cuda-core-promotion:
   - "Nc=128 promotion"
   - "FP22 accumulator fix"
   - "accumulation promotion"
+
+# Additional hardware features
+ldmatrix:
+  - "ldmatrix.sync"
+  - "load matrix"
+  - ld.matrix
+
+stmatrix:
+  - "stmatrix.sync"
+  - "store matrix"
+  - st.matrix
+
+mbarrier:
+  - "mbarrier.arrive"
+  - "memory barrier"
+  - "async barrier"
+
+cluster:
+  - "thread block cluster"
+  - "CTA cluster"
+  - "cooperative cluster"
+
+# Memory/optimization aliases
+coalescing:
+  - "memory coalescing"
+  - "coalesced access"
+  - "global memory coalescing"
+
+bank-conflict:
+  - "shared memory bank conflict"
+  - "bank conflicts"
+  - "smem bank conflict"
+
+register-pressure:
+  - "register spilling"
+  - "register budget"
+  - "register allocation"

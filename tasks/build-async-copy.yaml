@@ -1,0 +1,88 @@
+task_id: 2026-04-16-async-copy
+task_type: build-skill
+target_path: 30-skill/memory/async-copy/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/ptx-isa/
+  - /home/tongyu/workspace/cuda_repo/cccl/
+
+references:
+  - 70-reasoning/api-probing.md
+  - 70-reasoning/hardware-microbench.md
+  - 70-reasoning/benchmark-protocol.md
+  - 70-reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: skill.md
+  - file_exists: pitfalls.md
+  - file_exists: apis.md
+  - lint_clean: true
+  - at_least_one_hw_probe_linked: true
+
+related_skills: [ilp, vectorized-access, register-pressure, coalescing]
+
+notes: |
+  This skill is derived from GTC25-S72683 "CUDA Techniques to Maximize Memory
+  Bandwidth and Hide Latency". The source transcript is at:
+  /home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/gtc25-s72683.md
+
+  READ THAT FILE FIRST — it contains the complete structured notes from the talk
+  including benchmark tables, API examples, and optimization guidelines.
+
+  Key topics to cover in skill.md:
+
+  1. Little's Law bytes-in-flight model:
+     bytes-in-flight = bandwidth × mean latency
+     H100 needs ~32 KiB/SM, H200 ~64 KiB/SM, Blackwell ~40 KiB/SM for >90% BW
+     Formula: bytes-in-flight/SM = loads/thread × bytes/load × threads/block × blocks/SM
+
+  2. Three tools to grow bytes-in-flight:
+     (a) ILP via unrolling (link to ilp skill)
+     (b) DLP via vectorized loads (link to vectorized-access skill)
+     (c) Async copies: LDGSTS + TMA (THIS SKILL's main content)
+
+  3. LDGSTS (Ampere+, CUDA-core relevant):
+     - Async global→shared copy, 4/8/16 bytes per transfer
+     - L1 BYPASS mode (16-byte aligned) vs L1 ACCESS mode (4/8-byte)
+     - Three API layers: primitives (__pipeline_memcpy_async), libcudacxx (cuda::memcpy_async + cuda::barrier), cooperative_groups
+     - cuda::pipeline for multi-stage prefetching (2-stage, 3-stage, N-stage)
+     - NUM_STAGES must be compile-time constant
+     - L1 BYPASS trick: memcpy_threads = BLOCK_DIM/4, each copies 16 bytes
+
+  4. TMA 1D (Hopper+):
+     - MENTION but do NOT build full content (defer to 40-hardware-feature)
+     - Note: cuda::memcpy_async auto-uses TMA when 16-byte aligned + size multiple of 16
+     - thrust::transform + cuda::proclaim_copyable_arguments enables TMA "for free"
+
+  5. Stage-count formula:
+     loads/thread = 2 × num_stages → solve for target bytes-in-flight
+     H200: 2 stages minimum (32 KiB target at 100% occupancy with 256 threads/block)
+
+  6. Include these GTC slide images as markdown references in skill.md:
+     - ![BW trends](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0016.jpg)
+     - ![Little's Law](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0028.jpg)
+     - ![Register vs BW](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0066.jpg)
+     - ![LDGSTS/TMA matrix](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0089.jpg)
+     - ![2-stage benchmark a*b](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0152.jpg)
+     - ![2-stage benchmark sqrt](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0157.jpg)
+     - ![Optimization flow](/home/tongyu/workspace/gtc_videos/cuda_fundamentals/gtc25-s72683_work/frames/interval_0215.jpg)
+
+  apis.md: cuda::memcpy_async, __pipeline_memcpy_async, cuda::pipeline<thread_scope_thread>,
+    cuda::barrier<thread_scope_block>, cuda::aligned_size_t, cooperative_groups::memcpy_async,
+    cuda::proclaim_copyable_arguments, __pipeline_commit, __pipeline_wait_prior
+
+  pitfalls: alignment requirements (16B for L1 bypass), peeling loop when TMA not
+    inside invoke_one, producer_commit from diverged code, NUM_STAGES not compile-time,
+    forgetting __syncthreads in producer-consumer pattern
+
+  Microbench probe: compare a vanilla elementwise kernel (c[i] = a[i] * b[i]) vs
+  a 2-stage LDGSTS prefetched version. Use cuda::pipeline with 2 stages. Measure
+  BW utilization on H200 with N = 256M floats. The GTC data shows 6.5% uplift on
+  H100 for simple compute; on H200 (higher BW/SM) the uplift should be similar or larger.

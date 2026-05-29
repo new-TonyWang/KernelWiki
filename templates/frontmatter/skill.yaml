@@ -1,0 +1,43 @@
+# skill.md frontmatter template (N1 minimal subset for MVP)
+#
+# Used by 30-skill/<family>/<skill>/skill.md
+# Enforced by tools/lint_knowledge.py --layer skill
+#
+# Fields marked REQUIRED must be present and non-empty.
+# Fields marked REQUIRED-IF are conditional on other field values.
+
+# ==== Core identity ====
+title: ""                              # REQUIRED. Human-readable, e.g. "Warp Primitives"
+status: draft                          # REQUIRED. draft | verified | deprecated
+evidence_level: spec                   # REQUIRED. spec | measured | inferred | anecdotal
+
+# ==== Applicability ====
+applies_to_pattern_class:              # REQUIRED. At least one entry.
+  - cuda-core                          #   cuda-core | tensor-core | fused-cuda-tensor-core
+applies_to_ops: []                     # REQUIRED. e.g. [elementwise, reduction, normalization]
+requires_sm: ">=9.0"                   # REQUIRED. MVP default: H200 = sm_90a, use ">=9.0a" for wgmma-like.
+requires_features: []                  # Optional. e.g. [warp-shuffle, cp.async, ldmatrix]
+single_kernel_useful: true             # REQUIRED. false means it's a multi-kernel skill (MVP: must be true).
+
+# ==== Environment (REQUIRED-IF evidence_level in {measured, verified-status}) ====
+cuda_version_tested: ""                # e.g. "12.4"
+driver_version_tested: ""              # e.g. "550.54.15"
+toolchain: ""                          # e.g. "nvcc 12.4 + ptxas 12.4"
+measured_on: ""                        # e.g. "H200-SXM"
+
+# ==== Provenance (REQUIRED: at least one entry) ====
+source:
+  - path: ""                           # REQUIRED. absolute path in upstream, or knowledge/-relative
+    anchor: ""                         # REQUIRED. heading slug or "Lxxx-Lyyy" line range
+    excerpt: ""                        # Optional. ≤200 chars short quote.
+
+# ==== Artifacts (REQUIRED-IF status == verified AND evidence_level == measured) ====
+artifacts:
+  code: ""                             # relative path to probe/microbench .cu
+  build: ""                            # relative path to build.sh OR literal nvcc command
+  introspection: ""                    # kp_introspect bundle json path
+  profile: ""                          # Optional. ncu-rep path if available.
+
+# ==== Cross-references ====
+related_apis: []                       # Optional. slugs pointing into 10-api-raw/
+related_skills: []                     # Optional. slugs of 30-skill/ sibling entries

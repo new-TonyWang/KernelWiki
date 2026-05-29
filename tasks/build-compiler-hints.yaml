@@ -1,0 +1,56 @@
+task_id: 2026-04-16-compiler-hints
+task_type: build-skill
+target_path: 30-skill/compute/compiler-hints/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/ptx-isa/
+
+references:
+  - 70-reasoning/api-probing.md
+  - 70-reasoning/hardware-microbench.md
+  - 70-reasoning/benchmark-protocol.md
+  - 70-reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: skill.md
+  - file_exists: pitfalls.md
+  - file_exists: apis.md
+  - lint_clean: true
+  - at_least_one_hw_probe_linked: true
+
+related_skills: [ilp, warp-primitives, fast-math]
+
+notes: |
+  Cover compiler hints and launch configuration directives that influence
+  register allocation, occupancy, and code generation.
+
+  Key topics:
+  - __launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor)
+    - How it constrains register allocation
+    - Trade-off: fewer regs/thread → more blocks → higher occupancy
+    - Risk: too tight → register spilling → local memory usage
+  - -maxrregcount nvcc flag (global limit)
+  - __restrict__ keyword (enables read-only data path + compiler optimizations)
+  - volatile qualifier (prevents caching, forces memory access)
+  - #pragma unroll N (explicit unroll factor)
+  - __builtin_assume_aligned (alignment hint)
+  - -Xptxas -v (how to read ptxas output: regs, smem, spills)
+  - cudaFuncSetAttribute for dynamic shared memory opt-in
+
+  apis.md is REQUIRED: __launch_bounds__, __restrict__, cudaFuncSetAttribute.
+
+  Microbench probe: compare a simple kernel (e.g., vector add) with and
+  without __launch_bounds__(256, 4). Measure occupancy difference via
+  kp_introspect kernel-static (regs_per_thread), and latency difference
+  via CUDA events. The point is to show the effect is real and measurable,
+  not just theoretical.
+
+  For the probe: write TWO kernels in the same .cu file — one with
+  __launch_bounds__ and one without. Compile once, run both, compare.

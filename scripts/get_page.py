@@ -4,7 +4,7 @@
 Usage:
     get_page.py kernel-flash-attention-4         # by id
     get_page.py pr-cutlass-2472                   # by id
-    get_page.py wiki/kernels/flash-attention-4.md # by path
+    get_page.py wiki/nvidia/kernels/flash-attention-4.md # by path
     get_page.py kernel-flash-attention-4 --body-only
     get_page.py kernel-flash-attention-4 --frontmatter-only
     get_page.py kernel-flash-attention-4 --follow-sources  # also print first 500 chars of each source

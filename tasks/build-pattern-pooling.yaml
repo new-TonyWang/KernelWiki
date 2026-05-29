@@ -1,0 +1,43 @@
+task_id: 2026-04-16-pattern-pooling
+task_type: build-pattern
+target_path: 20-pattern/cuda-core/pooling/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
+  - /home/tongyu/workspace/cuda_repo/cuda-samples/
+
+references:
+  - 70-reasoning/task-packet.md
+  - 70-reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: INDEX.md
+  - file_exists: ROUTING.md
+  - file_exists: library-fallback.md
+  - file_exists: TASK-PACKET.md
+  - lint_clean: true
+
+notes: |
+  Pooling operators: max-pool, avg-pool, adaptive-pool (1D/2D/3D).
+
+  INDEX.md: library-first (torch.nn.functional.max_pool2d / avg_pool2d /
+  adaptive_avg_pool2d, cuDNN pooling). Custom path is essentially a
+  2D windowed reduction — iterate over the pooling window, accumulate
+  max or sum, divide by window size for avg.
+
+  ROUTING.md: whitelist existing skills. Primary: coalescing (input tile
+  loading), bank-conflict (shared memory staging for the window).
+  Secondary: vectorized-access (multiple channels per thread), ilp.
+
+  library-fallback.md: cuDNN pooling is highly optimized; torch.nn uses
+  cuDNN backend by default. Document when custom is needed (non-standard
+  window shapes, fused pooling+activation, etc.).
+
+  TASK-PACKET.md: op=pooling, pool_type (max/avg/adaptive), kernel_size,
+  stride, padding, shape (B,C,H,W), dtype.

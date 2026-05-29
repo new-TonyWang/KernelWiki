@@ -1,0 +1,124 @@
+---
+api: __shfl_up_sync
+namespace: runtime
+probe_slug: runtime-shfl-up-sync
+status: verified
+kind: documented
+trigger: init-sweep
+evidence_level: measured
+clock_policy: unknown
+measured_on:
+  device: NVIDIA H200
+  sm: 9.0a
+  gpu_uuid: GPU-fbaa167f-4646-b8b9-c4f5-a4c4734ebc25
+  cuda_runtime: '12.9'
+  driver: 570.124.06
+artifacts:
+  code: 80-experience/api-probes/artifacts/__shfl_up_sync_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -o __shfl_up_sync_probe __shfl_up_sync_probe.cu
+  introspection: ''
+  profile: ''
+referenced_in_corpus:
+- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  line_range: L23953-L23953
+- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  line_range: L23967-L23975
+- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  line_range: L24128-L24128
+- path: 05-source-corpus/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  line_range: L24206-L24206
+source:
+- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23953-L23953
+  excerpt: T __shfl_up_sync  (unsigned mask, T value, unsigned delta,    int width=warpSize);
+- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23967-L23967
+  excerpt: '__shfl_up_sync(): Copy from a lane with a lower ID than the caller''s.
+    The intrinsic function calculates a source lane ID by subtracting `delta` from
+    the caller''s lane ID ... the upper `delta` lanes will effectively remain unchanged.'
+conclusions:
+  max_abs_err: 0.0
+  latency_ms_median: 0.005216
+  latency_ms_p10: 0.005056
+  latency_ms_p90: 0.005568
+  baseline_name: cpu-reference-permutation
+  baseline_ms: null
+  ratio: null
+back_filled_into:
+- 10-api-raw/runtime/__shfl_up_sync.md
+open_questions:
+- clock_policy is unknown -- clocks were not locked during measurement.
+- Baseline is a CPU reference permutation (correctness only, not a GPU timing baseline),
+  so ratio is not reported.
+- Programming Guide uses phrasing 'upper delta lanes' for __shfl_up_sync. In practice
+  this probe confirms that the LOW `delta` lanes (lane < delta) retain their own value
+  because the computed source lane ID goes negative and does not wrap.
+id: exp-2026-04-17-runtime-shfl-up-sync
+type: experience
+vendor: nvidia
+title: 2026 04 17 Runtime Shfl Up Sync
+---
+## Summary
+
+End-to-end probe of `__shfl_up_sync` on H200 (sm_90a, CUDA 12.9). The probe allocates 1024 floats on the host, launches a kernel that performs three shifts (delta = 1, 4, 16), copies results back, and compares against a CPU reference. Correctness is exact (max_abs_err = 0). Kernel latency median: 0.005216 ms for 32 warps, three shifts per lane (1024 elements total). The probe confirms the documented boundary behavior: each lane reads from `lane - delta`; when that would be negative, the lane gets its own value back (the source lane ID does not wrap).
+
+## Minimal Kernel
+
+```cuda
+// Probe: __shfl_up_sync (shift up by delta, lanes with lane < delta keep own)
+#include <cstdio>
+#include <cstdlib>
+#include <cmath>
+#include <algorithm>
+#include <vector>
+#include <cuda_runtime.h>
+
+#define N 1024
+#define BLK 256
+#define WARP 32
+#define CHECK(call) do { cudaError_t e = (call); \
+    if (e != cudaSuccess) { fprintf(stderr, "CUDA %s:%d: %s\n", \
+    __FILE__, __LINE__, cudaGetErrorString(e)); exit(1); } } while(0)
+
+__global__ void shfl_up_kernel(const float* in, float* o1, float* o4,
+                               float* o16, int n) {
+    int tid = blockIdx.x * blockDim.x + threadIdx.x;
+    float val = (tid < n) ? in[tid] : 0.0f;
+    float v1  = __shfl_up_sync(0xFFFFFFFF, val, 1);
+    float v4  = __shfl_up_sync(0xFFFFFFFF, val, 4);
+    float v16 = __shfl_up_sync(0xFFFFFFFF, val, 16);
+    if (tid < n) { o1[tid] = v1; o4[tid] = v4; o16[tid] = v16; }
+}
+```
+
+(See `artifacts/__shfl_up_sync_probe.cu` for the full host harness including CPU reference, warmup, CUDA-event measurement, and verification.)
+
+## Build
+
+```bash
+nvcc -arch=sm_90a -O3 -std=c++17 -o __shfl_up_sync_probe __shfl_up_sync_probe.cu
+```
+
+## Measurement
+
+Configuration: N = 1024 floats, 32 warps, grid = 4, block = 256. Three `__shfl_up_sync` calls per thread (delta = 1, 4, 16). 5 warmup launches, 20 measurement launches via CUDA events.
+
+| shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
+|---|---|---|---|---|---|---|---|---|---|
+| 1024 | fp32 | 0.005216 | 0.005056 | 0.005568 | cpu-reference-permutation | N/A | N/A | unknown | `nvcc -arch=sm_90a -O3 -std=c++17 -o /tmp/p knowledge/80-experience/api-probes/artifacts/__shfl_up_sync_probe.cu && /tmp/p` |
+
+## Introspection
+
+No `kp_introspect` bundle was generated for this probe (tool not available in this environment).
+
+## Notes
+
+- Upstream documentation: CUDA Programming Guide section 5.4.6.5 "Warp Shuffle Functions" defines the signature `T __shfl_up_sync(unsigned mask, T value, unsigned delta, int width=warpSize)` and states: "Copy from a lane with a lower ID than the caller's. The intrinsic function calculates a source lane ID by subtracting `delta` from the caller's lane ID ... in effect, `value` is shifted up the warp by `delta` lanes."
+- Boundary behavior verified by this probe: the lower `delta` lanes (lane < delta) retain their own value — consistent with the Programming Guide statement that the source lane ID does not wrap around the width.
+- Typical usage pattern: prefix-scan building blocks (Hillis-Steele and Kogge-Stone style inclusive scans), and inter-lane carry propagation.
+- The mask `0xFFFFFFFF` selects all 32 lanes, which is the standard full-warp usage.
+- Per-instruction (cycle-level) latency is out of scope here; see the warp-primitives hw-probe records under `80-experience/hw-probes/` for that.

@@ -1,0 +1,60 @@
+task_id: 2026-04-28-cutlass-wgmma
+task_type: build-hardware-feature   # see knowledge/70-reasoning/task-packet.md
+target_path: 40-hardware-feature/wgmma/
+also_writes:
+  - 60-code/cutlass-cute/wgmma/
+  - 80-experience/hw-probes/wgmma/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_repo/cutlass/
+  - /home/tongyu/workspace/kernel-kb-mvp/knowledge/05-source-corpus/blogs/colfax/
+upstream_repo_pin: "cutlass@f74fea9c"
+
+references:
+  - 70-reasoning/hardware-microbench.md
+  - 70-reasoning/benchmark-protocol.md
+  - knowledge/templates/frontmatter/hardware-feature.yaml
+  - docs/15-代码仓库抽取知识流程_update_en.md  # AC-2
+
+source_anchors:
+  - examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
+  - include/cute/atom/mma_traits_sm90_gmma.hpp
+  - include/cute/atom/mma_traits_sm90.hpp
+  - 05-source-corpus/blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+
+success_criteria:
+  - file_exists: 40-hardware-feature/wgmma/skill.md
+  - file_exists: 40-hardware-feature/wgmma/pitfalls.md
+  - file_exists: 60-code/cutlass-cute/wgmma/build.sh
+  - file_exists: 60-code/cutlass-cute/wgmma/wgmma_min_viable.cu
+  - dir_nonempty: 80-experience/hw-probes/wgmma/    # date-stamped record authored at execution time
+  - lint_clean: true
+  - skill_status: verified
+  - skill_evidence_level: measured
+  - measured_on: H200-SXM
+  - requires_sm: ">=9.0"
+  - correctness_vs_cublas_or_cutlass_ref: true
+  - skill_lists_supported_atoms: m64nNk16  # H200 wgmma atom family
+
+blockers_for_round_1:
+  - reason: "H200 nvcc + ncu run; AC-V budget. Same 90-min round-timeout constraint as AC-1."
+
+related_tasks:
+  - build-cutlass-tma.yaml                # AC-1 — same example
+  - build-cutlass-wgmma-shape-sweep.yaml  # AC-3 — extends this harness
+
+notes: |
+  AC-2 from docs/15-代码仓库抽取知识流程_update_en.md.
+  Distill the minimum-viable wgmma path:
+    - warpgroup-level synchronization (mbarrier + fence)
+    - register layout and accumulator initialization
+    - one m64nNk16 wgmma atom invocation
+    - shared-memory alignment / swizzle requirements
+  Skill must explicitly call out the sm_90a gate and the warpgroup-count
+  pre-condition; pitfalls.md flags the Ampere mma/wmma trap (do not copy
+  Ampere experience verbatim — the warpgroup-vs-warp distinction matters).

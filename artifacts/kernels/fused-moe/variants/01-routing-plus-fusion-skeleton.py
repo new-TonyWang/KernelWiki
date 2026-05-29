@@ -1,5 +1,5 @@
 # provenance: derived from pr-sglang-21339, pr-vllm-23696, blog-deepgemm; not upstream code
-# origin: wiki/kernels/fused-moe.md Phase 3 variant
+# origin: wiki/nvidia/kernels/fused-moe.md Phase 3 variant
 
 # Fused MoE skeleton: router logits -> top-k expert selection -> grouped
 # GEMM dispatch with contiguous M-axis packing.

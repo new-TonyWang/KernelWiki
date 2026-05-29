@@ -70,6 +70,15 @@ def read_body(filepath):
     return content
 
 
+def detect_vendor_from_path(filepath):
+    """Extract vendor name from filepath if under wiki/{vendor}/."""
+    rel = filepath.relative_to(REPO_ROOT)
+    parts = rel.parts
+    if parts[0] == "wiki" and len(parts) > 2:
+        return parts[1]
+    return None
+
+
 def detect_page_type(filepath, fm):
     """Detect page type from filepath and frontmatter."""
     rel = filepath.relative_to(REPO_ROOT)
@@ -84,11 +93,19 @@ def detect_page_type(filepath, fm):
             return "source-blog"
         elif parts[1] == "contests":
             return "source-contest"
+        elif parts[1] == "experience":
+            return "source-experience"
     elif parts[0] == "wiki":
         t = fm.get("type", "")
         if t:
             return f"wiki-{t}"
-        subdir = parts[1] if len(parts) > 1 else ""
+        # Determine the category subdir, skipping vendor prefix if present
+        # Supports both wiki/{category}/ (legacy) and wiki/{vendor}/{category}/
+        vendor = detect_vendor_from_path(filepath)
+        if vendor:
+            subdir = parts[2] if len(parts) > 2 else ""
+        else:
+            subdir = parts[1] if len(parts) > 1 else ""
         type_map = {
             "hardware": "wiki-hardware",
             "techniques": "wiki-technique",
@@ -96,6 +113,11 @@ def detect_page_type(filepath, fm):
             "kernels": "wiki-kernel",
             "languages": "wiki-language",
             "migration": "wiki-migration",
+            "foundations": "wiki-skill",
+            "operator-routing": "wiki-operator-routing",
+            "api-definitions": "wiki-api-definition",
+            "code-walkthroughs": "wiki-code-walkthrough",
+            "probes": "wiki-experience",
         }
         return type_map.get(subdir, "unknown")
     return "unknown"
@@ -343,6 +365,27 @@ def validate_file(filepath, schemas, valid_tags, all_source_ids, code_langs):
                 f"{rel}: page targets only Hopper {hopper_archs} without Blackwell arch; "
                 f"add 'blackwell_relevance' to justify inclusion in Blackwell-first scope"
             )
+
+    # Vendor-path consistency: if page is under wiki/{vendor}/, vendor field must match
+    if page_type.startswith("wiki-"):
+        path_vendor = detect_vendor_from_path(filepath)
+        fm_vendor = fm.get("vendor")
+        if path_vendor and fm_vendor and fm_vendor != path_vendor:
+            errors.append(
+                f"{rel}: vendor '{fm_vendor}' does not match path vendor '{path_vendor}'"
+            )
+
+    # Validate evidence_level if present (for new strict-tier types)
+    el_constraint = constraints.get("evidence_level")
+    if el_constraint and "evidence_level" in fm:
+        if fm["evidence_level"] not in el_constraint:
+            errors.append(f"{rel}: invalid evidence_level '{fm['evidence_level']}', expected one of {el_constraint}")
+
+    # Validate namespace for api-definition pages
+    ns_constraint = constraints.get("namespace")
+    if ns_constraint and "namespace" in fm:
+        if fm["namespace"] not in ns_constraint:
+            errors.append(f"{rel}: invalid namespace '{fm['namespace']}', expected one of {ns_constraint}")
 
     # Check performance_claims structure (including shape and numeric value)
     if "performance_claims" in fm:
@@ -966,7 +1009,7 @@ def validate_claim_bearing_pages_have_pointer():
     """If an in-scope page contains any obsolete claim signature, it MUST
     carry a version_sensitive frontmatter pointer. Pages with the
     signatures inside an explicitly-marked historical-context block
-    are exempt (the wiki/languages/triton-blackwell.md historical
+    are exempt (the wiki/nvidia/languages/triton-blackwell.md historical
     subsection)."""
     errors = []
     in_scope = []
@@ -1213,6 +1256,14 @@ def discover_bundle_roots():
                     d = slug / sub
                     if d.is_dir():
                         yield d
+    # Experience artifact bundles (migrated from kb-mvp 80-experience)
+    experience = ARTIFACTS_DIR / "experience"
+    if experience.is_dir():
+        for category in sorted(experience.iterdir()):
+            if category.is_dir():
+                for slug_dir in sorted(category.iterdir()):
+                    if slug_dir.is_dir():
+                        yield slug_dir
 
 
 def find_orphan_source_files():
@@ -1413,6 +1464,19 @@ def main():
         if fm and isinstance(fm, dict) and "id" in fm:
             all_known_ids.add(fm["id"])
 
+    # Load MANIFEST.yaml source_ids for source_refs validation
+    manifest_source_ids = set()
+    manifest_path = REPO_ROOT / "corpus" / "MANIFEST.yaml"
+    if manifest_path.exists():
+        try:
+            manifest_data = load_yaml_file(manifest_path)
+            if isinstance(manifest_data, list):
+                for entry in manifest_data:
+                    if isinstance(entry, dict) and "source_id" in entry:
+                        manifest_source_ids.add(entry["source_id"])
+        except Exception:
+            pass
+
     # Second pass: validate everything
     for search_dir in [SOURCES_DIR, WIKI_DIR]:
         if not search_dir.exists():
@@ -1434,6 +1498,39 @@ def main():
 
             errors = validate_file(md_file, schemas, tags, all_source_ids, code_langs)
             all_errors.extend(errors)
+
+            # Validate source_refs against MANIFEST.yaml
+            if fm and isinstance(fm, dict) and "source_refs" in fm:
+                refs = fm["source_refs"]
+                if isinstance(refs, list):
+                    for ref in refs:
+                        if isinstance(ref, dict):
+                            sid = ref.get("source_id", "")
+                            if manifest_source_ids and sid not in manifest_source_ids:
+                                all_errors.append(
+                                    f"{md_file.relative_to(REPO_ROOT)}: source_refs source_id "
+                                    f"'{sid}' not found in corpus/MANIFEST.yaml"
+                                )
+                            rpath = ref.get("path", "")
+                            if isinstance(rpath, str) and rpath.startswith("/"):
+                                all_errors.append(
+                                    f"{md_file.relative_to(REPO_ROOT)}: source_refs path "
+                                    f"'{rpath}' is absolute; must be repo-relative"
+                                )
+
+            # No absolute machine paths in committed wiki/source content
+            # Only flag user-specific paths (/data1/, /home/), not system paths
+            # (/usr/local/cuda) which appear legitimately in source PR quotes
+            if fm and isinstance(fm, dict):
+                rel_path = md_file.relative_to(REPO_ROOT)
+                content = md_file.read_text(encoding="utf-8")
+                for pattern in ["/data1/", "/home/tongyu/"]:
+                    if pattern in content:
+                        if "PROVENANCE" not in str(rel_path):
+                            all_errors.append(
+                                f"{rel_path}: contains absolute machine path '{pattern}...'"
+                            )
+                            break
 
     # Phase 3: artifact bundle validation
     bundle_count = 0

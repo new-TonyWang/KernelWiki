@@ -1,5 +1,5 @@
 // provenance: derived from pr-cutlass-2161, pr-cutlass-2881, hw-clc, technique-persistent-kernels; not upstream code
-// origin: wiki/techniques/persistent-kernels.md Phase 3 variant
+// origin: wiki/nvidia/techniques/persistent-kernels.md Phase 3 variant
 
 // Persistent kernel with CLC (Cluster Launch Control). Each CTA loops,
 // dynamically pulling a tile ID from the hardware queue until drained.

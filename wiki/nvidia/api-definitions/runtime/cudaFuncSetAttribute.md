@@ -1,0 +1,44 @@
+---
+func_name: cudaFuncSetAttribute
+namespace: runtime
+header: cuda_runtime.h
+signature: TBD — agent will fill during probe (see api-probing.md Step 2)
+since_cuda: ''
+status: draft
+has_end_to_end_example: true
+source:
+- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3372-L3372
+  excerpt: cudaFuncSetAttribute
+- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L3375-L3375
+  excerpt: cudaFuncSetAttribute
+- path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  anchor: L15838-L15838
+  excerpt: cudaFuncSetAttribute
+- path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/README.md
+  anchor: L26-L26
+  excerpt: '[CUDA Runtime API](http://docs.nvidia.com/cuda/cuda-runtime-api/index.html)'
+- path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
+  anchor: L774-L774
+  excerpt: endif
+- path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
+  anchor: L782-L782
+  excerpt: endif
+probed_by: 80-experience/api-probes/2026-04-17-runtime-cuda-func-set-attribute.md
+id: api-cudaFuncSetAttribute
+type: api-definition
+vendor: nvidia
+title: Cudafuncsetattribute
+---
+# cudaFuncSetAttribute
+
+<!-- Auto-seeded stub from `probe_loop seed-stubs`. Agent must probe this API following `70-reasoning/api-probing.md` and fill the `signature`, body sections, and artifacts. -->
+
+## Semantics (TBD)
+
+Agent: replace this section with parameter list + return semantics + typical use case grounded in source corpus hits listed in frontmatter.
+
+## End-to-End Example
+
+See the probe record at [80-experience/api-probes/2026-04-17-runtime-cuda-func-set-attribute.md](../../80-experience/api-probes/2026-04-17-runtime-cuda-func-set-attribute.md) for a complete end-to-end example, kernel source, build command, and measurement on H200 (sm_90a, CUDA 12.9).

@@ -1,0 +1,159 @@
+- source_id: cuda-official/toolkit-docs-13.2
+  title: CUDA Toolkit Documentation 13.2
+  source_type: cuda-official
+  logical_root: cuda-official/cuda-toolkit-documentation-13.2
+  local_path: nvidia/cuda-official/cuda-toolkit-documentation-13.2
+  upstream_url: https://docs.nvidia.com/cuda/
+  version: "13.2"
+  fetched_at: "2026-04-10"
+  aliases:
+    - cuda-official
+    - toolkit-docs
+    - programming-guide
+    - ptx-isa
+    - runtime-api
+    - driver-api
+    - libs
+  tags:
+    - programming-guide
+    - best-practices
+    - ptx
+    - runtime
+    - driver
+    - cublas
+    - cufft
+    - curand
+    - cub
+    - thrust
+    - libcu++
+
+- source_id: blogs/colfax
+  title: Colfax CUDA and GPU blog collection
+  source_type: blogs
+  logical_root: blogs/colfax
+  local_path: nvidia/blogs/colfax
+  version: local-snapshot
+  fetched_at: "2026-04-10"
+  aliases:
+    - colfax
+    - blogs/colfax
+  tags:
+    - hopper
+    - blackwell
+    - tma
+    - wgmma
+    - async-pipeline
+
+- source_id: whitepapers/gpu
+  title: GPU architecture whitepapers
+  source_type: whitepapers
+  logical_root: whitepapers/gpu-wite-paper
+  local_path: nvidia/whitepapers/gpu-wite-paper
+  version: local-snapshot
+  fetched_at: "2026-04-10"
+  aliases:
+    - whitepapers
+    - gpu-whitepaper
+    - hopper-whitepaper
+  tags:
+    - hopper
+    - architecture
+    - whitepaper
+
+- source_id: research/claude
+  title: Claude research notes
+  source_type: research-notes
+  logical_root: research/claude_research
+  local_path: "{{CLAUDE_RESEARCH_REF}}"
+  version: local-snapshot
+  fetched_at: "2026-04-10"
+  aliases:
+    - claude-research
+    - research
+  tags:
+    - notes
+    - analysis
+
+- source_id: source-code/cutlass
+  title: CUTLASS source tree
+  source_type: source-code
+  logical_root: source-code/cutlass
+  local_path: "{{CUTLASS_REPO_REF}}"
+  upstream_url: https://github.com/NVIDIA/cutlass
+  version: local-snapshot
+  fetched_at: "2026-04-10"
+  aliases:
+    - cutlass
+    - source-code/cutlass
+  tags:
+    - source
+    - tensor-core
+    - cute
+    - wgmma
+
+- source_id: source-code/cuda-samples
+  title: CUDA Samples source tree
+  source_type: source-code
+  logical_root: source-code/cuda-samples
+  local_path: "{{CUDA_SAMPLES_REPO_REF}}"
+  upstream_url: https://github.com/NVIDIA/cuda-samples
+  version: local-snapshot
+  fetched_at: "2026-04-10"
+  aliases:
+    - cuda-samples
+    - samples
+    - source-code/cuda-samples
+  tags:
+    - source
+    - examples
+    - reduction
+    - scan
+
+- source_id: source-code/flash-attention
+  title: FlashAttention v3 (Tri Dao et al.)
+  source_type: source-code
+  logical_root: source-code/flash-attention
+  local_path: "{{FLASH_ATTENTION_REPO_REF}}"
+  upstream_url: https://github.com/Dao-AILab/flash-attention
+  version: local-snapshot
+  commit: bbda031f1cd1adf1a57a3b3e8cdc3db2b54d3994
+  license: BSD-3-Clause
+  fetched_at: "2026-05-08"
+  aliases:
+    - flash-attention
+    - flash-attn
+    - fav3
+    - flash-attention-v3
+  tags:
+    - attention
+    - flash-attention
+    - fmha
+    - hopper
+    - sm90
+    - online-softmax
+
+- source_id: legacy-knowledge
+  title: KernelPilot legacy knowledge tree (pre-refactor)
+  source_type: legacy-knowledge
+  logical_root: legacy-knowledge
+  local_path: nvidia/legacy-knowledge
+  version: local-snapshot
+  fetched_at: "2026-04-22"
+  aliases:
+    - legacy
+    - legacy-knowledge
+    - kernelpilot-knowledge
+  tags:
+    - legacy
+    - api-reference
+    - optimization
+    - pattern
+    - experience
+    - advanced
+    - reasoning-pattern
+  notes: |
+    Verbatim copy of `KernelPilot/knowledge/` captured for A.4 old->new
+    migration mapping (see 01-架构整改与功能优先级.md). Not a truth source;
+    new knowledge should land under the new 00/10/20/30/40/50/60/70/80/90
+    layers. Kept here so the agent can grep legacy content while rewrites
+    are in flight.

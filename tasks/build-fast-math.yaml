@@ -1,0 +1,49 @@
+task_id: 2026-04-16-fast-math
+task_type: build-skill
+target_path: 30-skill/compute/fast-math/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/ptx-isa/
+
+references:
+  - 70-reasoning/api-probing.md
+  - 70-reasoning/hardware-microbench.md
+  - 70-reasoning/benchmark-protocol.md
+  - 70-reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: skill.md
+  - file_exists: pitfalls.md
+  - file_exists: apis.md
+  - lint_clean: true
+  - at_least_one_hw_probe_linked: true
+
+related_skills: [warp-primitives, coalescing]
+
+notes: |
+  Cover CUDA fast math intrinsics: trading precision for throughput on
+  transcendental functions.
+
+  Key topics:
+  - __sinf/__cosf/__expf/__logf/__powf vs standard sinf/cosf/expf/logf/powf
+  - rsqrtf (fast reciprocal square root)
+  - __fdividef (fast division)
+  - __fmaf_rn / __fmul_rn / __fadd_rn (rounded intrinsics)
+  - --use_fast_math compiler flag (what it enables, what precision guarantees it drops)
+  - __fast_relaxed_math (CUDA 12+ attribute)
+  - Precision tradeoffs: max ULP error for each fast intrinsic
+  - When to use: activations (gelu, silu, sigmoid), softmax exp, normalization rsqrt
+  - When NOT to use: accumulation, loss computation, gradient computation
+
+  apis.md is REQUIRED: lists all fast math intrinsics with precision guarantees.
+
+  Microbench probe: compare throughput of __expf vs expf on a large array.
+  Kernel: each thread computes expf(x) or __expf(x) for its element.
+  Measure throughput (Gop/s) and max ULP error vs double-precision reference.

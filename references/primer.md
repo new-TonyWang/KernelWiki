@@ -15,14 +15,14 @@ All page IDs below resolve via `get_page.py <id>`. All paths are relative to the
 
 | Feature | Page ID | Path | Notes |
 |---|---|---|---|
-| tcgen05 MMA instruction | `hw-tcgen05-mma` | `wiki/hardware/tcgen05-mma.md` | Blackwell tensor core instruction; replaces wgmma. CTA-scope (`cta_group::1`) or cluster-scope (`cta_group::2`). |
-| Tensor Memory (TMEM) | `hw-tmem` | `wiki/hardware/tmem.md` | 256 KB/SM dedicated accumulator storage; 128 rows × 512 cols (32-bit); allocated via `tcgen05.alloc`. |
-| Cluster Launch Control (CLC) | `hw-clc` | `wiki/hardware/clc.md` | Hardware work queue for persistent kernels; `clusterlaunchcontrol.try_cancel` for speculative workloads. |
-| Tensor Memory Accelerator (TMA) | `hw-tma` | `wiki/hardware/tma.md` | Async bulk load/store (`cp.async.bulk.tensor`), multicast across cluster. |
-| 2-SM Cooperative MMA | `hw-2sm-cooperative` | `wiki/hardware/2sm-cooperative.md` | `cta_group::2` — two CTAs in one cluster cooperate on a single MMA. |
-| NVFP4 / block-scaled FP | `hw-nvfp4` | `wiki/hardware/nvfp4.md` | E2M1 data + FP8 (UE8M0) block scale per 16 elements. |
-| PDL / GDC | `hw-pdl-gdc` | `wiki/hardware/pdl-gdc.md` | Programmatic Dependent Launch and Grid Dependency Control — overlap successive kernel launches. |
-| mbarrier primitives | `hw-mbarrier` | `wiki/hardware/mbarrier.md` | Shared-memory barriers with phase tracking; the glue between TMA/tcgen05/warps. |
+| tcgen05 MMA instruction | `hw-tcgen05-mma` | `wiki/nvidia/hardware/tcgen05-mma.md` | Blackwell tensor core instruction; replaces wgmma. CTA-scope (`cta_group::1`) or cluster-scope (`cta_group::2`). |
+| Tensor Memory (TMEM) | `hw-tmem` | `wiki/nvidia/hardware/tmem.md` | 256 KB/SM dedicated accumulator storage; 128 rows × 512 cols (32-bit); allocated via `tcgen05.alloc`. |
+| Cluster Launch Control (CLC) | `hw-clc` | `wiki/nvidia/hardware/clc.md` | Hardware work queue for persistent kernels; `clusterlaunchcontrol.try_cancel` for speculative workloads. |
+| Tensor Memory Accelerator (TMA) | `hw-tma` | `wiki/nvidia/hardware/tma.md` | Async bulk load/store (`cp.async.bulk.tensor`), multicast across cluster. |
+| 2-SM Cooperative MMA | `hw-2sm-cooperative` | `wiki/nvidia/hardware/2sm-cooperative.md` | `cta_group::2` — two CTAs in one cluster cooperate on a single MMA. |
+| NVFP4 / block-scaled FP | `hw-nvfp4` | `wiki/nvidia/hardware/nvfp4.md` | E2M1 data + FP8 (UE8M0) block scale per 16 elements. |
+| PDL / GDC | `hw-pdl-gdc` | `wiki/nvidia/hardware/pdl-gdc.md` | Programmatic Dependent Launch and Grid Dependency Control — overlap successive kernel launches. |
+| mbarrier primitives | `hw-mbarrier` | `wiki/nvidia/hardware/mbarrier.md` | Shared-memory barriers with phase tracking; the glue between TMA/tcgen05/warps. |
 
 ---
 

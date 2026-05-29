@@ -1,5 +1,5 @@
 // provenance: derived from pr-cutlass-2139, kernel-nvfp4-gemm, hw-nvfp4; not upstream code
-// origin: wiki/kernels/nvfp4-gemm.md Phase 3 variant
+// origin: wiki/nvidia/kernels/nvfp4-gemm.md Phase 3 variant
 
 // Minimal NVFP4 GEMM skeleton. Packs 2x FP4 per byte; scale factors
 // are UE8M0 per 16-element block. tcgen05.mma handles both.

@@ -1,0 +1,5 @@
+schedule,kernel_schedule,epilogue_schedule,cluster_shape,warp_spec,persistent,shape_M,shape_N,shape_K,latency_us,tflops,cublas_max_abs,cublas_max_rel,cublas_mismatches,disposition
+tma-only,KernelTma,NoSmemWarpSpecialized,<1;1;1>,off,off,2048,2048,2048,96.02,178.9,0,0,0,Passed
+plain-ws,KernelTmaWarpSpecialized,NoSmemWarpSpecialized,<1;1;1>,on,off,2048,2048,2048,87.94,195.4,0,0,0,Passed
+pingpong,KernelTmaWarpSpecializedPingpong,TmaWarpSpecialized,<2;1;1>,on,on-pingpong,2048,2048,2048,88.64,193.8,0,0,0,Passed
+cooperative,KernelTmaWarpSpecializedCooperative,TmaWarpSpecializedCooperative,<4;2;1>,on,on-cooperative,2048,2048,2048,91.92,186.9,0,0,0,Passed

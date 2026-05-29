@@ -164,6 +164,14 @@ def filter_pages(pages, args):
             if not any(t.lower() in tag_variants for t in all_tags):
                 continue
 
+        if args.vendor and args.vendor != "all":
+            fm_vendor = fm.get("vendor", "")
+            path_parts = path.split("/")
+            path_vendor = path_parts[1] if path_parts[0] == "wiki" and len(path_parts) > 2 else ""
+            vendor = fm_vendor or path_vendor
+            if vendor != args.vendor:
+                continue
+
         if args.repo:
             repo = str(fm.get("repo", "")).lower()
             if args.repo.lower() not in repo:
@@ -300,6 +308,7 @@ def main():
     parser.add_argument("--architecture", help="Filter by architecture (sm100, sm100a, sm90, sm90a)")
     parser.add_argument("--symptom", help="Filter by pattern symptom (memory-bound, register-pressure, etc.)")
     parser.add_argument("--confidence", help="Filter by confidence (verified, source-reported, inferred, experimental)")
+    parser.add_argument("--vendor", help="Filter by vendor (nvidia, huawei, biren, all)")
     parser.add_argument("--has-code", action="store_true", help="Only return pages whose artifact_dir contains at least one source file")
     parser.add_argument("--limit", type=int, default=10, help="Max results (default 10)")
     parser.add_argument("--compact", action="store_true", help="Compact one-line-per-result output")

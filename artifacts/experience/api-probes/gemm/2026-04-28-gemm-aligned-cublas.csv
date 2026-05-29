@@ -1,0 +1,4 @@
+shape_M,shape_N,shape_K,dtype,cutlass_kernel_us,cutlass_TFLOPS,cublas_kernel_us,cublas_TFLOPS,cutlass_to_cublas_ratio,max_abs_diff,max_rel_diff,mismatches_above_1e-2,disposition_cutlass_internal,disposition_cublas_direct,compute_sanitizer
+512,512,512,TF32_F32,12.82,20.9,9.02,29.8,0.70,0.0,0.0,0,Passed,Passed,not-run-this-shape
+2048,2048,2048,TF32_F32,91.43,187.9,49.73,345.5,0.54,0.0,0.0,0,Passed,Passed,Passed (0 errors at 2048^3)
+8192,8192,8192,TF32_F32,3756.0,292.7,2431.59,452.2,0.65,0.0,0.0,0,Passed,Passed,not-run-this-shape

@@ -1,0 +1,44 @@
+task_id: 2026-04-28-cutlass-wgmma-shape-sweep
+task_type: extend-hardware-feature   # see knowledge/70-reasoning/task-packet.md
+target_path: 40-hardware-feature/wgmma/
+also_writes:
+  - 80-experience/hw-probes/wgmma/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_repo/cutlass/
+  - /home/tongyu/workspace/kernel-kb-mvp/knowledge/05-source-corpus/blogs/colfax/
+upstream_repo_pin: "cutlass@f74fea9c"
+
+references:
+  - 70-reasoning/hardware-microbench.md
+  - 70-reasoning/benchmark-protocol.md
+  - docs/15-代码仓库抽取知识流程_update_en.md  # AC-3
+
+source_anchors:
+  - include/cute/atom/mma_traits_sm90_gmma.hpp
+  - 05-source-corpus/blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+
+success_criteria:
+  - dir_nonempty: 80-experience/hw-probes/wgmma/   # add a *-shape-sweep.md record at execution time
+  - measured_table_columns: [shape, dtype, TFLOPS, kernel_us, occupancy]
+  - measured_table_min_rows: 3       # small / medium / large per AC-3 lower bound
+  - skill_appended_section: "## Shape-selection guide"
+  - skill_evidence_level: measured
+
+depends_on:
+  - build-cutlass-wgmma.yaml  # reuses that harness
+
+blockers_for_round_1:
+  - reason: "H200 ncu sweep across ≥3 atom shapes; AC-V budget."
+
+notes: |
+  AC-3 from docs/15-代码仓库抽取知识流程_update_en.md.
+  Reuse the AC-2 harness; add a shape parameter and emit per-shape TFLOPS,
+  kernel_us, occupancy. Cover at least three representative wgmma atom
+  shapes spanning the m64nNk16 family. Append a "## Shape-selection guide"
+  to 40-hardware-feature/wgmma/skill.md that cites this sweep as evidence.

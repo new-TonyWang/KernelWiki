@@ -1,0 +1,27 @@
+# Probe batch 1 — curated high-value APIs (X3 pitfall criterion)
+# 13 APIs across 4 thematic sub-batches, parallelizable.
+
+# Sub-batch A: Warp shuffle family — completes the `__shfl_*_sync` set
+# (sibling of already-probed __shfl_xor_sync).
+- __shfl_sync
+- __shfl_up_sync
+- __shfl_down_sync
+
+# Sub-batch B: Cache-hint loads — 5 variants of __ldg with different L1/L2
+# caching policies. Non-obvious perf implications on H200.
+- __ldcg
+- __ldca
+- __ldcs
+- __ldcv
+- __ldlu
+
+# Sub-batch C: Async-copy primitives — core APIs for LDGSTS prefetching.
+# Already have end-to-end async-copy probe; these are the building blocks.
+- __pipeline_memcpy_async
+- __pipeline_commit
+- __pipeline_wait_prior
+
+# Sub-batch D: Occupancy + function attribute APIs — most-referenced across
+# skills (compiler-hints, register-pressure, occupancy-tuning all touch).
+- cudaOccupancyMaxActiveBlocksPerMultiprocessor
+- cudaFuncSetAttribute

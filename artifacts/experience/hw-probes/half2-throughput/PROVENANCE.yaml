@@ -1,0 +1,32 @@
+origin_url: https://github.com/internal/kernel-kb-mvp
+upstream_repo: kernel-kb-mvp
+license: proprietary
+retrieved_at: '2026-05-29'
+asset_mode: verbatim
+upstream_sha: HEAD
+files:
+- local_path: build.sh
+  role: upstream-file
+  mode: verbatim
+  sha256: 82e233d35e23f31801ac45bc6be4d651b925fedf25a1ec0192c34609b3da055b
+  upstream_path: 80-experience/hw-probes/half2-throughput/build.sh
+- local_path: device.json
+  role: upstream-file
+  mode: verbatim
+  sha256: b44549ab1e37bbdd501663022372348777f2995f6e779d0fa0ffd137dc5716b2
+  upstream_path: 80-experience/hw-probes/half2-throughput/device.json
+- local_path: half2_throughput_probe.cu
+  role: upstream-file
+  mode: verbatim
+  sha256: 2af22a2318f0ffdb7f3764c5362ecf84ceb0c17e6bba987c25cb8a42c45515bc
+  upstream_path: 80-experience/hw-probes/half2-throughput/half2_throughput_probe.cu
+- local_path: half2_throughput_probe.ptx
+  role: upstream-file
+  mode: verbatim
+  sha256: d9b8318dace944c1b3d68814e6a7262612749b4a9955d6c93a79650c1195e3bc
+  upstream_path: 80-experience/hw-probes/half2-throughput/half2_throughput_probe.ptx
+- local_path: run.sh
+  role: upstream-file
+  mode: verbatim
+  sha256: d92155523e641d48695dbeb03ae3e7d6b4de0a8d55d26e2a497b02d362ec3bff
+  upstream_path: 80-experience/hw-probes/half2-throughput/run.sh

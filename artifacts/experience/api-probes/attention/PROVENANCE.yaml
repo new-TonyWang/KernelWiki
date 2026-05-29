@@ -1,0 +1,87 @@
+origin_url: https://github.com/internal/kernel-kb-mvp
+upstream_repo: kernel-kb-mvp
+license: proprietary
+retrieved_at: '2026-05-29'
+asset_mode: verbatim
+upstream_sha: HEAD
+files:
+- local_path: attention-sweep.csv
+  role: upstream-file
+  mode: verbatim
+  sha256: fece47c170ea35d4f19da3a87cf4e5474f906ff5e54b6544aad40bc1a6072877
+  upstream_path: 80-experience/api-probes/attention/attention-sweep.csv
+- local_path: build.sh
+  role: upstream-file
+  mode: verbatim
+  sha256: 2f27af00823bf3084dbffd521ddcec9b83c96be2c72e8d3de0a710e13169a685
+  upstream_path: 80-experience/api-probes/attention/build.sh
+- local_path: build_cutlass_fmha.sh
+  role: upstream-file
+  mode: verbatim
+  sha256: 6f4d1e69daa7a54e934c575148229aabc2aa93084b9335bc7684006cdbeb77f9
+  upstream_path: 80-experience/api-probes/attention/build_cutlass_fmha.sh
+- local_path: cutlass-fmha-collective.log
+  role: upstream-file
+  mode: verbatim
+  sha256: 3dfc6ca539099f563512b4b7c4bc32140a6459c24173d73bcd2de22e1a08104d
+  upstream_path: 80-experience/api-probes/attention/cutlass-fmha-collective.log
+- local_path: cutlass-fmha-example.log
+  role: upstream-file
+  mode: verbatim
+  sha256: 5fb2ebcda0e12f6d99b3caaa508d956b65b46eb7103119bc29b74d8001cda111
+  upstream_path: 80-experience/api-probes/attention/cutlass-fmha-example.log
+- local_path: cutlass_88_hopper_fmha.cu
+  role: upstream-file
+  mode: verbatim
+  sha256: 5cda8312259d5e0da4dc84f0451fa9650bec769c70f57d9d64ab609c0dd2c2d7
+  upstream_path: 80-experience/api-probes/attention/cutlass_88_hopper_fmha.cu
+- local_path: device.json
+  role: upstream-file
+  mode: verbatim
+  sha256: ba018f97e058361bc657c38c6bf83be43292ba7e15fe998e014d5ece3f1c1549
+  upstream_path: 80-experience/api-probes/attention/device.json
+- local_path: flash_attn_minimal.cu
+  role: upstream-file
+  mode: verbatim
+  sha256: 27d088c0b99d93f8a69905c3002b3bc3ff61a0cba8ef2c83343fdecec494fe1f
+  upstream_path: 80-experience/api-probes/attention/flash_attn_minimal.cu
+- local_path: flash_attn_tma_wgmma.cu
+  role: upstream-file
+  mode: verbatim
+  sha256: da41a0097c6496c43d31c67637a909756a4e32a9124fc835cddeda8f218046c5
+  upstream_path: 80-experience/api-probes/attention/flash_attn_tma_wgmma.cu
+- local_path: run.sh
+  role: upstream-file
+  mode: verbatim
+  sha256: cbfe8b2c10d7e6ca8fe90a73c780674890aa76fd2d4929be8d1d337b7ff64f48
+  upstream_path: 80-experience/api-probes/attention/run.sh
+- local_path: run_cutlass_fmha.sh
+  role: upstream-file
+  mode: verbatim
+  sha256: 29355845bb847ade3795aa41cbe773a1d4f8a0907596a212c27ebe8af06eefac
+  upstream_path: 80-experience/api-probes/attention/run_cutlass_fmha.sh
+- local_path: tma-wgmma-correctness.log
+  role: upstream-file
+  mode: verbatim
+  sha256: 510deb76567c19fb5b260424b292e83d76a3549561e37dd7436e81f184468332
+  upstream_path: 80-experience/api-probes/attention/tma-wgmma-correctness.log
+- local_path: tma-wgmma-ncu.csv
+  role: upstream-file
+  mode: verbatim
+  sha256: f11502725f586c5c64ac88ec1efddf2edca714b49b1072ffbc1351bbf4a65d2c
+  upstream_path: 80-experience/api-probes/attention/tma-wgmma-ncu.csv
+- local_path: tma-wgmma-sanitizer.log
+  role: upstream-file
+  mode: verbatim
+  sha256: 8b6e3b7f3f8e3881759fb71747285cbd13f4ccaccc37abce2c3f14c94a6f72a8
+  upstream_path: 80-experience/api-probes/attention/tma-wgmma-sanitizer.log
+- local_path: wgmma-desc-test.log
+  role: upstream-file
+  mode: verbatim
+  sha256: c64de82d1a2a8c7b3115f836080412e410b672c2e8bbdae116412d13b6b06a43
+  upstream_path: 80-experience/api-probes/attention/wgmma-desc-test.log
+- local_path: wgmma_desc_test.cu
+  role: upstream-file
+  mode: verbatim
+  sha256: 8461b3d5e8efe094ce3360b6a873a0340e4322659cffb330e428d36e8bbb6713
+  upstream_path: 80-experience/api-probes/attention/wgmma_desc_test.cu

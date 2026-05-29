@@ -12,7 +12,7 @@ retrieved_at: 2026-04-27
 
 ## Overview
 
-Triton 3.6.0 (released `2026-01-21`, release commit `7c56a5e`) is the first Triton release with native NVIDIA Blackwell (SM100) lowering through `tcgen05.mma` plus tensor-memory (TMEM) accumulators. Prior to 3.6, the Triton compiler on Blackwell silently fell back to the Hopper `wgmma` path with register-resident accumulators, which is the framing recorded in the older `wiki/languages/triton-blackwell.md` page.
+Triton 3.6.0 (released `2026-01-21`, release commit `7c56a5e`) is the first Triton release with native NVIDIA Blackwell (SM100) lowering through `tcgen05.mma` plus tensor-memory (TMEM) accumulators. Prior to 3.6, the Triton compiler on Blackwell silently fell back to the Hopper `wgmma` path with register-resident accumulators, which is the framing recorded in the older `wiki/nvidia/languages/triton-blackwell.md` page.
 
 This doc page summarizes only the SM100-relevant items from the 3.6.0 release notes; per-pathway breakdown with verified-vs-needs-verification classification lives in `data/triton-3.6-evidence.md`.
 

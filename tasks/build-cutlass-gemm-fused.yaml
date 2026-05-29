@@ -1,0 +1,60 @@
+task_id: 2026-04-28-cutlass-gemm-fused
+task_type: build-skill
+target_path: 30-skill/compute/gemm-fused/cutlass-epilogue-prologue/
+also_writes:
+  - 60-code/cutlass-cute/gemm-fused/
+  - 80-experience/api-probes/gemm/
+
+landing_path_choice:
+  selected: "30-skill/compute/gemm-fused/cutlass-epilogue-prologue/"
+  rationale: "Per AC-7, the implementer must pick one of two landing options. We pick 30-skill/compute/gemm-fused/ because the deliverable is a single-kernel skill, not an operator-class pattern: this skill describes a specific gemm+epilogue/prologue technique an Agent applies, not the operator boundary. 20-pattern/fused-cuda-tensor-core/ would be the right home only if AC-7 produced a pattern four-pack (INDEX/ROUTING/library-fallback/TASK-PACKET); AC-7 does not. The choice is final and does not require a re-decision in the report."
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_repo/cutlass/
+  - /home/tongyu/workspace/kernel-kb-mvp/knowledge/05-source-corpus/blogs/colfax/
+upstream_repo_pin: "cutlass@f74fea9c"
+
+references:
+  - 70-reasoning/api-probing.md
+  - 70-reasoning/benchmark-protocol.md
+  - docs/15-代码仓库抽取知识流程_update_en.md  # AC-7
+
+source_anchors:
+  - examples/50_hopper_gemm_with_epilogue_swizzle/
+  - examples/61_hopper_gemm_with_topk_and_softmax/
+  - examples/55_hopper_mixed_dtype_gemm/
+  - include/cutlass/gemm/collective/sm90_mma_tma_gmma_rs_warpspecialized_mixed_input.hpp
+  - 05-source-corpus/blogs/colfax/epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
+
+success_criteria:
+  - file_exists: 30-skill/compute/gemm-fused/cutlass-epilogue-prologue/skill.md
+  - file_exists: 30-skill/compute/gemm-fused/cutlass-epilogue-prologue/pitfalls.md
+  - file_exists: 60-code/cutlass-cute/gemm-fused/build.sh
+  - file_exists: 60-code/cutlass-cute/gemm-fused/gemm_fused.cu
+  - dir_nonempty: 80-experience/api-probes/gemm/   # date-stamped *-gemm-fused.md at execution time
+  - lint_clean: true
+  - skill_status: verified
+  - skill_evidence_level: measured
+  - prologue_fusion_present: true   # at least one (dequant / pre-RMSNorm)
+  - epilogue_fusion_present: true   # at least one (activation / quantize / bias-add)
+  - kernel_time_and_memory_traffic_compared_pre_post_fusion: true
+
+depends_on:
+  - build-cutlass-gemm-aligned.yaml            # AC-4 baseline
+  # may also reference extract-cutlass-warp-specialize.yaml outputs
+
+blockers_for_round_1:
+  - reason: "H200 build + run + comparison; depends on AC-4 baseline."
+
+notes: |
+  AC-7 from docs/15-代码仓库抽取知识流程_update_en.md.
+  Implementer must pick exactly one landing path between
+  30-skill/compute/gemm-fused/<slug>/ and 20-pattern/fused-cuda-tensor-core/<slug>/
+  and state the choice in the report. The fused kernel must match a non-fused
+  reference chain within tolerance, and the report must include pre-/post-
+  fusion kernel-time and memory-traffic comparisons.

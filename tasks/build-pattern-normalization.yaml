@@ -1,0 +1,45 @@
+task_id: 2026-04-16-pattern-normalization
+task_type: build-pattern
+target_path: 20-pattern/cuda-core/normalization/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
+  - /home/tongyu/workspace/cuda_repo/cccl/cub/
+  - /home/tongyu/workspace/cuda_repo/cuda-samples/
+
+references:
+  - 70-reasoning/task-packet.md
+  - 70-reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: INDEX.md
+  - file_exists: ROUTING.md
+  - file_exists: library-fallback.md
+  - file_exists: TASK-PACKET.md
+  - lint_clean: true
+
+notes: |
+  Normalization operators: layernorm, rmsnorm, batchnorm, groupnorm.
+  These are hybrid ops: per-element scaling (CUDA core) + per-channel/per-token
+  reduction (warp/block reduce). The reduction axis distinguishes the variants.
+
+  INDEX.md: library-first (torch.nn.functional.layer_norm / rms_norm /
+  batch_norm / group_norm, cuDNN BatchNorm), then custom. Custom path
+  combines reduction + elementwise scaling in one kernel.
+
+  ROUTING.md: whitelist ONLY existing skills (all 10):
+    warp-primitives, coalescing, bank-conflict, vectorized-access, fast-math,
+    ilp, compiler-hints, register-pressure, async-copy, memory-ordering.
+  Highlight warp-primitives (for the reduction phase) and coalescing +
+  vectorized-access (for the elementwise scaling phase) as primary.
+
+  library-fallback.md: torch.nn.functional variants + apex fused kernels.
+
+  TASK-PACKET.md: op=normalization, norm_type (layernorm/rmsnorm/batchnorm/groupnorm),
+  shape (B,S,H for layernorm; B,C,H,W for batchnorm), eps, affine (bool).

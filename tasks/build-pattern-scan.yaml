@@ -1,0 +1,44 @@
+task_id: 2026-04-16-pattern-scan
+task_type: build-pattern
+target_path: 20-pattern/cuda-core/scan-cumulative/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
+  - /home/tongyu/workspace/cuda_repo/cccl/cub/
+  - /home/tongyu/workspace/cuda_repo/cuda-samples/
+
+references:
+  - 70-reasoning/task-packet.md
+  - 70-reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: INDEX.md
+  - file_exists: ROUTING.md
+  - file_exists: library-fallback.md
+  - file_exists: TASK-PACKET.md
+  - lint_clean: true
+
+notes: |
+  Scan/cumulative operators: cumsum, prefix-sum (inclusive/exclusive),
+  Blelloch scan, decoupled lookback scan.
+
+  INDEX.md: library-first (torch.cumsum, cub::DeviceScan::InclusiveSum /
+  ExclusiveSum / InclusiveScan / ExclusiveScan, thrust::inclusive_scan /
+  exclusive_scan). Custom path: Hillis-Steele (work-inefficient but low-step),
+  Blelloch (work-efficient), decoupled lookback (single-pass, best for large N).
+
+  ROUTING.md: whitelist existing skills. Primary: warp-primitives (warp-level
+  scan via shfl), bank-conflict (shared memory scan tree), coalescing (input
+  load). Secondary: ilp, async-copy (for iterative multi-tile scan).
+
+  library-fallback.md: cub::DeviceScan is the gold standard for single-GPU
+  prefix scan. Grep cub/ for concrete usage.
+
+  TASK-PACKET.md: op=scan, scan_type (inclusive/exclusive), scan_op
+  (sum/max/min/custom), shape (flat N or segmented), dtype.

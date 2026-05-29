@@ -1,0 +1,55 @@
+# 50-classical-algo/<algo>/skill.md frontmatter template
+#
+# Used by 50-classical-algo/<algo>/skill.md
+# Enforced by tools/lint_knowledge.py --layer classical-algo
+#
+# Classical-algo skills are skill.md-shaped: they document an end-to-end
+# optimization algorithm (warp-specialization, persistent-kernel, online-softmax,
+# split-k, decoupled-lookback-scan, …) extracted from upstream code. The
+# algorithm-skeleton code itself lives under 60-code/<source-repo>/<algo>/;
+# this layer is the prose + measured A/B story.
+#
+# Schema mirrors skill.yaml; the only deltas are:
+#   * applies_to_pattern_class is open (cuda-core / tensor-core / fused-…)
+#     because classical algorithms span all three.
+#   * status: verified MUST come with evidence_level: measured plus an A/B
+#     experiment record under 80-experience/api-probes/<op>/ that toggles
+#     the algorithm on/off.
+
+# ==== Core identity ====
+title: ""                              # REQUIRED. e.g. "Warp-specialized GEMM mainloop"
+status: draft                          # REQUIRED. draft | verified | deprecated
+evidence_level: spec                   # REQUIRED.
+
+# ==== Applicability ====
+applies_to_pattern_class:              # REQUIRED. At least one entry.
+  - tensor-core
+applies_to_ops: []                     # REQUIRED.
+requires_sm: ">=9.0"                   # REQUIRED.
+requires_features: []                  # Optional.
+single_kernel_useful: true             # REQUIRED.
+
+# ==== Environment (REQUIRED-IF evidence_level == measured) ====
+cuda_version_tested: ""
+driver_version_tested: ""
+toolchain: ""
+measured_on: ""
+
+# ==== Provenance ====
+source:
+  - path: ""
+    anchor: ""
+    excerpt: ""
+
+# ==== Artifacts (REQUIRED-IF status == verified AND evidence_level == measured) ====
+artifacts:
+  code: ""                             # relative path to algorithm skeleton (often under 60-code/<source-repo>/<algo>/)
+  build: ""
+  introspection: ""
+  profile: ""                          # Optional.
+  ablation: ""                         # Optional. Path to A/B experiment record under 80-experience/.
+
+# ==== Cross-references ====
+related_apis: []
+related_skills: []
+upstream_repo: ""                      # Optional. e.g. "cutlass@f74fea9c"

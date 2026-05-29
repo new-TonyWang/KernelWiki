@@ -1,5 +1,5 @@
 // provenance: derived from blog-flashmla, pr-cutlass-2472; not upstream code
-// origin: wiki/kernels/flashmla.md Phase 3 variant (copied from extracted blog bundle)
+// origin: wiki/nvidia/kernels/flashmla.md Phase 3 variant (copied from extracted blog bundle)
 
 // Extracted from sources/blogs/flashmla.md by scripts/extract_blog_code.py
 // Heading: ## Key Code > ### MLA decode inner loop

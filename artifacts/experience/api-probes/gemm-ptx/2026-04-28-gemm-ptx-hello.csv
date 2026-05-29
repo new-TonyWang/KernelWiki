@@ -1,0 +1,2 @@
+probe,kernel,M,N,K,dtype_a,dtype_b,dtype_acc,cutlass_free_preprocessor,cutlass_free_binary,cublas_max_abs,cublas_max_rel,cublas_mismatches,total_elements,verdict,notes
+gemm_ptx_hello,wgmma_m64n8k16+TMA_2d,64,8,16,bf16,bf16,f32,PASS,PASS,3.875,21.0,497,512,partial,Round-14 applied B-layout fix (host transpose to col-major K x N matching .SS_TN) + descriptor SBO 256->16; mismatches 500->497. Residual: per-thread fragment-store mapping (Pitfall #1) -- next step is to extract fragment layout from cute::SM90::GMMA::MMA_64x8x16_F32BF16BF16_SS.

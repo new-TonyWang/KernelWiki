@@ -1,0 +1,61 @@
+task_id: 2026-04-16-pattern-reduction
+task_type: build-pattern
+target_path: 20-pattern/cuda-core/reduction/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
+  - /home/tongyu/workspace/cuda_repo/cccl/cub/
+  - /home/tongyu/workspace/cuda_repo/cuda-samples/
+
+references:
+  - 70-reasoning/task-packet.md
+  - 70-reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: INDEX.md
+  - file_exists: ROUTING.md
+  - file_exists: library-fallback.md
+  - file_exists: TASK-PACKET.md
+  - lint_clean: true
+
+related_skills: [warp-primitives, coalescing, bank-conflict]
+
+notes: |
+  Build the pattern four-pack for the "reduction" operator under cuda-core/.
+
+  INDEX.md — Decision tree for a reduction task:
+    Step 0: Library check — can torch.sum / cub::DeviceReduce / thrust::reduce
+      handle this shape+dtype? If yes, use the library. Only proceed to custom
+      kernel if the library path is proven insufficient via benchmark.
+    Step 1: If custom kernel needed, choose reduction strategy:
+      - Warp-level: __shfl_xor_sync butterfly (≤32 elements per warp)
+      - Block-level: shared memory tree reduction + warp-level final
+      - Grid-level: multi-block with atomicAdd or two-pass
+    Step 2: Optimization iteration — apply skills from ROUTING.md
+
+  ROUTING.md — Skill whitelist for reduction:
+    Must ONLY reference skills that exist under knowledge/30-skill/:
+      - 30-skill/compute/warp-primitives/ (butterfly shuffle reduction)
+      - 30-skill/memory/coalescing/ (input array access pattern)
+      - 30-skill/memory/bank-conflict/ (shared memory reduction tree layout)
+    Do NOT reference skills that don't exist yet (vectorized-access, ilp, etc.)
+
+  library-fallback.md — Document the library paths:
+    - torch.sum / torch.mean / torch.max — shapes, dtypes, device
+    - cub::DeviceReduce::Sum / Reduce / Max / Min — API, usage, perf ranges
+    - thrust::reduce — usage, when it's appropriate
+    Grep upstream (cub/ and cuda-samples/) for concrete examples.
+
+  TASK-PACKET.md — Operator-specific task packet template:
+    Refines 70-reasoning/task-packet.md for reduction specifically.
+    Required fields: op=reduction, shape (M,N or flat), dtype, reduction_axis,
+    reduction_op (sum/max/min/mean/argmax), baseline (torch.<op>).
+
+  No microbench probe needed for pattern files — patterns reference skills,
+  they don't produce measurements themselves.

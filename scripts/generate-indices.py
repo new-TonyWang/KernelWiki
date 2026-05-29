@@ -319,6 +319,38 @@ def generate_by_language(pages):
     return "\n".join(lines) + "\n"
 
 
+def generate_by_vendor(pages):
+    """Generate by-vendor.md: pages grouped by vendor with per-type counts."""
+    vendor_types = defaultdict(lambda: defaultdict(list))
+    for p in pages:
+        rel = p.get("_path", "")
+        # Determine vendor from frontmatter or path
+        vendor = p.get("vendor", "")
+        if not vendor:
+            parts = rel.split("/")
+            if parts[0] == "wiki" and len(parts) > 2:
+                vendor = parts[1]
+        if not vendor:
+            continue
+        ptype = p.get("type", "unknown")
+        title = p.get("title", Path(rel).stem)
+        pid = p.get("id", "")
+        vendor_types[vendor][ptype].append((pid, title, rel))
+
+    lines = ["# Pages by Vendor\n",
+             "*Auto-generated. Do not edit.*\n"]
+    for vendor in sorted(vendor_types):
+        types = vendor_types[vendor]
+        total = sum(len(v) for v in types.values())
+        lines.append(f"\n## {vendor} ({total} pages)\n")
+        for ptype in sorted(types):
+            entries = types[ptype]
+            lines.append(f"\n### {ptype} ({len(entries)})\n")
+            for pid, title, rel in sorted(entries, key=lambda x: x[1]):
+                lines.append(f"- [{title}]({qlink(rel)}) (`{pid}`)")
+    return "\n".join(lines) + "\n"
+
+
 def main():
     QUERIES_DIR.mkdir(exist_ok=True)
     pages = collect_all_pages()
@@ -331,6 +363,7 @@ def main():
         "by-repo.md": generate_by_repo,
         "by-kernel-type.md": generate_by_kernel_type,
         "by-language.md": generate_by_language,
+        "by-vendor.md": generate_by_vendor,
     }
 
     for filename, gen_func in generators.items():

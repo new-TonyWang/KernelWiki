@@ -1,5 +1,5 @@
 // provenance: derived from kernel-deepgemm, blog-deepgemm; not upstream code
-// origin: wiki/kernels/deepgemm.md 'FP8 Accumulation with Nc=128 CUDA Core Promotion' section
+// origin: wiki/nvidia/kernels/deepgemm.md 'FP8 Accumulation with Nc=128 CUDA Core Promotion' section
 
 // On Hopper SM90, the Tensor Core accumulator has limited precision (~FP22,
 // not true FP32). DeepGEMM mitigates this by promoting partial sums to a

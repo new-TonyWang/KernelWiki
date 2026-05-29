@@ -1,0 +1,62 @@
+task_id: 2026-04-16-bank-conflict
+task_type: build-skill
+target_path: 30-skill/memory/bank-conflict/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/ptx-isa/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
+  - /home/tongyu/workspace/cuda_repo/cuda-samples/
+
+references:
+  - 70-reasoning/api-probing.md
+  - 70-reasoning/hardware-microbench.md
+  - 70-reasoning/benchmark-protocol.md
+  - 70-reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: skill.md
+  - file_exists: pitfalls.md
+  - lint_clean: true
+  - at_least_one_hw_probe_linked: true
+  # apis.md is NOT required for this skill — bank conflict avoidance is a
+  # layout/access-pattern technique, not tied to specific named APIs.
+
+related_skills: [coalescing, vectorized-access, warp-primitives]
+
+notes: |
+  Cover shared memory bank conflict avoidance: what bank conflicts are,
+  why they serialize shared memory accesses, and how to avoid them.
+
+  Key topics:
+  - 32 banks on H200 (4 bytes per bank, consecutive 4-byte words map to
+    consecutive banks)
+  - N-way bank conflict: N threads in the same warp access the same bank
+    → access is serialized into N rounds
+  - Broadcast: all threads read the SAME address in the same bank → no conflict
+  - Padding trick: add 1 element padding per row to break stride-32 conflicts
+    (e.g., __shared__ float tile[32][33] instead of [32][32])
+  - Swizzle patterns for matrix tiles
+  - Diagnosing bank conflicts via ncu metrics
+    (l1tex__data_bank_conflicts_pipe_lsu_mem_shared)
+
+  apis.md is OPTIONAL for this skill. If the agent finds no specific named
+  APIs to list, skip it. Bank conflict avoidance is about access patterns
+  and __shared__ memory layout, not about calling specific functions.
+
+  The agent must write a shared-memory microbench probe following
+  hardware-microbench.md §Memory pointer chasing protocol. The probe should
+  compare smem access latency with different bank-conflict factors:
+    (a) conflict-free: stride-1 access (thread i reads smem[i])
+    (b) 2-way conflict: stride-2 access (thread i reads smem[i * 2])
+    (c) 32-way conflict: all threads read smem[0] (broadcast case)
+    (d) stride-32 conflict: thread i reads smem[i * 32] (worst case)
+  Use clock64() for cycle-level measurement, 4096 samples.
+
+  The canonical baseline shows smem pointer-chasing at 28.83 cycles
+  (conflict-free). The probe should show how conflicts multiply this cost.

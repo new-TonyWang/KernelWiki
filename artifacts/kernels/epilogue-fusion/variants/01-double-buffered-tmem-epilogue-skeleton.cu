@@ -1,5 +1,5 @@
 // provenance: derived from pr-vllm-16032, blog-colfax-cutlass, technique-epilogue-fusion, hw-tmem; not upstream code
-// origin: wiki/techniques/epilogue-fusion.md Phase 3 variant
+// origin: wiki/nvidia/techniques/epilogue-fusion.md Phase 3 variant
 
 // Double-buffered TMEM epilogue skeleton. The MMA warp writes into one
 // half of TMEM while the epilogue warp drains the other half. Two

@@ -1,0 +1,33 @@
+# Persistent skip list for probe_gap_scan / probe_loop.
+#
+# APIs listed here are filtered from the `dangling-body-ref` scan output on
+# top of the hardcoded _SKILL_BODY_SKIP set in tools/probe_gap_scan.py.
+#
+# Use this file for project-specific skips that don't belong in the
+# hardcoded core set. Edit freely; format is either a top-level list or
+# {skip_apis: [...]} mapping.
+#
+# Guidelines:
+#   - Skip things that are NOT function-like: enum values, type aliases,
+#     storage qualifiers, preprocessor macros.
+#   - Skip things that are function-like but TRIVIAL (cudaMalloc, atomicAdd,
+#     cudaMemcpy) — these are better served by direct source_corpus lookup
+#     than a probe record.
+#   - DO NOT skip APIs with non-obvious semantics (mask rules, alignment
+#     constraints, H200-specific behavior). Those warrant a probe record.
+#
+# To un-skip something, delete its line here. Hardcoded skips can only be
+# changed in probe_gap_scan.py.
+
+- cudaMalloc                  # trivial; every CUDA dev already knows
+- cudaMallocManaged           # trivial; use source_corpus.cli for signature
+- cudaFree                    # trivial
+- cudaMemcpy                  # trivial
+- cudaMemcpyAsync             # trivial
+- cudaMemcpyToSymbol          # trivial
+- cudaHostAlloc               # trivial
+- cudaDeviceSynchronize       # trivial
+- cudaGetLastError            # trivial
+- atomicAdd                   # basic atomic, covered by C++ atomic semantics
+- atomicInc                   # basic atomic
+- cudaGetDeviceProperties     # covered by kp_introspect device-static

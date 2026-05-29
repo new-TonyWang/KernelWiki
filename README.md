@@ -1,4 +1,4 @@
-# KernelWiki — Blackwell & Hopper Kernel Optimization Knowledge Base
+# KernelWiki — GPU Kernel Optimization Knowledge Base
 > [!IMPORTANT]
 > This skill is maintained as a standalone submodule of
 > [Kernel Design Agents (KDA)](https://github.com/mit-han-lab/kernel-design-agents)
@@ -9,7 +9,7 @@
 
 > **Knowledge cutoff: 2026-04-27.** All upstream PRs, blog snapshots, and version-claim entries are anchored to upstream state on or before this date (recorded in [`data/refresh-cutoff.yaml`](data/refresh-cutoff.yaml)). Triton claims pin to release **3.6.0** (released 2026-01-21); CUTLASS claims pin to **4.5.0** (released 2026-03-27); see [`data/tool-versions.yaml`](data/tool-versions.yaml) for all tracked tools. To advance the cutoff, run `scripts/refresh_candidate_ledger.py`, regenerate PR pages, and bump the cutoff date file.
 
-A structured knowledge base of NVIDIA Blackwell (SM100, B200) and Hopper (SM90, H100) GPU kernel optimization, packaged as a Claude Code skill. The repository root **is** the skill directory — clone it directly into `~/.claude/skills/` and it works out of the box.
+A structured, multi-vendor knowledge base of GPU kernel optimization (currently NVIDIA Blackwell SM100, Hopper SM90, and general CUDA), packaged as a Claude Code skill. Includes foundational CUDA skills, API definitions, operator routing, code walkthroughs, and hardware measurement records. The repository root **is** the skill directory — clone it directly into `~/.claude/skills/` and it works out of the box.
 
 ## Install as a Claude Code Skill
 
@@ -37,7 +37,7 @@ export BLACKWELL_WIKI_ROOT=/path/to/KernelWiki
 ## What's Here
 
 - **2,179 PR references** from NVIDIA/cutlass (32), sgl-project/sglang (645), vllm-project/vllm (833), flashinfer-ai/flashinfer (583), pytorch/pytorch (85), deepseek-ai/DeepGEMM (1) — Jan 2025 – Apr 2026
-- **48 synthesized wiki pages** — hardware features, techniques, kernel case studies, problem patterns, DSL guides, migration guides
+- **200+ synthesized wiki pages** — hardware features, techniques, kernel case studies, problem patterns, DSL guides, migration guides, foundational CUDA skills, API definitions, operator routing guides, code walkthroughs
 - **20 community blog summaries**, **11 official doc summaries**, **7 competition pages** (GPU Mode NVFP4 hackathon, FlashInfer MLSys 2026)
 - **89 verbatim/extracted/derived asset bundles** under `artifacts/` (PR diffs, kernel files, blog code) — pinned to upstream SHAs via `PROVENANCE.yaml`
 - **6 auto-generated cross-reference indices** — by problem / technique / hardware feature / repo / kernel type / language
@@ -101,13 +101,13 @@ Supporting files:
 
 ```bash
 pip install -r requirements.txt
-python3 scripts/validate.py            # reports 2265 files / 89 bundles / 6 ledgers, 0 errors
+python3 scripts/validate.py            # reports 2489 files / 117 bundles / 6 ledgers, 0 errors
 python3 scripts/generate-indices.py    # regenerate query indices
 ```
 
 ## Quality Gates (knowledge cutoff: 2026-04-27)
 
-- 2,265 files, 2,217 source IDs, 0 validation errors
+- 2,489 files, 2,265 source IDs, 0 validation errors
 - 89 asset bundles validated (verbatim=64, extracted=13, derived=12)
 - 6 candidate ledgers normalized
 - 0 broken links across all internal references

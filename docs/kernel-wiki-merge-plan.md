@@ -17,12 +17,12 @@
 | `sources/blogs/` | Community blog summaries | 20 |
 | `sources/docs/` | Official doc summaries | 11 |
 | `sources/contests/` | Competition pages | 7 |
-| `wiki/hardware/` | Hardware feature synthesis pages | 7 |
-| `wiki/techniques/` | Optimization technique pages | 15 |
-| `wiki/kernels/` | Kernel case study pages | 12 |
-| `wiki/patterns/` | Problem-solution pattern pages | 7 |
-| `wiki/languages/` | DSL guide pages | 4 |
-| `wiki/migration/` | Architecture migration guides | 2 |
+| `wiki/nvidia/hardware/` | Hardware feature synthesis pages | 7 |
+| `wiki/nvidia/techniques/` | Optimization technique pages | 15 |
+| `wiki/nvidia/kernels/` | Kernel case study pages | 12 |
+| `wiki/nvidia/patterns/` | Problem-solution pattern pages | 7 |
+| `wiki/nvidia/languages/` | DSL guide pages | 4 |
+| `wiki/nvidia/migration/` | Architecture migration guides | 2 |
 | `queries/` | Auto-generated cross-reference indices | 6 |
 | `artifacts/` | Verbatim/extracted/derived code bundles | 89 |
 
@@ -904,7 +904,7 @@ wiki-code-walkthrough:
 
 ### 6.3 Hardware Feature Topic Mapping
 
-Map kb-mvp `40-hardware-feature/` to existing KernelWiki `wiki/hardware/` topics:
+Map kb-mvp `40-hardware-feature/` to existing KernelWiki `wiki/nvidia/hardware/` topics:
 
 | kb-mvp source | KernelWiki target | Notes |
 |---------------|-------------------|-------|

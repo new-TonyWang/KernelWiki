@@ -1,0 +1,51 @@
+task_id: 2026-04-28-cutlass-persistent-kernel
+task_type: build-classical-algo   # see knowledge/70-reasoning/task-packet.md
+target_path: 50-classical-algo/persistent-kernel/
+also_writes:
+  - 60-code/cutlass-cute/persistent-kernel/
+  - 80-experience/api-probes/gemm/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_repo/cutlass/
+  - /home/tongyu/workspace/kernel-kb-mvp/knowledge/05-source-corpus/blogs/colfax/
+upstream_repo_pin: "cutlass@f74fea9c"
+
+references:
+  - knowledge/templates/frontmatter/classical-algo.yaml
+  - 70-reasoning/benchmark-protocol.md
+  - docs/15-代码仓库抽取知识流程_update_en.md  # AC-6 (persistent kernel)
+
+source_anchors:
+  - include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_pingpong.hpp
+  - include/cutlass/gemm/kernel/tile_scheduler.hpp
+  - 05-source-corpus/blogs/colfax/cutlass-tutorial-persistent-kernels-and-stream-k
+
+success_criteria:
+  - file_exists: 50-classical-algo/persistent-kernel/skill.md
+  - file_exists: 50-classical-algo/persistent-kernel/pitfalls.md
+  - file_exists: 60-code/cutlass-cute/persistent-kernel/build.sh
+  - file_exists: 60-code/cutlass-cute/persistent-kernel/persistent_pingpong_ab.cu
+  - dir_nonempty: 80-experience/api-probes/gemm/   # date-stamped *-persistent-ablation.md at execution time
+  - lint_clean: true
+  - skill_status: verified
+  - skill_evidence_level: measured
+  - ablation_ab_data_present: true
+
+depends_on:
+  - build-cutlass-gemm-aligned.yaml      # AC-4 baseline
+  - extract-cutlass-warp-specialize.yaml # AC-6 prereq
+
+blockers_for_round_1:
+  - reason: "H200 A/B; depends on aligned harness + warp-specialize skeleton."
+
+notes: |
+  AC-6 partial — persistent-kernel / pingpong half. Distill the tile-scheduler
+  loop driving a fixed grid that consumes work tiles until exhaustion.
+  A/B: toggle persistent vs one-grid-launch-per-tile; measure SM idle time
+  and total kernel time. Stream-K is a stretch goal; do NOT block this task
+  on it.

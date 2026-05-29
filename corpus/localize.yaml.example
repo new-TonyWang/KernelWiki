@@ -1,0 +1,15 @@
+# corpus/localize.yaml — user-specific, NOT committed
+# Copy this file to corpus/localize.yaml and edit paths for your machine.
+
+vars:
+  CUDA_REPO_ROOT: /path/to/your/cuda/repos
+
+derived:
+  CUTLASS_REPO_REF: "{{CUDA_REPO_ROOT}}/cutlass"
+  CUDA_SAMPLES_REPO_REF: "{{CUDA_REPO_ROOT}}/cuda-samples"
+  CCCL_REPO_REF: "{{CUDA_REPO_ROOT}}/cccl"
+  FLASH_ATTENTION_REPO_REF: "{{CUDA_REPO_ROOT}}/flash-attention"
+  # CLAUDE_RESEARCH_REF: /path/to/research/notes
+
+env:
+  inherit: true

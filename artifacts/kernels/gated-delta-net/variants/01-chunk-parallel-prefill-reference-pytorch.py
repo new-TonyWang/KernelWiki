@@ -1,5 +1,5 @@
 # provenance: derived from blog-gated-delta-net, pr-sglang-21019; not upstream code
-# origin: wiki/kernels/gated-delta-net.md Phase 3 variant (copied from extracted blog bundle)
+# origin: wiki/nvidia/kernels/gated-delta-net.md Phase 3 variant (copied from extracted blog bundle)
 
 # Extracted from sources/blogs/gated-delta-net.md by scripts/extract_blog_code.py
 # Heading: ## Key Code > ### Chunk-parallel prefill reference (PyTorch)

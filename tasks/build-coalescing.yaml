@@ -1,0 +1,58 @@
+task_id: 2026-04-16-coalescing
+task_type: build-skill
+target_path: 30-skill/memory/coalescing/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/programming-guide/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/ptx-isa/
+  - /home/tongyu/workspace/cuda_document/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/
+  - /home/tongyu/workspace/cuda_repo/cuda-samples/
+
+references:
+  - 70-reasoning/api-probing.md
+  - 70-reasoning/hardware-microbench.md
+  - 70-reasoning/benchmark-protocol.md
+  - 70-reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: skill.md
+  - file_exists: pitfalls.md
+  - file_exists: apis.md
+  - lint_clean: true
+  - at_least_one_hw_probe_linked: true
+
+related_skills: [vectorized-access, bank-conflict, warp-primitives]
+
+notes: |
+  Cover global memory coalescing: what it is, why it matters for memory-bound
+  CUDA-core kernels, how the hardware coalesces warp-wide loads/stores into
+  minimal transactions.
+
+  Key topics:
+  - Aligned vs misaligned access patterns (stride-1 contiguous = coalesced)
+  - Strided access (stride > 1 per thread) and its cost
+  - Structure-of-arrays (SoA) vs Array-of-Structures (AoS) layout impact
+  - __ldg() and read-only data path
+  - float4 / int4 vectorized loads as the "next level" of coalescing
+  - L1/L2 cache line size (128 bytes on H200) and how it relates to coalescing
+
+  apis.md is REQUIRED: touches __ldg, float4 vector types, potential
+  cudaMemcpy patterns.
+
+  The agent must write a memory-latency microbench probe following
+  hardware-microbench.md §Memory pointer chasing protocol. The probe should
+  compare COALESCED vs STRIDED global memory access latency on HBM. Use a
+  simple kernel that reads N elements from global memory with:
+    (a) stride-1 (coalesced): thread i reads array[i]
+    (b) stride-32 (non-coalesced): thread i reads array[i * 32]
+  Measure both with CUDA events (warmup 5, repeat 20). Record the bandwidth
+  ratio to show the real cost of non-coalesced access.
+
+  The canonical memory-latency baseline shows HBM pointer-chasing at 594.37
+  cycles. The skill-specific probe should show effective bandwidth difference
+  between coalesced and strided patterns.

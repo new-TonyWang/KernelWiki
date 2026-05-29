@@ -1,0 +1,58 @@
+task_id: 2026-04-28-meta-code-extraction
+task_type: build-skill
+target_path: 30-skill/meta/code-extraction/
+
+landing_path_choice:
+  selected: "30-skill/meta/code-extraction/"
+  rationale: "AC-9 says the skill 'lives under 30-skill/meta/code-extraction/ (or an equivalent location explained in the report)'. We commit to the canonical path; 'equivalent location' would only apply if 30-skill/ developed a different meta-skill convention before this AC lands, which is not currently the case."
+
+hardware:
+  device: H200            # the worked example uses H200; the skill itself is hw-agnostic
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - /home/tongyu/workspace/cuda_repo/cutlass/
+  - /home/tongyu/workspace/kernel-kb-mvp/knowledge/
+
+references:
+  - docs/15-代码仓库抽取知识流程_update_en.md  # AC-9
+  - knowledge/AGENTS.md
+  - knowledge/templates/frontmatter/
+
+success_criteria:
+  - file_exists: 30-skill/meta/code-extraction/skill.md
+  - file_exists: 30-skill/meta/code-extraction/pitfalls.md
+  - lint_clean: true
+  - reproducible_step_list_present: true
+  - cutlass_worked_example_present: true
+  - cited_kb_paths_exist:
+      - 40-hardware-feature/tma/
+      - 40-hardware-feature/wgmma/
+      - 50-classical-algo/warp-specialization/
+      - 50-classical-algo/persistent-kernel/
+      - 30-skill/compute/gemm/
+  - non_coverage_statement_present: true
+
+depends_on:
+  - build-cutlass-tma.yaml                    # AC-1
+  - build-cutlass-wgmma.yaml                  # AC-2
+  - build-cutlass-wgmma-shape-sweep.yaml      # AC-3
+  - build-cutlass-gemm-aligned.yaml           # AC-4
+  - build-cutlass-gemm-tail.yaml              # AC-5
+  - extract-cutlass-warp-specialize.yaml      # AC-6
+  - extract-cutlass-persistent-kernel.yaml    # AC-6
+  - build-cutlass-gemm-fused.yaml             # AC-7
+  # AC-8 optional; cite if it lands
+
+blockers_for_round_1:
+  - reason: "Worked example must cite real KB paths produced by AC-1 through AC-7. Cannot author until those tasks land."
+
+notes: |
+  AC-9 from docs/15-代码仓库抽取知识流程_update_en.md.
+  The skill must (1) provide a reproducible step list (build-entry first,
+  then kernel identifiers, then mma/atom recognition, then epilogue/prologue
+  tracing), (2) walk through cutlass end-to-end as the worked example
+  citing the actual KB paths produced by AC-1-AC-7 (and AC-8 if it lands),
+  and (3) explicitly state non-coverage (e.g. host-only code is out of
+  scope; the skill does not replace Stage 3.5 verification).

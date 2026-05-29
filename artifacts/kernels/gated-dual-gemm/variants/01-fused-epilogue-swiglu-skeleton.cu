@@ -1,5 +1,5 @@
 // provenance: derived from pr-vllm-23696, kernel-gated-dual-gemm, technique-epilogue-fusion; not upstream code
-// origin: wiki/kernels/gated-dual-gemm.md Phase 3 variant
+// origin: wiki/nvidia/kernels/gated-dual-gemm.md Phase 3 variant
 
 // Gated dual GEMM fused epilogue: gate_out = silu(gate_gemm_out) * up_gemm_out
 // Two GEMMs share the same A operand; their outputs are combined in the
