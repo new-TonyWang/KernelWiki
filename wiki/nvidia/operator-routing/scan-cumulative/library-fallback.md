@@ -12,22 +12,22 @@ vendor: nvidia
 operator: scan-cumulative
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L28474-L28508
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L28553-L28578
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L29201-L29227
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L28764-L28802
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L29340-L29381
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  path: CUDA API References/cccl/cccl.md
   anchor: L99812-L99891
 ---
 # Scan (Cumulative) -- Library Fallback Paths

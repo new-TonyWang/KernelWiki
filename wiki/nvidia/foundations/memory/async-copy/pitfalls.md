@@ -22,13 +22,13 @@ type: pitfall
 vendor: nvidia
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L11266-L11269
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L11267-L11268
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L11269
 ---
 ## P1: Alignment requirements for L1 BYPASS mode

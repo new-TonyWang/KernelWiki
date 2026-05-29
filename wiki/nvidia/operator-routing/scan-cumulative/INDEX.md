@@ -21,7 +21,7 @@ source_refs:
   path: Samples/2_Concepts_and_Techniques/scan/scan.cu
   anchor: L43-L62
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L28474-L28508
 ---
 # Scan (Cumulative) Pattern -- Decision Tree

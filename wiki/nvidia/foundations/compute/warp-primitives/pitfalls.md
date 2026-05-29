@@ -18,13 +18,13 @@ type: pitfall
 vendor: nvidia
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24203-L24290
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24015-L24031
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23988-L23990
 ---
 ## P1: Mask mismatch with active threads

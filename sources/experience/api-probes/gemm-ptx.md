@@ -27,7 +27,7 @@ vendor: nvidia
 title: 2026 04 28 Gemm Ptx Hello
 source_refs:
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: Hopper wgmma GEMM walkthrough
 ---
 # Probe — Cutlass-free GEMM hello-world

@@ -16,22 +16,22 @@ vendor: nvidia
 title: Cudafuncsetattribute
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   anchor: L3372-L3372
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   anchor: L3375-L3375
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
+  path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   anchor: L15838-L15838
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/README.md
+  path: Samples/3_CUDA_Features/bf16TensorCoreGemm/README.md
   anchor: L26-L26
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
+  path: Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
   anchor: L774-L774
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
+  path: Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
   anchor: L782-L782
 ---
 # cudaFuncSetAttribute

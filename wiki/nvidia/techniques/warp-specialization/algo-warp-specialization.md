@@ -42,23 +42,23 @@ tags:
 - cuda-cpp
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L11680-L11686
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L10720
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L16316
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L20810-L20825
 - source_id: blogs/colfax
-  path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
+  path: developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
   anchor: warp-specialized GEMM mainloop walkthrough — producer/consumer warpgroups
     + mbarrier-pipelined TMA→wgmma
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-efficient-gemm-kernel-designs-with-pipelining
+  path: cutlass-tutorial-efficient-gemm-kernel-designs-with-pipelining
   anchor: pipelining strategy for warp-specialized GEMM
 ---
 # Warp-specialized GEMM mainloop (algorithm skeleton)

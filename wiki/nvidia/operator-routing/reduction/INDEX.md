@@ -21,7 +21,7 @@ source_refs:
   path: Samples/2_Concepts_and_Techniques/reduction/reduction.cpp
   anchor: L28-L62
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L26607-L26630
 ---
 # Reduction Pattern -- Decision Tree

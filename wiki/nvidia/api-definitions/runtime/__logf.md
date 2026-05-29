@@ -16,22 +16,22 @@ vendor: nvidia
 title: __Logf
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L2725-L2725
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L3675-L3675
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L27005-L27005
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/5_Domain_Specific/BlackScholes/BlackScholes_kernel.cuh
+  path: Samples/5_Domain_Specific/BlackScholes/BlackScholes_kernel.cuh
   anchor: L66-L66
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/5_Domain_Specific/BlackScholes_nvrtc/BlackScholes_kernel.cuh
+  path: Samples/5_Domain_Specific/BlackScholes_nvrtc/BlackScholes_kernel.cuh
   anchor: L67-L67
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/5_Domain_Specific/quasirandomGenerator/quasirandomGenerator_kernel.cu
+  path: Samples/5_Domain_Specific/quasirandomGenerator/quasirandomGenerator_kernel.cu
   anchor: L133-L133
 ---
 # __logf

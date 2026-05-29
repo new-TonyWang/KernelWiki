@@ -16,13 +16,13 @@ vendor: nvidia
 title: __Log10F
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L2713-L2713
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L3641-L3641
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L27013-L27013
 ---
 # __log10f

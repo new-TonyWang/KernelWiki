@@ -265,7 +265,7 @@ def main():
     parser = argparse.ArgumentParser(description="Migrate kernel-kb-mvp into KernelWiki")
     parser.add_argument("--source", required=True, help="Path to kernel-kb-mvp repo")
     parser.add_argument("--dry-run", action="store_true", help="Print what would be done without writing files")
-    parser.add_argument("--output-tsv", default="migration_inventory.tsv", help="TSV inventory output")
+    parser.add_argument("--output-tsv", default=None, help="TSV inventory output (default: temp file for dry-run, migration_inventory.tsv for real run)")
     args = parser.parse_args()
 
     src_root = Path(args.source).resolve()
@@ -319,12 +319,20 @@ def main():
                 if status == "migrated":
                     migrated += 1
 
-    # Write TSV inventory
-    tsv_path = REPO_ROOT / args.output_tsv
+    # Write TSV inventory (7-column schema matching plan contract)
+    if args.output_tsv:
+        tsv_path = REPO_ROOT / args.output_tsv
+    elif args.dry_run:
+        import tempfile
+        tsv_path = Path(tempfile.mktemp(suffix="_migration_inventory.tsv"))
+    else:
+        tsv_path = REPO_ROOT / "migration_inventory.tsv"
     with open(tsv_path, "w", encoding="utf-8") as f:
-        f.write("input_path\toutput_path\tstatus\treason\n")
+        f.write("input_path\toutput_path\tpage_id\tpage_type\tvendor\tstatus\treason\n")
         for entry in sorted(inventory, key=lambda x: x["input_path"]):
-            f.write(f"{entry['input_path']}\t{entry['output_path']}\t{entry['status']}\t{entry['reason']}\n")
+            f.write(f"{entry['input_path']}\t{entry['output_path']}\t"
+                    f"{entry.get('page_id', '')}\t{entry.get('page_type', '')}\t"
+                    f"{entry.get('vendor', 'nvidia')}\t{entry['status']}\t{entry['reason']}\n")
 
     print(f"Migration {'dry-run' if args.dry_run else 'complete'}")
     print(f"  Migrated: {migrated}")

@@ -12,16 +12,16 @@ vendor: nvidia
 operator: reduction
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L26607-L26923
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L26886-L26910
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L26956-L26982
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  path: CUDA API References/cccl/cccl.md
   anchor: L10641-L10643
 ---
 # Reduction -- Library Fallback Paths

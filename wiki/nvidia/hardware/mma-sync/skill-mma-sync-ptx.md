@@ -36,7 +36,7 @@ source_refs:
   path: include/cute/arch/mma_sm80.hpp
   anchor: SM80_16x8x8_F32F16F16F32_TN inline PTX wrappers
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
+  path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L28200-L28250
 ---
 # mma.sync — Warp-level MMA on Ampere+ via PTX

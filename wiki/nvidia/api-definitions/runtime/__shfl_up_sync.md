@@ -16,22 +16,22 @@ vendor: nvidia
 title: __Shfl_Up_Sync
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23953-L23953
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23967-L23967
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23975-L23975
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/README.md
+  path: Samples/2_Concepts_and_Techniques/README.md
   anchor: L80-L80
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/shfl_scan/README.md
+  path: Samples/2_Concepts_and_Techniques/shfl_scan/README.md
   anchor: L5-L5
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/shfl_scan/shfl_integral_image.cuh
+  path: Samples/2_Concepts_and_Techniques/shfl_scan/shfl_integral_image.cuh
   anchor: L301-L301
 ---
 # __shfl_up_sync

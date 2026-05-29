@@ -14,7 +14,7 @@ source_refs:
   path: Samples/0_Introduction/vectorAdd/vectorAdd.cu
   anchor: L47-L54
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/thrust/thrust.md
+  path: CUDA API References/thrust/thrust.md
   anchor: L31965-L32063
 ---
 # Elementwise -- Library Fallback Paths

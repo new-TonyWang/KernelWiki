@@ -52,13 +52,13 @@ vendor: nvidia
 title: 2026 04 17 Runtime Any Sync
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23864-L23895
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24197-L24217
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
+  path: Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
   anchor: L46-L80
 ---
 ## Summary

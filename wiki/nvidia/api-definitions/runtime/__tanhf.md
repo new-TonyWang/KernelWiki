@@ -16,13 +16,13 @@ vendor: nvidia
 title: __Tanhf
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L2761-L2761
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L3773-L3773
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L27033-L27033
 ---
 # __tanhf

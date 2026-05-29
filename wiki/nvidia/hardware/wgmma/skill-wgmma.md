@@ -45,7 +45,7 @@ source_refs:
   path: examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
   anchor: Lall
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: wgmma atom + warpgroup synchronization
 ---
 # wgmma — Warpgroup MMA on Hopper

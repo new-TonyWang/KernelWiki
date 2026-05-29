@@ -27,7 +27,7 @@ source_refs:
   path: include/cute/atom/mma_traits_sm90_gmma.hpp
   anchor: MMA_64xNxK family
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: wgmma atom shape selection
 ---
 # Probe — wgmma problem-size sweep within cutlass example 48 GEMM (5 problem sizes, 1 atom)

@@ -12,16 +12,16 @@ vendor: nvidia
 operator: indexing
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  path: CUDA API References/cccl/cccl.md
   anchor: L101875-L101930
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  path: CUDA API References/cccl/cccl.md
   anchor: L112950-L113010
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  path: CUDA API References/cccl/cccl.md
   anchor: L113098-L113200
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L22478-L22555
 ---
 # Indexing -- Library Fallback Paths

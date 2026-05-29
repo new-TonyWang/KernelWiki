@@ -42,16 +42,16 @@ tags:
 - cuda-cpp
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L28042
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L11680-L11686
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-persistent-kernels-and-stream-k
+  path: cutlass-tutorial-persistent-kernels-and-stream-k
   anchor: persistent-kernel + stream-K walkthrough — tile-scheduler abstraction
 - source_id: blogs/colfax
-  path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
+  path: developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
   anchor: pingpong vs cooperative scheduling section
 ---
 # Persistent kernel (algorithm skeleton)

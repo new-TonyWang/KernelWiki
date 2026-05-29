@@ -1518,6 +1518,17 @@ def main():
                                     f"'{rpath}' is absolute; must be repo-relative"
                                 )
 
+            # AC-5: Validate related: entries point to existing page IDs
+            if fm and isinstance(fm, dict) and "related" in fm:
+                related = fm["related"]
+                if isinstance(related, list):
+                    for rel_id in related:
+                        if isinstance(rel_id, str) and rel_id not in all_known_ids:
+                            all_errors.append(
+                                f"{md_file.relative_to(REPO_ROOT)}: related entry "
+                                f"'{rel_id}' not found in any page ID"
+                            )
+
             # No absolute machine paths in committed wiki/source content
             # Only flag user-specific paths (/data1/, /home/), not system paths
             # (/usr/local/cuda) which appear legitimately in source PR quotes

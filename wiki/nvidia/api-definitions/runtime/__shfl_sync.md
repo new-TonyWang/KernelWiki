@@ -16,22 +16,22 @@ vendor: nvidia
 title: __Shfl_Sync
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  path: CUDA API References/cccl/cccl.md
   anchor: L22825-L22825
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L11966-L11966
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L12144-L12144
 - source_id: source-code/cutlass
-  path: source-code/cutlass/docs/gemm__pipelined_8h_source.html
+  path: docs/gemm__pipelined_8h_source.html
   anchor: L101-L101
 - source_id: source-code/cutlass
-  path: source-code/cutlass/examples/111_hopper_ssd/collective/common.hpp
+  path: examples/111_hopper_ssd/collective/common.hpp
   anchor: L148-L148
 - source_id: source-code/cutlass
-  path: source-code/cutlass/examples/111_hopper_ssd/collective/common.hpp
+  path: examples/111_hopper_ssd/collective/common.hpp
   anchor: L162-L162
 ---
 # __shfl_sync

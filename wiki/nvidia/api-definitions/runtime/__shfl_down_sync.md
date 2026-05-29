@@ -16,22 +16,22 @@ vendor: nvidia
 title: __Shfl_Down_Sync
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23954-L23954
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23973-L23973
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24011-L24011
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/README.md
+  path: Samples/2_Concepts_and_Techniques/README.md
   anchor: L65-L65
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/reduction/README.md
+  path: Samples/2_Concepts_and_Techniques/reduction/README.md
   anchor: L5-L5
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
+  path: Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
   anchor: L78-L78
 ---
 # __shfl_down_sync

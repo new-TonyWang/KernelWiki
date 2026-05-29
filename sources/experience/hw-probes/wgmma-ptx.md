@@ -92,7 +92,7 @@ vendor: nvidia
 title: 2026 04 29 Wgmma Zoo
 source_refs:
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: Hopper wgmma walkthrough
 ---
 ## Summary

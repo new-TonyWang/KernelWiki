@@ -53,11 +53,11 @@ source_refs:
   path: include/cutlass/epilogue/thread/linear_combination_relu.h
   anchor: LinearCombinationRelu — Activation fusion as a thread-level epilogue
 - source_id: blogs/colfax
-  path: blogs/colfax/epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
+  path: epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
   anchor: epilogue-visitor-tree (EVT) abstraction; LinearCombination / Activation
     / Bias / Aux fusion patterns
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: epilogue customization for Hopper wgmma GEMM
 ---
 # Hopper fused-GEMM (epilogue + prologue fusion via cutlass)

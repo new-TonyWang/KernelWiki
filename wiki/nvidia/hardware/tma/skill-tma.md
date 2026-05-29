@@ -44,7 +44,7 @@ source_refs:
   path: examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
   anchor: Lall
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: TMA descriptor + cp.async.bulk.tensor end-to-end
 ---
 # TMA — Tensor Memory Accelerator on Hopper

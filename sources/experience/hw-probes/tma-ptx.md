@@ -71,7 +71,7 @@ vendor: nvidia
 title: 2026 04 30 Tma Multicast
 source_refs:
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: Hopper TMA walkthrough — multicast variant for cooperative GEMM
 ---
 ## Summary

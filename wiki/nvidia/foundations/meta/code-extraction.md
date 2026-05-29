@@ -40,20 +40,20 @@ applies_to:
 - general
 source_refs:
 - source_id: blogs/colfax
-  path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
+  path: developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
   anchor: Hopper warp-specialized GEMM walkthrough — the canonical worked-example
     target
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+  path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: TMA walkthrough
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
+  path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: wgmma walkthrough
 - source_id: blogs/colfax
-  path: blogs/colfax/cutlass-tutorial-persistent-kernels-and-stream-k
+  path: cutlass-tutorial-persistent-kernels-and-stream-k
   anchor: persistent + stream-K walkthrough
 - source_id: blogs/colfax
-  path: blogs/colfax/epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
+  path: epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
   anchor: epilogue fusion walkthrough
 ---
 # Agent meta-skill: CUDA code crawling + operator-optimization-algorithm identification

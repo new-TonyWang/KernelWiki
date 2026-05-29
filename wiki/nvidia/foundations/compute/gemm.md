@@ -45,7 +45,7 @@ source_refs:
   path: examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
   anchor: Lall (gemm.can_implement(arguments) on line 415)
 - source_id: blogs/colfax
-  path: blogs/colfax/developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
+  path: developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
   anchor: Hopper warp-specialized cooperative GEMM
 ---
 # Non-aligned GEMM tail handling on Hopper

@@ -16,22 +16,22 @@ vendor: nvidia
 title: __Expf
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L2431-L2431
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L2803-L2803
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1561-L1561
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising/imageDenoising_knn_kernel.cuh
+  path: Samples/2_Concepts_and_Techniques/imageDenoising/imageDenoising_knn_kernel.cuh
   anchor: L56-L56
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising/imageDenoising_knn_kernel.cuh
+  path: Samples/2_Concepts_and_Techniques/imageDenoising/imageDenoising_knn_kernel.cuh
   anchor: L121-L121
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/2_Concepts_and_Techniques/imageDenoising/imageDenoising_nlm2_kernel.cuh
+  path: Samples/2_Concepts_and_Techniques/imageDenoising/imageDenoising_nlm2_kernel.cuh
   anchor: L80-L80
 ---
 # __expf

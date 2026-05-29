@@ -16,13 +16,13 @@ vendor: nvidia
 title: __Cosf
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L2419-L2419
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L2769-L2769
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L3727-L3727
 ---
 # __cosf

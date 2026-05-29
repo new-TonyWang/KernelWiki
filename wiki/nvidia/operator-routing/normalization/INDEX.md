@@ -18,10 +18,10 @@ source_refs:
   path: Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
   anchor: L75-L81
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23945-L23973
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cub/cub.md
+  path: CUDA API References/cub/cub.md
   anchor: L5931-L5997
 ---
 # Normalization Pattern -- Decision Tree

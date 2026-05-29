@@ -12,7 +12,7 @@ vendor: nvidia
 operator: normalization
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Tools/nsight-systems/nsight-systems_index.html.md
+  path: CUDA Tools/nsight-systems/nsight-systems_index.html.md
   anchor: L6220-L6224
 ---
 # Normalization -- Library Fallback Paths

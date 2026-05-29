@@ -16,16 +16,16 @@ vendor: nvidia
 title: __Sincosf
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L2743-L2743
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
+  path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L3720-L3720
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1563-L1563
 - source_id: source-code/cuda-samples
-  path: source-code/cuda-samples/Samples/5_Domain_Specific/convolutionFFT2D/convolutionFFT2D.cuh
+  path: Samples/5_Domain_Specific/convolutionFFT2D/convolutionFFT2D.cuh
   anchor: L207-L207
 ---
 # __sincosf

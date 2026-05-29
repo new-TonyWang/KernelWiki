@@ -23,7 +23,7 @@ source_refs:
   path: Samples/0_Introduction/vectorAdd/vectorAdd.cu
   anchor: L47-L54
 - source_id: cuda-official/toolkit-docs-13.2
-  path: cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L539-L542
 ---
 # Elementwise Operator Pattern -- Decision Tree
