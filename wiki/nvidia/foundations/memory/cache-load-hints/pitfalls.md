@@ -6,7 +6,7 @@ source:
 - path: spec
   anchor: Reference
 experience_refs:
-- sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md
+- sources/experience/hw-probes/cache-hint.md
 id: pitfall-cache-load-hints
 type: pitfall
 vendor: nvidia

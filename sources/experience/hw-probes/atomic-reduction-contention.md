@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/atomic-reduction-contention/artifacts/atomic_reduction_probe.cu
-  build: artifacts/experience/hw-probes/atomic-reduction-contention/artifacts/build.sh
-  introspection: artifacts/experience/hw-probes/atomic-reduction-contention/artifacts/device.json
+  code: artifacts/experience/hw-probes/atomic-reduction-contention/atomic_reduction_probe.cu
+  build: artifacts/experience/hw-probes/atomic-reduction-contention/build.sh
+  introspection: artifacts/experience/hw-probes/atomic-reduction-contention/device.json
   profile: ''
 source:
 - path: spec

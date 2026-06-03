@@ -6,7 +6,7 @@ title: Audit
 upstream_repo: NVIDIA/cutlass-cute
 ---
 <!--
-lint-exempt: this file lives under wiki/nvidia/code-walkthroughs/ which AGENTS.md exempts from frontmatter
+lint-exempt: this file lives under wiki/nvidia/code-walkthroughs/ which reasoning/AGENTS.md exempts from frontmatter
 requirements. A YAML block is included below for human readers; lint will skip it.
 -->
 
@@ -26,7 +26,7 @@ auditor_inputs:
   - wiki/nvidia/code-walkthroughs/cutlass-cute/
   - sources/experience/api-probes/
   - sources/experience/hw-probes/
-  - corpus/nvidia/MANIFEST.yaml
+  - corpus/MANIFEST.yaml
   - templates/frontmatter/
 upstream_root: "{{CUTLASS_REPO_REF}}"
 ---
@@ -80,19 +80,19 @@ Other compute skills (`branch-elimination`, `compiler-hints`, `fast-math`, `half
 |-------|-------|--------|----------|----------------|-------------|
 | `wiki/nvidia/techniques/warp-specialization/` | skill.md, pitfalls.md | verified | measured | complete | Producer/consumer warpgroup pattern; pinned to `cutlass@f74fea9c`. Pitfalls is short (<50 lines) but covers the canonical hazards. |
 | `wiki/nvidia/techniques/persistent-kernel/` | skill.md, pitfalls.md | verified | measured | complete | Persistent-kernel ping-pong; same depth/notes as above. |
-| `wiki/nvidia/techniques/online-softmax/` | — | — | — | out-of-scope | Online-softmax is documented inline within `wiki/nvidia/foundations/compute/attention/mvp-minimal/skill.md` (algorithmic skeleton) and `sources/experience/api-probes/attention/artifacts/flash_attn_tma_wgmma.cu` (implementation). A standalone `wiki/nvidia/techniques/` entry is optional — the algorithm is already covered by the attention skill entries. Not required by any plan AC. |
-| `wiki/nvidia/techniques/split-k/` | — | — | — | absent (out of plan scope) | Listed in `AGENTS.md` as a future classical algo; not required by current plan ACs. Recorded for reference only. |
+| `wiki/nvidia/techniques/online-softmax/` | — | — | — | out-of-scope | Online-softmax is documented inline within `wiki/nvidia/foundations/compute/attention/mvp-minimal/skill.md` (algorithmic skeleton) and `artifacts/experience/api-probes/attention/flash_attn_tma_wgmma.cu` (implementation). A standalone `wiki/nvidia/techniques/` entry is optional — the algorithm is already covered by the attention skill entries. Not required by any plan AC. |
+| `wiki/nvidia/techniques/split-k/` | — | — | — | absent (out of plan scope) | Listed in `reasoning/AGENTS.md` as a future classical algo; not required by current plan ACs. Recorded for reference only. |
 
 ---
 
 ## Section D — `wiki/nvidia/code-walkthroughs/cutlass-cute/` (Code-extraction layer)
 
-This subtree is lint-exempt per AGENTS.md; entries carry README.md, tuning.md, and optional `*_skeleton.md`.
+This subtree is lint-exempt per reasoning/AGENTS.md; entries carry README.md, tuning.md, and optional `*_skeleton.md`.
 
 | Entry | Files | Classification | Notes / Gap |
 |-------|-------|----------------|-------------|
 | `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/` | README.md, mainloop_skeleton.md | complete | Reading guide for cutlass example 48; pairs with `wiki/nvidia/foundations/compute/gemm/aligned/`. Verify: `{{CUTLASS_REPO_REF}}/examples/48_hopper_warp_specialized_gemm/`. |
-| `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-aligned/` | README.md, tuning.md | complete | Cross-linked from this audit; needs back-link from `wiki/nvidia/foundations/compute/gemm/aligned/skill.md` body (closes AC-9 cross-link). |
+| `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-aligned/` | README.md, tuning.md | complete | Cross-linked from this audit; needs back-link from `wiki/nvidia/foundations/compute/gemm.md` body (closes AC-9 cross-link). |
 | `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-fused/` | README.md, tuning.md | complete | Same cross-link note. |
 | `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-tail/` | README.md, tuning.md | complete | Same cross-link note. |
 | `wiki/nvidia/code-walkthroughs/cutlass-cute/persistent-kernel/` | README.md, tuning.md | complete | Documents persistent-kernel knobs; pairs with `wiki/nvidia/techniques/persistent-kernel/`. |
@@ -126,7 +126,7 @@ Other probe directories (smem-bank-conflict, occupancy-sweep, warp-divergence-co
 
 ---
 
-## Section G — `corpus/nvidia/MANIFEST.yaml` (Source registry)
+## Section G — `corpus/MANIFEST.yaml` (Source registry)
 
 | Source | Present? | Classification | Notes / Gap |
 |--------|----------|----------------|-------------|
@@ -145,13 +145,13 @@ Other probe directories (smem-bank-conflict, occupancy-sweep, warp-divergence-co
 ### Targeted closures by AC
 - **AC-1**: this file.
 - **AC-2.1**: extend `wiki/nvidia/hardware/wgmma/skill.md` with `## Atomic Usage (cute)` + 1:1 mapping table to `sources/experience/hw-probes/wgmma-ptx/zoo/`.
-- **AC-2.2**: extend `wiki/nvidia/hardware/wgmma-ptx/skill.md` with `## Atomic Usage (PTX)` + create `wiki/nvidia/hardware/wgmma-ptx/atomic_skeleton.md` (companion `.cu` referenced from `sources/experience/api-probes/`).
+- **AC-2.2**: extend `wiki/nvidia/hardware/wgmma/skill-wgmma-ptx.md` with `## Atomic Usage (PTX)` + create `wiki/nvidia/hardware/wgmma-ptx/atomic_skeleton.md` (companion `.cu` referenced from `sources/experience/api-probes/`).
 - **AC-3**: create `wiki/nvidia/hardware/mma-sync-ptx/{skill.md,pitfalls.md}` and `wiki/nvidia/hardware/ldmatrix-ptx/{skill.md,pitfalls.md}`.
 - **AC-4**: create `wiki/nvidia/hardware/tcgen05-ptx/{skill.md,pitfalls.md}` (spec-only).
-- **AC-5**: create `wiki/nvidia/foundations/compute/attention/mvp-minimal/{skill.md,pitfalls.md,tuning.md}` + artifacts at `sources/experience/api-probes/attention/artifacts/`.
+- **AC-5**: create `wiki/nvidia/foundations/compute/attention/mvp-minimal/{skill.md,pitfalls.md,tuning.md}` + artifacts at `artifacts/experience/api-probes/attention/`.
 - **AC-6**: create `wiki/nvidia/code-walkthroughs/cutlass-cute/attention-fmha-example/{README.md,fmha_skeleton.md,tuning.md}` + **measured artifact** for `88_hopper_fmha` on H200 (at least one correctness/timing datapoint).
 - **AC-7**: create `wiki/nvidia/code-walkthroughs/cutlass-cute/attention-fmha-collective/{README.md,tuning.md}` + **measured collective datapoint** on H200 (at least one configuration with measured_on + artifact paths).
-- **AC-8**: register FAv3 in `corpus/nvidia/MANIFEST.yaml` and create `wiki/nvidia/code-walkthroughs/flash-attention-v3/{README.md,tuning.md}`.
+- **AC-8**: register FAv3 in `corpus/MANIFEST.yaml` and create `wiki/nvidia/code-walkthroughs/flash-attention-v3/{README.md,tuning.md}`.
 - **AC-9**: cross-link `wiki/nvidia/code-walkthroughs/cutlass-cute/<op>/tuning.md` from each `wiki/nvidia/foundations/compute/gemm*/skill.md`; add `tuning.md` to new attention skill (AC-5); land ≥1 measured sweep at `sources/experience/hw-probes/<operator>-tuning/`.
 - **AC-10**: run `python -m tools.lint_knowledge` and confirm exit 0 across full tree and per-layer.
 - **AC-11**: grep produced artifacts to confirm no plan-document terminology leaked.

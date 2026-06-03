@@ -22,7 +22,7 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/coalescing-stride/artifacts/coalescing_probe.cu
+  code: artifacts/experience/hw-probes/coalescing-stride/coalescing_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o coalescing_probe coalescing_probe.cu
   introspection: ''
   profile: ''

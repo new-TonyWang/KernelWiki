@@ -128,7 +128,7 @@ Normalization kernels are hybrid: a **reduction phase** (computing mean / varian
 - **Specific guidance for normalization**:
   - Pin **only** the parameters (gamma, beta, running_mean, running_var), not the activation stream. Activations are per-token ephemeral; tagging them persisting evicts reusable parameters. Use `hitProp=Persisting` for params, `missProp= Streaming` for everything else.
   - For the two-pass variant, pin the **activation** only between the two passes — set the window before pass 1, reset it after pass 2 via `cudaCtxResetPersistingL2Cache` (skill S3) so the next token-step starts clean.
-- **Measured impact**: +17.7% effective BW at WS = 80 MiB on H200 when `hitRatio` is tuned. See `sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md`.
+- **Measured impact**: +17.7% effective BW at WS = 80 MiB on H200 when `hitRatio` is tuned. See `sources/experience/hw-probes/l2-residency.md`.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` — normalization kernels whose second pass has DRAM bandwidth at saturation despite reading data just written by the first pass (no L2 reuse across launches).
 
 ### 15. Cache Load Hints (gamma/beta reads + two-pass activation re-reads)
@@ -144,7 +144,7 @@ Normalization kernels are hybrid: a **reduction phase** (computing mean / varian
   - `__ldcs` (evict-first) on gamma/beta: measured null in the un-contended case. Not worth the code noise.
 - **Specific guidance for normalization**:
   - If you are composing with the `l2-access-policy` skill (priority 14) to pin gamma/beta across launches, keep the per-instruction loads at default. The window picks *which lines survive L2 pressure*; the default `ld.global.ca` picks *L1 + L2 staging*. They compose, and both being right is necessary for the fast path.
-- **Measured impact on H200**: `__ldg` ≡ default on both DRAM and L2 regimes (within 0.5%); `__ldcg` / `__ldcv` cost 2.26× on L2-resident reuse. See `sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md`.
+- **Measured impact on H200**: `__ldg` ≡ default on both DRAM and L2 regimes (within 0.5%); `__ldcg` / `__ldcv` cost 2.26× on L2-resident reuse. See `sources/experience/hw-probes/cache-hint.md`.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` — normalization kernel with `__ldcg` on gamma/beta reported as slower than default. Correct response: revert to default, use `const __restrict__`, and compose with skill 14 (l2-access-policy) if cross-launch pinning is needed.
 
 ### 16. Half-Precision Math (fp16/bf16 for I/O; fp32 for the accumulator)
@@ -167,7 +167,7 @@ Normalization kernels are hybrid: a **reduction phase** (computing mean / varian
   - gamma / beta can be stored in fp16 or bf16 as long as their magnitudes fit (gamma typically ~1.0, beta typically ~0). Use `const __nv_bfloat16* __restrict__` parameters.
   - Compose with skill 15 (cache-load-hints) by default-loading — `const __restrict__` already emits the read-only path; do not reach for explicit `__ldg`.
   - Do NOT move to packed `__hfma2_relu` (fused FMA + ReLU) unless the kernel is already compute-bound after the mixed-precision shape; legacy P11 — memory-bound kernels see no wall-clock gain from the 4% instruction reduction.
-- **Measured impact on H200 sm_9.0a** (see `sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md`):
+- **Measured impact on H200 sm_9.0a** (see `sources/experience/hw-probes/half2-throughput.md`):
   - fp16 scalar FMA = 45 TFLOPS (1.58× fp32).
   - fp16 packed FMA = 52.6 TFLOPS (1.84× fp32, 1.16× fp16 scalar).
   - bf16 packed FMA = 46.5 TFLOPS (12% slower than fp16 packed).

@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/l2-residency/artifacts/l2_residency_probe.cu
-  build: artifacts/experience/hw-probes/l2-residency/artifacts/build.sh
-  introspection: artifacts/experience/hw-probes/l2-residency/artifacts/device.json
+  code: artifacts/experience/hw-probes/l2-residency/l2_residency_probe.cu
+  build: artifacts/experience/hw-probes/l2-residency/build.sh
+  introspection: artifacts/experience/hw-probes/l2-residency/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/l2_residency.ncu-rep
   ncu_txt_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/l2-residency/2026-04-23/ncu.txt

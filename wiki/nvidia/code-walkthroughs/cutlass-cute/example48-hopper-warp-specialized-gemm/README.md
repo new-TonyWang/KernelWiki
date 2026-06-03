@@ -15,7 +15,7 @@ examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
 
 It explains the example as one complete Hopper GEMM, not as separate TMA and warp-specialization topics. The runnable artifact for this path lives at:
 
-- `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu`
+- `artifacts/experience/api-probes/gemm/gemm_aligned.cu`
 
 No buildable code lives here.
 
@@ -53,8 +53,8 @@ Read this directory when you want to understand the source file's structure: how
 
 ## Cross-references
 
-- Aligned GEMM probe: `sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md`
-- TMA counters: `sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md`
-- WGMMA counters: `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md`
-- Warp-specialization ablation: `sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md`
+- Aligned GEMM probe: `sources/experience/api-probes/gemm.md`
+- TMA counters: `sources/experience/api-probes/gemm.md`
+- WGMMA counters: `sources/experience/api-probes/gemm.md`
+- Warp-specialization ablation: `sources/experience/api-probes/gemm.md`
 - Upstream (pinned): `cutlass@f74fea9c` (`{{CUTLASS_REPO_REF}}`)

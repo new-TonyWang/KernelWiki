@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/smem-tile-reuse/artifacts/smem_tile_reuse_probe.cu
-  build: artifacts/experience/hw-probes/smem-tile-reuse/artifacts/build.sh
-  introspection: artifacts/experience/hw-probes/smem-tile-reuse/artifacts/device.json
+  code: artifacts/experience/hw-probes/smem-tile-reuse/smem_tile_reuse_probe.cu
+  build: artifacts/experience/hw-probes/smem-tile-reuse/build.sh
+  introspection: artifacts/experience/hw-probes/smem-tile-reuse/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/smem-tile-reuse/2026-04-21/smem_tile_reuse.ncu-rep
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/smem-tile-reuse/2026-04-21/run.log

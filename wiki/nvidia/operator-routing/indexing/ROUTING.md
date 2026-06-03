@@ -126,7 +126,7 @@ This file lists the optimization skills applicable to a custom indexing kernel, 
 - **Specific guidance for indexing**:
   - For embedding lookup (`embed[tok_id]`) in LLM inference: pin the embedding table (often 200 MiB–1 GiB). Use `accessPolicyMaxWindowSize` cap on H200 = 128 MiB; window covers only a prefix, so `num_bytes = min(embed_bytes, 128 MiB)` and accept that only the first 128 MiB gets the policy tag.
   - For one-hot / gather-one-field: the input **indices** are streamed (missProp = Streaming), the **source** table is pinned (hitProp = Persisting); this asymmetric tag is the canonical shape for indexing.
-- **Measured impact**: +17.7% effective BW at WS = 80 MiB on H200 when `hitRatio` is tuned. See `sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md`.
+- **Measured impact**: +17.7% effective BW at WS = 80 MiB on H200 when `hitRatio` is tuned. See `sources/experience/hw-probes/l2-residency.md`.
 - **Relevance to bottleneck triage**: Q2/Q4 in `reasoning/bottleneck-triage.md` — indexing kernels with high `stall_long_scoreboard` or persistent L2 miss rate on the table buffer across launches.
 
 ### 13. Cache Load Hints (source-table reads; one measurably-bad trap)
@@ -139,7 +139,7 @@ This file lists the optimization skills applicable to a custom indexing kernel, 
 - **When NOT to apply**:
   - Never use `__ldcg` on the source table of a gather. The "L1 only holds a few KB per SM, bypass to save L1 for others" reasoning is legacy Kepler-era; on H200 the L1/TEX unit is unified and staging every read through it is the fast path.
   - `__ldcs` on the index stream looks superficially right ("streaming, one-shot"), but measured on H200 as a null vs default in the un-contended case. Skip it.
-- **Measured on H200**: `__ldg ≡ default` (within 0.5%); `__ldcg` at L2-resident reuse is 2.26× slower. See `sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md`.
+- **Measured on H200**: `__ldg ≡ default` (within 0.5%); `__ldcg` at L2-resident reuse is 2.26× slower. See `sources/experience/hw-probes/cache-hint.md`.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` — an indexing kernel where agent annotated `__ldcg(&src[idx])` and reports "slower than default". Correct response: revert to default load. Pair with skill 12 (l2-access-policy) if the table genuinely needs cross-launch pinning.
 
 ### 14. Branch Elimination (masked gather / conditional scatter)
@@ -154,5 +154,5 @@ This file lists the optimization skills applicable to a custom indexing kernel, 
   - Do not rewrite gather-with-mask as arithmetic; the measured 1.27× slowdown from cond-arith pattern applies here too.
   - Do not hand-code bit tricks for abs of indices — `abs(i - pivot)` using `fabsf` after casting is simpler and faster. For integer `abs`, the compiler does the right thing with the standard `abs(int)`.
   - For data-dependent branches with heavy bodies (calling a helper, doing a store), the compiler emits a real `BRA` and warp-divergence cost applies — see the `warp-divergence` skill for measurement and mitigation (warp-vote, data compaction).
-- **Measured on H200**: `fmaxf` / `fabsf` 1.56× / 2.36× faster than the `if/else` form; arithmetic simulation of select is 1.27× *slower* than `if/else`. See `sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md`.
+- **Measured on H200**: `fmaxf` / `fabsf` 1.56× / 2.36× faster than the `if/else` form; arithmetic simulation of select is 1.27× *slower* than `if/else`. See `sources/experience/hw-probes/branchless-patterns.md`.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` — indexing kernel with explicit branchless bit-twiddling that does not improve wall-clock. Correct response: swap to the intrinsic form; stop counting branches; count SASS ops.

@@ -20,10 +20,10 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/api-probes/gemm/artifacts/gemm_tail.cu
-  build: sources/experience/api-probes/gemm/artifacts/build_tail.sh
-  introspection: sources/experience/api-probes/gemm/artifacts/device.json
-  profile: sources/experience/api-probes/gemm/artifacts/profiles/2026-04-28-gemm-tail.csv
+  code: artifacts/experience/api-probes/gemm/gemm_tail.cu
+  build: artifacts/experience/api-probes/gemm/build_tail.sh
+  introspection: artifacts/experience/api-probes/gemm/device.json
+  profile: artifacts/experience/api-probes/gemm/2026-04-28-gemm-tail.csv
 upstream_repo: cutlass@f74fea9c
 related_apis: []
 related_skills:
@@ -72,11 +72,11 @@ The cooperative kernel's behavior at three non-aligned categories, measured on H
 
 The skill's primary hardware-probe evidence comes from the wgmma + TMA primitives the cooperative kernel composes. See:
 
-- TMA primitive (cutlass-API path): sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md. Cutlass-free isolated TMA bandwidth: sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md.
-- wgmma atom (cutlass-API path): sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md. Cutlass-free isolated wgmma family (N-shape × dtype × layout × A-source): sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md.
-- wgmma atom-shape sweep: sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md.
+- TMA primitive (cutlass-API path): sources/experience/api-probes/gemm.md. Cutlass-free isolated TMA bandwidth: sources/experience/hw-probes/tma-ptx.md.
+- wgmma atom (cutlass-API path): sources/experience/api-probes/gemm.md. Cutlass-free isolated wgmma family (N-shape × dtype × layout × A-source): sources/experience/hw-probes/wgmma-ptx.md.
+- wgmma atom-shape sweep: sources/experience/api-probes/gemm.md.
 
-The non-aligned-shape-specific measurements live in the api-probe at sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md:
+The non-aligned-shape-specific measurements live in the api-probe at sources/experience/api-probes/gemm.md:
 
 | Shape (MNK) | Category | Kernel template | cutlass result | cutlass μs | cutlass GFLOPS | cutlass-vs-cuBLAS direct diff |
 |---|---|---|---|---|---|---|
@@ -104,8 +104,8 @@ Other useful (but less tightly controlled) comparisons:
 
 ## Cross-references
 
-- Aligned baseline: `wiki/nvidia/foundations/compute/gemm/aligned/skill.md`
-- Library-usage notes + tuning log: `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-tail/{README.md, tuning.md}`. Canonical buildable artifact at `sources/experience/api-probes/gemm/artifacts/{gemm_tail.cu, gemm_tail_small.cu, helper.h, build_tail.sh, run_tail.sh}`.
-- Probe record: `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md`
+- Aligned baseline: `wiki/nvidia/foundations/compute/gemm.md`
+- Library-usage notes + tuning log: `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-tail/{README.md, tuning.md}`. Canonical buildable artifact at `artifacts/experience/api-probes/gemm/{gemm_tail.cu, gemm_tail_small.cu, helper.h, build_tail.sh, run_tail.sh}`.
+- Probe record: `sources/experience/api-probes/gemm.md`
 - Failure modes: `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/pitfalls.md`
 - Tuning parameter space: tuning.md.

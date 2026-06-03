@@ -20,7 +20,7 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/register-pressure/artifacts/reg_pressure_probe.cu
+  code: artifacts/experience/hw-probes/register-pressure/reg_pressure_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -Xptxas=-v -o probe_default reg_pressure_probe.cu
   introspection: ''
   profile: ''

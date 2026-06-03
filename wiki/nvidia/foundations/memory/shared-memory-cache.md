@@ -25,9 +25,9 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/smem-tile-reuse/artifacts/smem_tile_reuse_probe.cu
-  build: sources/experience/hw-probes/smem-tile-reuse/artifacts/build.sh
-  introspection: sources/experience/hw-probes/smem-tile-reuse/artifacts/device.json
+  code: artifacts/experience/hw-probes/smem-tile-reuse/smem_tile_reuse_probe.cu
+  build: artifacts/experience/hw-probes/smem-tile-reuse/build.sh
+  introspection: artifacts/experience/hw-probes/smem-tile-reuse/device.json
   profile: ''
 related_apis:
 - __syncthreads
@@ -189,7 +189,7 @@ The driver rounds up to the next supported capacity. PG §3.2.6 notes the setter
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using `sources/experience/hw-probes/smem-tile-reuse/` — S2 coalescing-transform variant on matrix transpose, N = 4096×4096 fp32, default L1/smem carveout, unlocked clock logged at 1980 MHz. Full record: sources/experience/hw-probes/smem-tile-reuse/2026-04-21-smem-tile-reuse.md.
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using `sources/experience/hw-probes/smem-tile-reuse/` — S2 coalescing-transform variant on matrix transpose, N = 4096×4096 fp32, default L1/smem carveout, unlocked clock logged at 1980 MHz. Full record: sources/experience/hw-probes/smem-tile-reuse.md.
 
 | Kernel                          | Median ms | Eff. BW GB/s | DRAM SoL | Warp cyc/issue | Bank conflicts (ld) |
 | ------------------------------- | --------: | -----------: | -------: | -------------: | ------------------: |

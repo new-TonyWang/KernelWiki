@@ -21,9 +21,9 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/aos-vs-soa/artifacts/aos_vs_soa_probe.cu
-  build: sources/experience/hw-probes/aos-vs-soa/artifacts/build.sh
-  introspection: sources/experience/hw-probes/aos-vs-soa/artifacts/device.json
+  code: artifacts/experience/hw-probes/aos-vs-soa/aos_vs_soa_probe.cu
+  build: artifacts/experience/hw-probes/aos-vs-soa/build.sh
+  introspection: artifacts/experience/hw-probes/aos-vs-soa/device.json
   profile: ''
 related_apis:
 - cudaMallocPitch
@@ -164,7 +164,7 @@ The selector `c` in `prmt.b32 d, a, b, c` is a 4-nibble control picking bytes 0.
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/aos-vs-soa/ — AoS-vs-SoA probe on `Particle{x,y,z,vx,vy,vz}` (24 B struct), N = 16,777,216 elements, kernel reads one field. Unlocked clock logged at 1980 MHz. Full record: sources/experience/hw-probes/aos-vs-soa/2026-04-22-aos-vs-soa.md.
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/aos-vs-soa/ — AoS-vs-SoA probe on `Particle{x,y,z,vx,vy,vz}` (24 B struct), N = 16,777,216 elements, kernel reads one field. Unlocked clock logged at 1980 MHz. Full record: sources/experience/hw-probes/aos-vs-soa.md.
 
 | Kernel                        | Median ms | Useful BW GB/s | DRAM SoL | Warp cyc/issue | Speedup |
 | ----------------------------- | --------: | -------------: | -------: | -------------: | ------: |

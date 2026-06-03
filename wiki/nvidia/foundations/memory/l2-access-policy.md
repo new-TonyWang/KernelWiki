@@ -23,9 +23,9 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/l2-residency/artifacts/l2_residency_probe.cu
-  build: sources/experience/hw-probes/l2-residency/artifacts/build.sh
-  introspection: sources/experience/hw-probes/l2-residency/artifacts/device.json
+  code: artifacts/experience/hw-probes/l2-residency/l2_residency_probe.cu
+  build: artifacts/experience/hw-probes/l2-residency/build.sh
+  introspection: artifacts/experience/hw-probes/l2-residency/device.json
   profile: ''
 related_apis:
 - cudaStreamSetAttribute
@@ -44,7 +44,7 @@ related_skills:
 - async-copy
 - coalescing
 experience_refs:
-- sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md
+- sources/experience/hw-probes/l2-residency.md
 id: skill-l2-access-policy
 type: skill
 vendor: nvidia
@@ -157,7 +157,7 @@ Semantics are identical to the stream variant; pick whichever matches the submis
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/l2-residency/ — a `repeat_read_sum` kernel with N_REPEATS=32 inner passes, swept over working-set sizes {4, 40, 80} MiB and policies {none, persist@1.0, persist@tuned}. Full record: sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md.
+Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/l2-residency/ — a `repeat_read_sum` kernel with N_REPEATS=32 inner passes, swept over working-set sizes {4, 40, 80} MiB and policies {none, persist@1.0, persist@tuned}. Full record: sources/experience/hw-probes/l2-residency.md.
 
 ### Effective bandwidth by (WS, policy)
 

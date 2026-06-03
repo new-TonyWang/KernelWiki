@@ -81,12 +81,12 @@ It is not the primary extraction target (sm_90a/H200 requires `88_hopper_fmha`) 
 
 ## How to build and run
 
-Repo-local extracted wrapper: `sources/experience/api-probes/attention/artifacts/cutlass_88_hopper_fmha.cu`
-Build script: `sources/experience/api-probes/attention/artifacts/build_cutlass_fmha.sh`
+Repo-local extracted wrapper: `artifacts/experience/api-probes/attention/cutlass_88_hopper_fmha.cu`
+Build script: `artifacts/experience/api-probes/attention/build_cutlass_fmha.sh`
 
 ```bash
 # Set CUTLASS_DIR to your cutlass checkout (default: {{CUTLASS_REPO_REF}})
-cd sources/experience/api-probes/attention/artifacts/
+cd artifacts/experience/api-probes/attention/
 CUTLASS_DIR=/path/to/cutlass bash build_cutlass_fmha.sh
 ./88_hopper_fmha --b=2 --h=16 --q=1024 --k=1024 --d=128 --verify
 ```
@@ -95,7 +95,7 @@ The wrapper includes the upstream source via `#include "88_hopper_fmha.cu"` and 
 
 ## H200 measured results
 
-See sources/experience/api-probes/attention/2026-05-08-cutlass-88-hopper-fmha.md.
+See sources/experience/api-probes/attention.md.
 
 | Config | Shape | TFLOPS/s | Correctness |
 |--------|-------|----------|-------------|

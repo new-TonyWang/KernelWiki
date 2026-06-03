@@ -6,7 +6,7 @@ source:
 - path: spec
   anchor: Reference
 experience_refs:
-- sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md
+- sources/experience/hw-probes/l2-residency.md
 id: pitfall-l2-access-policy
 type: pitfall
 vendor: nvidia

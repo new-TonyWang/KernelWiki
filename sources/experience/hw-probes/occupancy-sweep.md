@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/occupancy-sweep/artifacts/occupancy_sweep_probe.cu
+  code: artifacts/experience/hw-probes/occupancy-sweep/occupancy_sweep_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o occupancy_sweep_probe
     occupancy_sweep_probe.cu
   introspection: artifacts/experience/hw-probes/occupancy-sweep/h200_device_static.json

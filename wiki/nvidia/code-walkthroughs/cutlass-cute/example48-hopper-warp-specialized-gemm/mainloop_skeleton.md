@@ -135,6 +135,6 @@ KernelTmaWarpSpecializedCooperative ties the policy together
 - Directory overview: `README.md`
 - WGMMA atom decoding: `../wgmma-atom-decoding/wgmma_skeleton.md`
 - TMA hardware feature: `wiki/nvidia/hardware/tma/skill.md`
-- Warp-specialization algorithm: `wiki/nvidia/techniques/warp-specialization/skill.md`
-- Aligned GEMM probe: `sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md`
+- Warp-specialization algorithm: `wiki/nvidia/techniques/warp-specialization.md`
+- Aligned GEMM probe: `sources/experience/api-probes/gemm.md`
 - Upstream source: `{{CUTLASS_REPO_REF}}/examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu`

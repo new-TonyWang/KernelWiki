@@ -23,7 +23,7 @@ Template-parameter search and configuration-strategy notes for the cutlass align
 
 (Fill in as data lands.)
 
-- Small problems (M*N ≤ a few SM-fulls of CTAs): plain WS `<1,1,1>` typically wins. Reference: `sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.csv`.
+- Small problems (M*N ≤ a few SM-fulls of CTAs): plain WS `<1,1,1>` typically wins. Reference: `artifacts/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.csv`.
 - Medium / large with uniform K: pingpong `<2,1,1>`.
 - Large + cluster-multicast feasible: cooperative `<4,2,1>`.
 
@@ -38,6 +38,6 @@ Template-parameter search and configuration-strategy notes for the cutlass align
 
 ## References
 
-- Skill: `wiki/nvidia/foundations/compute/gemm/aligned/skill.md`
+- Skill: `wiki/nvidia/foundations/compute/gemm.md`
 - Pitfalls: `wiki/nvidia/foundations/compute/gemm/aligned/pitfalls.md`
-- Measured: `sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md`
+- Measured: `sources/experience/api-probes/gemm.md`

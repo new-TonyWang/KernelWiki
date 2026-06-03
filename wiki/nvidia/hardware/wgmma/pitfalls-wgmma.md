@@ -8,7 +8,7 @@ title: Pitfalls
 
 ## 1. `-arch=sm_90a`, not `-arch=sm_90`
 
-wgmma encodings live in the architecture-specific extension `sm_90a`. Plain `sm_90` will not emit wgmma PTX even if the cutlass templates instantiate it; you'll get either a `ptxas` error or, worse, a silently downgraded mma.sync path on some toolchain combinations. The canonical build script at `sources/experience/api-probes/gemm/artifacts/build.sh` pins `-arch=sm_90a`.
+wgmma encodings live in the architecture-specific extension `sm_90a`. Plain `sm_90` will not emit wgmma PTX even if the cutlass templates instantiate it; you'll get either a `ptxas` error or, worse, a silently downgraded mma.sync path on some toolchain combinations. The canonical build script at `artifacts/experience/api-probes/gemm/build.sh` pins `-arch=sm_90a`.
 
 ## 2. **Do not** copy Ampere `mma.sync` / `wmma` experience verbatim
 

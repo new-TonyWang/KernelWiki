@@ -21,9 +21,9 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/cache-hint/artifacts/cache_hint_probe.cu
-  build: sources/experience/hw-probes/cache-hint/artifacts/build.sh
-  introspection: sources/experience/hw-probes/cache-hint/artifacts/device.json
+  code: artifacts/experience/hw-probes/cache-hint/cache_hint_probe.cu
+  build: artifacts/experience/hw-probes/cache-hint/build.sh
+  introspection: artifacts/experience/hw-probes/cache-hint/device.json
   profile: ''
 related_apis:
 - __ldg
@@ -44,7 +44,7 @@ related_skills:
 - vectorized-access
 - register-pressure
 experience_refs:
-- sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md
+- sources/experience/hw-probes/cache-hint.md
 id: skill-cache-load-hints
 type: skill
 vendor: nvidia
@@ -241,7 +241,7 @@ surface. Retained as inferred pending a multi-kernel probe
 Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using
 sources/experience/hw-probes/cache-hint/ —
 6 load variants × 2 working-set regimes. Full record:
-sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md.
+sources/experience/hw-probes/cache-hint.md.
 
 ### DRAM regime (256 MiB, single pass) — variants collapse to DRAM BW
 

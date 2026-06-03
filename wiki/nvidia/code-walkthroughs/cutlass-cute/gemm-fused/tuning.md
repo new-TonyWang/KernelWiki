@@ -7,7 +7,7 @@ upstream_repo: NVIDIA/cutlass-cute
 ---
 # gemm-fused — tuning log (skeleton)
 
-Fusion decision tree + EVT plumbing notes. Numbers are link-only — pull from `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md` (ReLU fusion A/B probe).
+Fusion decision tree + EVT plumbing notes. Numbers are link-only — pull from `sources/experience/api-probes/gemm.md` (ReLU fusion A/B probe).
 
 ## When to fuse (vs run a separate post-kernel)
 
@@ -49,5 +49,5 @@ Q2. Is the GEMM at a shape where the post-GEMM kernel's DRAM round-trip
 
 - Skill: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md`
 - Pitfalls: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/pitfalls.md`
-- Probe: `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md`
+- Probe: `sources/experience/api-probes/gemm.md`
 - cuBLASLt fallback: `wiki/nvidia/operator-routing/tensor-core/gemm/library-fallback.md` §3

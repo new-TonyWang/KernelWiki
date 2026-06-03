@@ -13,13 +13,13 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: artifacts/experience/api-probes/gemm-ptx/artifacts/gemm_ptx.cu
-  build: artifacts/experience/api-probes/gemm-ptx/artifacts/build.sh
-  run: artifacts/experience/api-probes/gemm-ptx/artifacts/run.sh
-  introspection: artifacts/experience/api-probes/gemm-ptx/artifacts/device.json
-  profile: artifacts/experience/api-probes/gemm-ptx/artifacts/profiles/2026-04-28-gemm-ptx-hello.csv
-  distilled_view: wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu
-  distilled_build: wiki/nvidia/code-walkthroughs/ptx-gemm/build.sh
+  code: artifacts/experience/api-probes/gemm-ptx/gemm_ptx.cu
+  build: artifacts/experience/api-probes/gemm-ptx/build.sh
+  run: artifacts/experience/api-probes/gemm-ptx/run.sh
+  introspection: artifacts/experience/api-probes/gemm-ptx/device.json
+  profile: artifacts/experience/api-probes/gemm-ptx/2026-04-28-gemm-ptx-hello.csv
+  distilled_view: artifacts/experience/api-probes/gemm-ptx/gemm_ptx.cu
+  distilled_build: artifacts/experience/api-probes/gemm-ptx/build.sh
 upstream_repo: none (hand-rolled cutlass-free implementation)
 id: exp-gemm-ptx
 type: experience
@@ -97,7 +97,7 @@ $ ./gemm_ptx
 1. Read PTX ISA §"Asynchronous Warpgroup-Level Matrix Instructions / Matrix Fragments / m64nNk16" to extract the exact per-thread (row, col) mapping.
 2. Cross-check by extracting the same layout from cutlass's `cute::SM90::GMMA::MMA_64x8x16_F32BF16BF16_SS_TN` atom (the kernel never includes this; cross-checking happens in a separate audit binary).
 3. Update `gemm_ptx.cu`'s store stage with the corrected mapping; rerun.
-4. Promote `wiki/nvidia/foundations/compute/gemm-ptx/skill.md` from `partial` to `verified` once 0 mismatches against cuBLAS.
+4. Promote `wiki/nvidia/foundations/compute/gemm-ptx.md` from `partial` to `verified` once 0 mismatches against cuBLAS.
 
 ## Known caveats
 

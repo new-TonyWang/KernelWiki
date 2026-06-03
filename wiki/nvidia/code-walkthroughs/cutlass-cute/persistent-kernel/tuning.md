@@ -7,7 +7,7 @@ upstream_repo: NVIDIA/cutlass-cute
 ---
 # persistent-kernel — tuning log (skeleton)
 
-Pingpong vs cooperative selection + persistent-scheduler knobs. Numbers are link-only — pull from `sources/experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md`.
+Pingpong vs cooperative selection + persistent-scheduler knobs. Numbers are link-only — pull from `sources/experience/api-probes/gemm.md`.
 
 ## Pingpong vs cooperative
 
@@ -40,7 +40,7 @@ Pingpong vs cooperative selection + persistent-scheduler knobs. Numbers are link
 
 ## References
 
-- Skill: `wiki/nvidia/techniques/persistent-kernel/skill.md`
+- Skill: `wiki/nvidia/techniques/persistent-kernels.md`
 - Pitfalls: `wiki/nvidia/techniques/persistent-kernel/pitfalls.md`
-- Ablation: `sources/experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md`
+- Ablation: `sources/experience/api-probes/gemm.md`
 - Example 48 cooperative mainloop notes: `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/`

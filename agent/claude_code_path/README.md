@@ -41,7 +41,7 @@ execute the task.
 Both paths share the same:
 - Task YAML schema (tasks/*.yaml)
 - System prompt content (agent/shared/system_prompt.py)
-- Knowledge base contract (AGENTS.md)
+- Knowledge base contract (reasoning/AGENTS.md)
 - Meta-skills (reasoning/*)
 - Frontmatter templates (templates/frontmatter/*)
 - Output structure (wiki/nvidia/foundations/*, sources/experience/*)

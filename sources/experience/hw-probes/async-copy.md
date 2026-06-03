@@ -14,15 +14,14 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/async-copy/artifacts/async_copy_probe.cu
+  code: artifacts/experience/hw-probes/async-copy/async_copy_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o async_copy_probe async_copy_probe.cu
   introspection: ''
   profile: ''
 source:
-- path: <path-removed>
+- path: spec
   anchor: part-1-maximizing-memory-bandwidth
-  excerpt: LDGSTS landed in Ampere; TMA in Hopper. LDGSTS for 4/8/16-byte aligned
-    loads; TMA 1D for 16-byte aligned bulk copies.
+  excerpt: LDGSTS landed in Ampere; TMA in Hopper. LDGSTS for 4/8/16-byte aligned loads; TMA 1D for 16-byte aligned bulk copies.
 conclusions:
   max_abs_err: 0.0
   latency_ms_median: 0.9775
@@ -33,12 +32,8 @@ conclusions:
   ratio: 0.902
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- 'The 2-stage LDGSTS kernel is ~10% slower than vanilla for trivial a*b compute on
-  H200. This aligns with GTC25-S72683 guidance: the big wins are on iterative compute-heavy
-  kernels, not simple elementwise ops. The 4-byte L1 ACCESS mode adds overhead without
-  L1 BYPASS benefit.'
-- A future probe with heavier compute (sqrt chains) or L1 BYPASS mode (16-byte aligned
-  copies) should show the expected uplift.
+- 'The 2-stage LDGSTS kernel is ~10% slower than vanilla for trivial a*b compute on H200. This aligns with GTC25-S72683 guidance: the big wins are on iterative compute-heavy kernels, not simple elementwise ops. The 4-byte L1 ACCESS mode adds overhead without L1 BYPASS benefit.'
+- A future probe with heavier compute (sqrt chains) or L1 BYPASS mode (16-byte aligned copies) should show the expected uplift.
 id: exp-async-copy
 type: experience
 vendor: nvidia

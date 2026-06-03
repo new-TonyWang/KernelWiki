@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/launch-overhead/artifacts/launch_overhead_probe.cu
-  build: artifacts/experience/hw-probes/launch-overhead/artifacts/build.sh
-  introspection: artifacts/experience/hw-probes/launch-overhead/artifacts/device.json
+  code: artifacts/experience/hw-probes/launch-overhead/launch_overhead_probe.cu
+  build: artifacts/experience/hw-probes/launch-overhead/build.sh
+  introspection: artifacts/experience/hw-probes/launch-overhead/device.json
   profile: ''
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/launch-overhead/2026-04-23/run.log
 source:

@@ -19,14 +19,14 @@
 
 An agent starting any task under this directory MUST first read, in order:
 
-1. `70-reasoning/task-packet.md` — the input contract for a build task.
-2. `70-reasoning/api-probing.md` — the F10 protocol for probing an API you do not yet understand.
-3. `70-reasoning/hardware-microbench.md` — the protocol for **active microbenchmark probes** (compute-instruction latency, memory pointer chasing, whitepaper-driven feature sweeps). Use this whenever a task needs cycle-level or bandwidth facts that the passive introspection APIs cannot give.
-4. `70-reasoning/benchmark-protocol.md` — the N2 protocol for reproducible measurement.
-5. `70-reasoning/bottleneck-triage.md` — the decision tree for picking the next skill when a benchmark falls short.
+1. `reasoning/task-packet.md` — the input contract for a build task.
+2. `reasoning/api-probing.md` — the F10 protocol for probing an API you do not yet understand.
+3. `reasoning/hardware-microbench.md` — the protocol for **active microbenchmark probes** (compute-instruction latency, memory pointer chasing, whitepaper-driven feature sweeps). Use this whenever a task needs cycle-level or bandwidth facts that the passive introspection APIs cannot give.
+4. `reasoning/benchmark-protocol.md` — the N2 protocol for reproducible measurement.
+5. `reasoning/bottleneck-triage.md` — the decision tree for picking the next skill when a benchmark falls short.
 6. `templates/frontmatter/*.yaml` — required frontmatter schemas per layer.
-7. `05-source-corpus/RETRIEVAL.md` — the retrieval contract for upstream materials.
-8. `GLOBAL_VARIABLES.md` — placeholder variables for local paths or hosted mirrors.
+7. `corpus/nvidia/RETRIEVAL.md` — the retrieval contract for upstream materials.
+8. `corpus/GLOBAL_VARIABLES.md` — placeholder variables for local paths or hosted mirrors.
 
 If any of these files is missing, stop and report — do not improvise.
 
@@ -51,8 +51,8 @@ If any of these files is missing, stop and report — do not improvise.
 | `60-code/<source-repo>/<topic>/` | Code-repository extraction layer: **library-usage knowledge** for upstream operator libraries (cutlass / cute on Hopper; vllm; …). Per-topic directories carry `README.md` (when-to-use + knob catalogue), `tuning.md` (template-parameter search log + configuration strategy), and optional `<feature>_skeleton.md` (line-numbered tour of the upstream code). Buildable `.cu` / `build.sh` files do **not** live here — the canonical reproducible binaries are under `80-experience/<api-probes|hw-probes>/<topic>/artifacts/`. Exception: `60-code/ptx-gemm/` keeps its `.cu` because the cutlass-free track has no upstream example to point at. Lint exempts the whole subtree from frontmatter requirements. | — | Agent (driven by `docs/15-代码仓库抽取知识流程_update_en.md`) |
 | `70-reasoning/` | Meta-skills (handwritten, frozen) | — | Humans only; **agent is forbidden to write here** |
 | `80-experience/api-probes/` | F10 API-semantics probe products | Schema: `templates/frontmatter/experience.yaml` | Agent (during API probe) |
-| `80-experience/hw-probes/` | Hardware microbench probe products (compute-latency / memory-latency); `skill.md` links here via `## Measured Characteristics` | Schema: `templates/frontmatter/experience.yaml` | Agent (during microbench, see `70-reasoning/hardware-microbench.md`) |
-| `90-system-level/<sub-area>/` | Kernel-boundary and multi-kernel concerns (launch overhead, CUDA graphs, stream concurrency, host-device transfer, …) — operator-invariant, not referenced from `20-pattern/` ROUTING. Loaded on demand from `70-reasoning/bottleneck-triage.md` when the symptom matches. See `90-system-level/AGENTS.md` for the layer contract and roadmap. | `skill.md` + `apis.md` + `pitfalls.md` (same four-file convention as `30-skill/`) | Agent |
+| `80-experience/hw-probes/` | Hardware microbench probe products (compute-latency / memory-latency); `skill.md` links here via `## Measured Characteristics` | Schema: `templates/frontmatter/experience.yaml` | Agent (during microbench, see `reasoning/hardware-microbench.md`) |
+| `90-system-level/<sub-area>/` | Kernel-boundary and multi-kernel concerns (launch overhead, CUDA graphs, stream concurrency, host-device transfer, …) — operator-invariant, not referenced from `20-pattern/` ROUTING. Loaded on demand from `reasoning/bottleneck-triage.md` when the symptom matches. See `90-system-level/reasoning/AGENTS.md` for the layer contract and roadmap. | `skill.md` + `apis.md` + `pitfalls.md` (same four-file convention as `30-skill/`) | Agent |
 | `templates/frontmatter/` | YAML schemas for every layer's frontmatter | — | Humans only |
 
 Layer `07-wiki/` remains **out of scope** in MVP; do not create it. `40-hardware-feature/`, `50-classical-algo/`, and `60-code/` were deferred post-MVP at first but became **active** on 2026-04-28 under the cutlass-extraction plan (`docs/15-代码仓库抽取知识流程_update_en.md`); content there must follow the same evidence/source/artifact rules as `30-skill/`. `90-system-level/` is built incrementally — only `launch-overhead/` exists today; other sub-areas stay pending until a task needs them.
@@ -97,7 +97,7 @@ Layer `07-wiki/` remains **out of scope** in MVP; do not create it. `40-hardware
    - `INDEX.md` — decision tree: library-first → custom.
    - `ROUTING.md` — skill whitelist for this operator (only references skills already present under `30-skill/`).
    - `library-fallback.md` — documented torch / cub / cuBLAS paths with shape ranges.
-   - `TASK-PACKET.md` — the operator-specific task packet (refines `70-reasoning/task-packet.md`).
+   - `TASK-PACKET.md` — the operator-specific task packet (refines `reasoning/task-packet.md`).
 
 ---
 

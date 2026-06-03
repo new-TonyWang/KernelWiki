@@ -22,9 +22,9 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/barrier-cost/artifacts/barrier_cost_probe.cu
-  build: sources/experience/hw-probes/barrier-cost/artifacts/build.sh
-  introspection: sources/experience/hw-probes/barrier-cost/artifacts/device.json
+  code: artifacts/experience/hw-probes/barrier-cost/barrier_cost_probe.cu
+  build: artifacts/experience/hw-probes/barrier-cost/build.sh
+  introspection: artifacts/experience/hw-probes/barrier-cost/device.json
   profile: ''
 related_apis:
 - __syncthreads
@@ -185,7 +185,7 @@ The only time cluster-level `barrier.cluster.*` is appropriate is when the kerne
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/barrier-cost/ — per-call cost of three barrier primitives at block sizes {128, 256, 512, 1024}. 10,000 barrier calls per inner loop, CUDA-events timing. Full record: sources/experience/hw-probes/barrier-cost/2026-04-22-barrier-cost.md.
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/barrier-cost/ — per-call cost of three barrier primitives at block sizes {128, 256, 512, 1024}. 10,000 barrier calls per inner loop, CUDA-events timing. Full record: sources/experience/hw-probes/barrier-cost.md.
 
 ### ns per barrier call
 

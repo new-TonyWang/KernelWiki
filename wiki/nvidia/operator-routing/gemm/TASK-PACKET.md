@@ -8,7 +8,7 @@ source:
   anchor: L1-L109
   excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This
     file is the task packet.'
-- path: wiki/nvidia/operator-routing/cuda-core/reduction/TASK-PACKET.md
+- path: wiki/nvidia/operator-routing/reduction/TASK-PACKET.md
   anchor: Reduction -- Task Packet Template
   excerpt: Reference shape for the operator-specific task packet refinement
 id: routing-gemm-TASK-PACKET
@@ -82,7 +82,7 @@ baseline:
   # When set, the build script MUST run BOTH:
   #   nvcc -E <src>.cu | grep -E 'cutlass::|cute::'        # expect 0
   #   cuobjdump --dump-elf-symbols <bin> | grep -E 'cutlass::|cute::'  # expect 0
-  # See wiki/nvidia/foundations/compute/gemm-ptx/skill.md "Cutlass-free verification".
+  # See wiki/nvidia/foundations/compute/gemm-ptx.md "Cutlass-free verification".
 
 track:
   - cutlass-api    # one of:  cutlass-api  |  cutlass-free
@@ -135,8 +135,8 @@ notes: |
   Free-form guidance for the kernel-writing agent.
   Example: "Cutlass-free build: B must be physically transposed to col-major K x N
   before TMA load (wgmma .SS_TN expects K-major B); use the host-side transpose
-  pattern from wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu. Inherit the per-thread fragment-store
-  layout from wiki/nvidia/foundations/compute/gemm-ptx/skill.md verbatim until the upstream
+  pattern from artifacts/experience/api-probes/gemm-ptx/gemm_ptx.cu. Inherit the per-thread fragment-store
+  layout from wiki/nvidia/foundations/compute/gemm-ptx.md verbatim until the upstream
   fix for pitfall #1 lands."
 ```
 
@@ -170,8 +170,8 @@ success_criteria:
 references:
   - wiki/nvidia/operator-routing/tensor-core/gemm/INDEX.md
   - wiki/nvidia/operator-routing/tensor-core/gemm/ROUTING.md
-  - wiki/nvidia/foundations/compute/gemm/aligned/skill.md
-  - wiki/nvidia/techniques/warp-specialization/skill.md
+  - wiki/nvidia/foundations/compute/gemm.md
+  - wiki/nvidia/techniques/warp-specialization.md
   - reasoning/bottleneck-triage.md
 
 notes: |
@@ -217,11 +217,11 @@ success_criteria:
 references:
   - wiki/nvidia/operator-routing/tensor-core/gemm/INDEX.md
   - wiki/nvidia/operator-routing/tensor-core/gemm/ROUTING.md
-  - wiki/nvidia/foundations/compute/gemm-ptx/skill.md
+  - wiki/nvidia/foundations/compute/gemm-ptx.md
   - wiki/nvidia/foundations/compute/gemm-ptx/pitfalls.md
-  - wiki/nvidia/hardware/tma-ptx/skill.md
-  - wiki/nvidia/hardware/wgmma-ptx/skill.md
-  - wiki/nvidia/techniques/warp-specialization/skill.md
+  - wiki/nvidia/hardware/tma/skill-tma-ptx.md
+  - wiki/nvidia/hardware/wgmma/skill-wgmma-ptx.md
+  - wiki/nvidia/techniques/warp-specialization.md
   - wiki/nvidia/techniques/warp-specialization/pitfalls.md
 
 notes: |
@@ -229,7 +229,7 @@ notes: |
   Producer warp = warp 4; consumer warpgroup = warps 0..3. mbarrier
   full / empty pair per stage, expected_tx = TILE_BYTES_A + TILE_BYTES_B.
   B is host-transposed to col-major K x N before TMA load (gemm-ptx pitfall #0).
-  See sources/experience/kernel-records/2026-04-29-gemm-ws-ptx/README.md for
+  See sources/experience/kernel-records/2026-04-29-gemm-ws-ptx.md for
   the full design walkthrough.
 ```
 

@@ -51,9 +51,9 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/half2-throughput/artifacts/half2_throughput_probe.cu
-  build: sources/experience/hw-probes/half2-throughput/artifacts/build.sh
-  introspection: sources/experience/hw-probes/half2-throughput/artifacts/device.json
+  code: artifacts/experience/hw-probes/half2-throughput/half2_throughput_probe.cu
+  build: artifacts/experience/hw-probes/half2-throughput/build.sh
+  introspection: artifacts/experience/hw-probes/half2-throughput/device.json
   profile: ''
 related_apis:
 - __hadd
@@ -90,7 +90,7 @@ related_skills:
 - register-pressure
 - atomic-reduction
 experience_refs:
-- sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md
+- sources/experience/hw-probes/half2-throughput.md
 id: skill-half-precision-math
 type: skill
 vendor: nvidia
@@ -256,7 +256,7 @@ Available on sm_70+ (fp16) and sm_80+ (bf16). PTX maps to `atom.add.noftz.f16` /
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/half2-throughput/ — five FMA variants in a 4-chain ILP compute-bound harness. Full record: sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md.
+Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/half2-throughput/ — five FMA variants in a 4-chain ILP compute-bound harness. Full record: sources/experience/hw-probes/half2-throughput.md.
 
 ### Scalar-equivalent GFLOPS (counts 2 FP ops per packed instruction)
 

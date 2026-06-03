@@ -354,6 +354,50 @@ def validate_file(filepath, schemas, valid_tags, all_source_ids, code_langs):
                 f"expected '{constraints['type']}' for {page_type}"
             )
 
+    # Validate migrated kp-mvp source/artifact path contracts.  The older
+    # `source:` / `artifacts:` fields are intentionally allowed by the merged
+    # schemas, but their paths must still obey the post-migration split:
+    #   * source paths point at source/wiki/corpus/spec references, not
+    #     `sources/experience/**/artifacts/**`.
+    #   * artifact paths point at real files under `artifacts/**`, never under
+    #     `sources/experience/**/artifacts/**`.
+    def _is_local_ref_path(value):
+        if not isinstance(value, str) or not value:
+            return False
+        if value in {"spec", "manual", "n/a", "none"}:
+            return False
+        if value.startswith(("http://", "https://", "{{")):
+            return False
+        return value.startswith(("wiki/", "sources/", "artifacts/", "corpus/"))
+
+    def _check_local_path(field_name, value, *, artifact_field=False):
+        if not _is_local_ref_path(value):
+            return
+        if value.startswith("sources/experience/") and "/artifacts/" in value:
+            errors.append(
+                f"{rel}: {field_name} '{value}' mixes source and artifact roots; "
+                f"use artifacts/experience/... for files and sources/experience/*.md "
+                f"for source pages"
+            )
+            return
+        if artifact_field and value.startswith("sources/experience/"):
+            errors.append(
+                f"{rel}: {field_name} '{value}' is an artifact field pointing "
+                f"inside sources/experience; use artifacts/experience or a source_refs entry"
+            )
+            return
+        if not (REPO_ROOT / value).exists():
+            errors.append(f"{rel}: {field_name} path '{value}' does not exist")
+
+    if isinstance(fm.get("source"), list):
+        for i, entry in enumerate(fm["source"]):
+            if isinstance(entry, dict) and "path" in entry:
+                _check_local_path(f"source[{i}].path", str(entry["path"]))
+
+    if isinstance(fm.get("artifacts"), dict):
+        for key, value in fm["artifacts"].items():
+            _check_local_path(f"artifacts.{key}", str(value), artifact_field=True)
+
     # Check blackwell_relevance required for Hopper-only wiki pages
     # Pages targeting both Hopper AND Blackwell are inherently Blackwell-relevant
     if page_type.startswith("wiki-"):

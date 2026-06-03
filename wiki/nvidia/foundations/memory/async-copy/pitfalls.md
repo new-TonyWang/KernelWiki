@@ -13,10 +13,9 @@ applies_to_ops:
 requires_sm: '>=8.0'
 single_kernel_useful: true
 source:
-- path: <path-removed>
+- path: spec
   anchor: ldgsts-apis-and-modes
-  excerpt: L1 BYPASS -- sizeof(datatype) and alignment must be 16 bytes. producer_acquire()
-    and producer_commit() must be called from converged code.
+  excerpt: L1 BYPASS -- sizeof(datatype) and alignment must be 16 bytes. producer_acquire() and producer_commit() must be called from converged code.
 id: pitfall-async-copy
 type: pitfall
 vendor: nvidia

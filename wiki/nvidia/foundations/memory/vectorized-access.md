@@ -20,7 +20,7 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/vectorized-access/artifacts/vectorized_load_probe.cu
+  code: artifacts/experience/hw-probes/vectorized-access/vectorized_load_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o vectorized_load_probe vectorized_load_probe.cu
   introspection: ''
   profile: ''

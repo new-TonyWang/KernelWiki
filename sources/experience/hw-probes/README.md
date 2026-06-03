@@ -41,7 +41,7 @@ hw-probes/
 
 ### `canonical/` — generic baseline (produced by CLI)
 
-Produced by `kp_introspect microbench compute-latency` and `kp_introspect microbench memory-latency` (see booklet 07 §R.4.5.1 and §R.4.5.2). These files are **general-purpose** — one fma, one shuffle, one smem-same-bank read, etc. — and they feed `00-foundation/hardware-spec/h200-specs.md` with a canonical cycle table.
+Produced by `kp_introspect microbench compute-latency` and `kp_introspect microbench memory-latency` (see booklet 07 §R.4.5.1 and §R.4.5.2). These files are **general-purpose** — one fma, one shuffle, one smem-same-bank read, etc. — and they feed `wiki/nvidia/hardware/foundation/h200-specs.md` with a canonical cycle table.
 
 JSON format matches the `microbench` block in the `kp_introspect bundle` schema (see booklet 07 §R.6).
 

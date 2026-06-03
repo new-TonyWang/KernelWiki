@@ -9,8 +9,8 @@ upstream_repo: NVIDIA/cutlass-cute
 
 Library-usage knowledge for the persistent flavour of cutlass's `KernelTmaWarpSpecialized*` schedules. The canonical reproducible artifacts:
 
-- `sources/experience/api-probes/gemm/artifacts/gemm_compare_pingpong.cu` (pingpong, Cluster `<2,1,1>`)
-- `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu` (cooperative, Cluster `<4,2,1>` — auto-selected at large aligned shapes)
+- `artifacts/experience/api-probes/gemm/gemm_compare_pingpong.cu` (pingpong, Cluster `<2,1,1>`)
+- `artifacts/experience/api-probes/gemm/gemm_aligned.cu` (cooperative, Cluster `<4,2,1>` — auto-selected at large aligned shapes)
 
 This directory is the **distilled-knowledge view**. No buildable code lives here.
 
@@ -46,7 +46,7 @@ Persistent on/off at 2048³ is a wash; the persistent variants pay back only at 
 
 ## Cross-references
 
-- Skill: `wiki/nvidia/techniques/persistent-kernel/skill.md`
+- Skill: `wiki/nvidia/techniques/persistent-kernels.md`
 - Pitfalls: `wiki/nvidia/techniques/persistent-kernel/pitfalls.md`
 - Example 48 cooperative mainloop notes: `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/`
-- Ablation data: `sources/experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md`
+- Ablation data: `sources/experience/api-probes/gemm.md`

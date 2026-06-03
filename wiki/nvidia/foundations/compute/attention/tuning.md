@@ -54,7 +54,7 @@ Total dynamic smem = ~40.8 KB (fits in default 48 KB):
 
 The secondary reference kernel (`flash_attn_minimal.cu`) is templatized on BLOCK_M × BLOCK_N and has a measured tile-shape sweep on H200. This data characterizes thread-level scalar performance, not the primary TMA+wgmma kernel.
 
-H200-SXM, sm_90a, cuda 12.9.86. Fixed workload: B=1, H=2, S=256, D=64. CSV at `sources/experience/api-probes/attention/artifacts/profiles/attention-sweep.csv`. Full analysis at `sources/experience/hw-probes/attention-tuning/2026-05-08-attention-tile-sweep.md`.
+H200-SXM, sm_90a, cuda 12.9.86. Fixed workload: B=1, H=2, S=256, D=64. CSV at `artifacts/experience/api-probes/attention/attention-sweep.csv`. Full analysis at `sources/experience/hw-probes/attention-tuning.md`.
 
 | BLOCK_M | BLOCK_N | kernel_ms | throughput_gflops | Disposition |
 |---|---|---|---|---|

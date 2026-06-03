@@ -224,7 +224,7 @@ The implementation moves existing wiki/ content under wiki/nvidia/, adds the 7 n
    - Move `wiki/{hardware,techniques,kernels,patterns,languages,migration}/` → `wiki/nvidia/`
    - Create new directories: `wiki/nvidia/foundations/`, `wiki/nvidia/operator-routing/`, `wiki/nvidia/api-definitions/`, `wiki/nvidia/code-walkthroughs/`
    - Rewrite all relative links in frontmatter (`related:`, `sources:`) and body text
-   - Set up corpus/ structure: `corpus/MANIFEST.yaml`, `corpus/localize.yaml.example`, `corpus/GLOBAL_VARIABLES.md`, `corpus/RETRIEVAL.md`, `corpus/.external/`
+   - Set up corpus/ structure: `corpus/MANIFEST.yaml`, `corpus/localize.yaml.example`, `corpus/corpus/GLOBAL_VARIABLES.md`, `corpus/RETRIEVAL.md`, `corpus/.external/`
    - Configure Git LFS: add `.gitattributes` for `corpus/nvidia/**` patterns
    - Copy tier-1 in-git corpus via Git LFS: `corpus/nvidia/cuda-official/`, `corpus/nvidia/blogs/`, `corpus/nvidia/whitepapers/`
    - Copy `reasoning/`, `templates/`, `agent/`, `tasks/` from kernel-kb-mvp
@@ -459,7 +459,7 @@ corpus/nvidia/whitepapers/** filter=lfs diff=lfs merge=lfs -text
 ```
 # migration_inventory.tsv
 input_path\toutput_path\tpage_id\tpage_type\tvendor\tstatus\treason
-knowledge/30-skill/compute/warp-primitives/skill.md\twiki/nvidia/foundations/compute/warp-primitives.md\tskill-warp-primitives\tskill\tnvidia\tmigrated\t
+knowledge/wiki/nvidia/foundations/compute/warp-primitives.md\twiki/nvidia/foundations/compute/warp-primitives.md\tskill-warp-primitives\tskill\tnvidia\tmigrated\t
 knowledge/80-experience/hw-probes/tma-ptx/\tsources/experience/hw-probes/tma-ptx.md\texp-tma-ptx-hello\texperience\tnvidia\tmigrated\t
 ```
 
@@ -765,7 +765,7 @@ KernelWiki/                                   # Repository root
 ├── corpus/                                   # ━━━ NEW: upstream source corpus (two-tier) ━━━
 │   ├── MANIFEST.yaml                         #   Source registry (from kb-mvp 05-source-corpus/)
 │   ├── RETRIEVAL.md                          #   Retrieval contract for agents
-│   ├── GLOBAL_VARIABLES.md                   #   Placeholder variable documentation
+│   ├── corpus/GLOBAL_VARIABLES.md                   #   Placeholder variable documentation
 │   ├── localize.yaml.example                 #   Example localization config
 │   ├── nvidia/                               #   ━━ Tier 1: In-git vendor corpus ━━
 │   │   ├── cuda-official/                    #     CUDA 13.2 docs (122MB, 1037 files)
@@ -843,7 +843,7 @@ corpus/
 │   └── claude-research/             #   → /path/to/research notes
 │
 ├── MANIFEST.yaml                    # Registry: declares BOTH tiers
-├── GLOBAL_VARIABLES.md              # Documents all {{PLACEHOLDER}} vars
+├── corpus/GLOBAL_VARIABLES.md              # Documents all {{PLACEHOLDER}} vars
 ├── RETRIEVAL.md                     # Agent retrieval contract
 └── localize.yaml.example            # Template for user's local config
 ```
@@ -1345,13 +1345,13 @@ wiki-code-walkthrough:
 | `knowledge/05-source-corpus/whitepapers/` | `corpus/nvidia/whitepapers/` | Copy tier-1 in-git corpus (34MB) |
 | `knowledge/05-source-corpus/legacy-knowledge/` | `corpus/nvidia/legacy-knowledge/` | Copy minus `experience/` (193 files deleted) |
 | `knowledge/05-source-corpus/MANIFEST.yaml` | `corpus/MANIFEST.yaml` | Copy + rewrite `local_path` prefixes (`05-source-corpus/` → `nvidia/`) |
-| `knowledge/05-source-corpus/RETRIEVAL.md` | `corpus/RETRIEVAL.md` | Copy + update path references |
+| `knowledge/corpus/nvidia/RETRIEVAL.md` | `corpus/RETRIEVAL.md` | Copy + update path references |
 | `knowledge/05-source-corpus/INDEX/` | `corpus/INDEX/` | Copy provenance indices |
-| `knowledge/GLOBAL_VARIABLES.md` | `corpus/GLOBAL_VARIABLES.md` | Copy + extend for multi-vendor |
+| `knowledge/corpus/GLOBAL_VARIABLES.md` | `corpus/corpus/GLOBAL_VARIABLES.md` | Copy + extend for multi-vendor |
 | *Tier-2 external refs* | `corpus/.external/` (gitignored) | NOT copied. User runs `scripts/localize.py init-config` to configure local paths, then `scripts/localize.py link` to create symlinks |
 | `tools/kb_localize.py` | `scripts/localize.py` | Copy + adapt: config path → `corpus/localize.yaml`, resolve root → `corpus/` |
 | `tools/source_corpus/` | `scripts/source_corpus/` | Copy + adapt: corpus root → `corpus/`, placeholder resolution via `localize.py` |
-| `knowledge/AGENTS.md` | `reasoning/AGENTS.md` | Copy + update paths |
+| `knowledge/reasoning/AGENTS.md` | `reasoning/reasoning/AGENTS.md` | Copy + update paths |
 | `agent/` | `agent/` | Copy |
 | `tools/lint_knowledge.py` | `scripts/lint_knowledge.py` | Copy + adapt paths |
 | `tools/kp_introspect.py` | `scripts/kp_introspect.py` | Copy (optional, for GPU introspection) |
@@ -1421,9 +1421,9 @@ Key changes:
 2. Create `wiki/nvidia/foundations/`, `wiki/nvidia/operator-routing/`, `wiki/nvidia/api-definitions/`, `wiki/nvidia/code-walkthroughs/`, `wiki/nvidia/probes/`
 3. **Set up corpus/ two-tier structure:**
    - Copy tier-1 in-git corpus: `05-source-corpus/{cuda-official,blogs,whitepapers}` → `corpus/nvidia/`
-   - Copy `MANIFEST.yaml`, `RETRIEVAL.md`, `GLOBAL_VARIABLES.md`, `INDEX/` → `corpus/`
+   - Copy `MANIFEST.yaml`, `RETRIEVAL.md`, `corpus/GLOBAL_VARIABLES.md`, `INDEX/` → `corpus/`
    - Rewrite MANIFEST.yaml `local_path` prefixes (`05-source-corpus/X` → `nvidia/X`)
-   - Create `corpus/localize.yaml.example` from GLOBAL_VARIABLES.md
+   - Create `corpus/localize.yaml.example` from corpus/GLOBAL_VARIABLES.md
    - Create `corpus/.external/` with `.gitignore` (ignore all contents)
    - Create `corpus/.external/README.md` with setup instructions
 4. **Set up localization tooling:**
@@ -1468,7 +1468,7 @@ Key changes:
 2. Update `agent/shared/system_prompt.py` — reference new paths
 3. Update `agent/shared/tools.py` — adapt source_corpus paths
 4. Update all `tasks/*.yaml` — rewrite `target_path` references
-5. Update `reasoning/AGENTS.md` — new layer table, path references
+5. Update `reasoning/reasoning/AGENTS.md` — new layer table, path references
 6. Smoke-test: run one agent task end-to-end in new structure
 
 ### Phase 5: Index & Documentation (Week 4)
@@ -1559,7 +1559,7 @@ When adding Huawei Ascend support:
 3. Create `wiki/huawei/` with at minimum `hardware/` and `foundations/`
 4. Create `corpus/huawei/` with CANN docs and upstream references
 5. Add Huawei-specific task YAML templates under `tasks/`
-6. Update `reasoning/AGENTS.md` to add Ascend constraints (target hardware, compile command, etc.)
+6. Update `reasoning/reasoning/AGENTS.md` to add Ascend constraints (target hardware, compile command, etc.)
 7. Agent can now generate pages under `wiki/huawei/` using same pipeline
 8. Run `scripts/generate-indices.py` to add Huawei entries to `queries/by-vendor.md`
 9. Update SKILL.md description to include Huawei

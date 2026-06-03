@@ -8,7 +8,7 @@ title: Pitfalls
 
 ## 1. `-arch=sm_90a`, not `-arch=sm_90`
 
-TMA + wgmma encodings live in `sm_90a` (the "a" = architecture-specific extension). Compiling with plain `sm_90` produces `ptxas` errors on `cp.async.bulk.tensor.*`. The canonical build script at `sources/experience/api-probes/gemm/artifacts/build.sh` pins `-arch=sm_90a` for this reason.
+TMA + wgmma encodings live in `sm_90a` (the "a" = architecture-specific extension). Compiling with plain `sm_90` produces `ptxas` errors on `cp.async.bulk.tensor.*`. The canonical build script at `artifacts/experience/api-probes/gemm/build.sh` pins `-arch=sm_90a` for this reason.
 
 ## 2. Descriptor lifetime: encoded once, read many times
 

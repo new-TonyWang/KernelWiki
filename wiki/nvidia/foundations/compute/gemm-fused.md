@@ -21,10 +21,10 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/api-probes/gemm/artifacts/gemm_compare_relu.cu
-  build: sources/experience/api-probes/gemm/artifacts/build_fused.sh
-  introspection: sources/experience/api-probes/gemm/artifacts/device.json
-  profile: sources/experience/api-probes/gemm/artifacts/profiles/2026-04-28-gemm-fused-epilogue.csv
+  code: artifacts/experience/api-probes/gemm/gemm_compare_relu.cu
+  build: artifacts/experience/api-probes/gemm/build_fused.sh
+  introspection: artifacts/experience/api-probes/gemm/device.json
+  profile: artifacts/experience/api-probes/gemm/2026-04-28-gemm-fused-epilogue.csv
 upstream_repo: cutlass@f74fea9c
 related_skills:
 - warp-specialization
@@ -101,18 +101,18 @@ Other fusion patterns documented but not timed yet:
 
 | Pattern | Status | Where |
 |---|---|---|
-| Epilogue activation fusion (ReLU) | **Verified — measured A/B at 2048³** | `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md` |
+| Epilogue activation fusion (ReLU) | **Verified — measured A/B at 2048³** | `sources/experience/api-probes/gemm.md` |
 | Epilogue swizzle (S8 GEMM, output stride/swizzle) | Correctness-only via cutlass example 50 | upstream `examples/50_hopper_gemm_with_epilogue_swizzle/` |
 | Prologue dequant (int4 × bf16 mixed-dtype) | Reference only; queued for follow-up | upstream `examples/55_hopper_mixed_dtype_gemm/` |
 | Epilogue topK + softmax via EVT | Reference only; queued for follow-up | upstream `examples/61_hopper_gemm_with_topk_and_softmax/` |
 
 ## Cross-references
 
-- Aligned GEMM consumer: `wiki/nvidia/foundations/compute/gemm/aligned/skill.md` (the unfused baseline)
-- Warp-specialization (the schedule that hosts the fused mainloop): `wiki/nvidia/techniques/warp-specialization/skill.md`
-- TMA primitive (the prologue dequant uses TMA): `wiki/nvidia/hardware/tma/skill.md` (see also `sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md` for cutlass-API observations and `sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md` for the isolated TMA bandwidth sweep)
-- wgmma atom (the compute primitive): `wiki/nvidia/hardware/wgmma/skill.md` (see also `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md` for cutlass-API observations and `sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md` for the isolated 11-config wgmma family zoo)
-- Library-usage notes + tuning log: `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-fused/{README.md, tuning.md}`. Canonical reproducible artifact: `sources/experience/api-probes/gemm/artifacts/gemm_compare_relu.cu` + upstream `examples/50_hopper_gemm_with_epilogue_swizzle/` built in place by `run_fused.sh`.
-- Probe (verified epilogue, partial prologue): `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md`
+- Aligned GEMM consumer: `wiki/nvidia/foundations/compute/gemm.md` (the unfused baseline)
+- Warp-specialization (the schedule that hosts the fused mainloop): `wiki/nvidia/techniques/warp-specialization.md`
+- TMA primitive (the prologue dequant uses TMA): `wiki/nvidia/hardware/tma/skill.md` (see also `sources/experience/api-probes/gemm.md` for cutlass-API observations and `sources/experience/hw-probes/tma-ptx.md` for the isolated TMA bandwidth sweep)
+- wgmma atom (the compute primitive): `wiki/nvidia/hardware/wgmma/skill.md` (see also `sources/experience/api-probes/gemm.md` for cutlass-API observations and `sources/experience/hw-probes/wgmma-ptx.md` for the isolated 11-config wgmma family zoo)
+- Library-usage notes + tuning log: `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-fused/{README.md, tuning.md}`. Canonical reproducible artifact: `artifacts/experience/api-probes/gemm/gemm_compare_relu.cu` + upstream `examples/50_hopper_gemm_with_epilogue_swizzle/` built in place by `run_fused.sh`.
+- Probe (verified epilogue, partial prologue): `sources/experience/api-probes/gemm.md`
 - Failure modes: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/pitfalls.md`
 - Tuning parameter space: tuning.md.

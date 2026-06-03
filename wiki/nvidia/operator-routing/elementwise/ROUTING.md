@@ -106,7 +106,7 @@ This file lists the optimization skills applicable to custom elementwise kernels
 - **When NOT to apply**:
   - Never use `__ldcg` / `__ldcv` on elementwise inputs. The 2.26× L2-reuse penalty hits any chained elementwise kernel where the input is touched by more than one pass.
   - `__ldcs` (streaming / evict-first) is a measured null in un-contended L2 — elementwise MVPs have no competing workload, so no benefit. Default-load.
-- **Measured impact on H200**: none in single-kernel elementwise. Benefit only materializes in contended-L2 scenarios not reached by MVP harnesses; see `sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md`.
+- **Measured impact on H200**: none in single-kernel elementwise. Benefit only materializes in contended-L2 scenarios not reached by MVP harnesses; see `sources/experience/hw-probes/cache-hint.md`.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` — agent reports "tried `__ldcg` and slower". Correct response: revert to default load and fix pointer qualifiers (`const __restrict__`).
 
 ### Priority 13: Half-Precision Math (fp16 / bf16 scalar + packed)
@@ -126,7 +126,7 @@ This file lists the optimization skills applicable to custom elementwise kernels
   - fp16 scalar = 1.58× fp32 scalar throughput (45 vs 29 TFLOPS).
   - fp16 packed (`__hfma2`) = 1.84× fp32 scalar (1.16× over fp16 scalar).
   - bf16 packed = 12% slower than fp16 packed (46 vs 53 TFLOPS).
-  - See `sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md`.
+  - See `sources/experience/hw-probes/half2-throughput.md`.
 - **Relevance to bottleneck triage**: Q3 in `reasoning/bottleneck-triage.md` — elementwise kernel with fp16 input and suspected overflow in a fused reduction-like step. Correct response: promote accumulator to fp32, cast at store.
 
 ### Priority 14: Branch Elimination (use intrinsics; do NOT simulate select with arithmetic)
@@ -141,5 +141,5 @@ This file lists the optimization skills applicable to custom elementwise kernels
   - Do NOT rewrite `if/else` as `a * (1-c) + b * c` — measured **1.27× slower** on H200 (4 FP ops vs 1 FSEL). This is the most common anti-pattern.
   - Do NOT use explicit bit tricks for abs / relu — the compiler synthesises `fabsf` to one `LOP3.LUT` but hand bit tricks emit two LOP3s because the int↔float round-trip prevents fusion.
   - When the `if/else` body is non-trivial (function call, memory store, long expression), a real branch (`BRA`) is emitted and divergence cost becomes real — that is the `warp-divergence` skill's regime, not this one.
-- **Measured impact on H200 sm_9.0a**: 1.56× speedup (ReLU via `fmaxf`), 2.36× (abs via `fabsf`), 0.79× (if you arithmetic-simulate a select — slower). See `sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md`.
+- **Measured impact on H200 sm_9.0a**: 1.56× speedup (ReLU via `fmaxf`), 2.36× (abs via `fabsf`), 0.79× (if you arithmetic-simulate a select — slower). See `sources/experience/hw-probes/branchless-patterns.md`.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` — elementwise kernel whose hot path includes `(x < 0) ? 0 : x` or `if (cond) dst[i] = ...`. Check SASS: if it is already `FSEL`, the branch doesn't exist; focus elsewhere. If it is `BRA`, simplify the body so predication kicks in.

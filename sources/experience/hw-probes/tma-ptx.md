@@ -11,13 +11,13 @@ evidence_level: measured
 clock_policy: as-launched (H200 boost-clock unlocked)
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: wiki/nvidia/hardware/tma-ptx/skill.md
+- path: wiki/nvidia/hardware/tma/skill-tma-ptx.md
   anchor: cutlass-free TMA primitive (this probe extends it with multicast::cluster)
 artifacts:
-  code: artifacts/experience/hw-probes/tma-ptx/artifacts/tma_multicast_probe.cu
-  build: artifacts/experience/hw-probes/tma-ptx/artifacts/build_multicast.sh
-  run: artifacts/experience/hw-probes/tma-ptx/artifacts/run_multicast.sh
-  profile: artifacts/experience/hw-probes/tma-ptx/artifacts/profiles/2026-04-30-tma-multicast.csv
+  code: artifacts/experience/hw-probes/tma-ptx/tma_multicast_probe.cu
+  build: artifacts/experience/hw-probes/tma-ptx/build_multicast.sh
+  run: artifacts/experience/hw-probes/tma-ptx/run_multicast.sh
+  profile: artifacts/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.csv
 upstream_repo: none (hand-rolled cutlass-free implementation)
 conclusions:
   workload: 132 CTAs (= H200 SM count) arranged as 132/C clusters of size C ∈ {1,
@@ -76,7 +76,7 @@ source_refs:
 ---
 ## Summary
 
-This probe extends the cutlass-free TMA primitive at `wiki/nvidia/hardware/tma-ptx/skill.md` with the **cluster-multicast** variant of `cp.async.bulk.tensor` — the PTX instruction that lets one CTA in a cluster issue a single TMA load and have the result delivered into the smem of multiple CTAs in the same cluster, with each receiving CTA's mbarrier signalled by the same load. Multicast is the hardware mechanism that makes cooperative warp-specialised GEMM (cutlass `KernelTmaWarpSpecializedCooperative`) bandwidth-efficient: when both CTAs in a cluster need the same A or B tile, multicast loads it from DRAM once instead of twice.
+This probe extends the cutlass-free TMA primitive at `wiki/nvidia/hardware/tma/skill-tma-ptx.md` with the **cluster-multicast** variant of `cp.async.bulk.tensor` — the PTX instruction that lets one CTA in a cluster issue a single TMA load and have the result delivered into the smem of multiple CTAs in the same cluster, with each receiving CTA's mbarrier signalled by the same load. Multicast is the hardware mechanism that makes cooperative warp-specialised GEMM (cutlass `KernelTmaWarpSpecializedCooperative`) bandwidth-efficient: when both CTAs in a cluster need the same A or B tile, multicast loads it from DRAM once instead of twice.
 
 The probe sweeps cluster size **C ∈ {1, 2, 4}**, holds the per-CTA workload constant at 124 tiles (8 KiB each), and reports DRAM bytes / time + effective smem-bytes-delivered / time. Holding per-CTA work constant lets the multicast benefit show as **DRAM reads scaling 1/C while smem-delivered stays constant** — i.e., effective bandwidth amplification.
 

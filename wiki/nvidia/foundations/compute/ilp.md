@@ -20,7 +20,7 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/ilp/artifacts/ilp_fma_probe.cu
+  code: artifacts/experience/hw-probes/ilp/ilp_fma_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o ilp_fma_probe ilp_fma_probe.cu
   introspection: ''
   profile: ''

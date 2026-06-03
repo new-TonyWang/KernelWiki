@@ -1,34 +1,26 @@
 ---
-api: MVP minimal flash-attention — thread-level reference (secondary; TMA+wgmma primary
-  is pending H200 validation)
+api: MVP minimal flash-attention — thread-level reference (secondary; TMA+wgmma primary is pending H200 validation)
 namespace: attention
 probe_slug: mvp-attention
 status: verified
 kind: api-probe
-trigger: validate correctness and kernel-parameter tuning of hand-built flash-attention
-  on H200
+trigger: validate correctness and kernel-parameter tuning of hand-built flash-attention on H200
 evidence_level: measured
 clock_policy: as-launched (H200 boost-clock unlocked)
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: sources/experience/api-probes/attention/artifacts/flash_attn_minimal.cu
+- path: sources/experience/api-probes/attention.md
   anchor: flash_attn_kernel<BM,BN> — templatized thread-level online-softmax attention
 artifacts:
-  code: artifacts/experience/api-probes/attention/artifacts/flash_attn_minimal.cu
-  build: artifacts/experience/api-probes/attention/artifacts/build.sh
-  run: artifacts/experience/api-probes/attention/artifacts/run.sh
-  introspection: artifacts/experience/api-probes/attention/artifacts/device.json
-  profile: artifacts/experience/api-probes/attention/artifacts/profiles/attention-sweep.csv
+  code: artifacts/experience/api-probes/attention/flash_attn_minimal.cu
+  build: artifacts/experience/api-probes/attention/build.sh
+  run: artifacts/experience/api-probes/attention/run.sh
+  introspection: artifacts/experience/api-probes/attention/device.json
+  profile: artifacts/experience/api-probes/attention/attention-sweep.csv
 conclusions:
-  workload: Scaled dot-product attention O = softmax(Q@K^T / sqrt(d)) @ V via FlashAttention-2
-    online softmax. Thread-level math (no wgmma). fp16 inputs, f32 accumulator, fp16
-    output. HEAD_DIM=64, NTHREADS=128. Kernel templatized on BLOCK_M and BLOCK_N.
-  correctness: max_abs_err = 0.000031 at B=1 H=2 S=128 D=64 BLOCK_M=64 BLOCK_N=64
-    seed=42 against CPU reference. Well within 1e-2 tolerance. All 6 tuning configs
-    also pass correctness.
-  tuning_sweep: 'Fixed-workload kernel-parameter sweep at B=1 H=2 S=256 D=64 over
-    6 BLOCK_M x BLOCK_N configs. Best: BLOCK_M=32 BLOCK_N=64 at 0.151 ms (2.0x faster
-    than default 64x64). BLOCK_M is the dominant knob.'
+  workload: Scaled dot-product attention O = softmax(Q@K^T / sqrt(d)) @ V via FlashAttention-2 online softmax. Thread-level math (no wgmma). fp16 inputs, f32 accumulator, fp16 output. HEAD_DIM=64, NTHREADS=128. Kernel templatized on BLOCK_M and BLOCK_N.
+  correctness: max_abs_err = 0.000031 at B=1 H=2 S=128 D=64 BLOCK_M=64 BLOCK_N=64 seed=42 against CPU reference. Well within 1e-2 tolerance. All 6 tuning configs also pass correctness.
+  tuning_sweep: 'Fixed-workload kernel-parameter sweep at B=1 H=2 S=256 D=64 over 6 BLOCK_M x BLOCK_N configs. Best: BLOCK_M=32 BLOCK_N=64 at 0.151 ms (2.0x faster than default 64x64). BLOCK_M is the dominant knob.'
 id: exp-attention
 type: experience
 vendor: nvidia

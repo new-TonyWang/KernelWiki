@@ -77,7 +77,7 @@ See `tuning.md` for the full table. Key distinction:
 
 ## H200 measured collective datapoint
 
-See sources/experience/api-probes/attention/2026-05-08-cutlass-fmha-collective.md.
+See sources/experience/api-probes/attention.md.
 
 Configuration: B=2 H=16 Q=2048 K=2048 D=128, causal mask, kNumMmaWarpGroups=2 (BLOCK_M=128).
 

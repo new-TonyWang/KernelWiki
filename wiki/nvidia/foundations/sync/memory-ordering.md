@@ -14,11 +14,9 @@ requires_features:
 - scoped-atomics
 single_kernel_useful: true
 source:
-- path: <path-removed>
+- path: spec
   anchor: part-2--the-cuda-memory-model-allart
-  excerpt: A memory model determines the values a load can legally return from memory
-    - it is a contract between the user, the compiler, the hardware and the programming
-    language.
+  excerpt: A memory model determines the values a load can legally return from memory - it is a contract between the user, the compiler, the hardware and the programming language.
 artifacts:
   code: ''
   build: ''

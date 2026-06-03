@@ -20,10 +20,10 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/api-probes/gemm/artifacts/gemm_compare.cu
-  build: sources/experience/api-probes/gemm/artifacts/build.sh
-  introspection: sources/experience/api-probes/gemm/artifacts/device.json
-  profile: sources/experience/api-probes/gemm/artifacts/profiles/2026-04-28-tma-counters.csv
+  code: artifacts/experience/api-probes/gemm/gemm_compare.cu
+  build: artifacts/experience/api-probes/gemm/build.sh
+  introspection: artifacts/experience/api-probes/gemm/device.json
+  profile: artifacts/experience/api-probes/gemm/2026-04-28-tma-counters.csv
 upstream_repo: cutlass@f74fea9c
 related_apis: []
 related_skills:
@@ -81,13 +81,13 @@ End-to-end TMA-driven GEMM via `examples/48_hopper_warp_specialized_gemm` at the
 - Sustained SM utilization: `sm__cycles_active.avg.pct_of_peak_sustained_elapsed` = **87.77 %** (kernel name decoded; `SM90_TMA_LOAD_MULTICAST` atom + `Swizzle<3,4,3>` smem layout).
 - Compute-bound at this shape: SM throughput 30.95 % of SoL, DRAM throughput 3.32 % — TMA is keeping wgmma fed without saturating DRAM.
 
-Full probe record: sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md.
+Full probe record: sources/experience/api-probes/gemm.md.
 
-For the TMA primitive in isolation (single-tile correctness + 16-config DRAM-bound bandwidth sweep, peak 3.72 TB/s = 77.5 % HBM3e on H200), see the cutlass-free hw-probes sources/experience/hw-probes/tma-ptx/2026-04-28-tma-ptx-hello.md and sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md.
+For the TMA primitive in isolation (single-tile correctness + 16-config DRAM-bound bandwidth sweep, peak 3.72 TB/s = 77.5 % HBM3e on H200), see the cutlass-free hw-probes sources/experience/hw-probes/tma-ptx.md and sources/experience/hw-probes/tma-ptx.md.
 
 ## Minimum repro
 
-`sources/experience/api-probes/gemm/artifacts/gemm_compare.cu` (vendored from cutlass example 48 at commit `f74fea9c`), plus `build.sh` (nvcc invocation), `run.sh` (build → run → ncu CSV → compute-sanitizer), and `device.json` (H200 nvidia-smi snapshot) in the same `artifacts/` directory. Build requires the cutlass include tree at the same pin and CUDA 12.9 on H200.
+`artifacts/experience/api-probes/gemm/gemm_compare.cu` (vendored from cutlass example 48 at commit `f74fea9c`), plus `build.sh` (nvcc invocation), `run.sh` (build → run → ncu CSV → compute-sanitizer), and `device.json` (H200 nvidia-smi snapshot) in the same `artifacts/` directory. Build requires the cutlass include tree at the same pin and CUDA 12.9 on H200.
 
 ## How it connects to the rest of the KB
 

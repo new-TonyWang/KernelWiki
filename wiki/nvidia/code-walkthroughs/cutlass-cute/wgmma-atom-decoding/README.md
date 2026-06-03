@@ -13,7 +13,7 @@ It is not a handwritten-kernel tuning guide. Performance rules, atom recommendat
 
 The canonical runnable artifact for the CUTLASS path lives at:
 
-- `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu`
+- `artifacts/experience/api-probes/gemm/gemm_aligned.cu`
 
 ## Reader Question
 
@@ -104,10 +104,10 @@ The naming pattern is `MMA_<M>x<N>x<K>_<accD><dtA><dtB>_<SS|RS>_<TN|NT|NN|TT>` w
 ## Cross-references
 
 - Skill: `wiki/nvidia/hardware/wgmma/skill.md`
-- Cutlass-free counterpart (raw PTX, same instructions): `wiki/nvidia/hardware/wgmma-ptx/skill.md`
+- Cutlass-free counterpart (raw PTX, same instructions): `wiki/nvidia/hardware/wgmma/skill-wgmma-ptx.md`
 - Pitfalls: `wiki/nvidia/hardware/wgmma/pitfalls.md`
-- Canonical artifacts: `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu`
+- Canonical artifacts: `artifacts/experience/api-probes/gemm/gemm_aligned.cu`
 - Atom skeleton: `wgmma_skeleton.md`
 - Surrounding WS mainloop: `../example48-hopper-warp-specialized-gemm/mainloop_skeleton.md`
-- Atom-shape sweep: `sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md`
-- Counter measurements: `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md`
+- Atom-shape sweep: `sources/experience/api-probes/gemm.md`
+- Counter measurements: `sources/experience/api-probes/gemm.md`

@@ -27,9 +27,9 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/branchless-patterns/artifacts/branchless_patterns_probe.cu
-  build: sources/experience/hw-probes/branchless-patterns/artifacts/build.sh
-  introspection: sources/experience/hw-probes/branchless-patterns/artifacts/device.json
+  code: artifacts/experience/hw-probes/branchless-patterns/branchless_patterns_probe.cu
+  build: artifacts/experience/hw-probes/branchless-patterns/build.sh
+  introspection: artifacts/experience/hw-probes/branchless-patterns/device.json
   profile: ''
 related_apis:
 - fmaxf
@@ -48,7 +48,7 @@ related_skills:
 - fast-math
 - compiler-hints
 experience_refs:
-- sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md
+- sources/experience/hw-probes/branchless-patterns.md
 id: skill-branch-elimination
 type: skill
 vendor: nvidia
@@ -157,7 +157,7 @@ This trades some wasted compute for guaranteed predication. The trade-off is usu
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/branchless-patterns/ — 10 variants × 3 pattern families, compute-bound 4-chain ILP × 1024 inner iters harness, lane-variant input so branchful variants would see worst-case 50% divergence if the compiler had actually emitted branches. Full record: sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md.
+Measured on H200-SXM (sm_9.0a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/branchless-patterns/ — 10 variants × 3 pattern families, compute-bound 4-chain ILP × 1024 inner iters harness, lane-variant input so branchful variants would see worst-case 50% divergence if the compiler had actually emitted branches. Full record: sources/experience/hw-probes/branchless-patterns.md.
 
 ### Per-iter cost on one SM chain
 

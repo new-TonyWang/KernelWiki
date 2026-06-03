@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/aos-vs-soa/artifacts/aos_vs_soa_probe.cu
-  build: artifacts/experience/hw-probes/aos-vs-soa/artifacts/build.sh
-  introspection: artifacts/experience/hw-probes/aos-vs-soa/artifacts/device.json
+  code: artifacts/experience/hw-probes/aos-vs-soa/aos_vs_soa_probe.cu
+  build: artifacts/experience/hw-probes/aos-vs-soa/build.sh
+  introspection: artifacts/experience/hw-probes/aos-vs-soa/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/aos-vs-soa/2026-04-22/aos_vs_soa.ncu-rep
   run_log_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/aos-vs-soa/2026-04-22/run.log

@@ -15,7 +15,7 @@ source:
 ---
 # wgmma Atomic Skeleton (PTX, cutlass-free)
 
-This document extracts the minimal runnable wgmma kernel from `sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu`. The kernel issues a single `wgmma.mma_async.sync.aligned.m64n8k16.f32.bf16.bf16` instruction with all-ones inputs and verifies that every output equals K=16.
+This document extracts the minimal runnable wgmma kernel from `artifacts/experience/hw-probes/wgmma-ptx/wgmma_hello.cu`. The kernel issues a single `wgmma.mma_async.sync.aligned.m64n8k16.f32.bf16.bf16` instruction with all-ones inputs and verifies that every output equals K=16.
 
 ## Build and run
 
@@ -104,6 +104,6 @@ To switch to `m64n64k16.f32.bf16.bf16`, change the PTX mnemonic and increase the
 
 ## Source
 
-Full runnable code: `sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu`
-Build script: `sources/experience/hw-probes/wgmma-ptx/artifacts/build.sh`
-Measured record: `sources/experience/hw-probes/wgmma-ptx/2026-04-28-wgmma-ptx-hello.md`
+Full runnable code: `artifacts/experience/hw-probes/wgmma-ptx/wgmma_hello.cu`
+Build script: `artifacts/experience/hw-probes/wgmma-ptx/build.sh`
+Measured record: `sources/experience/hw-probes/wgmma-ptx.md`

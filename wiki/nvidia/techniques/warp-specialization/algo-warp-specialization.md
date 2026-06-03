@@ -18,16 +18,16 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: wiki/nvidia/hardware/tma-ptx/skill.md
+- path: wiki/nvidia/hardware/tma/skill-tma-ptx.md
   anchor: cutlass-free TMA primitive (the producer issues these)
-- path: wiki/nvidia/hardware/wgmma-ptx/skill.md
+- path: wiki/nvidia/hardware/wgmma/skill-wgmma-ptx.md
   anchor: cutlass-free wgmma primitive (the consumer issues these)
 artifacts:
-  code: sources/experience/api-probes/gemm/artifacts/gemm_compare_ws.cu
-  build: sources/experience/api-probes/gemm/artifacts/build_warpspec.sh
-  introspection: sources/experience/api-probes/gemm/artifacts/device.json
-  profile: sources/experience/api-probes/gemm/artifacts/profiles/2026-04-28-warp-specialization-ablation.csv
-  ablation: sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md
+  code: artifacts/experience/api-probes/gemm/gemm_compare_ws.cu
+  build: artifacts/experience/api-probes/gemm/build_warpspec.sh
+  introspection: artifacts/experience/api-probes/gemm/device.json
+  profile: artifacts/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.csv
+  ablation: artifacts/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.csv
 upstream_repo: cutlass@f74fea9c (one possible implementation; see "References")
 related_apis: []
 related_skills:
@@ -55,8 +55,7 @@ source_refs:
   anchor: L20810-L20825
 - source_id: blogs/colfax
   path: developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
-  anchor: warp-specialized GEMM mainloop walkthrough — producer/consumer warpgroups
-    + mbarrier-pipelined TMA→wgmma
+  anchor: warp-specialized GEMM mainloop walkthrough — producer/consumer warpgroups + mbarrier-pipelined TMA→wgmma
 - source_id: blogs/colfax
   path: cutlass-tutorial-efficient-gemm-kernel-designs-with-pipelining
   anchor: pipelining strategy for warp-specialized GEMM
@@ -82,7 +81,7 @@ Three variants of the pattern, each adding an axis of parallelism:
 |---|---|---|---|
 | **Plain WS** | 1 warp (or 1 warpgroup) | 1 warpgroup | one tile at a time |
 | **Pingpong** | 1 | 2 (alternating) | while consumer-A computes tile T, consumer-B prepares tile T+1 |
-| **Cooperative** | 1 | 2 (cooperating on same tile) | both consumers split the wgmma rows of one tile; usually paired with cluster-multicast TMA so the producer's tile is broadcast to ≥2 CTAs (see `sources/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.md` — measured 1.26× / 1.79× effective-bandwidth amplification at C=2 / C=4) |
+| **Cooperative** | 1 | 2 (cooperating on same tile) | both consumers split the wgmma rows of one tile; usually paired with cluster-multicast TMA so the producer's tile is broadcast to ≥2 CTAs (see `sources/experience/hw-probes/tma-ptx.md` — measured 1.26× / 1.79× effective-bandwidth amplification at C=2 / C=4) |
 
 (Cutlass exposes these as `KernelTmaWarpSpecialized*` dispatch policies; the names are implementation labels, not algorithm names.)
 
@@ -144,7 +143,7 @@ Cooperative variant: keep two consumer warpgroups, both wait on the same `bar_fu
 ## Implementations on disk
 
 - **Cutlass realization** — `cutlass::gemm::kernel::sm90_gemm_tma_warpspecialized.hpp` (`KernelTmaWarpSpecialized`), `_pingpong.hpp` (Pingpong), `_cooperative.hpp` (Cooperative). Cluster-shape constraints, EpilogueSchedule co-constraints, and stage-count autocarvers are cutlass-implementation details; see `pitfalls.md`.
-- **Cutlass-free building blocks** — `wiki/nvidia/hardware/tma-ptx/skill.md` (producer's `cp.async.bulk.tensor.*` + mbarrier protocol), `wiki/nvidia/hardware/wgmma-ptx/skill.md` (consumer's `wgmma.mma_async.*` family). The cutlass-free GEMM at `wiki/nvidia/foundations/compute/gemm-ptx/` composes them but is not yet warp-specialized; adding the producer/consumer split following the skeleton above is the natural extension.
+- **Cutlass-free building blocks** — `wiki/nvidia/hardware/tma/skill-tma-ptx.md` (producer's `cp.async.bulk.tensor.*` + mbarrier protocol), `wiki/nvidia/hardware/wgmma/skill-wgmma-ptx.md` (consumer's `wgmma.mma_async.*` family). The cutlass-free GEMM at `wiki/nvidia/foundations/compute/gemm-ptx/` composes them but is not yet warp-specialized; adding the producer/consumer split following the skeleton above is the natural extension.
 
 ## Measured Characteristics
 
@@ -159,14 +158,14 @@ H200-SXM, sm_90a, CUDA 12.9.86. The algorithm has been validated in the cutlass 
 
 **On/off A/B at 2048³**: enabling warp-specialization (serial → plain WS) gives **+9.2% throughput** (178.9 → 195.4 TFLOPS) at bit-identical correctness. The improvement comes entirely from hiding TMA latency behind wgmma compute via the producer/consumer pipeline.
 
-At 2048³ all three WS variants are within 5% of each other; plain WS leads narrowly. At 8192³ (cooperative + cluster-multicast amortizes its setup) the cooperative variant climbs to 292.7 TFLOPS — see `wiki/nvidia/foundations/compute/gemm/aligned/skill.md` for the larger-shape data.
+At 2048³ all three WS variants are within 5% of each other; plain WS leads narrowly. At 8192³ (cooperative + cluster-multicast amortizes its setup) the cooperative variant climbs to 292.7 TFLOPS — see `wiki/nvidia/foundations/compute/gemm.md` for the larger-shape data.
 
 ## Cross-references
 
-- TMA-PTX primitive (cutlass-free producer side): `wiki/nvidia/hardware/tma-ptx/skill.md` — measured throughput sweep at `sources/experience/hw-probes/tma-ptx/2026-04-29-tma-throughput.md`.
-- wgmma-PTX primitive (cutlass-free consumer side): `wiki/nvidia/hardware/wgmma-ptx/skill.md` — atom zoo at `sources/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.md`.
-- Aligned GEMM consumer: `wiki/nvidia/foundations/compute/gemm/aligned/skill.md`
-- Persistent-kernel sibling: `wiki/nvidia/techniques/persistent-kernel/skill.md`
+- TMA-PTX primitive (cutlass-free producer side): `wiki/nvidia/hardware/tma/skill-tma-ptx.md` — measured throughput sweep at `sources/experience/hw-probes/tma-ptx.md`.
+- wgmma-PTX primitive (cutlass-free consumer side): `wiki/nvidia/hardware/wgmma/skill-wgmma-ptx.md` — atom zoo at `sources/experience/hw-probes/wgmma-ptx.md`.
+- Aligned GEMM consumer: `wiki/nvidia/foundations/compute/gemm.md`
+- Persistent-kernel sibling: `wiki/nvidia/techniques/persistent-kernels.md`
 - Cutlass example 48 source-reading notes: `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/{README.md, mainloop_skeleton.md}`
-- Probe + ablation: `sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md`
+- Probe + ablation: `sources/experience/api-probes/gemm.md`
 - Failure modes: `wiki/nvidia/techniques/warp-specialization/pitfalls.md`

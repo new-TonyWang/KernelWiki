@@ -110,7 +110,7 @@ Skills that are conceptually relevant but not yet built (e.g., vectorized-access
 - **Skill path**: `wiki/nvidia/foundations/sync/atomic-reduction/`
 - **Why it matters for reduction**: once the block-level reduction produces a partial sum, the grid-level combining step uses global atomics. A naive kernel that has **every thread** atomicAdd into a single global scalar is both contention-pathological and numerically wrong (on H200, 33M-element FP32 reduction measured 248× slower AND `rel_err = 5.03e-02` vs double reference -- the running sum saturates the FP32 mantissa, see skill's pitfall P7). The S1 hierarchical pattern commits **one atomic per block** after in-warp shuffle + shared-memory fan-in; S1 + grid-stride loop (fewer, fatter blocks) lifts this to 1498× and 75% DRAM SoL on H200.
 - **When to apply**: every multi-block (`>1024` elements per instance) reduction that terminates with a global atomic. Required for the `>1024` branch of Q4 in `INDEX.md`. Pair with skill #9 (memory-ordering) for scope / ordering correctness, and with skill #2 (warp-primitives) since S1's inner loop uses `__shfl_down_sync`.
-- **Measured impact**: 247.8× speedup of S1 over naive; 1498× for S1+grid-stride. See `sources/experience/hw-probes/atomic-reduction-contention/2026-04-20-atomic-reduction.md`.
+- **Measured impact**: 247.8× speedup of S1 over naive; 1498× for S1+grid-stride. See `sources/experience/hw-probes/atomic-reduction-contention.md`.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` -- "many threads contending on the same atomic address" / high `stall_long_scoreboard` on `RED`/`ATOM`.
 
 ### 14. L2 Access Policy (hitRatio-tuned persisting window)
@@ -125,7 +125,7 @@ Skills that are conceptually relevant but not yet built (e.g., vectorized-access
   - Single-kernel MVPs with no competing workload on the L2 (skill's P8 directly applies to reduction microbenchmarks).
   - MIG partitions (set-aside reservation is a silent no-op; skill P3).
   - Buffers already below set-aside with no concurrent pressure — policy is overhead without benefit (measured neutral at WS = 4 / 40 MiB).
-- **Measured impact**: +17.7% effective BW at WS = 80 MiB on H200 when `hitRatio` is tuned. See `sources/experience/hw-probes/l2-residency/2026-04-23-l2-residency.md`.
+- **Measured impact**: +17.7% effective BW at WS = 80 MiB on H200 when `hitRatio` is tuned. See `sources/experience/hw-probes/l2-residency.md`.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` — multi-pass reductions where the second kernel's DRAM throughput stays at 100% Roofline even though the same buffer was just fully read by the first kernel (no L2 reuse).
 
 ### 15. Branch Elimination (max/min reductions; tail already predicated)

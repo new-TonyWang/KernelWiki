@@ -51,4 +51,4 @@ When testing fused kernels, the reference must replicate the fusion. See BitLess
 
 ## Measured sweep reference
 
-Fused ReLU epilogue: `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md`
+Fused ReLU epilogue: `sources/experience/api-probes/gemm.md`

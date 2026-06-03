@@ -7,7 +7,7 @@ upstream_repo: NVIDIA/cutlass-cute
 ---
 # gemm-tail — tuning log (skeleton)
 
-Template-selection rules and tail-cost characterization for non-aligned GEMM. Populate from `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md`.
+Template-selection rules and tail-cost characterization for non-aligned GEMM. Populate from `sources/experience/api-probes/gemm.md`.
 
 ## Decision rule (current best understanding)
 
@@ -38,4 +38,4 @@ Boundary thresholds 64 / 128 are wgmma-atom and cooperative-cluster constraints 
 
 - Skill: `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md`
 - Pitfalls: `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/pitfalls.md`
-- Measured: `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md`
+- Measured: `sources/experience/api-probes/gemm.md`

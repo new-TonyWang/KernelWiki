@@ -7,18 +7,18 @@ hardware:
   device: H200
   sm: 9.0a
 source:
-- path: wiki/nvidia/techniques/warp-specialization/skill.md
+- path: wiki/nvidia/techniques/warp-specialization.md
   anchor: Warp-specialized GEMM mainloop (algorithm skeleton)
   excerpt: Plain WS / Pingpong / Cooperative variants; producer/consumer split with
     mbarrier full/empty pair
-- path: wiki/nvidia/foundations/compute/gemm-ptx/skill.md
+- path: wiki/nvidia/foundations/compute/gemm-ptx.md
   anchor: Hopper GEMM via raw PTX (cutlass-free)
   excerpt: TMA-PTX + wgmma-PTX composed into a single GEMM kernel; cutlass-free preprocessor
     + linked-binary gates
-- path: wiki/nvidia/foundations/compute/gemm/aligned/skill.md
+- path: wiki/nvidia/foundations/compute/gemm.md
   anchor: Aligned GEMM on Hopper via cutlass cooperative warp-specialized kernel
   excerpt: Cutlass-API track; aligned (M,N,K) divisible by wgmma atom; fast-path mainloop
-- path: sources/experience/kernel-records/2026-04-29-gemm-ws-ptx/README.md
+- path: sources/experience/kernel-records/2026-04-29-gemm-ws-ptx.md
   anchor: Cutlass-free warp-specialized GEMM (record)
   excerpt: Producer warp + consumer warpgroup composed from tma-ptx + wgmma-ptx +
     warp-specialization skill
@@ -77,7 +77,7 @@ Two tracks live under this pattern, distinguished by the dependency policy:
 
 ```
 Q4. Is cutlass + cute available as a build-time and link-time dependency?
-    YES --> CUTLASS-API track. See `wiki/nvidia/foundations/compute/gemm/aligned/skill.md`
+    YES --> CUTLASS-API track. See `wiki/nvidia/foundations/compute/gemm.md`
             (aligned shapes) or `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md`
             (M / N not multiples of the wgmma atom -- adds a tail-handling block).
             For fused epilogues that need extension beyond the cutlass catalogue,
@@ -86,9 +86,9 @@ Q4. Is cutlass + cute available as a build-time and link-time dependency?
 
     NO  --> CUTLASS-FREE PTX track. The kernel must contain zero
             `cutlass::` / `cute::` symbols at both the preprocessed source
-            and linked-binary level. See `wiki/nvidia/foundations/compute/gemm-ptx/skill.md`
+            and linked-binary level. See `wiki/nvidia/foundations/compute/gemm-ptx.md`
             for the single-tile composition; see
-            `sources/experience/kernel-records/2026-04-29-gemm-ws-ptx/README.md`
+            `sources/experience/kernel-records/2026-04-29-gemm-ws-ptx.md`
             for a working warp-specialized extension that adds a producer-warp
             + consumer-warpgroup split and a multi-K-tile pipeline.
             Continue to Step 2 to pick the warp-spec variant -- the
@@ -100,7 +100,7 @@ The cutlass-free track exists for one specific reason: **the kernel must be audi
 
 ## Step 2 -- Pick the warp-specialization variant
 
-The Hopper GEMM mainloop is a producer/consumer pipeline regardless of which track. Three variants from `wiki/nvidia/techniques/warp-specialization/skill.md`:
+The Hopper GEMM mainloop is a producer/consumer pipeline regardless of which track. Three variants from `wiki/nvidia/techniques/warp-specialization.md`:
 
 ```
 Q5. How large is the M*N grid relative to the H200 SM count (132)?
@@ -146,5 +146,5 @@ After each optimization, re-benchmark against `baseline` (cuBLASLt at the same s
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
 - **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`
-- **Algorithm skeleton (variant-independent)**: `wiki/nvidia/techniques/warp-specialization/skill.md`
+- **Algorithm skeleton (variant-independent)**: `wiki/nvidia/techniques/warp-specialization.md`
 - **Cutlass-free working kernel record**: `sources/experience/kernel-records/2026-04-29-gemm-ws-ptx/`

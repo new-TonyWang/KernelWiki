@@ -31,5 +31,5 @@ See BitLesson `BL-20260428-shape-non-aligned-on-executing-kernel` for the diagno
 
 ## Measured sweep reference
 
-Non-aligned shapes: `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md`
-Adjacent-shape proxy measurement (1440 vs 1536): `sources/experience/api-probes/gemm/artifacts/profiles/2026-04-28-gemm-tail.csv`
+Non-aligned shapes: `sources/experience/api-probes/gemm.md`
+Adjacent-shape proxy measurement (1440 vs 1536): `artifacts/experience/api-probes/gemm/2026-04-28-gemm-tail.csv`

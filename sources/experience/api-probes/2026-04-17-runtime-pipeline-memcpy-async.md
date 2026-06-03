@@ -33,7 +33,7 @@ back_filled_into: []
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
 - Baseline is a CPU pass-through reference (correctness only), so no GPU timing ratio
-  is reported. For bandwidth comparisons against a sync copy, see sources/experience/hw-probes/async-copy/2026-04-16-async-copy.md.
+  is reported. For bandwidth comparisons against a sync copy, see sources/experience/hw-probes/async-copy.md.
 - kp_introspect kernel-static not generated (cuda-python not installed).
 id: exp-2026-04-17-runtime-pipeline-memcpy-async
 type: experience

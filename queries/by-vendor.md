@@ -64,7 +64,7 @@
 
 ### code-walkthrough (21)
 
-- [Agents](../wiki/nvidia/code-walkthroughs/cutlass-cute/AGENTS.md) (`code-cutlass-cute-AGENTS`)
+- [Agents](../wiki/nvidia/code-walkthroughs/cutlass-cute/reasoning/AGENTS.md) (`code-cutlass-cute-AGENTS`)
 - [Audit](../wiki/nvidia/code-walkthroughs/cutlass-cute/AUDIT.md) (`code-cutlass-cute-AUDIT`)
 - [Fmha_Skeleton](../wiki/nvidia/code-walkthroughs/cutlass-cute/attention-fmha-example/fmha_skeleton.md) (`code-cutlass-cute-fmha_skeleton`)
 - [Mainloop_Skeleton](../wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/mainloop_skeleton.md) (`code-cutlass-cute-mainloop_skeleton`)

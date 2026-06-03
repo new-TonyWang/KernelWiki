@@ -19,13 +19,11 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM
 source:
-- path: <path-removed>
+- path: spec
   anchor: part-1-maximizing-memory-bandwidth
-  excerpt: 'Asynchronous copies let the data go directly from global memory to shared
-    memory, skipping the register file. Benefits: free up registers for compute, reduce
-    L1 traffic, reduce MIO pressure.'
+  excerpt: 'Asynchronous copies let the data go directly from global memory to shared memory, skipping the register file. Benefits: free up registers for compute, reduce L1 traffic, reduce MIO pressure.'
 artifacts:
-  code: sources/experience/hw-probes/async-copy/artifacts/async_copy_probe.cu
+  code: artifacts/experience/hw-probes/async-copy/async_copy_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o async_copy_probe async_copy_probe.cu
   introspection: ''
   profile: ''

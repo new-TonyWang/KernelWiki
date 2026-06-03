@@ -22,9 +22,9 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/warp-divergence-cost/artifacts/divergence_cost_probe.cu
-  build: sources/experience/hw-probes/warp-divergence-cost/artifacts/build.sh
-  introspection: sources/experience/hw-probes/warp-divergence-cost/artifacts/device.json
+  code: artifacts/experience/hw-probes/warp-divergence-cost/divergence_cost_probe.cu
+  build: artifacts/experience/hw-probes/warp-divergence-cost/build.sh
+  introspection: artifacts/experience/hw-probes/warp-divergence-cost/device.json
   profile: ''
 related_apis:
 - __ballot_sync
@@ -173,7 +173,7 @@ Pitfall P8 (legacy, measured): the compaction overhead itself can dominate if th
 
 ## Measured Characteristics
 
-Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/warp-divergence-cost/ — per-lane predicate with probability `p` of taking path B; compute-bound workload (~1024 FMAs per lane per kernel, 1 M lanes, Compute SM throughput ~89 %). Unlocked clock logged at 1980 MHz. Full record: sources/experience/hw-probes/warp-divergence-cost/2026-04-22-warp-divergence-cost.md.
+Measured on H200-SXM (sm_90a, CUDA 12.9, driver 570.124.06) using sources/experience/hw-probes/warp-divergence-cost/ — per-lane predicate with probability `p` of taking path B; compute-bound workload (~1024 FMAs per lane per kernel, 1 M lanes, Compute SM throughput ~89 %). Unlocked clock logged at 1980 MHz. Full record: sources/experience/hw-probes/warp-divergence-cost.md.
 
 | Kernel               | p=0.00 | p=0.25 | p=0.50 | p=0.75 | p=1.00 | Slowdown vs own p=0 |
 | -------------------- | -----: | -----: | -----: | -----: | -----: | ------------------: |

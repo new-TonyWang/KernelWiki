@@ -27,10 +27,7 @@ related_skills:
 - persistent-kernel
 - gemm-fused
 artifacts:
-  code: wiki/nvidia/foundations/meta/code-extraction/skill.md
-  build: sources/experience/api-probes/code-extraction/2026-04-28-cutlass-walkthrough.md
-  introspection: sources/experience/api-probes/code-extraction/2026-04-28-cutlass-walkthrough.md
-  ablation: sources/experience/api-probes/code-extraction/2026-04-28-cutlass-walkthrough.md
+  code: wiki/nvidia/foundations/meta/code-extraction.md
 id: skill-code-extraction
 type: skill
 vendor: nvidia
@@ -41,8 +38,7 @@ applies_to:
 source_refs:
 - source_id: blogs/colfax
   path: developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
-  anchor: Hopper warp-specialized GEMM walkthrough — the canonical worked-example
-    target
+  anchor: Hopper warp-specialized GEMM walkthrough — the canonical worked-example target
 - source_id: blogs/colfax
   path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: TMA walkthrough
@@ -139,19 +135,19 @@ Link the new skill from related skills' `Cross-references` section. Add the new 
 
 ## Measured Characteristics
 
-The procedure was applied end-to-end against `cutlass@f74fea9c` on H200-SXM (cuda 12.9.86, driver 570.124.06) and produced **seven distinct downstream skill landings** across the cutlass-API track (corresponding to the 7 rows in the worked-example table below; the wgmma atom-shape sweep lives under the wgmma skill so they share a row). Verification status: **5 verified** (TMA, wgmma + atom-shape sweep, aligned GEMM, warp-specialization, persistent-kernel); **2 partial** (non-aligned tail — boundary-strategy A/B documented as adjacent-shape proxy with confounders; the same-logical-shape padded harness is follow-up work, not yet on disk. Fused GEMM — skill is partial because the prologue half remains unimplemented; the epilogue probe is independently verified via a fused-vs-fused-reference correctness gate at 2048³). The measurement record is `sources/experience/api-probes/code-extraction/2026-04-28-cutlass-walkthrough.md`; key per-step outputs:
+The procedure was applied end-to-end against `cutlass@f74fea9c` on H200-SXM (cuda 12.9.86, driver 570.124.06) and produced **seven distinct downstream skill landings** across the cutlass-API track (corresponding to the 7 rows in the worked-example table below; the wgmma atom-shape sweep lives under the wgmma skill so they share a row). Verification status: **5 verified** (TMA, wgmma + atom-shape sweep, aligned GEMM, warp-specialization, persistent-kernel); **2 partial** (non-aligned tail — boundary-strategy A/B documented as adjacent-shape proxy with confounders; the same-logical-shape padded harness is follow-up work, not yet on disk. Fused GEMM — skill is partial because the prologue half remains unimplemented; the epilogue probe is independently verified via a fused-vs-fused-reference correctness gate at 2048³). The measurement record is `sources/experience/api-probes/code-extraction.md`; key per-step outputs:
 
 | Procedure step | Downstream skill produced | Status | Measured anchor |
 |---|---|---|---|
 | Step 2 (TMA hw-feature scan) | `wiki/nvidia/hardware/tma/skill.md` | verified | TMA load 5.37 GB at 5120×4096×4096 |
 | Step 2 (wgmma hw-feature scan) | `wiki/nvidia/hardware/wgmma/skill.md` | verified | M64xN{64,128,256}xK8 atom-shape sweep |
-| Step 3 (warp-spec algo extraction) | `wiki/nvidia/techniques/warp-specialization/skill.md` | verified | TMA-only 178.9 → plain WS 195.4 TFLOPS = +9.2% |
-| Step 3 (persistent-kernel algo extraction) | `wiki/nvidia/techniques/persistent-kernel/skill.md` | verified | pingpong 193.8 / cooperative 186.9 / plain WS 195.4 TFLOPS at 2048³ |
-| Step 4 (aligned GEMM operator) | `wiki/nvidia/foundations/compute/gemm/aligned/skill.md` | verified | 512³ 21.7, 2048³ 188.7, 8192³ 292.7 TFLOPS, max_abs=0 vs cuBLAS |
+| Step 3 (warp-spec algo extraction) | `wiki/nvidia/techniques/warp-specialization.md` | verified | TMA-only 178.9 → plain WS 195.4 TFLOPS = +9.2% |
+| Step 3 (persistent-kernel algo extraction) | `wiki/nvidia/techniques/persistent-kernels.md` | verified | pingpong 193.8 / cooperative 186.9 / plain WS 195.4 TFLOPS at 2048³ |
+| Step 4 (aligned GEMM operator) | `wiki/nvidia/foundations/compute/gemm.md` | verified | 512³ 21.7, 2048³ 188.7, 8192³ 292.7 TFLOPS, max_abs=0 vs cuBLAS |
 | Step 4 (non-aligned-tail operator) | `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md` | partial | 80³, 200³, 1440³ all max_abs=0; A/B is documented proxy |
 | Step 4 (fused GEMM operator) | `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md` | **partial** (prologue half unimplemented; the `2026-04-28-gemm-fused.md` epilogue probe itself is independently verified with a fused-vs-fused-reference correctness gate at 2048³, fused 86.83 vs non-fused 100.21 μs = ~13% savings, 40% less DRAM traffic) |
 
-The procedure is repeatable: the rg/build/run commands in `sources/experience/api-probes/code-extraction/2026-04-28-cutlass-walkthrough.md` can be re-executed by another agent on the same hardware to reproduce the outputs.
+The procedure is repeatable: the rg/build/run commands in `sources/experience/api-probes/code-extraction.md` can be re-executed by another agent on the same hardware to reproduce the outputs.
 
 ## Worked example: cutlass end-to-end
 
@@ -159,15 +155,15 @@ The procedure above was applied to cutlass `f74fea9c` on H200-SXM. Each step lan
 
 | Step | Output | KB paths |
 |---|---|---|
-| 2 (TMA) | TMA hw-probe | `wiki/nvidia/hardware/tma/skill.md`, `sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md`, `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/` |
-| 2 (wgmma) | wgmma hw-probe + atom-shape sweep | `wiki/nvidia/hardware/wgmma/skill.md`, `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md`, `sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md`, `wiki/nvidia/code-walkthroughs/cutlass-cute/wgmma-atom-decoding/` |
-| 4 (aligned GEMM) | aligned GEMM skill at 512³/2048³/8192³ | `wiki/nvidia/foundations/compute/gemm/aligned/`, `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-aligned/`, `sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md` |
-| 4 (non-aligned tail) | non-aligned tail skill at 80³/200³/1440³ + adjacent-shape proxy | `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/`, `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-tail/`, `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md` |
-| 3 (warp-spec) | warp-specialization classical-algo skill + on/off A/B at 2048³ | `wiki/nvidia/techniques/warp-specialization/`, `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/`, `sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md` |
-| 3 (persistent kernel) | persistent-kernel classical-algo skill + pingpong-vs-cooperative A/B at 2048³ | `wiki/nvidia/techniques/persistent-kernel/`, `wiki/nvidia/code-walkthroughs/cutlass-cute/persistent-kernel/`, `sources/experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md` |
-| 4 (fused) | fused-GEMM (skill partial; prologue not yet implemented) | `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/` (status: partial), `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-fused/`, `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md` (probe is epilogue-scoped and independently verified) |
+| 2 (TMA) | TMA hw-probe | `wiki/nvidia/hardware/tma/skill.md`, `sources/experience/api-probes/gemm.md`, `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/` |
+| 2 (wgmma) | wgmma hw-probe + atom-shape sweep | `wiki/nvidia/hardware/wgmma/skill.md`, `sources/experience/api-probes/gemm.md`, `sources/experience/api-probes/gemm.md`, `wiki/nvidia/code-walkthroughs/cutlass-cute/wgmma-atom-decoding/` |
+| 4 (aligned GEMM) | aligned GEMM skill at 512³/2048³/8192³ | `wiki/nvidia/foundations/compute/gemm/aligned/`, `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-aligned/`, `sources/experience/api-probes/gemm.md` |
+| 4 (non-aligned tail) | non-aligned tail skill at 80³/200³/1440³ + adjacent-shape proxy | `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/`, `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-tail/`, `sources/experience/api-probes/gemm.md` |
+| 3 (warp-spec) | warp-specialization classical-algo skill + on/off A/B at 2048³ | `wiki/nvidia/techniques/warp-specialization/`, `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/`, `sources/experience/api-probes/gemm.md` |
+| 3 (persistent kernel) | persistent-kernel classical-algo skill + pingpong-vs-cooperative A/B at 2048³ | `wiki/nvidia/techniques/persistent-kernel/`, `wiki/nvidia/code-walkthroughs/cutlass-cute/persistent-kernel/`, `sources/experience/api-probes/gemm.md` |
+| 4 (fused) | fused-GEMM (skill partial; prologue not yet implemented) | `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/` (status: partial), `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-fused/`, `sources/experience/api-probes/gemm.md` (probe is epilogue-scoped and independently verified) |
 
-Each landing follows the canonical artifact-bundle layout (cf. `sources/experience/hw-probes/warp-divergence-cost/artifacts/` reference); the cutlass-vs-cuBLAS direct-comparator harness (`sources/experience/api-probes/gemm/artifacts/gemm_compare.cu`) is the numeric-correctness gate for the aligned, non-aligned-tail, and warp-spec/persistent-kernel skills.
+Each landing follows the canonical artifact-bundle layout (cf. `artifacts/experience/hw-probes/warp-divergence-cost/` reference); the cutlass-vs-cuBLAS direct-comparator harness (`artifacts/experience/api-probes/gemm/gemm_compare.cu`) is the numeric-correctness gate for the aligned, non-aligned-tail, and warp-spec/persistent-kernel skills.
 
 ## Non-coverage (explicit)
 
@@ -179,13 +175,13 @@ This meta-skill **does not** replace:
 
 ## Cross-references
 
-- TMA: `wiki/nvidia/hardware/tma/skill.md` + `sources/experience/api-probes/gemm/2026-04-28-tma-bandwidth-counters.md`
-- wgmma: `wiki/nvidia/hardware/wgmma/skill.md` + `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md` + `2026-04-28-shape-sweep.md`
-- Aligned GEMM: `wiki/nvidia/foundations/compute/gemm/aligned/skill.md` + `sources/experience/api-probes/gemm/2026-04-28-gemm-aligned.md`
-- Non-aligned tail: `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md` + `sources/experience/api-probes/gemm/2026-04-28-gemm-tail.md`
-- Warp-specialization: `wiki/nvidia/techniques/warp-specialization/skill.md` + `sources/experience/api-probes/gemm/2026-04-28-warp-specialization-ablation.md`
-- Persistent-kernel: `wiki/nvidia/techniques/persistent-kernel/skill.md` + `sources/experience/api-probes/gemm/2026-04-28-persistent-kernel-ablation.md`
-- Fused-GEMM (epilogue verified; prologue queued): `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md` + `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md`
+- TMA: `wiki/nvidia/hardware/tma/skill.md` + `sources/experience/api-probes/gemm.md`
+- wgmma: `wiki/nvidia/hardware/wgmma/skill.md` + `sources/experience/api-probes/gemm.md` + `2026-04-28-shape-sweep.md`
+- Aligned GEMM: `wiki/nvidia/foundations/compute/gemm.md` + `sources/experience/api-probes/gemm.md`
+- Non-aligned tail: `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md` + `sources/experience/api-probes/gemm.md`
+- Warp-specialization: `wiki/nvidia/techniques/warp-specialization.md` + `sources/experience/api-probes/gemm.md`
+- Persistent-kernel: `wiki/nvidia/techniques/persistent-kernels.md` + `sources/experience/api-probes/gemm.md`
+- Fused-GEMM (epilogue verified; prologue queued): `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md` + `sources/experience/api-probes/gemm.md`
 
 ## Failure modes
 

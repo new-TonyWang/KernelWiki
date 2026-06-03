@@ -7,7 +7,7 @@ upstream_repo: NVIDIA/cutlass-cute
 ---
 # CUTLASS WGMMA Atom Skeleton (example 48, commit `f74fea9c`)
 
-This is a reading guide for the CUTLASS / CuTe WGMMA atom path in `48_hopper_warp_specialized_gemm.cu`. The same source file is represented by the runnable repro under `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu`; here we annotate only the CUTLASS symbols needed to understand which WGMMA instruction is being described.
+This is a reading guide for the CUTLASS / CuTe WGMMA atom path in `48_hopper_warp_specialized_gemm.cu`. The same source file is represented by the runnable repro under `artifacts/experience/api-probes/gemm/gemm_aligned.cu`; here we annotate only the CUTLASS symbols needed to understand which WGMMA instruction is being described.
 
 The warp-specialized producer / consumer mainloop that surrounds these calls lives in `../example48-hopper-warp-specialized-gemm/mainloop_skeleton.md`.
 
@@ -104,9 +104,9 @@ Decoded from the vendored example's compiled kernel signature:
 
 - Skill: `wiki/nvidia/hardware/wgmma/skill.md`
 - Pitfalls: `wiki/nvidia/hardware/wgmma/pitfalls.md`
-- Single-atom probe: `sources/experience/api-probes/gemm/2026-04-28-wgmma-counters.md`
-- Atom-shape sweep: `sources/experience/api-probes/gemm/2026-04-28-wgmma-atom-shape-sweep.md`
-- Reproducible bundle: `sources/experience/api-probes/gemm/artifacts/`
+- Single-atom probe: `sources/experience/api-probes/gemm.md`
+- Atom-shape sweep: `sources/experience/api-probes/gemm.md`
+- Reproducible bundle: `artifacts/experience/api-probes/gemm/`
 - Surrounding WS mainloop: `../example48-hopper-warp-specialized-gemm/mainloop_skeleton.md`
 - Upstream (pinned): `cutlass@f74fea9c` (`{{CUTLASS_REPO_REF}}`); see `examples/48_hopper_warp_specialized_gemm/` and `include/cute/atom/mma_traits_sm90_gmma.hpp`.
 - Authoritative blog: `corpus/nvidia/blogs/colfax/cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus`.

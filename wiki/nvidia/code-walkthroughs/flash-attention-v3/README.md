@@ -13,7 +13,7 @@ upstream_repo: NVIDIA/flash-attention-v3
 - Local clone: `{{FLASH_ATTENTION_REPO_REF}}`
 - Commit: `bbda031f1cd1adf1a57a3b3e8cdc3db2b54d3994`
 - License: BSD-3-Clause
-- MANIFEST registration: `corpus/nvidia/MANIFEST.yaml` → `source-code/flash-attention`
+- MANIFEST registration: `corpus/MANIFEST.yaml` → `source-code/flash-attention`
 
 ## What it is
 
@@ -75,5 +75,5 @@ See `tuning.md` for the parameter space.
 
 ## Status
 
-- Registered in `corpus/nvidia/MANIFEST.yaml` with commit hash and local path.
-- No measured artifacts from this KB's H200 infrastructure yet. If measured, artifacts would follow the standard layout at `sources/experience/api-probes/attention/artifacts/`.
+- Registered in `corpus/MANIFEST.yaml` with commit hash and local path.
+- No measured artifacts from this KB's H200 infrastructure yet. If measured, artifacts would follow the standard layout at `artifacts/experience/api-probes/attention/`.

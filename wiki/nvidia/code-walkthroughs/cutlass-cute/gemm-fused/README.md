@@ -9,8 +9,8 @@ upstream_repo: NVIDIA/cutlass-cute
 
 Library-usage knowledge for cutlass's fused-GEMM patterns (epilogue + prologue fusion). The canonical reproducible artifacts:
 
-- Reference build of upstream `examples/50_hopper_gemm_with_epilogue_swizzle/` lives at `sources/experience/api-probes/gemm/artifacts/` (built via the run scripts there); the upstream `.cu` is **not** vendored — it stays in the cutlass tree at the pinned commit.
-- Custom epilogue probe: `sources/experience/api-probes/gemm/artifacts/gemm_compare_relu.cu` + `relu_kernel.cu` (fused vs non-fused ReLU A/B).
+- Reference build of upstream `examples/50_hopper_gemm_with_epilogue_swizzle/` lives at `artifacts/experience/api-probes/gemm/` (built via the run scripts there); the upstream `.cu` is **not** vendored — it stays in the cutlass tree at the pinned commit.
+- Custom epilogue probe: `artifacts/experience/api-probes/gemm/gemm_compare_relu.cu` + `relu_kernel.cu` (fused vs non-fused ReLU A/B).
 
 This directory is the **distilled-knowledge view**. No buildable code lives here.
 
@@ -27,7 +27,7 @@ For epilogues that *are* in cuBLASLt's catalogue (`CUBLASLT_EPILOGUE_BIAS / RELU
 | Epilogue swizzle (output stride / swizzle absorbed) | `examples/50_hopper_gemm_with_epilogue_swizzle/` | warp-specialized cooperative | custom Sm90TmaWarpSpecializedAdapter + `LinearCombination<int32_t, ...>` | **Built + correctness-passed on H200** (`WGMMA GEMM with Epilogue Swizzle : Passed`) |
 | Prologue dequant (int4 → bf16) | `examples/55_hopper_mixed_dtype_gemm/` | mixed-dtype warp-specialized | `LinearCombination` | Reference only; follow-up |
 | Epilogue topK + softmax (EVT) | `examples/61_hopper_gemm_with_topk_and_softmax/` | warp-specialized cooperative | EVT (Epilogue Visitor Tree) | Reference only; follow-up |
-| Activation epilogue (ReLU / GELU) | thread functor `cutlass::epilogue::thread::LinearCombinationRelu` | any sm_90 mainloop | `LinearCombinationRelu` thread functor | Probe at `sources/experience/api-probes/gemm/artifacts/gemm_compare_relu.cu` |
+| Activation epilogue (ReLU / GELU) | thread functor `cutlass::epilogue::thread::LinearCombinationRelu` | any sm_90 mainloop | `LinearCombinationRelu` thread functor | Probe at `artifacts/experience/api-probes/gemm/gemm_compare_relu.cu` |
 
 ## Key cutlass entry points
 
@@ -40,5 +40,5 @@ For epilogues that *are* in cuBLASLt's catalogue (`CUBLASLT_EPILOGUE_BIAS / RELU
 
 - Skill: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md`
 - Pitfalls: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/pitfalls.md`
-- ReLU fusion probe: `sources/experience/api-probes/gemm/2026-04-28-gemm-fused.md`
+- ReLU fusion probe: `sources/experience/api-probes/gemm.md`
 - Library-first decision: `wiki/nvidia/operator-routing/tensor-core/gemm/library-fallback.md` §3 cuBLASLt

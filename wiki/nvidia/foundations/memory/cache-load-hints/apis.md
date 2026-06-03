@@ -203,7 +203,7 @@ source_refs:
 
 ## Related Probes
 
-- sources/experience/hw-probes/cache-hint/2026-04-23-cache-hint.md —
+- sources/experience/hw-probes/cache-hint.md —
   6 variants × 2 regimes sweep. Load-bearing results: `__ldg` ≡
   default on H200; `__ldcg` and `__ldcv` 2.26× slower on L2-resident
   reuse; `__ldcs` is a null in un-contended L2.

@@ -6,7 +6,7 @@ source:
 - path: spec
   anchor: Reference
 experience_refs:
-- sources/experience/hw-probes/branchless-patterns/2026-04-23-branchless-patterns.md
+- sources/experience/hw-probes/branchless-patterns.md
 id: pitfall-branch-elimination
 type: pitfall
 vendor: nvidia

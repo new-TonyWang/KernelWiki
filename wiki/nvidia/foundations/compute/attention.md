@@ -16,17 +16,17 @@ driver_version_tested: 570.124.06
 toolchain: nvcc 12.9 + ptxas 12.9
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
-- path: sources/experience/hw-probes/wgmma-ptx/artifacts/wgmma_hello.cu
+- path: sources/experience/hw-probes/wgmma-ptx.md
   anchor: wgmma PTX inline-asm pattern reused for attention Q@K^T and P@V tiles
-- path: sources/experience/hw-probes/tma-ptx/artifacts/tma_hello.cu
+- path: sources/experience/hw-probes/tma-ptx.md
   anchor: TMA load PTX pattern reused for Q/K/V tile loads
-- path: sources/experience/api-probes/attention/artifacts/flash_attn_tma_wgmma.cu
+- path: sources/experience/api-probes/attention.md
   anchor: flash_attn_tma_wgmma_kernel — TMA+wgmma online-softmax attention
 artifacts:
-  code: sources/experience/api-probes/attention/artifacts/flash_attn_tma_wgmma.cu
-  build: sources/experience/api-probes/attention/artifacts/build.sh
-  introspection: sources/experience/api-probes/attention/artifacts/device.json
-  profile: sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-ncu.csv
+  code: artifacts/experience/api-probes/attention/flash_attn_tma_wgmma.cu
+  build: artifacts/experience/api-probes/attention/build.sh
+  introspection: artifacts/experience/api-probes/attention/device.json
+  profile: artifacts/experience/api-probes/attention/tma-wgmma-ncu.csv
 related_apis: []
 related_skills:
 - compute/attention/cutlass-fmha
@@ -132,13 +132,13 @@ H200-SXM, sm_90a, cuda 12.9.86, driver 570.124.06. fp16 inputs, f32 accumulator.
 
 Evidence:
 - Primary probe: 2026-05-08-mvp-attention-tma-wgmma.md
-- ncu CSV: `sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-ncu.csv`
-- Correctness log: `sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-correctness.log`
-- Sanitizer log: `sources/experience/api-probes/attention/artifacts/profiles/tma-wgmma-sanitizer.log`
+- ncu CSV: `artifacts/experience/api-probes/attention/tma-wgmma-ncu.csv`
+- Correctness log: `artifacts/experience/api-probes/attention/tma-wgmma-correctness.log`
+- Sanitizer log: `artifacts/experience/api-probes/attention/tma-wgmma-sanitizer.log`
 
 Secondary thread-level reference:
-- Probe record: sources/experience/api-probes/attention/2026-05-08-mvp-attention.md
-- Tuning sweep: sources/experience/hw-probes/attention-tuning/2026-05-08-attention-tile-sweep.md
+- Probe record: sources/experience/api-probes/attention.md
+- Tuning sweep: sources/experience/hw-probes/attention-tuning.md
 
 ## When to use it
 

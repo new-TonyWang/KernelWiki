@@ -28,7 +28,7 @@ Every extracted skill must cite at least one third-party walkthrough in `corpus/
 
 ## 5. The canonical artifact-bundle layout is fixed
 
-Every probe lands at `sources/experience/<api-probes|hw-probes>/<topic>/artifacts/{<probe>.cu, helper.h, build.sh, run.sh, device.json, profiles/*.csv}`. Don't deviate. The reference is `sources/experience/hw-probes/warp-divergence-cost/artifacts/`. Reviewers will reject probes with a non-standard layout, even if the actual measurements are correct.
+Every probe lands at `artifacts/experience/<api-probes|hw-probes>/<topic>/{<probe>.cu, helper.h, build.sh, run.sh, device.json, profiles/*.csv}`. Don't deviate. The reference is `artifacts/experience/hw-probes/warp-divergence-cost/`. Reviewers will reject probes with a non-standard layout, even if the actual measurements are correct.
 
 ## 6. `evidence_level: measured` requires environment fields
 

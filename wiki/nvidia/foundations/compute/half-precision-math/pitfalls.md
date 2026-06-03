@@ -6,7 +6,7 @@ source:
 - path: spec
   anchor: Reference
 experience_refs:
-- sources/experience/hw-probes/half2-throughput/2026-04-23-half2-throughput.md
+- sources/experience/hw-probes/half2-throughput.md
 id: pitfall-half-precision-math
 type: pitfall
 vendor: nvidia

@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/fast-math/artifacts/expf_probe.cu
+  code: artifacts/experience/hw-probes/fast-math/expf_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o expf_probe expf_probe.cu
   introspection: ''
   profile: ''
@@ -107,7 +107,7 @@ nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o expf_probe expf_probe.cu
 
 | shape | dtype | latency_ms_median | latency_ms_p10 | latency_ms_p90 | baseline_name | baseline_ms | ratio | clock_policy | reproduce_cmd |
 |---|---|---|---|---|---|---|---|---|---|
-| 1M threads x 128 iters | fp32 | 0.0404 | 0.0404 | 0.0406 | expf (standard math) | 0.0516 | 1.27 | unknown | `ssh h200_ncu "cd /inspire/hdd/project/qianghuaxuexi/public/wty/ai4ai/ai-infra/kernel-kb-mvp && /usr/local/cuda-12.9/bin/nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o /tmp/expf_probe artifacts/experience/hw-probes/fast-math/artifacts/expf_probe.cu && /tmp/expf_probe"` |
+| 1M threads x 128 iters | fp32 | 0.0404 | 0.0404 | 0.0406 | expf (standard math) | 0.0516 | 1.27 | unknown | `ssh h200_ncu "cd /inspire/hdd/project/qianghuaxuexi/public/wty/ai4ai/ai-infra/kernel-kb-mvp && /usr/local/cuda-12.9/bin/nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o /tmp/expf_probe artifacts/experience/hw-probes/fast-math/expf_probe.cu && /tmp/expf_probe"` |
 
 Precision (single-call, 1M inputs in [-10, 10]):
 - `expf`:   max ULP error vs f64 reference = 2

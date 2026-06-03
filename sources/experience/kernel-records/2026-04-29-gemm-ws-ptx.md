@@ -28,11 +28,11 @@ This document is the *record* — the reasoning that drove the file layout below
 
 | Source | What I took from it |
 |---|---|
-| `wiki/nvidia/foundations/compute/gemm-ptx/skill.md` | Single-tile cutlass-free GEMM that loads + wgmmas in one warpgroup. The starting point — I am extending it from "1 tile, no warp-spec" to "K-loop over tiles with producer/consumer split". |
+| `wiki/nvidia/foundations/compute/gemm-ptx.md` | Single-tile cutlass-free GEMM that loads + wgmmas in one warpgroup. The starting point — I am extending it from "1 tile, no warp-spec" to "K-loop over tiles with producer/consumer split". |
 | `wiki/nvidia/foundations/compute/gemm-ptx/pitfalls.md` | (a) B's storage layout for SS_TN must be col-major K×N (host-side transpose), (b) descriptor SBO encoding `LD=8·K·sz / SD=8·sz`, (c) the per-thread fragment-store mapping is **suspected** of being the residual 497/512 bug at single-tile. Items (a)+(b) I copy verbatim; item (c) I copy the existing mapping but flag the inheritance. |
-| `wiki/nvidia/hardware/tma-ptx/skill.md` | `cuTensorMapEncodeTiled` argument convention (fastest-moving dim first), the `cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes` mnemonic, the `mbarrier.{init,arrive.expect_tx,try_wait.parity}` protocol. |
-| `wiki/nvidia/hardware/wgmma-ptx/skill.md` + `pitfalls.md` | Smem descriptor bit-layout + the helper, the immediate-arg counts per dtype family, the `wgmma.fence / mma_async / commit_group / wait_group` issue sequence, the requirement that wgmma is issued by exactly 128 threads. |
-| `wiki/nvidia/techniques/warp-specialization/skill.md` | The "Algorithm skeleton (cutlass-free)" pseudo-code (PRODUCER_WARP issues TMA, consumer warpgroup issues wgmma, full/empty mbarrier pair, S smem stages). The kernel is a literal translation of that skeleton. |
+| `wiki/nvidia/hardware/tma/skill-tma-ptx.md` | `cuTensorMapEncodeTiled` argument convention (fastest-moving dim first), the `cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes` mnemonic, the `mbarrier.{init,arrive.expect_tx,try_wait.parity}` protocol. |
+| `wiki/nvidia/hardware/wgmma/skill-wgmma-ptx.md` + `pitfalls.md` | Smem descriptor bit-layout + the helper, the immediate-arg counts per dtype family, the `wgmma.fence / mma_async / commit_group / wait_group` issue sequence, the requirement that wgmma is issued by exactly 128 threads. |
+| `wiki/nvidia/techniques/warp-specialization.md` | The "Algorithm skeleton (cutlass-free)" pseudo-code (PRODUCER_WARP issues TMA, consumer warpgroup issues wgmma, full/empty mbarrier pair, S smem stages). The kernel is a literal translation of that skeleton. |
 | `wiki/nvidia/techniques/warp-specialization/pitfalls.md` | (#2) `expected_tx` must equal A+B sum; (#3) phase tracking on each mbarrier alternates per stage cycle; (#7) producer must wait on bar_empty before refilling. |
 
 ## 2. Design decisions
@@ -120,7 +120,7 @@ within those 16 rows, lane l holds:
     {d2, d3} -> (row_bot, col0), (row_bot, col1)
 ```
 
-This is the **same** mapping used in `wiki/nvidia/code-walkthroughs/ptx-gemm/gemm_ptx.cu`. `wiki/nvidia/foundations/compute/gemm-ptx/pitfalls.md` #1 flags it as suspected of being the source of the residual 497/512 mismatches at the single-tile shape. I deliberately did **not** invent a different mapping here — the warp-specialization layer is *orthogonal* to the per-thread fragment layout, and inheriting the existing mapping verbatim makes this kernel's correctness behaviour the WS-pipeline delta on top of `gemm_ptx`, not a confounded change in two layers at once. If the upstream fragment-layout fix lands in `gemm_ptx.cu`, lifting it into this kernel is a single-block edit.
+This is the **same** mapping used in `artifacts/experience/api-probes/gemm-ptx/gemm_ptx.cu`. `wiki/nvidia/foundations/compute/gemm-ptx/pitfalls.md` #1 flags it as suspected of being the source of the residual 497/512 mismatches at the single-tile shape. I deliberately did **not** invent a different mapping here — the warp-specialization layer is *orthogonal* to the per-thread fragment layout, and inheriting the existing mapping verbatim makes this kernel's correctness behaviour the WS-pipeline delta on top of `gemm_ptx`, not a confounded change in two layers at once. If the upstream fragment-layout fix lands in `gemm_ptx.cu`, lifting it into this kernel is a single-block edit.
 
 ## 3. Implementation walkthrough
 
@@ -193,9 +193,9 @@ Build + run requires an H200 (or any sm_90a card) with CUDA ≥ 12.0. The repo's
 
 ## 6. Cross-references
 
-- WS algorithm skeleton: `wiki/nvidia/techniques/warp-specialization/skill.md`
+- WS algorithm skeleton: `wiki/nvidia/techniques/warp-specialization.md`
 - WS pitfalls: `wiki/nvidia/techniques/warp-specialization/pitfalls.md`
-- TMA-PTX primitive: `wiki/nvidia/hardware/tma-ptx/skill.md`
-- wgmma-PTX primitive: `wiki/nvidia/hardware/wgmma-ptx/skill.md`
-- Single-tile cutlass-free GEMM (the parent): `wiki/nvidia/foundations/compute/gemm-ptx/skill.md` + its `pitfalls.md`
+- TMA-PTX primitive: `wiki/nvidia/hardware/tma/skill-tma-ptx.md`
+- wgmma-PTX primitive: `wiki/nvidia/hardware/wgmma/skill-wgmma-ptx.md`
+- Single-tile cutlass-free GEMM (the parent): `wiki/nvidia/foundations/compute/gemm-ptx.md` + its `pitfalls.md`
 - Cutlass realization (reference, not used in this binary): `wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm/`

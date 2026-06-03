@@ -13,11 +13,11 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: artifacts/experience/hw-probes/wgmma-ptx/artifacts/wgmma_zoo.cu
-  codegen: artifacts/experience/hw-probes/wgmma-ptx/artifacts/gen_wgmma_zoo.py
-  build: artifacts/experience/hw-probes/wgmma-ptx/artifacts/build_zoo.sh
-  run: artifacts/experience/hw-probes/wgmma-ptx/artifacts/run_zoo.sh
-  profile: artifacts/experience/hw-probes/wgmma-ptx/artifacts/profiles/2026-04-29-wgmma-zoo.csv
+  code: artifacts/experience/hw-probes/wgmma-ptx/wgmma_zoo.cu
+  codegen: artifacts/experience/hw-probes/wgmma-ptx/gen_wgmma_zoo.py
+  build: artifacts/experience/hw-probes/wgmma-ptx/build_zoo.sh
+  run: artifacts/experience/hw-probes/wgmma-ptx/run_zoo.sh
+  profile: artifacts/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.csv
 upstream_repo: none (hand-rolled cutlass-free implementation)
 conclusions:
   workload: single CTA × 1 warpgroup (128 threads) × N_INNER=1024 serialized wgmma

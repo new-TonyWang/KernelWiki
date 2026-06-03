@@ -20,7 +20,7 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/shfl-sync-bfly/artifacts/warp_reduce_probe.cu
+  code: artifacts/experience/hw-probes/shfl-sync-bfly/warp_reduce_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o warp_reduce_probe warp_reduce_probe.cu
   introspection: ''
   profile: ''

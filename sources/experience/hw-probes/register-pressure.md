@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/register-pressure/artifacts/reg_pressure_probe.cu
+  code: artifacts/experience/hw-probes/register-pressure/reg_pressure_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -Xptxas=-v -o probe_default reg_pressure_probe.cu
     && nvcc -arch=sm_90a -O3 -std=c++17 -Xptxas=-v --maxrregcount=32 -o probe_maxreg32
     reg_pressure_probe.cu
@@ -69,7 +69,7 @@ Key finding: the default build used **64 registers/thread** with **zero spills**
 
 ## Minimal Kernel
 
-See full source: `artifacts/experience/hw-probes/register-pressure/artifacts/reg_pressure_probe.cu`
+See full source: `artifacts/experience/hw-probes/register-pressure/reg_pressure_probe.cu`
 
 The kernel uses 48 independent float accumulators loaded from global memory, then performs 3 rounds of cross-dependent FMA (ring, butterfly stride-24, reverse ring). All 48 values must be live simultaneously, creating high register pressure. The same `.cu` file is compiled twice with different flags to produce the two binaries.
 

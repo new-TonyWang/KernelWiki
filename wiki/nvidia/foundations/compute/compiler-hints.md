@@ -20,7 +20,7 @@ source:
 - path: spec
   anchor: Reference
 artifacts:
-  code: sources/experience/hw-probes/compiler-hints/artifacts/launch_bounds_probe.cu
+  code: artifacts/experience/hw-probes/compiler-hints/launch_bounds_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o launch_bounds_probe
     launch_bounds_probe.cu
   introspection: ''

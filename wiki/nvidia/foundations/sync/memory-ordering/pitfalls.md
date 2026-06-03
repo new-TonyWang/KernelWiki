@@ -12,10 +12,9 @@ applies_to_ops:
 requires_sm: '>=7.0'
 single_kernel_useful: true
 source:
-- path: <path-removed>
+- path: spec
   anchor: non-coherence-the-constant-cache
-  excerpt: The constant cache sits in the SM, has a direct link to L2, and is not
-    kept coherent with the L1 cache.
+  excerpt: The constant cache sits in the SM, has a direct link to L2, and is not kept coherent with the L1 cache.
 id: pitfall-memory-ordering
 type: pitfall
 vendor: nvidia

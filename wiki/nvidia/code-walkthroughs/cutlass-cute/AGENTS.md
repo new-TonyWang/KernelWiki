@@ -34,19 +34,19 @@ wiki/nvidia/code-walkthroughs/
 
 | Topic | Canonical artifact path |
 |---|---|
-| Example 48 Hopper WS GEMM | `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu` |
-| TMA cutlass-free | `sources/experience/hw-probes/tma-ptx/artifacts/{tma_hello.cu, tma_throughput_probe.cu}` |
-| wgmma cutlass-API | `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu` (same harness) |
-| wgmma cutlass-free | `sources/experience/hw-probes/wgmma-ptx/artifacts/{wgmma_hello.cu, wgmma_zoo.cu}` |
-| Aligned GEMM | `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu` |
-| Tail GEMM | `sources/experience/api-probes/gemm/artifacts/{gemm_tail.cu, gemm_tail_small.cu}` |
-| Plain WS schedule | `sources/experience/api-probes/gemm/artifacts/gemm_compare_ws.cu` |
-| Pingpong schedule | `sources/experience/api-probes/gemm/artifacts/gemm_compare_pingpong.cu` |
-| Cooperative schedule | `sources/experience/api-probes/gemm/artifacts/gemm_aligned.cu` (auto-selects cooperative at large aligned shapes) |
-| Cutlass-free WS | `sources/experience/kernel-records/2026-04-29-gemm-ws-ptx/gemm_ws_ptx.cu` |
-| Fused-GEMM (ex50) | upstream `examples/50_hopper_gemm_with_epilogue_swizzle/` (built in place by `sources/experience/api-probes/gemm/artifacts/run_fused.sh`) |
+| Example 48 Hopper WS GEMM | `artifacts/experience/api-probes/gemm/gemm_aligned.cu` |
+| TMA cutlass-free | `artifacts/experience/hw-probes/tma-ptx/{tma_hello.cu, tma_throughput_probe.cu}` |
+| wgmma cutlass-API | `artifacts/experience/api-probes/gemm/gemm_aligned.cu` (same harness) |
+| wgmma cutlass-free | `artifacts/experience/hw-probes/wgmma-ptx/{wgmma_hello.cu, wgmma_zoo.cu}` |
+| Aligned GEMM | `artifacts/experience/api-probes/gemm/gemm_aligned.cu` |
+| Tail GEMM | `artifacts/experience/api-probes/gemm/{gemm_tail.cu, gemm_tail_small.cu}` |
+| Plain WS schedule | `artifacts/experience/api-probes/gemm/gemm_compare_ws.cu` |
+| Pingpong schedule | `artifacts/experience/api-probes/gemm/gemm_compare_pingpong.cu` |
+| Cooperative schedule | `artifacts/experience/api-probes/gemm/gemm_aligned.cu` (auto-selects cooperative at large aligned shapes) |
+| Cutlass-free WS | `artifacts/experience/kernel-records/2026-04-29-gemm-ws-ptx/gemm_ws_ptx.cu` |
+| Fused-GEMM (ex50) | upstream `examples/50_hopper_gemm_with_epilogue_swizzle/` (built in place by `artifacts/experience/api-probes/gemm/run_fused.sh`) |
 
-To rebuild any topic's binary: `cd sources/experience/<api-probes|hw-probes>/<topic>/artifacts && bash build.sh && bash run.sh`.
+To rebuild any topic's binary: `cd artifacts/experience/<api-probes|hw-probes>/<topic> && bash build.sh && bash run.sh`.
 
 ## Current contents
 

@@ -14,9 +14,9 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/half2-throughput/artifacts/half2_throughput_probe.cu
-  build: artifacts/experience/hw-probes/half2-throughput/artifacts/build.sh
-  introspection: artifacts/experience/hw-probes/half2-throughput/artifacts/device.json
+  code: artifacts/experience/hw-probes/half2-throughput/half2_throughput_probe.cu
+  build: artifacts/experience/hw-probes/half2-throughput/build.sh
+  introspection: artifacts/experience/hw-probes/half2-throughput/device.json
   profile: ''
   ncu_report_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/half2-throughput/2026-04-23/half2_throughput.ncu-rep
   ncu_csv_host_path: h200_ncu:/inspire/hdd/project/qianghuaxuexi/public/kernel_pilot_public/kp-probe-artifacts/half2-throughput/2026-04-23/ncu_metrics.csv

@@ -14,7 +14,7 @@ measured_on:
   cuda_runtime: '12.9'
   driver: 570.124.06
 artifacts:
-  code: artifacts/experience/hw-probes/smem-bank-conflict/artifacts/smem_bank_conflict_probe.cu
+  code: artifacts/experience/hw-probes/smem-bank-conflict/smem_bank_conflict_probe.cu
   build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o smem_bank_conflict_probe smem_bank_conflict_probe.cu
   introspection: ''
   profile: ''
