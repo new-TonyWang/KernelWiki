@@ -9,14 +9,12 @@ apis:
   namespace: cuda-runtime
   kind: block-barrier
   signature: void __syncthreads();
-  notes: 'Block-level barrier; backed by PTX bar.sync. BP §12.1.3 throughput: 16 ops/clk
-    on sm_7.x / sm_8.x. Per-call cost dominated by idle-until-slowest-thread stall.'
+  notes: 'Block-level barrier; backed by PTX bar.sync. BP §12.1.3 throughput: 16 ops/clk on sm_7.x / sm_8.x. Per-call cost dominated by idle-until-slowest-thread stall.'
 - func_name: __syncthreads_count
   namespace: cuda-runtime
   kind: block-barrier-reduction
   signature: int __syncthreads_count(int predicate);
-  notes: Block barrier + popcount of predicate across block. Useful for collective
-    decisions without an extra reduction pass.
+  notes: Block barrier + popcount of predicate across block. Useful for collective decisions without an extra reduction pass.
 - func_name: __syncthreads_and
   namespace: cuda-runtime
   kind: block-barrier-reduction
@@ -31,14 +29,12 @@ apis:
   namespace: cuda-runtime
   kind: warp-barrier
   signature: void __syncwarp(unsigned mask = 0xFFFFFFFFu);
-  notes: Warp-level barrier (or subset via mask). Cheapest barrier; required before
-    warp-synchronous code on sm_70+ (ITS).
+  notes: Warp-level barrier (or subset via mask). Cheapest barrier; required before warp-synchronous code on sm_70+ (ITS).
 - func_name: cuda::barrier
   namespace: cuda
   kind: async-barrier
   signature: template<thread_scope S> class cuda::barrier;
-  notes: 'libcu++ async barrier with arrive/wait split. Scopes: block, cluster, device,
-    system. Hardware-accelerated on sm_80+ for block/cluster scope.'
+  notes: 'libcu++ async barrier with arrive/wait split. Scopes: block, cluster, device, system. Hardware-accelerated on sm_80+ for block/cluster scope.'
 - func_name: cuda::barrier::arrive
   namespace: cuda
   kind: async-barrier-method
@@ -48,38 +44,32 @@ apis:
   namespace: cuda
   kind: async-barrier-method
   signature: void wait(arrival_token&& token);
-  notes: Block until the phase identified by token completes. Token must be from current
-    or immediately previous phase (pitfall P2).
+  notes: Block until the phase identified by token completes. Token must be from current or immediately previous phase (pitfall P2).
 - func_name: cuda::barrier::init
   namespace: cuda
   kind: async-barrier-init
   signature: friend void init(barrier*, ptrdiff_t expected);
-  notes: One-time initialization; must be called from exactly one thread and followed
-    by block.sync() before any arrive.
+  notes: One-time initialization; must be called from exactly one thread and followed by block.sync() before any arrive.
 - func_name: cuda::device::barrier_native_handle
   namespace: cuda::device
   kind: async-barrier-ptx-bridge
   signature: uint64_t* barrier_native_handle(cuda::barrier<S>& b);
-  notes: Get the underlying PTX mbarrier handle so you can call cuda::ptx::mbarrier_*
-    directly. Used for expect_tx and TMA integration.
+  notes: Get the underlying PTX mbarrier handle so you can call cuda::ptx::mbarrier_* directly. Used for expect_tx and TMA integration.
 - func_name: thread_block::sync
   namespace: cooperative_groups
   kind: cg-block-barrier
   signature: void cg::thread_block::sync();
-  notes: Cooperative-groups block barrier; equivalent to __syncthreads at the SASS
-    level.
+  notes: Cooperative-groups block barrier; equivalent to __syncthreads at the SASS level.
 - func_name: thread_block_tile::sync
   namespace: cooperative_groups
   kind: cg-tile-barrier
   signature: void cg::thread_block_tile<N>::sync();
-  notes: Sub-block barrier for a tile of N threads (N ∈ {1,2,4,8,16,32}). N=32 ==
-    __syncwarp.
+  notes: Sub-block barrier for a tile of N threads (N ∈ {1,2,4,8,16,32}). N=32 == __syncwarp.
 - func_name: bar.sync
   namespace: ptx
   kind: ptx-block-barrier
   signature: bar.sync a{, b};
-  notes: PTX block barrier, 16 named barriers (a = 0..15). 'b' optional thread count
-    for subset sync.
+  notes: PTX block barrier, 16 named barriers (a = 0..15). 'b' optional thread count for subset sync.
 - func_name: bar.arrive
   namespace: ptx
   kind: ptx-block-arrive
@@ -88,8 +78,7 @@ apis:
 - func_name: barrier.cta.sync.aligned
   namespace: ptx
   kind: ptx-block-barrier-aligned
-  notes: Aligned form; compiler uses when it can prove all warps participate fully.
-    Has higher throughput than the non-aligned bar.sync.
+  notes: Aligned form; compiler uses when it can prove all warps participate fully. Has higher throughput than the non-aligned bar.sync.
 - func_name: mbarrier.init
   namespace: ptx
   kind: ptx-mbarrier
@@ -104,8 +93,7 @@ apis:
   namespace: ptx
   kind: ptx-mbarrier-expect-tx
   signature: mbarrier.arrive.expect_tx.shared::cta.b64 token, [mbar], tx_count;
-  notes: Arrive AND declare that `tx_count` bytes of async transactions will complete
-    on this barrier. Enables hw-tracked TMA/cp.async synchronization.
+  notes: Arrive AND declare that `tx_count` bytes of async transactions will complete on this barrier. Enables hw-tracked TMA/cp.async synchronization.
 - func_name: mbarrier.try_wait
   namespace: ptx
   kind: ptx-mbarrier
@@ -115,18 +103,15 @@ apis:
   namespace: ptx
   kind: ptx-mbarrier
   signature: mbarrier.test_wait.shared::cta.b64 pred, [mbar], token;
-  notes: Non-blocking check; returns 1 if phase already complete, else 0. Useful for
-    interleaving.
+  notes: Non-blocking check; returns 1 if phase already complete, else 0. Useful for interleaving.
 - func_name: cp.async.mbarrier.arrive
   namespace: ptx
   kind: ptx-async-copy-mbarrier-bridge
-  notes: Issued from a cp.async instruction target; increments the mbarrier transaction
-    count when the async copy retires.
+  notes: Issued from a cp.async instruction target; increments the mbarrier transaction count when the async copy retires.
 - func_name: barrier.cluster.arrive
   namespace: ptx
   kind: ptx-cluster-barrier
-  notes: Cluster-scope barrier arrival (sm_90+). For DSMEM / multi-block kernels.
-    See wiki/nvidia/hardware/thread-block-cluster/ (pending).
+  notes: Cluster-scope barrier arrival (sm_90+). For DSMEM / multi-block kernels. See wiki/nvidia/hardware/thread-block-cluster/ (pending).
 - func_name: barrier.cluster.wait
   namespace: ptx
   kind: ptx-cluster-barrier
@@ -135,9 +120,7 @@ apis:
   namespace: cuda-runtime
   kind: spin-wait-backoff
   signature: void __nanosleep(unsigned int ns);
-  notes: Suspend the thread for ~ns nanoseconds. Used in spin-wait loops to reduce
-    SM resource pressure. Legacy pitfall P8 documents the no-contention case where
-    this adds minor overhead without benefit.
+  notes: Suspend the thread for ~ns nanoseconds. Used in spin-wait loops to reduce SM resource pressure. Legacy pitfall P8 documents the no-contention case where this adds minor overhead without benefit.
 id: api-barrier-optimization-ref
 type: api-definition
 vendor: nvidia
@@ -155,6 +138,26 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L20580-L21555
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- tma
+- mbarrier
+- cluster
+techniques:
+- shared-memory-optimization
+confidence: inferred
+tags:
+- tma
+- mbarrier
+- cluster
+- shared-memory-optimization
+- ptx
+- cuda-cpp
+architectures:
+- sm90
+- sm90a
 ---
 ## Core APIs
 

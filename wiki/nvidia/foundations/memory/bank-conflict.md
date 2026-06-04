@@ -36,6 +36,13 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- tma
+- vectorized-loads
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+- fused-kernel
+- gemm
 applies_to:
 - general
 source_refs:
@@ -54,6 +61,23 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L892-L900
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- tma
+techniques:
+- vectorized-loads
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+kernel_types:
+- fused-kernel
+- gemm
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/smem-bank-conflict
 ---
 ## What
 

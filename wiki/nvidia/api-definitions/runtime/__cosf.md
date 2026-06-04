@@ -24,6 +24,11 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cuda-math-api/cuda_cuda-math-api_index.html.md
   anchor: L3727-L3727
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # __cosf
 

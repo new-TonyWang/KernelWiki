@@ -118,7 +118,6 @@ wiki-hardware:
     - vendor
     - reproducibility
     - prerequisites
-    - blackwell_relevance
     - evidence_basis
     - version_sensitive
     - source_refs
@@ -142,7 +141,6 @@ wiki-technique:
     - vendor
     - aliases
     - symptoms
-    - blackwell_relevance
     - evidence_basis
     - version_sensitive
     - artifact_dir
@@ -195,7 +193,6 @@ wiki-kernel:
     - aliases
     - prerequisites
     - symptoms
-    - blackwell_relevance
     - evidence_basis
     - version_sensitive
     - artifact_dir
@@ -224,7 +221,6 @@ wiki-language:
     - confidence
     - aliases
     - evidence_basis
-    - blackwell_relevance
     - version_sensitive
     - source_refs
   constraints:
@@ -242,7 +238,6 @@ wiki-migration:
     - tags
     - related
     - sources
-    - blackwell_relevance
   optional:
     - vendor
     - confidence
@@ -270,10 +265,16 @@ wiki-skill:
   optional:
     - architectures
     - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
     - requires_sm
     - requires_features
     - measured_on
     - cuda_version_tested
+    - artifact_dir
     - artifacts
     - related
     - related_apis
@@ -299,6 +300,13 @@ wiki-api-definition:
     - source
   optional:
     - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
     - since_cuda
     - status
     - has_end_to_end_example
@@ -325,18 +333,25 @@ wiki-experience:
     - source
   optional:
     - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
     - api
     - namespace
     - status
     - kind
     - trigger
     - clock_policy
+    - artifact_dir
     - artifacts
     - conclusions
     - source_refs
     - back_filled_into
     - open_questions
-    - source_refs
   constraints:
     type: experience
     id_prefix: exp-
@@ -351,6 +366,13 @@ wiki-operator-routing:
     - operator
   optional:
     - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
     - related
     - sources
     - source_refs
@@ -369,13 +391,19 @@ wiki-algorithm:
     - source
   optional:
     - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
     - applies_to
     - requires_sm
     - measured_on
+    - artifact_dir
     - artifacts
     - related
     - reproducibility
-    - confidence
     - source_refs
   constraints:
     type: algorithm
@@ -391,8 +419,16 @@ wiki-code-walkthrough:
     - upstream_repo
   optional:
     - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
     - related
     - source
+    - artifact_dir
     - artifacts
     - source_refs
   constraints:
@@ -407,6 +443,13 @@ wiki-pitfall:
     - vendor
   optional:
     - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
     - related
     - sources
     - source_refs
@@ -425,12 +468,20 @@ source-experience:
     - measured_on
   optional:
     - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
     - api
     - namespace
     - status
     - kind
     - trigger
     - clock_policy
+    - artifact_dir
     - artifacts
     - conclusions
     - source_refs

@@ -31,6 +31,25 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L4692-L4695
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- cache-policy
+kernel_types:
+- fused-kernel
+confidence: source-reported
+tags:
+- cluster
+- cache-policy
+- fused-kernel
+- ptx
+- cuda-cpp
 ---
 ## P1: Scope mismatch -- block scope for cross-block communication
 

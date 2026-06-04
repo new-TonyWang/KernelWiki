@@ -7,6 +7,34 @@ id: routing-indexing-ROUTING
 type: operator-routing
 vendor: nvidia
 operator: indexing
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- persistent-kernel
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- loop-unrolling
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- persistent-kernel
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- loop-unrolling
+- shared-memory-optimization
+- fused-kernel
+- cuda-cpp
 ---
 # Indexing Pattern -- Skill Whitelist
 

@@ -5,10 +5,39 @@ vendor: nvidia
 title: Pitfalls
 tags:
 - cuda-cpp
+- tma
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+- gemm
 evidence_level: spec
 source:
 - path: spec
   anchor: Algorithm reference
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- tma
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+kernel_types:
+- gemm
+confidence: source-reported
 ---
 # Persistent kernel — pitfalls
 

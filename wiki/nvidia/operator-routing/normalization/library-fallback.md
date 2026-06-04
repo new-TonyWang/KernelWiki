@@ -14,6 +14,21 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Tools/nsight-systems/nsight-systems_index.html.md
   anchor: L6220-L6224
+languages:
+- cuda-cpp
+- python
+techniques:
+- kernel-fusion
+- software-exp
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- kernel-fusion
+- software-exp
+- fused-kernel
+- cuda-cpp
+- python
 ---
 # Normalization -- Library Fallback Paths
 

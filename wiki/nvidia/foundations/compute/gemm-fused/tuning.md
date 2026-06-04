@@ -5,12 +5,35 @@ vendor: nvidia
 title: Tuning
 tags:
 - cuda-cpp
+- wgmma
+- warp-specialization
+- kernel-fusion
+- shared-memory-optimization
+- gemm
+- fused-kernel
+- quantization
 applies_to:
 - general
 source:
 - path: spec
   anchor: CUDA Programming Guide
 evidence_level: spec
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- wgmma
+techniques:
+- warp-specialization
+- kernel-fusion
+- shared-memory-optimization
+kernel_types:
+- gemm
+- fused-kernel
+- quantization
+confidence: source-reported
 ---
 # Fused GEMM (Epilogue/Prologue) Tuning Parameters
 

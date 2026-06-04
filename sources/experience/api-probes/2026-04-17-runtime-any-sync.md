@@ -33,10 +33,8 @@ back_filled_into:
 - wiki/nvidia/api-definitions/runtime/__any_sync.md
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- Baseline is a CPU OR-reduction check (correctness reference only, not a GPU timing
-  baseline), so ratio is not reported.
-- kp_introspect kernel-static failed (cuda-python not installed); no kernel introspection
-  bundle available.
+- Baseline is a CPU OR-reduction check (correctness reference only, not a GPU timing baseline), so ratio is not reported.
+- kp_introspect kernel-static failed (cuda-python not installed); no kernel introspection bundle available.
 id: exp-2026-04-17-runtime-any-sync
 type: experience
 vendor: nvidia
@@ -57,6 +55,17 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24197-L24217
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- python
+confidence: experimental
+tags:
+- cuda-cpp
+- python
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

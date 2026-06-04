@@ -25,9 +25,7 @@ source:
 - path: spec
   anchor: Reference
 conclusions:
-  workload: 'fma_bench_<V>: grid=528 blocks x 256 threads = 135168 threads; each thread
-    runs N_CHAINS=4 independent accumulator chains of N_FMA_ITERS=2048 FMAs (8192
-    FMAs/thread). Compute-bound (NCU fp32 variant: SM SOL = 78.4%).'
+  workload: 'fma_bench_<V>: grid=528 blocks x 256 threads = 135168 threads; each thread runs N_CHAINS=4 independent accumulator chains of N_FMA_ITERS=2048 FMAs (8192 FMAs/thread). Compute-bound (NCU fp32 variant: SM SOL = 78.4%).'
   fp32_scalar_ms: 0.0773
   fp32_scalar_gflops: 28633.0
   fp16_scalar_ms: 0.0488
@@ -47,36 +45,13 @@ conclusions:
   h200_peak_fp32_tflops: 67
   compute_sol_fp32_pct: 78.4
 open_questions:
-- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz)
-  but was not explicitly locked. Absolute GFLOPS subject to boost-clock variation;
-  ratios across variants are robust (same launch context).
-- 'Legacy claim: `__hfma2` gives 2x throughput over `__hfma`. Measured on H200 sm_9.0a:
-  only **1.16x** (52608 vs 45351 GFLOPS at scalar op count). The source of the gap
-  is not confirmed by this probe; hypotheses: (a) scalar `__hfma` already emits the
-  FP16 SIMD pipe on sm_9.0a, so the second packing axis does not add 2x; (b) `hfma2`
-  has higher latency per instruction than scalar `hfma` so the benefit partially cancels;
-  (c) register pressure for h2 is 2x the scalar form. A PTX / SASS inspection (nvcc
-  -Xptxas=-v + nvcc -ptx) would distinguish (a) from (b). Out of scope for this probe.'
-- bf16 packed (46478 GFLOPS) is **12% slower** than fp16 packed (52608 GFLOPS) on
-  H200 — legacy 'equal throughput' claim contradicted. bf16 scalar equals fp16 scalar
-  (both 45 TFLOPS), so the packed-pipeline path differs between fp16x2 and bf16x2
-  on sm_9.0a. Possibly a result of the bf16 packed FMA using the same FP32 issue slot
-  (since bf16 is essentially a truncated fp32) rather than the dedicated fp16x2 pipe.
-  Not confirmed; a SASS inspection would show which pipe each variant dispatches to.
-- Only fp32 variant's NCU metrics were captured (--launch-count 1). Re-running with
-  --launch-count 5 or structuring the harness so each variant runs in a single binary
-  would give per-variant Compute SOL / instruction mix. Wall-clock remains authoritative.
-- Transcendentals (hexp, h2exp, hlog, h2log, hrsqrt, h2rsqrt, tanh.approx.f16/bf16)
-  NOT measured in this probe. Legacy pitfall P10 flags that `h2exp` may decompose
-  into fp32 ops on some architectures; H200 coverage is an open follow-up (`sources/experience/hw-probes/half-transcendental/`,
-  open).
-- __hfma2_relu (fused FMA+relu) NOT measured. Legacy Skill 5 / pitfall P11 claim 4%
-  instruction reduction but no wall-clock benefit in memory-bound kernels. Confirm/refute
-  on H200 in a follow-up (`sources/experience/hw-probes/half-fma-relu/`, open).
-- Atomic fp16/bf16 add NOT measured. Legacy pitfall P12 claims native fp16 atomicAdd
-  has worse contention than fp32 atomicAdd. half-precision-math skill retains this
-  as inferred; see `sources/experience/hw-probes/atomic-reduction-contention/` (smem-tile-reuse
-  / earlier probe measured fp32 only).
+- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz) but was not explicitly locked. Absolute GFLOPS subject to boost-clock variation; ratios across variants are robust (same launch context).
+- 'Legacy claim: `__hfma2` gives 2x throughput over `__hfma`. Measured on H200 sm_9.0a: only **1.16x** (52608 vs 45351 GFLOPS at scalar op count). The source of the gap is not confirmed by this probe; hypotheses: (a) scalar `__hfma` already emits the FP16 SIMD pipe on sm_9.0a, so the second packing axis does not add 2x; (b) `hfma2` has higher latency per instruction than scalar `hfma` so the benefit partially cancels; (c) register pressure for h2 is 2x the scalar form. A PTX / SASS inspection (nvcc -Xptxas=-v + nvcc -ptx) would distinguish (a) from (b). Out of scope for this probe.'
+- bf16 packed (46478 GFLOPS) is **12% slower** than fp16 packed (52608 GFLOPS) on H200 — legacy 'equal throughput' claim contradicted. bf16 scalar equals fp16 scalar (both 45 TFLOPS), so the packed-pipeline path differs between fp16x2 and bf16x2 on sm_9.0a. Possibly a result of the bf16 packed FMA using the same FP32 issue slot (since bf16 is essentially a truncated fp32) rather than the dedicated fp16x2 pipe. Not confirmed; a SASS inspection would show which pipe each variant dispatches to.
+- Only fp32 variant's NCU metrics were captured (--launch-count 1). Re-running with --launch-count 5 or structuring the harness so each variant runs in a single binary would give per-variant Compute SOL / instruction mix. Wall-clock remains authoritative.
+- Transcendentals (hexp, h2exp, hlog, h2log, hrsqrt, h2rsqrt, tanh.approx.f16/bf16) NOT measured in this probe. Legacy pitfall P10 flags that `h2exp` may decompose into fp32 ops on some architectures; H200 coverage is an open follow-up (`sources/experience/hw-probes/half-transcendental/`, open).
+- __hfma2_relu (fused FMA+relu) NOT measured. Legacy Skill 5 / pitfall P11 claim 4% instruction reduction but no wall-clock benefit in memory-bound kernels. Confirm/refute on H200 in a follow-up (`sources/experience/hw-probes/half-fma-relu/`, open).
+- Atomic fp16/bf16 add NOT measured. Legacy pitfall P12 claims native fp16 atomicAdd has worse contention than fp32 atomicAdd. half-precision-math skill retains this as inferred; see `sources/experience/hw-probes/atomic-reduction-contention/` (smem-tile-reuse / earlier probe measured fp32 only).
 id: exp-half2-throughput
 type: experience
 vendor: nvidia
@@ -94,6 +69,35 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L25350-L25420
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- pipeline-stages
+- vectorized-loads
+- register-budgeting
+- data-reuse
+- kernel-fusion
+- shared-memory-optimization
+kernel_types:
+- gemm
+- fused-kernel
+confidence: experimental
+tags:
+- pipeline-stages
+- vectorized-loads
+- register-budgeting
+- data-reuse
+- kernel-fusion
+- shared-memory-optimization
+- gemm
+- fused-kernel
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/half2-throughput
 ---
 ## Summary
 

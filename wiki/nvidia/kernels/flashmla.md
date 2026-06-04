@@ -45,11 +45,8 @@ performance_claims:
   value: 1450
   utilization: ~65%
   source_id: blog-flashmla
-blackwell_relevance: SM100 dense prefill achieves 1460 TFLOPS (vs 660 on SM90); Blackwell
-  tcgen05 enables higher MLA throughput.
 artifact_dir: artifacts/kernels/flashmla
 ---
-
 # FlashMLA -- Multi-head Latent Attention
 
 ## Overview

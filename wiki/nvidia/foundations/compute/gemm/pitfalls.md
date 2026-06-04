@@ -3,6 +3,29 @@ id: pitfall-gemm
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- wgmma
+- tma
+- cluster
+techniques:
+- warp-specialization
+- tma-multicast
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- wgmma
+- tma
+- cluster
+- warp-specialization
+- tma-multicast
+- gemm
+- cuda-cpp
 ---
 # Non-aligned GEMM tail handling — pitfalls
 

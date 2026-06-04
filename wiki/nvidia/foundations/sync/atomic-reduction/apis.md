@@ -49,6 +49,22 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L19647-L19680
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- cache-policy
+confidence: inferred
+tags:
+- cluster
+- cache-policy
+- ptx
+- cuda-cpp
 ---
 # Atomic Reduction API Surface
 

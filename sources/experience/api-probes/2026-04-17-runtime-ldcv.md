@@ -32,14 +32,8 @@ conclusions:
 back_filled_into: []
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- Counter to the MVP task's expected finding, __ldcv was NOT observably slower than
-  plain load on this 256 MB HBM-bound streaming workload. This is because the plain-load
-  baseline already misses L2 (256 MB > 60 MB L2), so bypassing cache has no extra
-  cost here. __ldcv's penalty would show up if the same address were re-read (plain
-  path hits L2; __ldcv re-fetches from HBM).
-- PTX spec describes __ldcv in the context of System Memory lines; its interaction
-  with ordinary device global memory is less rigorously specified and may be implemented
-  as a plain uncached load rather than as an L2-line invalidation.
+- Counter to the MVP task's expected finding, __ldcv was NOT observably slower than plain load on this 256 MB HBM-bound streaming workload. This is because the plain-load baseline already misses L2 (256 MB > 60 MB L2), so bypassing cache has no extra cost here. __ldcv's penalty would show up if the same address were re-read (plain path hits L2; __ldcv re-fetches from HBM).
+- PTX spec describes __ldcv in the context of System Memory lines; its interaction with ordinary device global memory is less rigorously specified and may be implemented as a plain uncached load rather than as an L2-line invalidation.
 id: exp-2026-04-17-runtime-ldcv
 type: experience
 vendor: nvidia
@@ -57,6 +51,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L12971-L13050
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- cache-policy
+confidence: experimental
+tags:
+- cache-policy
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

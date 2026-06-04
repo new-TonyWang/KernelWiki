@@ -2,8 +2,7 @@
 func_name: cudaFuncGetAttributes
 namespace: runtime
 header: cuda_runtime_api.h
-signature: cudaError_t cudaFuncGetAttributes(struct cudaFuncAttributes *attr, const
-  void *func)
+signature: cudaError_t cudaFuncGetAttributes(struct cudaFuncAttributes *attr, const void *func)
 status: documented
 has_end_to_end_example: false
 source:
@@ -17,6 +16,19 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L28314
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- register-budgeting
+- shared-memory-optimization
+confidence: inferred
+tags:
+- register-budgeting
+- shared-memory-optimization
+- cuda-cpp
 ---
 # Register Pressure API Reference
 

@@ -1,16 +1,30 @@
 ---
 id: hw-mbarrier
-title: "mbarrier (Memory Barrier Primitives)"
+title: mbarrier (Memory Barrier Primitives)
 type: hardware
-architectures: [sm100, sm100a, sm90, sm90a]
-tags: [mbarrier, tma]
+architectures:
+- sm100
+- sm100a
+- sm90
+- sm90a
+tags:
+- mbarrier
+- tma
 confidence: source-reported
-related: [hw-tma, hw-tcgen05-mma, technique-warp-specialization, technique-pipeline-stages]
-sources: [doc-ptx-isa-sm100, blog-tcgen05-tutorial, doc-nvidia-tuning-guide]
-aliases: [mbarrier, "memory barrier", "mbar"]
-blackwell_relevance: "mbarrier is the primary synchronization primitive between TMA producers and tcgen05 consumers on Blackwell. Phase/parity tracking critical for pipelined kernels."
+related:
+- hw-tma
+- hw-tcgen05-mma
+- technique-warp-specialization
+- technique-pipeline-stages
+sources:
+- doc-ptx-isa-sm100
+- blog-tcgen05-tutorial
+- doc-nvidia-tuning-guide
+aliases:
+- mbarrier
+- memory barrier
+- mbar
 ---
-
 # mbarrier
 
 ## Overview

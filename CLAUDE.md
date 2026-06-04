@@ -65,7 +65,7 @@ See `data/schemas.yaml` for full schema definitions. Summary:
 | wiki-pattern | pattern- | title, type=pattern, tags, symptoms, candidate_techniques, related, sources |
 | wiki-kernel | kernel- | title, type=kernel, architectures, tags, confidence, reproducibility(>=snippet), kernel_types, languages, related, sources, performance_claims |
 | wiki-language | lang- | title, type=language, tags, related, sources, reproducibility(>=snippet) |
-| wiki-migration | migration- | title, type=migration, from_arch, to_arch, tags, related, sources, blackwell_relevance |
+| wiki-migration | migration- | title, type=migration, from_arch, to_arch, tags, related, sources |
 | wiki-skill | skill- | title, type=skill, vendor, tags, evidence_level, applies_to, source |
 | wiki-api-definition | api- | title, type=api-definition, vendor, func_name, namespace, header, signature, source |
 | wiki-experience | exp- | title, type=experience, vendor, probe_slug, evidence_level, measured_on, source |
@@ -124,7 +124,6 @@ performance_claims:
 
 ## Scope Rules
 
-- **Blackwell-first**: SM100 content is primary. SM90 only with explicit `blackwell_relevance`.
 - **Kernel-only**: No distributed system topics (DeepEP, DualPipe, EPLB excluded).
 - **English canonical**: All content in English.
 - **First-class DSLs**: CuTe DSL, CUDA C++, PTX, Triton. Others mentioned but no dedicated pages.

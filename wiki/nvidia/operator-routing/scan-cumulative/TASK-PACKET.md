@@ -6,12 +6,27 @@ status: draft
 source:
 - path: reasoning/task-packet.md
   anchor: L1-L109
-  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This
-    file is the task packet.'
+  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This file is the task packet.'
 id: routing-scan-cumulative-TASK-PACKET
 type: operator-routing
 vendor: nvidia
 operator: scan-cumulative
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- pipeline-stages
+- kernel-fusion
+- fused-kernel
+- cuda-cpp
 ---
 # Scan (Cumulative) -- Task Packet Template
 

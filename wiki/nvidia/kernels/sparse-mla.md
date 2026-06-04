@@ -1,26 +1,45 @@
 ---
 id: kernel-sparse-mla
-title: "Sparse MLA (DeepSeek V3.2)"
+title: Sparse MLA (DeepSeek V3.2)
 type: kernel
-architectures: [sm100, sm90]
-tags: [sparse-attention, mla, fp8, attention, decode, prefill]
+architectures:
+- sm100
+- sm90
+tags:
+- sparse-attention
+- mla
+- fp8
+- attention
+- decode
+- prefill
 confidence: source-reported
 reproducibility: snippet
-kernel_types: [sparse-attention, mla, attention, decode, prefill]
-languages: [cuda-cpp, cute-dsl]
-related: [kernel-flashmla, kernel-nsa, hw-tcgen05-mma]
-sources: [blog-flashmla, blog-vllm-deepseek-v3-sparse, blog-nsa]
+kernel_types:
+- sparse-attention
+- mla
+- attention
+- decode
+- prefill
+languages:
+- cuda-cpp
+- cute-dsl
+related:
+- kernel-flashmla
+- kernel-nsa
+- hw-tcgen05-mma
+sources:
+- blog-flashmla
+- blog-vllm-deepseek-v3-sparse
+- blog-nsa
 performance_claims:
-  - gpu: B200
-    dtype: fp8
-    shape: "sparse prefill, seqlen=32k, topk=2048"
-    metric: TFLOPS
-    value: 1450
-    utilization: "FP8 sparse compute bound"
-    source_id: blog-flashmla
-blackwell_relevance: "SM100 tcgen05.mma with FP8 block-scale MMA enables DeepSeek V3.2's Lightning Indexer + sparse attention two-stage pipeline."
+- gpu: B200
+  dtype: fp8
+  shape: sparse prefill, seqlen=32k, topk=2048
+  metric: TFLOPS
+  value: 1450
+  utilization: FP8 sparse compute bound
+  source_id: blog-flashmla
 ---
-
 # Sparse MLA (DeepSeek V3.2 Sparse Attention)
 
 ## Overview

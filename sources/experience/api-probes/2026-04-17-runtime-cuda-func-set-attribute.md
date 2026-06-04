@@ -15,8 +15,7 @@ measured_on:
   driver: 570.124.06
 artifacts:
   code: artifacts/experience/api-probes/artifacts/cudaFuncSetAttribute_probe.cu
-  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o cudaFuncSetAttribute_probe
-    cudaFuncSetAttribute_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -o cudaFuncSetAttribute_probe cudaFuncSetAttribute_probe.cu
   introspection: ''
   profile: ''
 source:
@@ -33,15 +32,9 @@ conclusions:
 back_filled_into:
 - wiki/nvidia/api-definitions/runtime/cudaFuncSetAttribute.md
 open_questions:
-- clock_policy is unknown — GPU clocks were not locked during the post-optin kernel
-  launch; the kernel is short enough (6.6 µs median) that free-running clocks could
-  jitter it noticeably.
-- Only the MaxDynamicSharedMemorySize attribute was exercised; PreferredSharedMemoryCarveout
-  and the four cluster-related attributes (RequiredClusterWidth/Height/Depth, NonPortableClusterSizeAllowed,
-  ClusterSchedulingPolicyPreference) were not probed.
-- The probe does not measure the maximum achievable opt-in size. H200 sharedMemPerBlockOptin
-  is 232 448 bytes; only 200 KB was tested. The 232 KB edge and over-the-limit (>232
-  448) behavior are not characterized here.
+- clock_policy is unknown — GPU clocks were not locked during the post-optin kernel launch; the kernel is short enough (6.6 µs median) that free-running clocks could jitter it noticeably.
+- Only the MaxDynamicSharedMemorySize attribute was exercised; PreferredSharedMemoryCarveout and the four cluster-related attributes (RequiredClusterWidth/Height/Depth, NonPortableClusterSizeAllowed, ClusterSchedulingPolicyPreference) were not probed.
+- The probe does not measure the maximum achievable opt-in size. H200 sharedMemPerBlockOptin is 232 448 bytes; only 200 KB was tested. The 232 KB edge and over-the-limit (>232 448) behavior are not characterized here.
 id: exp-2026-04-17-runtime-cuda-func-set-attribute
 type: experience
 vendor: nvidia
@@ -62,6 +55,23 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   anchor: L15838-L15870
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- python
+hardware_features:
+- cluster
+techniques:
+- shared-memory-optimization
+confidence: experimental
+tags:
+- cluster
+- shared-memory-optimization
+- cuda-cpp
+- python
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

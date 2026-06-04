@@ -16,6 +16,45 @@ id: routing-gemm-library-fallback
 type: operator-routing
 vendor: nvidia
 operator: gemm
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+- python
+hardware_features:
+- wgmma
+- fp8
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- cache-policy
+- kernel-fusion
+- tile-scheduling
+kernel_types:
+- gemm
+- fused-kernel
+- quantization
+confidence: inferred
+tags:
+- wgmma
+- fp8
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- cache-policy
+- kernel-fusion
+- tile-scheduling
+- gemm
+- fused-kernel
+- quantization
+- ptx
+- cuda-cpp
+- cute-dsl
+- python
 ---
 # Tensor-core GEMM -- Library Fallback Paths
 

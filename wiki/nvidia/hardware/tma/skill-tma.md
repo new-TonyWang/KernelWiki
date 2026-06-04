@@ -34,6 +34,19 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+- gemm
+- attention
+- ptx
+- cute-dsl
 applies_to:
 - general
 source_refs:
@@ -46,6 +59,30 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: TMA descriptor + cp.async.bulk.tensor end-to-end
+architectures:
+- sm90
+- sm90a
+- sm100
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+kernel_types:
+- gemm
+- attention
+confidence: experimental
+artifact_dir: artifacts/experience/api-probes/gemm
 ---
 # TMA — Tensor Memory Accelerator on Hopper
 

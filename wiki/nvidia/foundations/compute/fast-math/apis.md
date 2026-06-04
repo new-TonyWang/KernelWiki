@@ -16,6 +16,21 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L26993-L26995
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- kernel-fusion
+- software-exp
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- kernel-fusion
+- software-exp
+- fused-kernel
+- ptx
+- cuda-cpp
 ---
 # Fast Math Intrinsics API Reference
 

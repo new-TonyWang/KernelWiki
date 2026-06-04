@@ -4,6 +4,21 @@ status: draft
 id: pitfall-warp-divergence
 type: pitfall
 vendor: nvidia
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- shared-memory-optimization
+- software-exp
+confidence: inferred
+tags:
+- pipeline-stages
+- shared-memory-optimization
+- software-exp
+- cuda-cpp
 ---
 # Warp Divergence — Pitfalls
 

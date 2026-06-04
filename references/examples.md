@@ -77,7 +77,7 @@ python3 scripts/get_page.py" kernel-flash-attention-4 --follow-sources
 ## Example 5: "What's the difference between Hopper wgmma and Blackwell tcgen05?"
 
 **Navigation path**:
-1. `wiki/nvidia/migration/wgmma-to-tcgen05.md` — dedicated migration guide with `blackwell_relevance` field
+1. `wiki/nvidia/migration/wgmma-to-tcgen05.md` — dedicated migration guide with explicit `architectures` metadata
 2. `wiki/nvidia/hardware/tcgen05-mma.md` — canonical reference for the new instruction
 3. Contrast with Hopper behavior implicit in the migration page
 

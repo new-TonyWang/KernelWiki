@@ -24,6 +24,14 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
   anchor: L58-L58
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # __all_sync
 

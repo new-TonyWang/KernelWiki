@@ -36,6 +36,21 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L27017-L27023
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- software-exp
+kernel_types:
+- fused-kernel
+- attention
+confidence: source-reported
+tags:
+- pipeline-stages
+- software-exp
+- fused-kernel
+- attention
+- cuda-cpp
 ---
 ## P1: Input-dependent ULP error for __expf
 

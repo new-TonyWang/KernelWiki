@@ -6,12 +6,32 @@ title: Atomic_Skeleton
 tags:
 - cuda-cpp
 - wgmma
+- shared-memory-optimization
+- swizzling
+- gemm
+- ptx
+- cute-dsl
 evidence_level: spec
 applies_to:
 - gemm
 source:
 - path: spec
   anchor: WGMMA PTX ISA
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+techniques:
+- shared-memory-optimization
+- swizzling
+kernel_types:
+- gemm
+confidence: source-reported
 ---
 # wgmma Atomic Skeleton (PTX, cutlass-free)
 

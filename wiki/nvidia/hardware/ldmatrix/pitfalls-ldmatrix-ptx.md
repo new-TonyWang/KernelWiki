@@ -3,6 +3,31 @@ id: pitfall-ldmatrix-ptx
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- wgmma
+- tma
+- ldmatrix
+techniques:
+- pipeline-stages
+- shared-memory-optimization
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- wgmma
+- tma
+- ldmatrix
+- pipeline-stages
+- shared-memory-optimization
+- gemm
+- ptx
+- cuda-cpp
 ---
 # ldmatrix Pitfalls
 

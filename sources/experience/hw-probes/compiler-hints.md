@@ -15,8 +15,7 @@ measured_on:
   driver: 570.124.06
 artifacts:
   code: artifacts/experience/hw-probes/compiler-hints/launch_bounds_probe.cu
-  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o launch_bounds_probe
-    launch_bounds_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o launch_bounds_probe launch_bounds_probe.cu
   introspection: ''
   profile: ''
 source:
@@ -32,11 +31,8 @@ conclusions:
   ratio: 0.9989
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- The kernel is memory-bound at N=4M, which masks register-allocation differences.
-  A compute-bound workload would show larger latency effects.
-- The compiler allocated MORE registers with __launch_bounds__(256,4) (56 vs 48),
-  consistent with the documented behavior of using more registers when an occupancy
-  floor is specified.
+- The kernel is memory-bound at N=4M, which masks register-allocation differences. A compute-bound workload would show larger latency effects.
+- The compiler allocated MORE registers with __launch_bounds__(256,4) (56 vs 48), consistent with the documented behavior of using more registers when an occupancy floor is specified.
 id: exp-compiler-hints
 type: experience
 vendor: nvidia
@@ -54,6 +50,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1064-L1099
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- register-budgeting
+confidence: experimental
+tags:
+- register-budgeting
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/compiler-hints
 ---
 ## Summary
 

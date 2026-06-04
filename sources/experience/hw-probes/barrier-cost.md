@@ -25,8 +25,7 @@ source:
 - path: spec
   anchor: Reference
 conclusions:
-  workload: 10,000 barriers per kernel, single-block launch, block sizes {128, 256,
-    512, 1024}
+  workload: 10,000 barriers per kernel, single-block launch, block sizes {128, 256, 512, 1024}
   syncwarp_ns_per_call_b128: 14.61
   syncwarp_ns_per_call_b1024: 22.13
   syncthreads_ns_per_call_b128: 31.81
@@ -38,26 +37,11 @@ conclusions:
   mbarrier_vs_syncthreads_b128: 1.59
   mbarrier_vs_syncthreads_b1024: 2.23
 open_questions:
-- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz)
-  but was not explicitly locked. Absolute ns/call numbers should be retaken under
-  lock for a strict measured-env contract; ratios are robust.
-- 'The probe measures BARE barrier cost only — no overlap work between `arrive` and
-  `wait` for mbarrier. The skill''s S2 (arrive/wait split for overlap) requires a
-  separate probe with real independent compute in the overlap window. Current result
-  confirms pitfall P6: on bare cost, mbarrier is 1.6-2.2x slower than __syncthreads.
-  Follow-up probe: `sources/experience/hw-probes/barrier-async-overlap/`.'
-- 'NCU CSV captured only the first kernel''s launches (syncwarp_loop; --launch-count
-  12 slots exhausted before reaching syncthreads/mbarrier). This is acceptable because
-  wall-clock ns/call is the authoritative measurement; the NCU pass''s value was corroboration
-  of Compute SOL ~ 0 % (expected: single-block kernels cannot occupy the 132-SM H200).
-  The dependency on further NCU detail is not on the critical path for this skill.'
-- sm_90a named-barrier throughput (PTX §9.7.13.1 / BP §12.1.3 claim of 16 ops/clock
-  on sm_8.x) was not re-measured for sm_9.0a. The measured ns/call at B=1024 (61.5
-  ns = ~122 cycles) is consistent with 16 ops/clock averaged across all 32 warps of
-  a 1024-thread block, but a direct throughput probe (N warps all calling __syncthreads
-  simultaneously) is open.
-- Cluster-level barrier (`barrier.cluster.arrive/wait`, sm_90+) not measured — blocked
-  on wiki/nvidia/hardware/thread-block-cluster/ bootstrap (bucket F).
+- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz) but was not explicitly locked. Absolute ns/call numbers should be retaken under lock for a strict measured-env contract; ratios are robust.
+- 'The probe measures BARE barrier cost only — no overlap work between `arrive` and `wait` for mbarrier. The skill''s S2 (arrive/wait split for overlap) requires a separate probe with real independent compute in the overlap window. Current result confirms pitfall P6: on bare cost, mbarrier is 1.6-2.2x slower than __syncthreads. Follow-up probe: `sources/experience/hw-probes/barrier-async-overlap/`.'
+- 'NCU CSV captured only the first kernel''s launches (syncwarp_loop; --launch-count 12 slots exhausted before reaching syncthreads/mbarrier). This is acceptable because wall-clock ns/call is the authoritative measurement; the NCU pass''s value was corroboration of Compute SOL ~ 0 % (expected: single-block kernels cannot occupy the 132-SM H200). The dependency on further NCU detail is not on the critical path for this skill.'
+- sm_90a named-barrier throughput (PTX §9.7.13.1 / BP §12.1.3 claim of 16 ops/clock on sm_8.x) was not re-measured for sm_9.0a. The measured ns/call at B=1024 (61.5 ns = ~122 cycles) is consistent with 16 ops/clock averaged across all 32 warps of a 1024-thread block, but a direct throughput probe (N warps all calling __syncthreads simultaneously) is open.
+- Cluster-level barrier (`barrier.cluster.arrive/wait`, sm_90+) not measured — blocked on wiki/nvidia/hardware/thread-block-cluster/ bootstrap (bucket F).
 id: exp-barrier-cost
 type: experience
 vendor: nvidia
@@ -75,6 +59,32 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L3647-L3704
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- mbarrier
+- cluster
+techniques:
+- shared-memory-optimization
+- tile-scheduling
+- communication-overlap
+kernel_types:
+- quantization
+confidence: experimental
+tags:
+- mbarrier
+- cluster
+- shared-memory-optimization
+- tile-scheduling
+- communication-overlap
+- quantization
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/barrier-cost
 ---
 ## Summary
 

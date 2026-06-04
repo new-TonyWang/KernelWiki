@@ -4,6 +4,35 @@ type: code-walkthrough
 vendor: nvidia
 title: Agents
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+techniques:
+- warp-specialization
+- persistent-kernel
+- kernel-fusion
+kernel_types:
+- gemm
+- fused-kernel
+confidence: inferred
+tags:
+- wgmma
+- tma
+- warp-specialization
+- persistent-kernel
+- kernel-fusion
+- gemm
+- fused-kernel
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # 60-code / cutlass-cute
 

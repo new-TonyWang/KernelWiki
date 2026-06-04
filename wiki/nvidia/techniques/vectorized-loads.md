@@ -1,17 +1,25 @@
 ---
 id: technique-vectorized-loads
-title: "Wide Vectorized Loads and Cache Policies"
+title: Wide Vectorized Loads and Cache Policies
 type: technique
-architectures: [sm100, sm90]
-tags: [vectorized-loads, cache-policy, register-budgeting]
+architectures:
+- sm100
+- sm90
+tags:
+- vectorized-loads
+- cache-policy
+- register-budgeting
 confidence: source-reported
 reproducibility: snippet
 prerequisites: []
-related: [kernel-nvfp4-gemv, pattern-memory-bound]
-sources: [blog-yue-nvfp4, blog-amandeep-nvfp4, contest-gpumode-p1]
-blackwell_relevance: "Cache policy PTX qualifiers work on both; B200's 8TB/s bandwidth makes these techniques even more impactful."
+related:
+- kernel-nvfp4-gemv
+- pattern-memory-bound
+sources:
+- blog-yue-nvfp4
+- blog-amandeep-nvfp4
+- contest-gpumode-p1
 ---
-
 ## Overview
 
 For memory-bound kernels (low arithmetic intensity), maximizing global memory throughput is critical. Three complementary techniques from the GPU Mode NVFP4 Hackathon achieve this: (1) wide vectorized loads (128-bit and 256-bit) to saturate memory bandwidth per thread, (2) differentiated L1 cache policies to keep reused data hot while bypassing the cache for streaming data, and (3) register budgeting via `-maxrregcount` to increase occupancy. These techniques reduced NVFP4 GEMV latency from 2000us to 22.4us (89x improvement).

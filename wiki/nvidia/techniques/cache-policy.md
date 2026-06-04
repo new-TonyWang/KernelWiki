@@ -1,17 +1,26 @@
 ---
 id: technique-cache-policy
-title: "PTX Cache Policy Differentiation"
+title: PTX Cache Policy Differentiation
 type: technique
-architectures: [sm100, sm90]
-tags: [cache-policy, vectorized-loads]
+architectures:
+- sm100
+- sm90
+tags:
+- cache-policy
+- vectorized-loads
 confidence: source-reported
 reproducibility: snippet
 prerequisites: []
-related: [technique-vectorized-loads, kernel-nvfp4-gemv, pattern-memory-bound]
-sources: [blog-yue-nvfp4, blog-amandeep-nvfp4, blog-simon-nvfp4-gemv, doc-ptx-isa-sm100]
-blackwell_relevance: "Same PTX cache hints on both archs; higher B200 bandwidth (8TB/s) amplifies the impact of correct cache policy selection."
+related:
+- technique-vectorized-loads
+- kernel-nvfp4-gemv
+- pattern-memory-bound
+sources:
+- blog-yue-nvfp4
+- blog-amandeep-nvfp4
+- blog-simon-nvfp4-gemv
+- doc-ptx-isa-sm100
 ---
-
 # Cache Policy Differentiation
 
 ## Overview

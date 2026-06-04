@@ -4,6 +4,31 @@ type: code-walkthrough
 vendor: nvidia
 title: Tuning
 upstream_repo: NVIDIA/flash-attention-v3
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- python
+hardware_features:
+- wgmma
+techniques:
+- pipeline-stages
+- shared-memory-optimization
+kernel_types:
+- gemm
+- attention
+- flash-attention
+confidence: inferred
+tags:
+- wgmma
+- pipeline-stages
+- shared-memory-optimization
+- gemm
+- attention
+- flash-attention
+- cuda-cpp
+- python
 ---
 # FlashAttention v3 Tuning Parameters
 

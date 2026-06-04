@@ -42,6 +42,16 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- tma
+- fp8
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- shared-memory-optimization
+- swizzling
+- fused-kernel
+- quantization
+- ptx
 applies_to:
 - general
 source_refs:
@@ -57,6 +67,26 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L13528-L13530
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- tma
+- fp8
+techniques:
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- shared-memory-optimization
+- swizzling
+kernel_types:
+- fused-kernel
+- quantization
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/aos-vs-soa
 ---
 ## What
 

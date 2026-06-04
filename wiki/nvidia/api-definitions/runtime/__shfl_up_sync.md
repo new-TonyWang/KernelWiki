@@ -33,6 +33,14 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/2_Concepts_and_Techniques/shfl_scan/shfl_integral_image.cuh
   anchor: L301-L301
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # __shfl_up_sync
 

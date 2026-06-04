@@ -4,6 +4,21 @@ status: draft
 id: pitfall-layout-transform
 type: pitfall
 vendor: nvidia
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- cache-policy
+- shared-memory-optimization
+confidence: inferred
+tags:
+- pipeline-stages
+- cache-policy
+- shared-memory-optimization
+- cuda-cpp
 ---
 # Layout Transform — Pitfalls
 

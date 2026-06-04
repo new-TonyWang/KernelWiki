@@ -14,6 +14,35 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L1484-L1540
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- python
+hardware_features:
+- fp8
+techniques:
+- pipeline-stages
+- data-reuse
+- kernel-fusion
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+- gemm
+- quantization
+confidence: inferred
+tags:
+- fp8
+- pipeline-stages
+- data-reuse
+- kernel-fusion
+- shared-memory-optimization
+- fused-kernel
+- gemm
+- quantization
+- cuda-cpp
+- python
 ---
 # Transpose -- Library Fallback Paths
 

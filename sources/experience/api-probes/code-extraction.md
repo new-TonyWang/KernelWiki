@@ -20,6 +20,40 @@ id: exp-code-extraction
 type: experience
 vendor: nvidia
 title: 2026 04 28 Cutlass Walkthrough
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- tile-scheduling
+kernel_types:
+- gemm
+- fused-kernel
+confidence: experimental
+tags:
+- wgmma
+- tma
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- tile-scheduling
+- gemm
+- fused-kernel
+- ptx
+- cuda-cpp
+- cute-dsl
+artifact_dir: artifacts/experience/api-probes/gemm
 ---
 # Probe — Meta-skill walkthrough applied to cutlass end-to-end
 

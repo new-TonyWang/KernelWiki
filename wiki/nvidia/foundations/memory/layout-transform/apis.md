@@ -8,10 +8,8 @@ apis:
 - func_name: cudaMallocPitch
   namespace: cuda-runtime
   kind: host-alloc
-  signature: cudaError_t cudaMallocPitch(void** devPtr, size_t* pitch, size_t widthInBytes,
-    size_t height);
-  notes: Allocates 2D memory with each row padded to a pitch that guarantees coalescing
-    on the current architecture. Returned pitch is in bytes.
+  signature: cudaError_t cudaMallocPitch(void** devPtr, size_t* pitch, size_t widthInBytes, size_t height);
+  notes: Allocates 2D memory with each row padded to a pitch that guarantees coalescing on the current architecture. Returned pitch is in bytes.
 - func_name: cudaMalloc3D
   namespace: cuda-runtime
   kind: host-alloc
@@ -20,10 +18,8 @@ apis:
 - func_name: cudaMemcpy2D
   namespace: cuda-runtime
   kind: host-copy
-  signature: cudaError_t cudaMemcpy2D(void* dst, size_t dpitch, const void* src, size_t
-    spitch, size_t width, size_t height, cudaMemcpyKind kind);
-  notes: Required when either side was allocated with cudaMallocPitch. Plain cudaMemcpy
-    will corrupt pitched buffers.
+  signature: cudaError_t cudaMemcpy2D(void* dst, size_t dpitch, const void* src, size_t spitch, size_t width, size_t height, cudaMemcpyKind kind);
+  notes: Required when either side was allocated with cudaMallocPitch. Plain cudaMemcpy will corrupt pitched buffers.
 - func_name: cudaMemcpy2DAsync
   namespace: cuda-runtime
   kind: host-copy
@@ -31,42 +27,30 @@ apis:
 - func_name: cublasLtMatrixTransform
   namespace: cublas
   kind: library
-  signature: cublasStatus_t cublasLtMatrixTransform(cublasLtHandle_t lightHandle,
-    cublasLtMatrixTransformDesc_t transformDesc, const void* alpha, const void* A,
-    cublasLtMatrixLayout_t Adesc, const void* beta, const void* B, cublasLtMatrixLayout_t
-    Bdesc, void* C, cublasLtMatrixLayout_t Cdesc, cudaStream_t stream);
-  notes: Performs C = alpha * opTrans(A) + beta * opTrans(B) with configurable row/column
-    major, data type conversion, and stride transformation. Use for AoS ↔ packed-tile
-    layouts that feed cuBLAS GEMM.
+  signature: cublasStatus_t cublasLtMatrixTransform(cublasLtHandle_t lightHandle, cublasLtMatrixTransformDesc_t transformDesc, const void* alpha, const void* A, cublasLtMatrixLayout_t Adesc, const void* beta, const void* B, cublasLtMatrixLayout_t Bdesc, void* C, cublasLtMatrixLayout_t Cdesc, cudaStream_t stream);
+  notes: Performs C = alpha * opTrans(A) + beta * opTrans(B) with configurable row/column major, data type conversion, and stride transformation. Use for AoS ↔ packed-tile layouts that feed cuBLAS GEMM.
 - func_name: cp.async.bulk.tensor.{dim}.{dst}.{src}.{mode}
   namespace: ptx
   kind: ptx-tma
-  notes: Hopper TMA instruction; tensor descriptor can specify stride/swizzle, performing
-    a layout transform during the copy. Details belong to wiki/nvidia/hardware/tma/
-    (pending bucket F bootstrap).
+  notes: Hopper TMA instruction; tensor descriptor can specify stride/swizzle, performing a layout transform during the copy. Details belong to wiki/nvidia/hardware/tma/ (pending bucket F bootstrap).
 - func_name: tensormap.replace
   namespace: ptx
   kind: ptx-tma
-  notes: Dynamically modify a tensor map descriptor; lets the same kernel target different
-    strides/swizzles without recompilation.
+  notes: Dynamically modify a tensor map descriptor; lets the same kernel target different strides/swizzles without recompilation.
 - func_name: prmt.b32
   namespace: ptx
   kind: ptx-permute
   signature: prmt.b32{.mode} d, a, b, c;
-  notes: Byte permute across two 32-bit registers; selector c picks 4 bytes from the
-    8-byte concatenation (a || b). Expose via inline asm or via the __byte_perm intrinsic.
+  notes: Byte permute across two 32-bit registers; selector c picks 4 bytes from the 8-byte concatenation (a || b). Expose via inline asm or via the __byte_perm intrinsic.
 - func_name: __byte_perm
   namespace: cuda-runtime
   kind: intrinsic
-  signature: unsigned int __byte_perm(unsigned int x, unsigned int y, unsigned int
-    s);
-  notes: C++ intrinsic that lowers to prmt.b32. Use when the permutation selector
-    is a compile-time constant.
+  signature: unsigned int __byte_perm(unsigned int x, unsigned int y, unsigned int s);
+  notes: C++ intrinsic that lowers to prmt.b32. Use when the permutation selector is a compile-time constant.
 - func_name: cudaFuncSetAttribute
   namespace: cuda-runtime
   kind: host-config
-  notes: Use when the transform kernel itself needs carveout adjustment (shared-memory-heavy
-    transpose kernel).
+  notes: Use when the transform kernel itself needs carveout adjustment (shared-memory-heavy transpose kernel).
 id: api-layout-transform-ref
 type: api-definition
 vendor: nvidia
@@ -84,6 +68,31 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L13528-L13530
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- tma
+techniques:
+- vectorized-loads
+- cache-policy
+- shared-memory-optimization
+- swizzling
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- tma
+- vectorized-loads
+- cache-policy
+- shared-memory-optimization
+- swizzling
+- gemm
+- ptx
+- cuda-cpp
 ---
 ## Core APIs
 

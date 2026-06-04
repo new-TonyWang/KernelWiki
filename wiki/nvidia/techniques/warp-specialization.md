@@ -22,11 +22,8 @@ sources:
 - doc-nvidia-tuning-guide
 - blog-tcgen05-tutorial
 - blog-colfax-cutlass
-blackwell_relevance: Blackwell uses 16-warp single-thread MMA model (vs Hopper's 4-warp
-  warp-group); fundamentally different structure.
 artifact_dir: artifacts/kernels/warp-specialization
 ---
-
 ## Overview
 
 Warp specialization assigns distinct functional roles to warps within a CTA, allowing each warp to focus on a single pipeline stage (data loading, MMA computation, or epilogue writeback). On Blackwell (SM100), the 16-warp CTA structure replaces Hopper's 4-warp warpgroup model. Because tcgen05.mma is a single-thread instruction that operates on TMEM rather than registers, only one warp needs to issue MMA operations, freeing the remaining warps for producer and consumer roles.

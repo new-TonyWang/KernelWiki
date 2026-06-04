@@ -46,6 +46,15 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- tma
+- mbarrier
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+- fused-kernel
 applies_to:
 - general
 source_refs:
@@ -58,6 +67,26 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L940-L999
+architectures:
+- sm90
+- sm90a
+- sm100
+languages:
+- cuda-cpp
+hardware_features:
+- tma
+- mbarrier
+techniques:
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/async-copy
 ---
 ## What
 

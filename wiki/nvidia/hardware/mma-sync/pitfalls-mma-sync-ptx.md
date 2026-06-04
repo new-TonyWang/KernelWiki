@@ -3,6 +3,27 @@ id: pitfall-mma-sync-ptx
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- wgmma
+- ldmatrix
+techniques:
+- shared-memory-optimization
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- wgmma
+- ldmatrix
+- shared-memory-optimization
+- gemm
+- ptx
+- cuda-cpp
 ---
 # mma.sync Pitfalls
 

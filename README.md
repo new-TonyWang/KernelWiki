@@ -113,12 +113,10 @@ python3 scripts/generate-indices.py    # regenerate query indices
 - 0 broken links across all internal references
 - All `verified` wiki pages have official-doc + upstream-code evidence (enforced by `evidence_basis` field)
 - All technique/kernel/language pages have compilable code snippets (`reproducibility >= snippet`)
-- All Hopper-inclusive pages explain their `blackwell_relevance`
 - Version-sensitive claims (Triton 3.6, CUTLASS 4.5, etc.) carry `version_sensitive: <id>` pointers resolving to the central registry
 
 ## Scope Rules
 
-- **Blackwell-first** — SM100 content is primary. SM90 requires explicit `blackwell_relevance` field.
 - **Kernel-only** — No distributed-system topics (DeepEP, DualPipe, EPLB are out of scope).
 - **English canonical** — All content in English.
 - **First-class DSLs** — CuTe DSL, CUDA C++, PTX, Triton. TileLang / cuTile / JAX-Pallas mentioned but no dedicated guides.

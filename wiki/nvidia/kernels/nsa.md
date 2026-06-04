@@ -1,26 +1,37 @@
 ---
 id: kernel-nsa
-title: "Native Sparse Attention (NSA)"
+title: Native Sparse Attention (NSA)
 type: kernel
-architectures: [sm90, sm100]
-tags: [sparse-attention, attention, triton]
+architectures:
+- sm90
+- sm100
+tags:
+- sparse-attention
+- attention
+- triton
 confidence: source-reported
 reproducibility: snippet
-kernel_types: [sparse-attention, attention]
-languages: [triton]
-related: [kernel-flashmla, technique-pipeline-stages]
-sources: [blog-nsa, blog-flashmla, blog-vllm-deepseek-v3-sparse]
+kernel_types:
+- sparse-attention
+- attention
+languages:
+- triton
+related:
+- kernel-flashmla
+- technique-pipeline-stages
+sources:
+- blog-nsa
+- blog-flashmla
+- blog-vllm-deepseek-v3-sparse
 performance_claims:
-  - gpu: H100
-    dtype: bf16
-    shape: "seqlen=65536"
-    metric: speedup
-    value: 9.0
-    utilization: "vs FlashAttention-2 forward"
-    source_id: blog-nsa
-blackwell_relevance: "Sparse attention patterns transfer directly; Blackwell's larger L2 (126MB) and higher bandwidth benefit sparse block fetches."
+- gpu: H100
+  dtype: bf16
+  shape: seqlen=65536
+  metric: speedup
+  value: 9.0
+  utilization: vs FlashAttention-2 forward
+  source_id: blog-nsa
 ---
-
 # Native Sparse Attention (NSA)
 
 ## Overview

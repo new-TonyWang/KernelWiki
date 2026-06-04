@@ -5,10 +5,43 @@ vendor: nvidia
 title: Pitfalls
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- shared-memory-optimization
+- tma-multicast
+- gemm
+- attention
+- ptx
 evidence_level: spec
 source:
 - path: spec
   anchor: Algorithm reference
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- shared-memory-optimization
+- tma-multicast
+kernel_types:
+- gemm
+- attention
+confidence: source-reported
 ---
 # Warp-specialized GEMM mainloop — pitfalls
 

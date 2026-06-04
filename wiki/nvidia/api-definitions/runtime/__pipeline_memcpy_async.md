@@ -24,6 +24,17 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L3921-L3921
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+confidence: inferred
+tags:
+- pipeline-stages
+- cuda-cpp
 ---
 # __pipeline_memcpy_async
 

@@ -3,6 +3,34 @@ id: pitfall-tma-ptx
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+confidence: inferred
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+- ptx
+- cuda-cpp
 ---
 # Hopper TMA via raw PTX — pitfalls
 

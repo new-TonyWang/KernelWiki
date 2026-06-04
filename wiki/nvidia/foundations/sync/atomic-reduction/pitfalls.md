@@ -27,6 +27,24 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23252-L23295
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- vectorized-loads
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: source-reported
+tags:
+- vectorized-loads
+- shared-memory-optimization
+- fused-kernel
+- ptx
+- cuda-cpp
 ---
 ## P1. Every thread writing to a single global address
 

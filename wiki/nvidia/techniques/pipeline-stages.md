@@ -1,17 +1,29 @@
 ---
 id: technique-pipeline-stages
-title: "Software Pipelining and Multi-Stage Buffering"
+title: Software Pipelining and Multi-Stage Buffering
 type: technique
-architectures: [sm100, sm90]
-tags: [pipeline-stages, double-buffering, tma, mbarrier]
+architectures:
+- sm100
+- sm90
+tags:
+- pipeline-stages
+- double-buffering
+- tma
+- mbarrier
 confidence: source-reported
 reproducibility: snippet
-prerequisites: [hw-tma, hw-tmem]
-related: [technique-warp-specialization, technique-double-buffering, hw-tma]
-sources: [blog-tcgen05-tutorial, blog-modular-blackwell, doc-nvidia-tuning-guide]
-blackwell_relevance: "Same mbarrier pattern on both architectures; Blackwell adds tcgen05 fence requirement between TMA and MMA."
+prerequisites:
+- hw-tma
+- hw-tmem
+related:
+- technique-warp-specialization
+- technique-double-buffering
+- hw-tma
+sources:
+- blog-tcgen05-tutorial
+- blog-modular-blackwell
+- doc-nvidia-tuning-guide
 ---
-
 ## Overview
 
 Software pipelining overlaps data loading (TMA copies from global to shared memory) with computation (tcgen05.mma or wgmma) by maintaining multiple in-flight tile buffers. A circular buffer of 3-5 stages allows the TMA producer to fill stage N+2 while the MMA consumer processes stage N, hiding the global memory latency entirely. This technique is critical for achieving high utilization on both Hopper and Blackwell.

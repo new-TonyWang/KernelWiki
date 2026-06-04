@@ -26,6 +26,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23988-L23990
+languages:
+- cuda-cpp
+hardware_features:
+- mbarrier
+techniques:
+- pipeline-stages
+kernel_types:
+- fused-kernel
+confidence: source-reported
+tags:
+- mbarrier
+- pipeline-stages
+- fused-kernel
+- cuda-cpp
 ---
 ## P1: Mask mismatch with active threads
 

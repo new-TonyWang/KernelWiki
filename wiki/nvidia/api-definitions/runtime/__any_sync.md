@@ -18,6 +18,14 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23872-L23882
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # __any_sync
 

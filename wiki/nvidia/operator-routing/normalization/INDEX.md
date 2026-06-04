@@ -23,6 +23,24 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cub/cub.md
   anchor: L5931-L5997
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- vectorized-loads
+- kernel-fusion
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- vectorized-loads
+- kernel-fusion
+- shared-memory-optimization
+- fused-kernel
+- cuda-cpp
 ---
 # Normalization Pattern -- Decision Tree
 

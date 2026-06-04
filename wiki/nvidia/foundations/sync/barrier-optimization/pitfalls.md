@@ -4,6 +4,29 @@ status: draft
 id: pitfall-barrier-optimization
 type: pitfall
 vendor: nvidia
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- mbarrier
+techniques:
+- vectorized-loads
+- shared-memory-optimization
+- communication-overlap
+kernel_types:
+- quantization
+confidence: inferred
+tags:
+- mbarrier
+- vectorized-loads
+- shared-memory-optimization
+- communication-overlap
+- quantization
+- ptx
+- cuda-cpp
 ---
 # Barrier Optimization — Pitfalls
 

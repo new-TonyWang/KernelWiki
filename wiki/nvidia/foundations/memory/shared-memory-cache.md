@@ -46,6 +46,14 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- cluster
+- pipeline-stages
+- cache-policy
+- data-reuse
+- loop-unrolling
+- shared-memory-optimization
+- fused-kernel
+- gemm
 applies_to:
 - general
 source_refs:
@@ -67,6 +75,24 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L4094-L4130
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- pipeline-stages
+- cache-policy
+- data-reuse
+- loop-unrolling
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+- gemm
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/smem-tile-reuse
 ---
 ## What
 

@@ -7,6 +7,38 @@ id: routing-pooling-ROUTING
 type: operator-routing
 vendor: nvidia
 operator: pooling
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- loop-unrolling
+- shared-memory-optimization
+- tile-scheduling
+- communication-overlap
+confidence: inferred
+tags:
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- loop-unrolling
+- shared-memory-optimization
+- tile-scheduling
+- communication-overlap
+- fused-kernel
+- ptx
+- cuda-cpp
+kernel_types:
+- fused-kernel
 ---
 # Pooling Pattern -- Skill Whitelist
 

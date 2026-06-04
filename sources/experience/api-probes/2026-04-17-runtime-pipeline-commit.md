@@ -32,8 +32,7 @@ conclusions:
 back_filled_into: []
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- Baseline is a CPU pass-through reference (correctness only), so no GPU timing ratio
-  is reported.
+- Baseline is a CPU pass-through reference (correctness only), so no GPU timing ratio is reported.
 - kp_introspect kernel-static not generated (cuda-python not installed).
 id: exp-2026-04-17-runtime-pipeline-commit
 type: experience
@@ -55,6 +54,24 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L960-L1000
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- python
+techniques:
+- pipeline-stages
+- vectorized-loads
+- shared-memory-optimization
+confidence: experimental
+tags:
+- pipeline-stages
+- vectorized-loads
+- shared-memory-optimization
+- cuda-cpp
+- python
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

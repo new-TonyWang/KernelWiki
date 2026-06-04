@@ -4,6 +4,53 @@ type: code-walkthrough
 vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/flash-attention-v3
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+- python
+hardware_features:
+- wgmma
+- tma
+- fp8
+techniques:
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+- conditional-rescaling
+kernel_types:
+- gemm
+- attention
+- flash-attention
+- fused-kernel
+- quantization
+- mla
+- decode
+confidence: inferred
+tags:
+- wgmma
+- tma
+- fp8
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+- conditional-rescaling
+- gemm
+- attention
+- flash-attention
+- fused-kernel
+- quantization
+- mla
+- decode
+- ptx
+- cuda-cpp
+- cute-dsl
+- python
 ---
 # FlashAttention v3 (Tri Dao et al.)
 

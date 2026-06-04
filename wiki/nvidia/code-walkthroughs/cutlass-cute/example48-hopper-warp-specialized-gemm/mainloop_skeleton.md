@@ -4,6 +4,39 @@ type: code-walkthrough
 vendor: nvidia
 title: Mainloop_Skeleton
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- pipeline-stages
+- data-reuse
+- shared-memory-optimization
+- tma-multicast
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- pipeline-stages
+- data-reuse
+- shared-memory-optimization
+- tma-multicast
+- gemm
+- cuda-cpp
+- cute-dsl
 ---
 # Example 48 Mainloop Skeleton (cutlass commit `f74fea9c`)
 

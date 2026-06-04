@@ -2,8 +2,7 @@
 func_name: cuda::atomic
 namespace: runtime
 header: <cuda/atomic>
-signature: template <class T, cuda::thread_scope Scope = cuda::thread_scope_system>
-  class cuda::atomic
+signature: template <class T, cuda::thread_scope Scope = cuda::thread_scope_system> class cuda::atomic
 status: documented
 has_end_to_end_example: false
 source:
@@ -17,6 +16,22 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L3534-L3551
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- cache-policy
+confidence: inferred
+tags:
+- cluster
+- cache-policy
+- ptx
+- cuda-cpp
 ---
 # Memory Ordering API Reference
 

@@ -7,6 +7,45 @@ id: routing-reduction-ROUTING
 type: operator-routing
 vendor: nvidia
 operator: reduction
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- mbarrier
+techniques:
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- kernel-fusion
+- loop-unrolling
+- shared-memory-optimization
+- software-exp
+- communication-overlap
+kernel_types:
+- fused-kernel
+- attention
+- quantization
+confidence: inferred
+tags:
+- mbarrier
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- kernel-fusion
+- loop-unrolling
+- shared-memory-optimization
+- software-exp
+- communication-overlap
+- fused-kernel
+- attention
+- quantization
+- cuda-cpp
 ---
 # Reduction Pattern -- Skill Whitelist
 

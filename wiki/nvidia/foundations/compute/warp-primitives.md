@@ -41,6 +41,11 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- pipeline-stages
+- vectorized-loads
+- shared-memory-optimization
+- fused-kernel
+- ptx
 applies_to:
 - general
 source_refs:
@@ -62,6 +67,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1289-L1297
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- pipeline-stages
+- vectorized-loads
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/shfl-sync-bfly
 ---
 ## What
 

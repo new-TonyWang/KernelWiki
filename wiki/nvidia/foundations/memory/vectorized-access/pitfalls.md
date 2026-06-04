@@ -27,6 +27,26 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L22735-L22753
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- vectorized-loads
+- register-budgeting
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: source-reported
+tags:
+- pipeline-stages
+- vectorized-loads
+- register-budgeting
+- kernel-fusion
+- fused-kernel
+- cuda-cpp
 ---
 ## P1: Misaligned pointer for vector load
 

@@ -33,6 +33,14 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/2_Concepts_and_Techniques/imageDenoising/imageDenoising_nlm2_kernel.cuh
   anchor: L80-L80
+languages:
+- cuda-cpp
+techniques:
+- software-exp
+confidence: inferred
+tags:
+- software-exp
+- cuda-cpp
 ---
 # __expf
 

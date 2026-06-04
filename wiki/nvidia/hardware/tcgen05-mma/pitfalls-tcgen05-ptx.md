@@ -3,6 +3,30 @@ id: pitfall-tcgen05-ptx
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+- sm100
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- wgmma
+- cluster
+- tcgen05
+techniques:
+- shared-memory-optimization
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- wgmma
+- cluster
+- tcgen05
+- shared-memory-optimization
+- gemm
+- ptx
+- cuda-cpp
 ---
 # tcgen05 Pitfalls
 

@@ -4,6 +4,47 @@ type: code-walkthrough
 vendor: nvidia
 title: Tuning
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- double-buffering
+- register-budgeting
+- shared-memory-optimization
+- tma-multicast
+kernel_types:
+- gemm
+- attention
+- flash-attention
+confidence: inferred
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- double-buffering
+- register-budgeting
+- shared-memory-optimization
+- tma-multicast
+- gemm
+- attention
+- flash-attention
+- cuda-cpp
+- cute-dsl
 ---
 # cutlass 88_hopper_fmha Tuning Parameters
 

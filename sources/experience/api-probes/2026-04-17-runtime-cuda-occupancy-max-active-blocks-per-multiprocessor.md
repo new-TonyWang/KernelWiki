@@ -15,8 +15,7 @@ measured_on:
   driver: 570.124.06
 artifacts:
   code: artifacts/experience/api-probes/artifacts/cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu
-  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe
-    cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe cudaOccupancyMaxActiveBlocksPerMultiprocessor_probe.cu
   introspection: ''
   profile: ''
 source:
@@ -33,14 +32,9 @@ conclusions:
 back_filled_into:
 - wiki/nvidia/api-definitions/runtime/cudaOccupancyMaxActiveBlocksPerMultiprocessor.md
 open_questions:
-- clock_policy is unknown — GPU clocks were not locked during measurement; host-side
-  API latency is CPU-bound so clock policy has limited effect, but the kernel launch/memcpy
-  in the correctness step is not clock-locked either.
-- The API-predicted numBlocks is cross-checked against the static hardware model,
-  but the 'actual' blocks resident per SM (e.g. via ncu ActiveCTAs.avg.peak) is not
-  measured in this probe — it would require profiling the kernel at steady state.
-- Only one kernel (56 regs/thread) was probed; shmem-bound or max-blocks-bound cases
-  (e.g. small kernels hitting the 32 blocks/SM limit) are not exercised here.
+- clock_policy is unknown — GPU clocks were not locked during measurement; host-side API latency is CPU-bound so clock policy has limited effect, but the kernel launch/memcpy in the correctness step is not clock-locked either.
+- The API-predicted numBlocks is cross-checked against the static hardware model, but the 'actual' blocks resident per SM (e.g. via ncu ActiveCTAs.avg.peak) is not measured in this probe — it would require profiling the kernel at steady state.
+- Only one kernel (56 regs/thread) was probed; shmem-bound or max-blocks-bound cases (e.g. small kernels hitting the 32 blocks/SM limit) are not exercised here.
 id: exp-2026-04-17-runtime-cuda-occupancy-max-active-blocks-per-multiprocessor
 type: experience
 vendor: nvidia
@@ -64,6 +58,23 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Architecture Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
   anchor: L30-L42
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- python
+hardware_features:
+- cluster
+techniques:
+- register-budgeting
+confidence: experimental
+tags:
+- cluster
+- register-budgeting
+- cuda-cpp
+- python
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

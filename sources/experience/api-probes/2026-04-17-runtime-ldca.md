@@ -32,10 +32,7 @@ conclusions:
 back_filled_into: []
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- __ldca maps to the default ld.ca cache operator, so it should be functionally equivalent
-  to a plain compiler-generated global load. The measured ratio 0.9998 confirms this.
-  Useful mainly when forcing ld.ca on pointers that would otherwise be compiled to
-  ld.global.nc (e.g., const __restrict__).
+- __ldca maps to the default ld.ca cache operator, so it should be functionally equivalent to a plain compiler-generated global load. The measured ratio 0.9998 confirms this. Useful mainly when forcing ld.ca on pointers that would otherwise be compiled to ld.global.nc (e.g., const __restrict__).
 id: exp-2026-04-17-runtime-ldca
 type: experience
 vendor: nvidia
@@ -53,6 +50,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L12971-L13050
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- cache-policy
+confidence: experimental
+tags:
+- cache-policy
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

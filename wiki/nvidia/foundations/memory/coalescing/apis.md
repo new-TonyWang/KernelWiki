@@ -16,6 +16,21 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24550-L24554
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- vectorized-loads
+- cache-policy
+confidence: inferred
+tags:
+- vectorized-loads
+- cache-policy
+- ptx
+- cuda-cpp
 ---
 # Global Memory Coalescing API Reference
 

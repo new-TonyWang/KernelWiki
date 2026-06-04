@@ -14,6 +14,32 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L1484-L1540
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- shared-memory-optimization
+- communication-overlap
+confidence: inferred
+tags:
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- shared-memory-optimization
+- communication-overlap
+- fused-kernel
+- cuda-cpp
+kernel_types:
+- fused-kernel
 ---
 # Transpose Pattern -- Skill Whitelist
 

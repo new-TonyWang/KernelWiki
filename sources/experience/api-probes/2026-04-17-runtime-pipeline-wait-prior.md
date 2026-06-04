@@ -32,11 +32,9 @@ conclusions:
 back_filled_into: []
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- Baseline is a CPU pass-through reference (correctness only), so no GPU timing ratio
-  is reported.
+- Baseline is a CPU pass-through reference (correctness only), so no GPU timing ratio is reported.
 - kp_introspect kernel-static not generated (cuda-python not installed).
-- N must be a compile-time constant in the Ampere-era LDGSTS lowering; this probe
-  uses integer literals (0, 1, 2). Behavior with a runtime-variable N was not measured.
+- N must be a compile-time constant in the Ampere-era LDGSTS lowering; this probe uses integer literals (0, 1, 2). Behavior with a runtime-variable N was not measured.
 id: exp-2026-04-17-runtime-pipeline-wait-prior
 type: experience
 vendor: nvidia
@@ -57,6 +55,26 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L960-L1000
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- python
+techniques:
+- pipeline-stages
+- double-buffering
+- vectorized-loads
+- shared-memory-optimization
+confidence: experimental
+tags:
+- pipeline-stages
+- double-buffering
+- vectorized-loads
+- shared-memory-optimization
+- cuda-cpp
+- python
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

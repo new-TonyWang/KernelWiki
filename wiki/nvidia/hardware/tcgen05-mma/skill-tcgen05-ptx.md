@@ -25,6 +25,15 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- block-scale
+- tcgen05
+- shared-memory-optimization
+- gemm
+- attention
+- quantization
+- ptx
+- cute-dsl
 applies_to:
 - general
 source_refs:
@@ -40,6 +49,25 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: tcgen05 instruction family
+architectures:
+- sm90
+- sm90a
+- sm100
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- block-scale
+- tcgen05
+techniques:
+- shared-memory-optimization
+kernel_types:
+- gemm
+- attention
+- quantization
+confidence: source-reported
 ---
 # tcgen05 — Blackwell 5th-generation Tensor Core via PTX
 

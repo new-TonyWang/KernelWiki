@@ -33,6 +33,24 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- mbarrier
+- cluster
+- ldmatrix
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- tile-scheduling
+- tma-multicast
+- software-exp
+- gemm
+- attention
+- fused-kernel
+- grouped-gemm
+- ptx
+- cute-dsl
 applies_to:
 - general
 source_refs:
@@ -51,6 +69,33 @@ source_refs:
 - source_id: blogs/colfax
   path: epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
   anchor: epilogue fusion walkthrough
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- ldmatrix
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- tile-scheduling
+- tma-multicast
+- software-exp
+kernel_types:
+- gemm
+- attention
+- fused-kernel
+- grouped-gemm
+confidence: experimental
 ---
 # Agent meta-skill: CUDA code crawling + operator-optimization-algorithm identification
 

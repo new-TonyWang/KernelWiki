@@ -39,6 +39,17 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- pipeline-stages
+- register-budgeting
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- gemm
+- ptx
+- cute-dsl
+- python
 applies_to:
 - general
 source_refs:
@@ -60,6 +71,27 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: Hopper wgmma walkthrough — descriptor format + sync semantics
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+- python
+hardware_features:
+- wgmma
+- tma
+techniques:
+- pipeline-stages
+- register-budgeting
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+kernel_types:
+- gemm
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/wgmma-ptx
 ---
 # Hopper wgmma via raw PTX (cutlass-free)
 

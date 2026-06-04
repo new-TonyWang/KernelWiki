@@ -4,6 +4,37 @@ type: code-walkthrough
 vendor: nvidia
 title: Wgmma_Skeleton
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- cluster
+- fp8
+techniques:
+- warp-specialization
+- shared-memory-optimization
+- swizzling
+kernel_types:
+- gemm
+- quantization
+confidence: inferred
+tags:
+- wgmma
+- cluster
+- fp8
+- warp-specialization
+- shared-memory-optimization
+- swizzling
+- gemm
+- quantization
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # CUTLASS WGMMA Atom Skeleton (example 48, commit `f74fea9c`)
 

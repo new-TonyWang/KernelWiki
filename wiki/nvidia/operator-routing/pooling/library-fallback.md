@@ -14,6 +14,19 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L538-L542
+languages:
+- cuda-cpp
+- python
+techniques:
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- kernel-fusion
+- fused-kernel
+- cuda-cpp
+- python
 ---
 # Pooling -- Library Fallback Paths
 

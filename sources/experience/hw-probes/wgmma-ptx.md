@@ -4,8 +4,7 @@ namespace: ptx
 probe_slug: wgmma-zoo
 status: verified
 kind: hw-feature
-trigger: characterize wgmma instruction zoo across N-shape, dtype, layout, and A-source
-  axes
+trigger: characterize wgmma instruction zoo across N-shape, dtype, layout, and A-source axes
 evidence_level: measured
 clock_policy: as-launched (H200 boost-clock unlocked)
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
@@ -20,15 +19,8 @@ artifacts:
   profile: artifacts/experience/hw-probes/wgmma-ptx/2026-04-29-wgmma-zoo.csv
 upstream_repo: none (hand-rolled cutlass-free implementation)
 conclusions:
-  workload: single CTA × 1 warpgroup (128 threads) × N_INNER=1024 serialized wgmma
-    issues per launch (accumulator-chained, so each iteration depends on the previous's
-    accumulator); all-ones inputs, every output cell ends at K * N_INNER (correctness
-    gate counts matches); 5 warmup + 20 timed launches, median ms; FLOPs counted at
-    scalar MAC × 2.
-  scale_caveat: Single-warpgroup, single-CTA, accumulator-serialized — measured TFLOPS
-    reflects single-instance issue rate only and is NOT comparable to device-peak
-    (132 SMs × multi-warpgroup × multi-accumulator pipelines). H200 bf16 peak is ~990
-    TFLOPS device-wide; the ~5 TFLOPS plateau here is single-warpgroup serialized.
+  workload: single CTA × 1 warpgroup (128 threads) × N_INNER=1024 serialized wgmma issues per launch (accumulator-chained, so each iteration depends on the previous's accumulator); all-ones inputs, every output cell ends at K * N_INNER (correctness gate counts matches); 5 warmup + 20 timed launches, median ms; FLOPs counted at scalar MAC × 2.
+  scale_caveat: Single-warpgroup, single-CTA, accumulator-serialized — measured TFLOPS reflects single-instance issue rate only and is NOT comparable to device-peak (132 SMs × multi-warpgroup × multi-accumulator pipelines). H200 bf16 peak is ~990 TFLOPS device-wide; the ~5 TFLOPS plateau here is single-warpgroup serialized.
   correctness_all_pass: true
   bf16_n8_tflops: 0.74
   bf16_n16_tflops: 1.44
@@ -48,41 +40,15 @@ conclusions:
   ss_nt_bf16_n64_tflops: 4.7
   rs_tn_bf16_n64_tflops: 4.69
 open_questions:
-- 'Multi-warpgroup issuance NOT measured. cutlass mainloops use 2 warpgroups per CTA
-  via `KernelTmaWarpSpecializedCooperative`; the second warpgroup''s wgmma should
-  fire concurrently with the first via the wgmma issue port, lifting the single-CTA
-  ceiling. Follow-up: extend the harness to 2 warpgroups (256 threads) with separate
-  accumulator chains.'
-- Multi-accumulator pipelining NOT measured. Real GEMM kernels keep N_PIPE accumulator
-  chains (typically 2-4) so consecutive wgmmas don't serialize via accumulator dependency.
-  The accumulator-chained 5.3 TFLOPS plateau here is the worst case; with N_PIPE=4
-  the issue rate should saturate the wgmma issue port (wgmma m64n128k16 takes ~32
-  cycles per instance per warpgroup, ~32 TFLOPS per warpgroup at 1.83 GHz).
-- Multi-CTA scaling NOT measured. Each CTA in this probe is independent of others;
-  saturating H200's 132 SMs would multiply TFLOPS by ~130 in the limit. Combined with
-  multi-warpgroup + multi-accumulator, peak should approach the ~990 TFLOPS bf16 datasheet
-  figure. This probe is intentionally single-CTA to isolate the per-instance issue
-  cost.
-- wgmma m64xN with N > 256 not measured (none exist in the cute SS_TN family for bf16/fp16;
-  256 is the max for K=16). Larger N slots only exist for k=8 (TF32) and k=32 (s8/u8).
-- fp8 (e4m3 / e5m2) wgmma NOT measured. Hopper supports `.f32.e4m3.e4m3` / `.f32.e4m3.e5m2`
-  etc. PTX format is similar to bf16 (5 immediates per the SS variant) but encodes
-  through `__nv_fp8_e4m3` types — straightforward addition to the codegen, deferred
-  for now.
-- u8 / mixed-sign integer wgmma (`.s32.u8.u8`, `.s32.s8.u8`, `.s32.u8.s8`) NOT measured.
-  Same PTX shape as `.s32.s8.s8` (1-immediate scaleD-only).
-- f16-accumulator wgmma (`.f16.f16.f16`) NOT measured. Output dtype changes to `__half`
-  (constraint becomes `+f`-half-pair encoded as `+r` for 32-bit packed); the harness's
-  accumulator typing needs additional templating.
-- RS variant only validates that the cutlass-free PTX path runs end-to-end with A
-  in registers. It uses a simplified per-thread A-register population (`a_pack[(tid
-  * 4) + 0..3]`) — NOT the canonical wgmma A-fragment layout (which depends on warp/lane
-  id per the PTX ISA spec). For all-ones inputs every layout choice yields the same
-  all-K result, so the layout bug is not visible here. A non-uniform-input correctness
-  probe would expose it.
-- Descriptor SBO/LBO encoding (256, 16) is held at the cutlass canonical values (`cute/arch/mma_sm90_desc.hpp`
-  `make_gmma_desc`). For all-ones inputs, descriptor errors are masked because every
-  read yields 1.0; layout bugs would only surface against non-uniform inputs.
+- 'Multi-warpgroup issuance NOT measured. cutlass mainloops use 2 warpgroups per CTA via `KernelTmaWarpSpecializedCooperative`; the second warpgroup''s wgmma should fire concurrently with the first via the wgmma issue port, lifting the single-CTA ceiling. Follow-up: extend the harness to 2 warpgroups (256 threads) with separate accumulator chains.'
+- Multi-accumulator pipelining NOT measured. Real GEMM kernels keep N_PIPE accumulator chains (typically 2-4) so consecutive wgmmas don't serialize via accumulator dependency. The accumulator-chained 5.3 TFLOPS plateau here is the worst case; with N_PIPE=4 the issue rate should saturate the wgmma issue port (wgmma m64n128k16 takes ~32 cycles per instance per warpgroup, ~32 TFLOPS per warpgroup at 1.83 GHz).
+- Multi-CTA scaling NOT measured. Each CTA in this probe is independent of others; saturating H200's 132 SMs would multiply TFLOPS by ~130 in the limit. Combined with multi-warpgroup + multi-accumulator, peak should approach the ~990 TFLOPS bf16 datasheet figure. This probe is intentionally single-CTA to isolate the per-instance issue cost.
+- wgmma m64xN with N > 256 not measured (none exist in the cute SS_TN family for bf16/fp16; 256 is the max for K=16). Larger N slots only exist for k=8 (TF32) and k=32 (s8/u8).
+- fp8 (e4m3 / e5m2) wgmma NOT measured. Hopper supports `.f32.e4m3.e4m3` / `.f32.e4m3.e5m2` etc. PTX format is similar to bf16 (5 immediates per the SS variant) but encodes through `__nv_fp8_e4m3` types — straightforward addition to the codegen, deferred for now.
+- u8 / mixed-sign integer wgmma (`.s32.u8.u8`, `.s32.s8.u8`, `.s32.u8.s8`) NOT measured. Same PTX shape as `.s32.s8.s8` (1-immediate scaleD-only).
+- f16-accumulator wgmma (`.f16.f16.f16`) NOT measured. Output dtype changes to `__half` (constraint becomes `+f`-half-pair encoded as `+r` for 32-bit packed); the harness's accumulator typing needs additional templating.
+- RS variant only validates that the cutlass-free PTX path runs end-to-end with A in registers. It uses a simplified per-thread A-register population (`a_pack[(tid * 4) + 0..3]`) — NOT the canonical wgmma A-fragment layout (which depends on warp/lane id per the PTX ISA spec). For all-ones inputs every layout choice yields the same all-K result, so the layout bug is not visible here. A non-uniform-input correctness probe would expose it.
+- Descriptor SBO/LBO encoding (256, 16) is held at the cutlass canonical values (`cute/arch/mma_sm90_desc.hpp` `make_gmma_desc`). For all-ones inputs, descriptor errors are masked because every read yields 1.0; layout bugs would only surface against non-uniform inputs.
 id: exp-wgmma-ptx
 type: experience
 vendor: nvidia
@@ -94,6 +60,40 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: Sections on the GMMA atom shapes table + smem-descriptor format
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+- python
+hardware_features:
+- wgmma
+- fp8
+techniques:
+- warp-specialization
+- pipeline-stages
+- register-budgeting
+- shared-memory-optimization
+kernel_types:
+- gemm
+- quantization
+confidence: experimental
+tags:
+- wgmma
+- fp8
+- warp-specialization
+- pipeline-stages
+- register-budgeting
+- shared-memory-optimization
+- gemm
+- quantization
+- ptx
+- cuda-cpp
+- cute-dsl
+- python
+artifact_dir: artifacts/experience/hw-probes/wgmma-ptx
 ---
 ## Summary
 

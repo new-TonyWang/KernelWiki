@@ -33,10 +33,7 @@ back_filled_into:
 - wiki/nvidia/api-definitions/runtime/__ldg.md
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- On sm_90a, the compiler typically routes const __restrict__ loads through the read-only
-  cache automatically. The ratio ~1.00 confirms __ldg and plain loads compile to equivalent
-  instructions when the compiler can prove immutability. Explicit __ldg remains useful
-  for non-const/non-restrict pointers.
+- On sm_90a, the compiler typically routes const __restrict__ loads through the read-only cache automatically. The ratio ~1.00 confirms __ldg and plain loads compile to equivalent instructions when the compiler can prove immutability. Explicit __ldg remains useful for non-const/non-restrict pointers.
 id: exp-2026-04-16-runtime-ldg
 type: experience
 vendor: nvidia
@@ -54,6 +51,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24547-L24557
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- cache-policy
+confidence: experimental
+tags:
+- cache-policy
+- cuda-cpp
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

@@ -27,6 +27,33 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L606-L634
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- fp8
+techniques:
+- vectorized-loads
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+- gemm
+- quantization
+confidence: inferred
+tags:
+- fp8
+- vectorized-loads
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+- fused-kernel
+- gemm
+- quantization
+- cuda-cpp
 ---
 # Transpose Pattern -- Decision Tree
 

@@ -15,8 +15,7 @@ measured_on:
   driver: 570.124.06
 artifacts:
   code: artifacts/experience/hw-probes/occupancy-sweep/occupancy_sweep_probe.cu
-  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o occupancy_sweep_probe
-    occupancy_sweep_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o occupancy_sweep_probe occupancy_sweep_probe.cu
   introspection: artifacts/experience/hw-probes/occupancy-sweep/h200_device_static.json
   profile: ''
 source:
@@ -32,10 +31,8 @@ conclusions:
   ratio: 1.4
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- The register-heavy kernel uses 56 registers/thread; with -maxrregcount=48 the occupancy
-  pattern would differ further.
-- Only two kernel types were tested; compute-bound kernels may show different occupancy-latency
-  relationships.
+- The register-heavy kernel uses 56 registers/thread; with -maxrregcount=48 the occupancy pattern would differ further.
+- Only two kernel types were tested; compute-bound kernels may show different occupancy-latency relationships.
 id: exp-occupancy-sweep
 type: experience
 vendor: nvidia
@@ -68,6 +65,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Architecture Guides/hopper-tuning-guide/cuda_hopper-tuning-guide_index.html.md
   anchor: L30-L42
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- register-budgeting
+confidence: experimental
+tags:
+- register-budgeting
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/occupancy-sweep
 ---
 ## Summary
 

@@ -23,10 +23,7 @@ source:
 - path: spec
   anchor: Reference
 conclusions:
-  workload: 3 launch shapes × 2 launch mechanisms × N_BATCH=10000 launches, timed
-    with outer CUDA-event bracket and divided by N_BATCH. Plus a workload-crossover
-    sweep at full H200 grid (132×4 blocks × 256 threads) with WORK_STEPS ∈ {0,1,4,16,64,256,1024,4096}
-    FMA per thread. Plus an empty-event-pair noise-floor measurement.
+  workload: 3 launch shapes × 2 launch mechanisms × N_BATCH=10000 launches, timed with outer CUDA-event bracket and divided by N_BATCH. Plus a workload-crossover sweep at full H200 grid (132×4 blocks × 256 threads) with WORK_STEPS ∈ {0,1,4,16,64,256,1024,4096} FMA per thread. Plus an empty-event-pair noise-floor measurement.
   empty_chevron_1x1_us: 1.676
   empty_api_1x1_us: 1.632
   empty_chevron_1x256_us: 1.663
@@ -56,31 +53,12 @@ conclusions:
   h200_sm_count: 132
   full_grid_threads: 135168
 open_questions:
-- clock_policy is `unlocked-logged-only` — H200 ran at 1980 MHz throughout. Absolute
-  μs subject to boost-clock variation. The within-measurement ratios (mechanism, shape,
-  workload) are robust because all cells share the same launch context.
-- Host CPU not specified. Launch overhead is dominated by host-side work (CUDA runtime
-  + driver); a faster / slower host CPU would shift the absolute floor. The 1.7 μs
-  floor is a lower bound for this host — re-measure on other hosts if the kernel will
-  be launched from a different CPU family.
-- Stream / CUDA Graph variants deliberately NOT measured (out of scope for this sub-area).
-  CUDA Graphs collapse the per-launch cost of multiple kernels into one submit — reportedly
-  < 1 μs per node via graph capture — but that belongs to the sibling sub-area 90-system-level/cuda-graphs/
-  (pending), not this skill.
-- cudaLaunchKernelEx measured — see Part A table. With 0 attributes it is NOT slower
-  than cudaLaunchKernel (full grid equal; tiny grid 1.5% faster, likely because the
-  Ex path skips a legacy compatibility layer). Attaching one access-policy-window
-  attribute adds ~26 ns/launch at 1x1 grid (+1.7%) and is noise-level at full grid
-  (+1 ns). The earlier expectation 'Ex is slightly higher because of attribute parsing'
-  is measurably wrong.
-- Part C's per-event-record cost (~3 μs) is HOST-SIDE. It is not a subtraction correction
-  to Part A because Part A already amortizes the outer event pair over 10000 launches
-  (per-launch event overhead contribution = 6 μs / 10000 = 0.6 ns, negligible). The
-  earlier `subtract this floor` instruction in the probe's stdout is incorrect and
-  should be ignored.
-- Per-launch floor grows slightly with grid size (1.676 → 1.749 μs, +4%). This is
-  the driver-side configuration cost scaling with grid metadata size. Remains negligible
-  compared to the 1.7 μs floor for all practical shapes.
+- clock_policy is `unlocked-logged-only` — H200 ran at 1980 MHz throughout. Absolute μs subject to boost-clock variation. The within-measurement ratios (mechanism, shape, workload) are robust because all cells share the same launch context.
+- Host CPU not specified. Launch overhead is dominated by host-side work (CUDA runtime + driver); a faster / slower host CPU would shift the absolute floor. The 1.7 μs floor is a lower bound for this host — re-measure on other hosts if the kernel will be launched from a different CPU family.
+- Stream / CUDA Graph variants deliberately NOT measured (out of scope for this sub-area). CUDA Graphs collapse the per-launch cost of multiple kernels into one submit — reportedly < 1 μs per node via graph capture — but that belongs to the sibling sub-area 90-system-level/cuda-graphs/ (pending), not this skill.
+- cudaLaunchKernelEx measured — see Part A table. With 0 attributes it is NOT slower than cudaLaunchKernel (full grid equal; tiny grid 1.5% faster, likely because the Ex path skips a legacy compatibility layer). Attaching one access-policy-window attribute adds ~26 ns/launch at 1x1 grid (+1.7%) and is noise-level at full grid (+1 ns). The earlier expectation 'Ex is slightly higher because of attribute parsing' is measurably wrong.
+- Part C's per-event-record cost (~3 μs) is HOST-SIDE. It is not a subtraction correction to Part A because Part A already amortizes the outer event pair over 10000 launches (per-launch event overhead contribution = 6 μs / 10000 = 0.6 ns, negligible). The earlier `subtract this floor` instruction in the probe's stdout is incorrect and should be ignored.
+- Per-launch floor grows slightly with grid size (1.676 → 1.749 μs, +4%). This is the driver-side configuration cost scaling with grid metadata size. Remains negligible compared to the 1.7 μs floor for all practical shapes.
 id: exp-launch-overhead
 type: experience
 vendor: nvidia
@@ -92,6 +70,30 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   anchor: L5900-L6100
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- kernel-fusion
+- tile-scheduling
+kernel_types:
+- gemm
+- fused-kernel
+- quantization
+confidence: experimental
+tags:
+- cluster
+- kernel-fusion
+- tile-scheduling
+- gemm
+- fused-kernel
+- quantization
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/launch-overhead
 ---
 ## Summary
 

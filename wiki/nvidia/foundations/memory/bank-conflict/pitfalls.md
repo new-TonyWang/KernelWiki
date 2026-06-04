@@ -4,6 +4,19 @@ parent_skill: bank-conflict
 id: pitfall-bank-conflict
 type: pitfall
 vendor: nvidia
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- shared-memory-optimization
+- swizzling
+confidence: inferred
+tags:
+- shared-memory-optimization
+- swizzling
+- cuda-cpp
 ---
 ## Pitfall 1: Invisible conflicts in column-wise 2D array access
 

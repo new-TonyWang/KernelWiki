@@ -4,6 +4,45 @@ type: code-walkthrough
 vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+techniques:
+- warp-specialization
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+- conditional-rescaling
+kernel_types:
+- gemm
+- attention
+- flash-attention
+- fused-kernel
+confidence: inferred
+tags:
+- wgmma
+- tma
+- mbarrier
+- warp-specialization
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+- conditional-rescaling
+- gemm
+- attention
+- flash-attention
+- fused-kernel
+- cuda-cpp
+- cute-dsl
 ---
 # cutlass FMHA Collective Layer
 

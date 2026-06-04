@@ -7,6 +7,53 @@ id: routing-gemm-ROUTING
 type: operator-routing
 vendor: nvidia
 operator: gemm
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- vectorized-loads
+- register-budgeting
+- kernel-fusion
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+kernel_types:
+- gemm
+- fused-kernel
+- quantization
+confidence: inferred
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- vectorized-loads
+- register-budgeting
+- kernel-fusion
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+- gemm
+- fused-kernel
+- quantization
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # Tensor-core GEMM Pattern -- Skill Whitelist
 

@@ -2,8 +2,7 @@
 func_name: __pipeline_memcpy_async
 namespace: runtime
 header: cuda_pipeline.h
-signature: void __pipeline_memcpy_async(void* __restrict__ dst_shared, const void*
-  __restrict__ src_global, size_t size_and_align)
+signature: void __pipeline_memcpy_async(void* __restrict__ dst_shared, const void* __restrict__ src_global, size_t size_and_align)
 status: documented
 has_end_to_end_example: false
 source:
@@ -20,6 +19,24 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L971-L973
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- tma
+techniques:
+- pipeline-stages
+- shared-memory-optimization
+confidence: inferred
+tags:
+- tma
+- pipeline-stages
+- shared-memory-optimization
+- ptx
+- cuda-cpp
 ---
 # Asynchronous Data Copies API Reference
 

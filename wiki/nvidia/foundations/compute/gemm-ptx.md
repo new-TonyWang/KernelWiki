@@ -39,6 +39,16 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- mbarrier
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- gemm
+- fused-kernel
+- ptx
+- cute-dsl
 applies_to:
 - general
 source_refs:
@@ -60,6 +70,26 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: TMA tile-load protocol that this kernel's mainloop composes
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+techniques:
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+kernel_types:
+- gemm
+- fused-kernel
+confidence: experimental
+artifact_dir: artifacts/experience/api-probes/gemm-ptx
 ---
 # Hopper GEMM via raw PTX (cutlass-free)
 

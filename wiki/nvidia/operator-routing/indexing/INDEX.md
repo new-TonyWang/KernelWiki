@@ -33,6 +33,24 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L538-L542
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- vectorized-loads
+- cache-policy
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- vectorized-loads
+- cache-policy
+- kernel-fusion
+- fused-kernel
+- cuda-cpp
 ---
 # Indexing Pattern -- Decision Tree
 

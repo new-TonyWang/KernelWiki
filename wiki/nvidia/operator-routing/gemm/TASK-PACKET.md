@@ -6,8 +6,7 @@ status: draft
 source:
 - path: reasoning/task-packet.md
   anchor: L1-L109
-  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This
-    file is the task packet.'
+  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This file is the task packet.'
 - path: wiki/nvidia/operator-routing/reduction/TASK-PACKET.md
   anchor: Reduction -- Task Packet Template
   excerpt: Reference shape for the operator-specific task packet refinement
@@ -15,6 +14,51 @@ id: routing-gemm-TASK-PACKET
 type: operator-routing
 vendor: nvidia
 operator: gemm
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- tma-multicast
+- software-exp
+kernel_types:
+- gemm
+- attention
+- fused-kernel
+- quantization
+confidence: inferred
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- tma-multicast
+- software-exp
+- gemm
+- attention
+- fused-kernel
+- quantization
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # Tensor-core GEMM -- Task Packet Template
 

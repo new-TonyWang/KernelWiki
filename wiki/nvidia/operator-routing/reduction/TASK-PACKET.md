@@ -6,12 +6,25 @@ status: draft
 source:
 - path: reasoning/task-packet.md
   anchor: L1-L109
-  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This
-    file is the task packet.'
+  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This file is the task packet.'
 id: routing-reduction-TASK-PACKET
 type: operator-routing
 vendor: nvidia
 operator: reduction
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- kernel-fusion
+- fused-kernel
+- cuda-cpp
 ---
 # Reduction -- Task Packet Template
 

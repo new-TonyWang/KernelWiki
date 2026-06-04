@@ -12,7 +12,6 @@ confidence: source-reported
 related: []
 sources: []
 aliases: []
-blackwell_relevance: Foundation hardware concepts apply to both Hopper and Blackwell
 ---
 # NVIDIA H200 SXM Hardware Reference Card
 

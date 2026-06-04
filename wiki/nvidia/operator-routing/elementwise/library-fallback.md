@@ -16,6 +16,27 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/thrust/thrust.md
   anchor: L31965-L32063
+languages:
+- cuda-cpp
+- python
+- triton
+techniques:
+- pipeline-stages
+- vectorized-loads
+- kernel-fusion
+kernel_types:
+- fused-kernel
+- attention
+confidence: inferred
+tags:
+- pipeline-stages
+- vectorized-loads
+- kernel-fusion
+- fused-kernel
+- attention
+- cuda-cpp
+- python
+- triton
 ---
 # Elementwise -- Library Fallback Paths
 

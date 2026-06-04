@@ -35,6 +35,25 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- mbarrier
+- cluster
+- fp8
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- register-budgeting
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+- gemm
+- attention
+- quantization
+- grouped-gemm
+- ptx
+- cute-dsl
 applies_to:
 - general
 source_refs:
@@ -47,6 +66,35 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: wgmma atom + warpgroup synchronization
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- fp8
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- register-budgeting
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+kernel_types:
+- gemm
+- attention
+- quantization
+- grouped-gemm
+confidence: experimental
+artifact_dir: artifacts/experience/api-probes/gemm
 ---
 # wgmma — Warpgroup MMA on Hopper
 

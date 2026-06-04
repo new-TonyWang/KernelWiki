@@ -7,6 +7,38 @@ id: routing-scan-cumulative-ROUTING
 type: operator-routing
 vendor: nvidia
 operator: scan-cumulative
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- double-buffering
+- vectorized-loads
+- cache-policy
+- kernel-fusion
+- loop-unrolling
+- shared-memory-optimization
+- communication-overlap
+kernel_types:
+- fused-kernel
+- attention
+- quantization
+confidence: inferred
+tags:
+- pipeline-stages
+- double-buffering
+- vectorized-loads
+- cache-policy
+- kernel-fusion
+- loop-unrolling
+- shared-memory-optimization
+- communication-overlap
+- fused-kernel
+- attention
+- quantization
+- cuda-cpp
 ---
 # Scan (Cumulative) Pattern -- Skill Whitelist
 

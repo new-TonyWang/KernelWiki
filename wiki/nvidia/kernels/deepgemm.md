@@ -35,11 +35,8 @@ performance_claims:
   value: 1550
   utilization: ~90%
   source_id: blog-deepgemm
-blackwell_relevance: SM100 kernel uses tcgen05.mma with TMEM and native UE8M0 block
-  scaling; SM90 kernel provides baseline FP8 GEMM comparison.
 artifact_dir: artifacts/kernels/deepgemm
 ---
-
 # DeepGEMM -- FP8 GEMM with Fine-Grained Scaling
 
 ## Overview

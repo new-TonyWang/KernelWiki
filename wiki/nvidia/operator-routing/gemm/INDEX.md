@@ -9,23 +9,70 @@ hardware:
 source:
 - path: wiki/nvidia/techniques/warp-specialization.md
   anchor: Warp-specialized GEMM mainloop (algorithm skeleton)
-  excerpt: Plain WS / Pingpong / Cooperative variants; producer/consumer split with
-    mbarrier full/empty pair
+  excerpt: Plain WS / Pingpong / Cooperative variants; producer/consumer split with mbarrier full/empty pair
 - path: wiki/nvidia/foundations/compute/gemm-ptx.md
   anchor: Hopper GEMM via raw PTX (cutlass-free)
-  excerpt: TMA-PTX + wgmma-PTX composed into a single GEMM kernel; cutlass-free preprocessor
-    + linked-binary gates
+  excerpt: TMA-PTX + wgmma-PTX composed into a single GEMM kernel; cutlass-free preprocessor + linked-binary gates
 - path: wiki/nvidia/foundations/compute/gemm.md
   anchor: Aligned GEMM on Hopper via cutlass cooperative warp-specialized kernel
   excerpt: Cutlass-API track; aligned (M,N,K) divisible by wgmma atom; fast-path mainloop
 - path: sources/experience/kernel-records/2026-04-29-gemm-ws-ptx.md
   anchor: Cutlass-free warp-specialized GEMM (record)
-  excerpt: Producer warp + consumer warpgroup composed from tma-ptx + wgmma-ptx +
-    warp-specialization skill
+  excerpt: Producer warp + consumer warpgroup composed from tma-ptx + wgmma-ptx + warp-specialization skill
 id: routing-gemm-INDEX
 type: operator-routing
 vendor: nvidia
 operator: gemm
+architectures:
+- sm90
+- sm90a
+- sm100
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- fp8
+- nvfp4
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- tma-multicast
+- software-exp
+kernel_types:
+- gemm
+- attention
+- fused-kernel
+- quantization
+confidence: inferred
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- fp8
+- nvfp4
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- tma-multicast
+- software-exp
+- gemm
+- attention
+- fused-kernel
+- quantization
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # Tensor-core GEMM Pattern -- Decision Tree
 

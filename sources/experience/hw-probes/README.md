@@ -10,6 +10,14 @@ measured_on:
   sm: sm_90a
   cuda_runtime: '12.8'
   driver: '570'
+architectures:
+- sm90
+- sm90a
+techniques:
+- shared-memory-optimization
+confidence: experimental
+tags:
+- shared-memory-optimization
 ---
 # artifacts/experience/hw-probes/
 

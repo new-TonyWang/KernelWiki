@@ -11,4 +11,7 @@ applies_to:
 source:
 - path: spec
   anchor: CUDA reference
+languages:
+- cuda-cpp
+confidence: source-reported
 ---

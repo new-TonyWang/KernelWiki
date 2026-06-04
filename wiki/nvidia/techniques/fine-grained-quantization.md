@@ -1,17 +1,29 @@
 ---
 id: technique-fine-grained-quantization
-title: "Fine-Grained FP8/FP4 Quantization"
+title: Fine-Grained FP8/FP4 Quantization
 type: technique
-architectures: [sm100, sm90]
-tags: [fine-grained-quantization, fp8, fp4, nvfp4, block-scale]
+architectures:
+- sm100
+- sm90
+tags:
+- fine-grained-quantization
+- fp8
+- fp4
+- nvfp4
+- block-scale
 confidence: source-reported
 reproducibility: snippet
-prerequisites: [hw-nvfp4]
-related: [hw-nvfp4, kernel-deepgemm, technique-fine-grained-quantization]
-sources: [blog-deepgemm, doc-nvidia-tuning-guide, pr-vllm-23696]
-blackwell_relevance: "Blackwell tcgen05 has native UE8M0 block scaling; Hopper requires external CUDA core promotion (Nc=128)."
+prerequisites:
+- hw-nvfp4
+related:
+- hw-nvfp4
+- kernel-deepgemm
+- technique-fine-grained-quantization
+sources:
+- blog-deepgemm
+- doc-nvidia-tuning-guide
+- pr-vllm-23696
 ---
-
 ## Overview
 
 Fine-grained quantization applies per-block (rather than per-tensor) scaling factors to low-precision data, preventing outlier values from destroying the quantization precision of an entire tensor. DeepSeek pioneered the tile-wise 1x128 scaling for activations and block-wise 128x128 scaling for weights in their FP8 training framework. On Blackwell (SM100), native block scaling support in tcgen05.mma enables hardware-accelerated fine-grained quantization using the UE8M0 scale format, while Hopper requires software-managed CUDA core promotion.

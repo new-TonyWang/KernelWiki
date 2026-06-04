@@ -31,10 +31,7 @@ conclusions:
   ratio: null
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- The coalesced BW of 530.66 GB/s is well below peak HBM BW (4916.7 GB/s theoretical)
-  because the working set is only 4 MB and the kernel is launch-latency-dominated
-  at this scale. The relative comparison between coalesced and strided is the meaningful
-  metric.
+- The coalesced BW of 530.66 GB/s is well below peak HBM BW (4916.7 GB/s theoretical) because the working set is only 4 MB and the kernel is launch-latency-dominated at this scale. The relative comparison between coalesced and strided is the meaningful metric.
 id: exp-coalescing-stride
 type: experience
 vendor: nvidia
@@ -52,6 +49,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L1379-L1448
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- cache-policy
+confidence: experimental
+tags:
+- cache-policy
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/coalescing-stride
 ---
 ## Summary
 

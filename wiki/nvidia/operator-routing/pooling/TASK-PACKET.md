@@ -6,12 +6,31 @@ status: draft
 source:
 - path: reasoning/task-packet.md
   anchor: L1-L109
-  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This
-    file is the task packet.'
+  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This file is the task packet.'
 id: routing-pooling-TASK-PACKET
 type: operator-routing
 vendor: nvidia
 operator: pooling
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- communication-overlap
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- communication-overlap
+- fused-kernel
+- cuda-cpp
 ---
 # Pooling -- Task Packet Template
 

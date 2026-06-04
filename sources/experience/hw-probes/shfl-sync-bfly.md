@@ -31,8 +31,7 @@ conclusions:
   ratio: null
 open_questions:
 - clock_policy is unknown — clocks were not locked during measurement.
-- The 29.00 cycles/shfl measured here exceeds the canonical 23.83 cycles because each
-  step includes a dependent fadd between shfl_xor_sync calls.
+- The 29.00 cycles/shfl measured here exceeds the canonical 23.83 cycles because each step includes a dependent fadd between shfl_xor_sync calls.
 id: exp-shfl-sync-bfly
 type: experience
 vendor: nvidia
@@ -50,6 +49,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1289-L1292
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- loop-unrolling
+confidence: experimental
+tags:
+- pipeline-stages
+- loop-unrolling
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/shfl-sync-bfly
 ---
 ## Summary
 

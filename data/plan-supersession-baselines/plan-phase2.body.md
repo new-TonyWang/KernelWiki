@@ -58,7 +58,7 @@ Expand the Blackwell kernel optimization knowledge base from 91 files to 540+ by
   - Positive Tests:
     - At least 10 new wiki pages created where 3+ new sources support an uncovered concept
     - New wiki technique/kernel pages include code snippets (reproducibility ≥ snippet)
-    - All new wiki pages pass validation including `blackwell_relevance` for Hopper-inclusive pages
+    - All new wiki pages pass validation with architecture coverage expressed via `architectures`
   - Negative Tests:
     - A new wiki page with fewer than 3 supporting sources is premature
 

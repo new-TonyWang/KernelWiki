@@ -40,6 +40,19 @@ type: algorithm
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- shared-memory-optimization
+- tma-multicast
+- communication-overlap
+- gemm
+- ptx
+- cute-dsl
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
@@ -59,6 +72,29 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-efficient-gemm-kernel-designs-with-pipelining
   anchor: pipelining strategy for warp-specialized GEMM
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- shared-memory-optimization
+- tma-multicast
+- communication-overlap
+kernel_types:
+- gemm
+confidence: experimental
+artifact_dir: artifacts/experience/api-probes/gemm
 ---
 # Warp-specialized GEMM mainloop (algorithm skeleton)
 

@@ -9,8 +9,7 @@ apis:
   namespace: cuda-runtime
   kind: warp-vote
   signature: unsigned __ballot_sync(unsigned mask, int predicate);
-  notes: Returns a 32-bit mask whose bit i is set iff lane i in mask evaluated predicate
-    non-zero. Full-warp masks should be 0xFFFFFFFFu.
+  notes: Returns a 32-bit mask whose bit i is set iff lane i in mask evaluated predicate non-zero. Full-warp masks should be 0xFFFFFFFFu.
 - func_name: __all_sync
   namespace: cuda-runtime
   kind: warp-vote
@@ -24,38 +23,32 @@ apis:
 - func_name: __uni_sync
   namespace: cuda-runtime
   kind: warp-vote
-  notes: Returns non-zero iff the predicate is uniform (same value) across all lanes
-    in mask.
+  notes: Returns non-zero iff the predicate is uniform (same value) across all lanes in mask.
 - func_name: __syncwarp
   namespace: cuda-runtime
   kind: warp-barrier
   signature: void __syncwarp(unsigned mask = 0xFFFFFFFFu);
-  notes: Forces reconvergence of lanes in mask. Required before warp-synchronous code
-    on CC 7.0+ (ITS).
+  notes: Forces reconvergence of lanes in mask. Required before warp-synchronous code on CC 7.0+ (ITS).
 - func_name: __activemask
   namespace: cuda-runtime
   kind: warp-introspect
   signature: unsigned __activemask();
-  notes: Returns mask of currently active lanes. Does NOT force convergence; do not
-    use as a synchronization primitive (pitfall P4).
+  notes: Returns mask of currently active lanes. Does NOT force convergence; do not use as a synchronization primitive (pitfall P4).
 - func_name: __popc
   namespace: cuda-runtime
   kind: intrinsic
   signature: int __popc(unsigned x);
-  notes: 'Population count. Paired with __ballot_sync for stream compaction: __popc(mask
-    & ((1u << laneId) - 1)) is the per-lane compact offset.'
+  notes: 'Population count. Paired with __ballot_sync for stream compaction: __popc(mask & ((1u << laneId) - 1)) is the per-lane compact offset.'
 - func_name: __ffs
   namespace: cuda-runtime
   kind: intrinsic
   signature: int __ffs(unsigned x);
-  notes: Find first set bit (1-indexed). Paired with ballot to locate the first active
-    lane.
+  notes: Find first set bit (1-indexed). Paired with ballot to locate the first active lane.
 - func_name: setp.CmpOp.type
   namespace: ptx
   kind: ptx-predicate-set
   signature: setp.{eq,ne,lt,le,gt,ge}.{s32,u32,f32,...} p, a, b;
-  notes: Set predicate register p from comparison. Emitted by nvcc for any simple
-    conditional.
+  notes: Set predicate register p from comparison. Emitted by nvcc for any simple conditional.
 - func_name: selp.type
   namespace: ptx
   kind: ptx-predicate-select
@@ -64,13 +57,11 @@ apis:
 - func_name: '@{!}p instruction'
   namespace: ptx
   kind: ptx-predication
-  notes: Any PTX instruction can be prefixed with a predicate guard. Predicated false
-    instructions are dispatched but produce no side effects (BP §13.2).
+  notes: Any PTX instruction can be prefixed with a predicate guard. Predicated false instructions are dispatched but produce no side effects (BP §13.2).
 - func_name: bra.uni
   namespace: ptx
   kind: ptx-branch
-  notes: Uniform branch — cheap, no divergence. Emitted for conditions the compiler
-    proves are warp-uniform.
+  notes: Uniform branch — cheap, no divergence. Emitted for conditions the compiler proves are warp-uniform.
 - func_name: vote.sync.{all,any,uni,ballot}.b32
   namespace: ptx
   kind: ptx-warp-vote
@@ -89,6 +80,13 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L3427-L3436
+languages:
+- ptx
+- cuda-cpp
+confidence: inferred
+tags:
+- ptx
+- cuda-cpp
 ---
 ## Core APIs
 

@@ -27,6 +27,11 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/5_Domain_Specific/convolutionFFT2D/convolutionFFT2D.cuh
   anchor: L207-L207
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # __sincosf
 

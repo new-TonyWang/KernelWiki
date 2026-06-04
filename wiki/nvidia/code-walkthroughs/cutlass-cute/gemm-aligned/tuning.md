@@ -4,6 +4,26 @@ type: code-walkthrough
 vendor: nvidia
 title: Tuning
 upstream_repo: NVIDIA/cutlass-cute
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- cluster
+techniques:
+- warp-specialization
+- pipeline-stages
+- tma-multicast
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- cluster
+- warp-specialization
+- pipeline-stages
+- tma-multicast
+- gemm
+- cuda-cpp
+- cute-dsl
 ---
 # gemm-aligned — tuning log (skeleton)
 

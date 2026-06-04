@@ -23,6 +23,30 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cub/cub.md
   anchor: L28474-L28508
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- vectorized-loads
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+kernel_types:
+- fused-kernel
+- attention
+confidence: inferred
+tags:
+- pipeline-stages
+- vectorized-loads
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+- fused-kernel
+- attention
+- cuda-cpp
 ---
 # Scan (Cumulative) Pattern -- Decision Tree
 

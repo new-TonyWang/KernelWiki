@@ -4,6 +4,24 @@ type: code-walkthrough
 vendor: nvidia
 title: Tuning
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- cluster
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- wgmma
+- cluster
+- gemm
+- cuda-cpp
+- cute-dsl
 ---
 # gemm-tail — tuning log (skeleton)
 

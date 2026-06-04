@@ -1,17 +1,27 @@
 ---
 id: technique-double-buffering
-title: "Double/Multi-Buffering Patterns"
+title: Double/Multi-Buffering Patterns
 type: technique
-architectures: [sm100, sm90]
-tags: [double-buffering, tmem, pipeline-stages]
+architectures:
+- sm100
+- sm90
+tags:
+- double-buffering
+- tmem
+- pipeline-stages
 confidence: source-reported
 reproducibility: snippet
-prerequisites: [hw-tmem]
-related: [hw-tmem, technique-pipeline-stages, technique-epilogue-fusion]
-sources: [blog-tcgen05-tutorial, doc-nvidia-tuning-guide, pr-flashinfer-2387]
-blackwell_relevance: "TMEM double-buffering is Blackwell-specific (half of 512 columns each); SMEM double-buffering transfers from Hopper."
+prerequisites:
+- hw-tmem
+related:
+- hw-tmem
+- technique-pipeline-stages
+- technique-epilogue-fusion
+sources:
+- blog-tcgen05-tutorial
+- doc-nvidia-tuning-guide
+- pr-flashinfer-2387
 ---
-
 ## Overview
 
 Double-buffering (and multi-buffering) allocates two or more copies of a data buffer so that one copy can be written while another is read. On Blackwell, this pattern applies at two distinct levels: (1) TMEM double-buffering for overlapping MMA accumulation with epilogue readout, and (2) SMEM multi-stage buffering for overlapping TMA loads with MMA consumption. Both levels operate simultaneously in a well-optimized kernel.

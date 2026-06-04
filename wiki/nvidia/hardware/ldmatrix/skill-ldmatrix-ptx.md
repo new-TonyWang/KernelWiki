@@ -24,6 +24,14 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- ldmatrix
+- shared-memory-optimization
+- gemm
+- attention
+- ptx
+- cute-dsl
 applies_to:
 - general
 source_refs:
@@ -36,6 +44,23 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L27850-L27890
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- ldmatrix
+techniques:
+- shared-memory-optimization
+kernel_types:
+- gemm
+- attention
+confidence: source-reported
 ---
 # ldmatrix — Shared-memory to register matrix load for tensor cores
 

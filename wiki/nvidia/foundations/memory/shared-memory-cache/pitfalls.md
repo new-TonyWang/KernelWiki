@@ -4,6 +4,27 @@ status: draft
 id: pitfall-shared-memory-cache
 type: pitfall
 vendor: nvidia
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- pipeline-stages
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+- tile-scheduling
+confidence: inferred
+tags:
+- pipeline-stages
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+- tile-scheduling
+- ptx
+- cuda-cpp
 ---
 # Shared Memory Cache — Pitfalls
 

@@ -1,17 +1,25 @@
 ---
 id: technique-register-budgeting
-title: "Register Budgeting for Occupancy"
+title: Register Budgeting for Occupancy
 type: technique
-architectures: [sm100, sm90]
-tags: [register-budgeting, register-reuse]
+architectures:
+- sm100
+- sm90
+tags:
+- register-budgeting
+- register-reuse
 confidence: source-reported
 reproducibility: snippet
 prerequisites: []
-related: [pattern-memory-bound, pattern-register-pressure, kernel-nvfp4-gemv]
-sources: [blog-yue-nvfp4, blog-amandeep-nvfp4, blog-simon-nvfp4-gemv]
-blackwell_relevance: "TMEM eliminates accumulator register pressure on Blackwell, freeing ~100 registers/thread for other uses; technique still critical for memory-bound kernels."
+related:
+- pattern-memory-bound
+- pattern-register-pressure
+- kernel-nvfp4-gemv
+sources:
+- blog-yue-nvfp4
+- blog-amandeep-nvfp4
+- blog-simon-nvfp4-gemv
 ---
-
 # Register Budgeting
 
 ## Overview

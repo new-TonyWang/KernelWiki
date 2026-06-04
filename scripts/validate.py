@@ -398,18 +398,6 @@ def validate_file(filepath, schemas, valid_tags, all_source_ids, code_langs):
         for key, value in fm["artifacts"].items():
             _check_local_path(f"artifacts.{key}", str(value), artifact_field=True)
 
-    # Check blackwell_relevance required for Hopper-only wiki pages
-    # Pages targeting both Hopper AND Blackwell are inherently Blackwell-relevant
-    if page_type.startswith("wiki-"):
-        archs = set(fm.get("architectures", []) if isinstance(fm.get("architectures"), list) else [])
-        hopper_archs = archs & {"sm90", "sm90a"}
-        blackwell_archs = archs & {"sm100", "sm100a", "sm120"}
-        if hopper_archs and not blackwell_archs and "blackwell_relevance" not in fm:
-            errors.append(
-                f"{rel}: page targets only Hopper {hopper_archs} without Blackwell arch; "
-                f"add 'blackwell_relevance' to justify inclusion in Blackwell-first scope"
-            )
-
     # Vendor-path consistency: if page is under wiki/{vendor}/, vendor field must match
     if page_type.startswith("wiki-"):
         path_vendor = detect_vendor_from_path(filepath)

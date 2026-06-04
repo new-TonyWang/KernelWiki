@@ -1,23 +1,42 @@
 ---
 id: lang-triton
-title: "Triton on Blackwell"
+title: Triton on Blackwell
 type: language
-tags: [triton, attention, moe, gated-delta-net]
-related: [kernel-nsa, kernel-gated-delta-net, kernel-fused-moe, lang-cute-dsl]
-sources: [doc-triton-3.6-blackwell, pr-vllm-34597, pr-vllm-29339, pr-sglang-22079, pr-sglang-21019, pr-sglang-5390, pr-sglang-21595, pr-pytorch-175826, blog-nsa, blog-gated-delta-net, blog-flash-attention-4]
+tags:
+- triton
+- attention
+- moe
+- gated-delta-net
+related:
+- kernel-nsa
+- kernel-gated-delta-net
+- kernel-fused-moe
+- lang-cute-dsl
+sources:
+- doc-triton-3.6-blackwell
+- pr-vllm-34597
+- pr-vllm-29339
+- pr-sglang-22079
+- pr-sglang-21019
+- pr-sglang-5390
+- pr-sglang-21595
+- pr-pytorch-175826
+- blog-nsa
+- blog-gated-delta-net
+- blog-flash-attention-4
 reproducibility: snippet
-architectures: [sm100, sm90]
+architectures:
+- sm100
+- sm90
 confidence: verified
 evidence_basis:
-  - evidence_type: official-doc
-    source_id: doc-triton-3.6-blackwell
-  - evidence_type: upstream-code
-    source_id: pr-vllm-34597
+- evidence_type: official-doc
+  source_id: doc-triton-3.6-blackwell
+- evidence_type: upstream-code
+  source_id: pr-vllm-34597
 version_sensitive:
   id: vs-triton-3.6-blackwell-tcgen05
-blackwell_relevance: "As of Triton 3.6+, Triton has native Blackwell (SM100) lowering through tcgen05 + TMEM via descriptor/TMA warp-specialized matmul, Gluon multi-CTA / 2CTA, and tl.dot_scaled. This page documents which lowering surfaces are first-class on Blackwell vs which are still gluon-only or workload-dependent."
 ---
-
 ## Overview
 
 Triton is used for many attention and linear-attention kernels (NSA, GatedDeltaNet, FLA). Starting with Triton 3.6 (released `2026-01-21`), Triton ships native Blackwell (SM100) lowering through `tcgen05.mma` + Tensor Memory (TMEM). The earlier framing — "Triton compiler generates wgmma, not tcgen05" — was correct for Triton 3.5 and earlier but is no longer correct on 3.6+. See the "Pre-3.6 historical context" subsection below for the historical framing; the rest of this page describes the current 3.6+ behavior.

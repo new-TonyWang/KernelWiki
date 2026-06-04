@@ -4,6 +4,26 @@ parent_skill: register-pressure
 id: pitfall-register-pressure
 type: pitfall
 vendor: nvidia
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+kernel_types:
+- quantization
+confidence: inferred
+tags:
+- pipeline-stages
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+- quantization
+- cuda-cpp
 ---
 ## Pitfall 1: Blindly maximizing occupancy via --maxrregcount causes catastrophic spilling
 

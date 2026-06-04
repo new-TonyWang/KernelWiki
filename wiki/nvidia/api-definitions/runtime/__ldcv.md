@@ -18,6 +18,17 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24563-L24563
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- cache-policy
+confidence: inferred
+tags:
+- cache-policy
+- cuda-cpp
 ---
 # __ldcv
 

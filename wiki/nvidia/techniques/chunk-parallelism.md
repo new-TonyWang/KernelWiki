@@ -1,17 +1,26 @@
 ---
 id: technique-chunk-parallelism
-title: "Chunk-Based Parallelism for Linear Attention"
+title: Chunk-Based Parallelism for Linear Attention
 type: technique
-architectures: [sm100, sm90]
-tags: [chunk-parallelism, linear-attention, gated-delta-net, pipeline-stages]
+architectures:
+- sm100
+- sm90
+tags:
+- chunk-parallelism
+- linear-attention
+- gated-delta-net
+- pipeline-stages
 confidence: source-reported
 reproducibility: snippet
 prerequisites: []
-related: [kernel-gated-delta-net, kernel-nsa]
-sources: [blog-gated-delta-net, blog-nsa, doc-tfla]
-blackwell_relevance: "Chunk size scales with TMEM capacity on Blackwell; larger chunks = better tensor core utilization."
+related:
+- kernel-gated-delta-net
+- kernel-nsa
+sources:
+- blog-gated-delta-net
+- blog-nsa
+- doc-tfla
 ---
-
 # Chunk-Based Parallelism
 
 ## Overview

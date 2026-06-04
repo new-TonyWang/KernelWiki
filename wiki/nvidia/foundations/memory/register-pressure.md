@@ -37,6 +37,13 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- persistent-kernel
+- pipeline-stages
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+- fused-kernel
 applies_to:
 - general
 source_refs:
@@ -58,6 +65,22 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1089
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- persistent-kernel
+- pipeline-stages
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/register-pressure
 ---
 ## What
 

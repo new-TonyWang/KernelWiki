@@ -16,6 +16,28 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L22816-L22905
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+confidence: inferred
+tags:
+- cluster
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+- ptx
+- cuda-cpp
 ---
 # Compiler Hints API Reference
 

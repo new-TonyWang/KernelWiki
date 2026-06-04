@@ -37,6 +37,10 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- register-budgeting
+- shared-memory-optimization
+- tile-scheduling
+- fused-kernel
 applies_to:
 - general
 source_refs:
@@ -67,6 +71,19 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   anchor: L3828-L3858
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- register-budgeting
+- shared-memory-optimization
+- tile-scheduling
+kernel_types:
+- fused-kernel
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/occupancy-sweep
 ---
 ## What
 

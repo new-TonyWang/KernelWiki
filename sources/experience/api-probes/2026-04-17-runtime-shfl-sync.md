@@ -33,8 +33,7 @@ back_filled_into:
 - wiki/nvidia/api-definitions/runtime/__shfl_sync.md
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- Baseline is a CPU reference permutation (correctness only, not a GPU timing baseline),
-  so ratio is not reported.
+- Baseline is a CPU reference permutation (correctness only, not a GPU timing baseline), so ratio is not reported.
 id: exp-2026-04-17-runtime-shfl-sync
 type: experience
 vendor: nvidia
@@ -55,6 +54,15 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L24206-L24206
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+confidence: experimental
+tags:
+- cuda-cpp
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

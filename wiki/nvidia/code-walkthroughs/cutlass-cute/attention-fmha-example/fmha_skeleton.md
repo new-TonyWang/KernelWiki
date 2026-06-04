@@ -4,6 +4,51 @@ type: code-walkthrough
 vendor: nvidia
 title: Fmha_Skeleton
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- tile-scheduling
+- software-exp
+- conditional-rescaling
+kernel_types:
+- gemm
+- attention
+- flash-attention
+- fused-kernel
+confidence: inferred
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- tile-scheduling
+- software-exp
+- conditional-rescaling
+- gemm
+- attention
+- flash-attention
+- fused-kernel
+- cuda-cpp
+- cute-dsl
 ---
 # cutlass 88_hopper_fmha Code Skeleton
 

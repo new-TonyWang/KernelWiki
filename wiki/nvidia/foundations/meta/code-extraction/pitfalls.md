@@ -3,6 +3,22 @@ id: pitfall-code-extraction
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+languages:
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- tma-multicast
+kernel_types:
+- gemm
+- quantization
+confidence: inferred
+tags:
+- cluster
+- tma-multicast
+- gemm
+- quantization
+- cuda-cpp
 ---
 # Code-extraction meta-skill — pitfalls
 

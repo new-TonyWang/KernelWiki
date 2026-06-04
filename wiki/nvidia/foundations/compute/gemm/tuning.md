@@ -5,12 +5,27 @@ vendor: nvidia
 title: Tuning
 tags:
 - cuda-cpp
+- wgmma
+- warp-specialization
+- gemm
 applies_to:
 - general
 source:
 - path: spec
   anchor: CUDA Programming Guide
 evidence_level: spec
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- wgmma
+techniques:
+- warp-specialization
+kernel_types:
+- gemm
+confidence: source-reported
 ---
 # Non-aligned GEMM Tuning Parameters
 

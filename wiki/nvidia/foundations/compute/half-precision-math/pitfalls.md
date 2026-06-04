@@ -17,6 +17,32 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L11000-L11200
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- pipeline-stages
+- vectorized-loads
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+kernel_types:
+- gemm
+- fused-kernel
+confidence: inferred
+tags:
+- pipeline-stages
+- vectorized-loads
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+- gemm
+- fused-kernel
+- ptx
+- cuda-cpp
 ---
 Pitfalls group: P1–P6 are numerical-format and availability facts grounded in PG §5.5.2 / PTX ISA; P13 is a build-system fact; P14–P16 are measured on H200 sm_9.0a by the half2-throughput probe 2026-04-23. P10/P11/P12 are open risks not re-measured by the probe — each records what to look for in SASS / wall-clock and flags a follow-up probe.
 

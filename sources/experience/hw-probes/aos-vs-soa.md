@@ -43,20 +43,10 @@ conclusions:
   soa_vectorized_useful_bw_gb_s: 3613
   convert_dram_sol_pct: 81.12
 open_questions:
-- clock_policy is `unlocked-logged-only` — H200 ran at its max graphics clock (1980
-  MHz) but not explicitly locked with `nvidia-smi -lgc`. Absolute GB/s numbers should
-  be retaken under lock for a strict measured-env contract. Speedup ratios and the
-  break-even count are robust.
-- soa_read_one_field reaches only 43% DRAM SOL — the kernel is latency-bound, not
-  throughput-bound at this shape. float4 vectorization recovers 71% SOL. There is
-  headroom on H200 for further ILP tuning (S6 in the skill's open questions).
-- 'struct size = 24B is the canonical Particle example. Break-even is sensitive to
-  struct size: larger struct -> bigger AoS waste ratio -> faster break-even. Open:
-  sweep struct sizes 16B / 24B / 48B / 96B under `sources/experience/hw-probes/aos-vs-soa/struct-size-sweep/`.'
-- On H200 the AoS kernel achieves 89% HBM SOL despite moving 4x more bytes than strictly
-  needed — the L2 is absorbing the wasted sectors. L1/TEX hit rate on AoS is 0% (every
-  load misses L1) and L2 hit rate is 15%, vs L2 hit rate 50% on SoA. Shape is small
-  enough for L2 effect; larger N may widen the SoA advantage further.
+- clock_policy is `unlocked-logged-only` — H200 ran at its max graphics clock (1980 MHz) but not explicitly locked with `nvidia-smi -lgc`. Absolute GB/s numbers should be retaken under lock for a strict measured-env contract. Speedup ratios and the break-even count are robust.
+- soa_read_one_field reaches only 43% DRAM SOL — the kernel is latency-bound, not throughput-bound at this shape. float4 vectorization recovers 71% SOL. There is headroom on H200 for further ILP tuning (S6 in the skill's open questions).
+- 'struct size = 24B is the canonical Particle example. Break-even is sensitive to struct size: larger struct -> bigger AoS waste ratio -> faster break-even. Open: sweep struct sizes 16B / 24B / 48B / 96B under `sources/experience/hw-probes/aos-vs-soa/struct-size-sweep/`.'
+- On H200 the AoS kernel achieves 89% HBM SOL despite moving 4x more bytes than strictly needed — the L2 is absorbing the wasted sectors. L1/TEX hit rate on AoS is 0% (every load misses L1) and L2 hit rate is 15%, vs L2 hit rate 50% on SoA. Shape is small enough for L2 effect; larger N may widen the SoA advantage further.
 id: exp-aos-vs-soa
 type: experience
 vendor: nvidia
@@ -71,6 +61,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L1379-L1411
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- vectorized-loads
+- cache-policy
+confidence: experimental
+tags:
+- vectorized-loads
+- cache-policy
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/aos-vs-soa
 ---
 ## Summary
 

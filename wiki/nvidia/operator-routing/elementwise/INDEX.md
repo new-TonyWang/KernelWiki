@@ -25,6 +25,36 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L539-L542
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- python
+- triton
+techniques:
+- pipeline-stages
+- vectorized-loads
+- data-reuse
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+kernel_types:
+- fused-kernel
+- attention
+confidence: inferred
+tags:
+- pipeline-stages
+- vectorized-loads
+- data-reuse
+- kernel-fusion
+- shared-memory-optimization
+- software-exp
+- fused-kernel
+- attention
+- cuda-cpp
+- python
+- triton
 ---
 # Elementwise Operator Pattern -- Decision Tree
 

@@ -4,6 +4,39 @@ type: code-walkthrough
 vendor: nvidia
 title: Tuning
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- tma
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- shared-memory-optimization
+- tile-scheduling
+- tma-multicast
+- communication-overlap
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- tma
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- shared-memory-optimization
+- tile-scheduling
+- tma-multicast
+- communication-overlap
+- gemm
+- cuda-cpp
+- cute-dsl
 ---
 # persistent-kernel — tuning log (skeleton)
 

@@ -33,8 +33,7 @@ back_filled_into:
 - wiki/nvidia/api-definitions/runtime/__ballot_sync.md
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- Baseline is a CPU sequential count (correctness reference only, not a GPU timing
-  baseline), so ratio is not reported.
+- Baseline is a CPU sequential count (correctness reference only, not a GPU timing baseline), so ratio is not reported.
 id: exp-2026-04-16-runtime-ballot-sync
 type: experience
 vendor: nvidia
@@ -50,6 +49,15 @@ source_refs:
   path: CUDA API References/cccl/cccl.md
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Tools/compute-sanitizer/compute-sanitizer_index.html.md
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+confidence: experimental
+tags:
+- cuda-cpp
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

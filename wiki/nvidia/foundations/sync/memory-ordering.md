@@ -37,6 +37,12 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- cluster
+- pipeline-stages
+- cache-policy
+- shared-memory-optimization
+- fused-kernel
+- ptx
 applies_to:
 - general
 source_refs:
@@ -55,6 +61,21 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L4680-L4780
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- pipeline-stages
+- cache-policy
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: source-reported
 ---
 ## What
 

@@ -1,12 +1,10 @@
 ---
-api: PTX cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster
-  (cutlass-free)
+api: PTX cp.async.bulk.tensor.2d.shared::cluster.global.tile.mbarrier::complete_tx::bytes.multicast::cluster (cutlass-free)
 namespace: ptx
 probe_slug: tma-multicast
 status: verified
 kind: hw-feature
-trigger: characterize cluster-multicast TMA load — DRAM-read fan-out across CTAs in
-  a cluster
+trigger: characterize cluster-multicast TMA load — DRAM-read fan-out across CTAs in a cluster
 evidence_level: measured
 clock_policy: as-launched (H200 boost-clock unlocked)
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
@@ -20,12 +18,7 @@ artifacts:
   profile: artifacts/experience/hw-probes/tma-ptx/2026-04-30-tma-multicast.csv
 upstream_repo: none (hand-rolled cutlass-free implementation)
 conclusions:
-  workload: 132 CTAs (= H200 SM count) arranged as 132/C clusters of size C ∈ {1,
-    2, 4}; each cluster's leader (rank 0) issues 124 unique TMA tile loads via cp.async.bulk.tensor.2d…multicast::cluster
-    with cta_mask = (1<<C)-1; all C CTAs in the cluster receive the same tile sequence
-    into their own smem ring buffer (depth=4). Per-CTA workload is held constant at
-    124 tiles regardless of C, so DRAM bytes scale as 1/C while smem-bytes delivered
-    per launch stays at 128 MiB. 5 warmup + 20 timed launches, median ms.
+  workload: 132 CTAs (= H200 SM count) arranged as 132/C clusters of size C ∈ {1, 2, 4}; each cluster's leader (rank 0) issues 124 unique TMA tile loads via cp.async.bulk.tensor.2d…multicast::cluster with cta_mask = (1<<C)-1; all C CTAs in the cluster receive the same tile sequence into their own smem ring buffer (depth=4). Per-CTA workload is held constant at 124 tiles regardless of C, so DRAM bytes scale as 1/C while smem-bytes delivered per launch stays at 128 MiB. 5 warmup + 20 timed launches, median ms.
   c1_baseline_dram_gbps: 3299
   c2_multicast_dram_gbps: 2083
   c4_multicast_dram_gbps: 1480
@@ -40,28 +33,13 @@ conclusions:
   ideal_c2_smem_gbps: 6598
   ideal_c4_smem_gbps: 13196
 open_questions:
-- ALL Q1–Q6 below resolved in the v2 follow-up probe at `2026-04-30-tma-multicast-v2.md`.
-  Summary of v2 findings inline; original questions retained for traceability.
-- Q1 [RESOLVED in v2] Sub-linear effective-bandwidth scaling root cause. v2 ncu confirms
-  DRAM bytes scale exactly 1/C (134 → 67 → 33 → 16 → 8 MB) and multicast request count
-  scales 1/C; SM active % falls 93% → 78% as cluster grows. Sub-linearity is from
-  issuer-count attrition + non-leader idle time, not from any multicast-fanout overhead.
-- Q2 [RESOLVED in v2] C=8 / C=16 measured. Effective-bw plateaus at C=4 (1.73×); C=8
-  (1.68×) and C=16 (1.69×) regress because issuer count drops below DRAM-saturation
-  threshold. Production GEMM with much larger grids should not see this regression.
-- Q3 [RESOLVED in v2] Multi-producer-warp tested at C=2. 1/2/4 producer warps lift
-  effective bandwidth 4.08 → 5.69 → 6.26 TB/s (1.54×). 4-warp C=2 (6.26 TB/s) beats
-  1-warp C=4 (5.63 TB/s) — multi-warp issue is a cheaper amplifier than larger clusters.
-- Q4 [RESOLVED in v2] L2 promotion swept at C=2 (NONE / 64B / 128B / 256B). Marginal
-  effect; 256B gives +4.5%, smaller promotions are within noise. Probe is DRAM-bound
-  (first-touch), so L2 promotion's caching axis sees little to optimise.
-- Q5 [RESOLVED in v2] Cross-CTA empty mbarrier protocol implemented via `mapa.shared::cluster.u32`
-  + `mbarrier.arrive.release.cluster.shared::cluster.b64`. Functional but ~4.4× slower
-  at microbench grain (no consumer). In real producer/consumer GEMM the round-trip
-  is amortised behind 32+ wgmma instances per tile.
-- Q6 [RESOLVED in v2] Numeric correctness — element-by-element compare of every loaded
-  tile against deterministic source pattern. **0 / 67 043 328 mismatches** across
-  C=1, C=2, C=4. Multicast PTX path is byte-identical to non-multicast.
+- ALL Q1–Q6 below resolved in the v2 follow-up probe at `2026-04-30-tma-multicast-v2.md`. Summary of v2 findings inline; original questions retained for traceability.
+- Q1 [RESOLVED in v2] Sub-linear effective-bandwidth scaling root cause. v2 ncu confirms DRAM bytes scale exactly 1/C (134 → 67 → 33 → 16 → 8 MB) and multicast request count scales 1/C; SM active % falls 93% → 78% as cluster grows. Sub-linearity is from issuer-count attrition + non-leader idle time, not from any multicast-fanout overhead.
+- Q2 [RESOLVED in v2] C=8 / C=16 measured. Effective-bw plateaus at C=4 (1.73×); C=8 (1.68×) and C=16 (1.69×) regress because issuer count drops below DRAM-saturation threshold. Production GEMM with much larger grids should not see this regression.
+- Q3 [RESOLVED in v2] Multi-producer-warp tested at C=2. 1/2/4 producer warps lift effective bandwidth 4.08 → 5.69 → 6.26 TB/s (1.54×). 4-warp C=2 (6.26 TB/s) beats 1-warp C=4 (5.63 TB/s) — multi-warp issue is a cheaper amplifier than larger clusters.
+- Q4 [RESOLVED in v2] L2 promotion swept at C=2 (NONE / 64B / 128B / 256B). Marginal effect; 256B gives +4.5%, smaller promotions are within noise. Probe is DRAM-bound (first-touch), so L2 promotion's caching axis sees little to optimise.
+- Q5 [RESOLVED in v2] Cross-CTA empty mbarrier protocol implemented via `mapa.shared::cluster.u32` + `mbarrier.arrive.release.cluster.shared::cluster.b64`. Functional but ~4.4× slower at microbench grain (no consumer). In real producer/consumer GEMM the round-trip is amortised behind 32+ wgmma instances per tile.
+- Q6 [RESOLVED in v2] Numeric correctness — element-by-element compare of every loaded tile against deterministic source pattern. **0 / 67 043 328 mismatches** across C=1, C=2, C=4. Multicast PTX path is byte-identical to non-multicast.
 id: exp-tma-ptx
 type: experience
 vendor: nvidia
@@ -73,6 +51,42 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: section on multicast TMA + cooperative kernel
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+kernel_types:
+- gemm
+confidence: experimental
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+- gemm
+- ptx
+- cuda-cpp
+- cute-dsl
+artifact_dir: artifacts/experience/hw-probes/tma-ptx
 ---
 ## Summary
 

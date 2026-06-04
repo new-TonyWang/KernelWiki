@@ -17,6 +17,23 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L10400-L10490
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+confidence: inferred
+tags:
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+- ptx
+- cuda-cpp
 ---
 Legacy P1–P5 came from L3-sandbox verification on pre-H200 hardware.
 P6–P11 are L3-sandbox findings copied from the legacy KB. The H200

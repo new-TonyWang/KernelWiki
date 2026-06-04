@@ -9,14 +9,12 @@ apis:
   namespace: cuda-runtime
   kind: fp16-arith-scalar
   signature: __half __hadd(__half a, __half b);
-  notes: Scalar fp16 add. Emits add.f16. Same throughput as fp32 on sm_9.0a scalar
-    path (45 TFLOPS measured).
+  notes: Scalar fp16 add. Emits add.f16. Same throughput as fp32 on sm_9.0a scalar path (45 TFLOPS measured).
 - func_name: __hadd2
   namespace: cuda-runtime
   kind: fp16-arith-packed
   signature: __half2 __hadd2(__half2 a, __half2 b);
-  notes: Packed fp16 add (2 lanes). Emits add.f16x2. Measured 1.16x scalar __hadd
-    throughput on H200, not 2x (see probe).
+  notes: Packed fp16 add (2 lanes). Emits add.f16x2. Measured 1.16x scalar __hadd throughput on H200, not 2x (see probe).
 - func_name: __hmul
   namespace: cuda-runtime
   kind: fp16-arith-scalar
@@ -31,22 +29,17 @@ apis:
   namespace: cuda-runtime
   kind: fp16-arith-scalar
   signature: __half __hfma(__half a, __half b, __half c);
-  notes: 'Scalar fp16 fused multiply-add (a*b + c). Emits fma.rn.f16. Measured on
-    H200: 45351 GFLOPS (scalar op count), 1.58x scalar fp32 FMA.'
+  notes: 'Scalar fp16 fused multiply-add (a*b + c). Emits fma.rn.f16. Measured on H200: 45351 GFLOPS (scalar op count), 1.58x scalar fp32 FMA.'
 - func_name: __hfma2
   namespace: cuda-runtime
   kind: fp16-arith-packed
   signature: __half2 __hfma2(__half2 a, __half2 b, __half2 c);
-  notes: 'Packed fp16 FMA (2 lanes). Emits fma.rn.f16x2. Measured on H200: 52608 GFLOPS
-    (scalar op count), 1.16x scalar __hfma — the residual after nvcc''s auto-packing
-    of scalar chains into HFMA2.MMA.'
+  notes: 'Packed fp16 FMA (2 lanes). Emits fma.rn.f16x2. Measured on H200: 52608 GFLOPS (scalar op count), 1.16x scalar __hfma — the residual after nvcc''s auto-packing of scalar chains into HFMA2.MMA.'
 - func_name: __hfma_relu
   namespace: cuda-runtime
   kind: fp16-fused-activation
   signature: __half __hfma_relu(__half a, __half b, __half c);
-  notes: Scalar fp16 max(a*b + c, 0). Emits fma.rn.relu.f16. ~4% instruction reduction
-    over explicit max; wall-clock benefit only in compute-bound kernels (see pitfall
-    P11).
+  notes: Scalar fp16 max(a*b + c, 0). Emits fma.rn.relu.f16. ~4% instruction reduction over explicit max; wall-clock benefit only in compute-bound kernels (see pitfall P11).
 - func_name: __hfma2_relu
   namespace: cuda-runtime
   kind: fp16-fused-activation-packed
@@ -56,14 +49,12 @@ apis:
   namespace: cuda-runtime
   kind: fp16-pack
   signature: __half2 __halves2half2(__half lo, __half hi);
-  notes: Build a half2 from two existing halves. Zero-cost on most paths (just register
-    alias).
+  notes: Build a half2 from two existing halves. Zero-cost on most paths (just register alias).
 - func_name: __floats2half2_rn
   namespace: cuda-runtime
   kind: fp16-pack-from-float
   signature: __half2 __floats2half2_rn(float lo, float hi);
-  notes: Build a half2 from two fp32 values with round-to-nearest-even. One cvt.rn.f16.f32
-    per lane, then packed.
+  notes: Build a half2 from two fp32 values with round-to-nearest-even. One cvt.rn.f16.f32 per lane, then packed.
 - func_name: __float2half_rn
   namespace: cuda-runtime
   kind: fp16-cast
@@ -78,8 +69,7 @@ apis:
   namespace: cuda-runtime
   kind: fp16-transcendental
   signature: __half hexp(__half x);
-  notes: Scalar fp16 exp. May decompose into fp32 ops on some arches (see pitfall
-    P10); sm_9.0a coverage not re-measured by this probe.
+  notes: Scalar fp16 exp. May decompose into fp32 ops on some arches (see pitfall P10); sm_9.0a coverage not re-measured by this probe.
 - func_name: h2exp
   namespace: cuda-runtime
   kind: fp16-transcendental-packed
@@ -107,23 +97,17 @@ apis:
   namespace: cuda-runtime
   kind: bf16-arith-scalar
   signature: __nv_bfloat16 __hadd(__nv_bfloat16 a, __nv_bfloat16 b);
-  notes: Overloaded for bf16 on sm_80+. Emits add.bf16. Same scalar throughput as
-    fp16 (45 TFLOPS measured on H200).
+  notes: Overloaded for bf16 on sm_80+. Emits add.bf16. Same scalar throughput as fp16 (45 TFLOPS measured on H200).
 - func_name: __hfma
   namespace: cuda-runtime
   kind: bf16-arith-scalar
-  signature: __nv_bfloat16 __hfma(__nv_bfloat16 a, __nv_bfloat16 b, __nv_bfloat16
-    c);
+  signature: __nv_bfloat16 __hfma(__nv_bfloat16 a, __nv_bfloat16 b, __nv_bfloat16 c);
   notes: Overloaded for bf16. Emits fma.rn.bf16.
 - func_name: __hfma2
   namespace: cuda-runtime
   kind: bf16-arith-packed
-  signature: __nv_bfloat162 __hfma2(__nv_bfloat162 a, __nv_bfloat162 b, __nv_bfloat162
-    c);
-  notes: 'Overloaded packed bf16 FMA. Emits fma.rn.bf16x2. Measured on H200: 46478
-    GFLOPS — **12% slower** than fp16 packed (52608 GFLOPS); only **1.02x** scalar
-    bf16 (the compiler already auto-packs scalar bf16 into HFMA2.MMA.BF16_V2, so explicit
-    packing adds essentially nothing for bf16).'
+  signature: __nv_bfloat162 __hfma2(__nv_bfloat162 a, __nv_bfloat162 b, __nv_bfloat162 c);
+  notes: 'Overloaded packed bf16 FMA. Emits fma.rn.bf16x2. Measured on H200: 46478 GFLOPS — **12% slower** than fp16 packed (52608 GFLOPS); only **1.02x** scalar bf16 (the compiler already auto-packs scalar bf16 into HFMA2.MMA.BF16_V2, so explicit packing adds essentially nothing for bf16).'
 - func_name: __float2bfloat16_rn
   namespace: cuda-runtime
   kind: bf16-cast
@@ -165,9 +149,7 @@ apis:
 - func_name: fma.rn.bf16x2
   namespace: ptx
   kind: ptx-bf16-fma-packed
-  notes: Emitted by __hfma2 on __nv_bfloat162. Lowers to SASS HFMA2.MMA.BF16_V2 (audit
-    2026-04-23) — distinct opcode from fp16's HFMA2.MMA, stays within the half-precision
-    family (NOT a FFMA fallback). Measured 46.5 TFLOPS on H200 — 12% below fma.rn.f16x2.
+  notes: Emitted by __hfma2 on __nv_bfloat162. Lowers to SASS HFMA2.MMA.BF16_V2 (audit 2026-04-23) — distinct opcode from fp16's HFMA2.MMA, stays within the half-precision family (NOT a FFMA fallback). Measured 46.5 TFLOPS on H200 — 12% below fma.rn.f16x2.
 - func_name: tanh.approx.f16
   namespace: ptx
   kind: ptx-fp16-tanh
@@ -191,9 +173,7 @@ apis:
 - func_name: atom.add.noftz.f16
   namespace: ptx
   kind: ptx-fp16-atomic-add
-  notes: Native fp16 atomicAdd. `.noftz` preserves denormals. Contention throughput
-    is worse than fp32 atomicAdd (see pitfall P12); prefer hierarchical fp32 fan-in
-    via the atomic-reduction skill.
+  notes: Native fp16 atomicAdd. `.noftz` preserves denormals. Contention throughput is worse than fp32 atomicAdd (see pitfall P12); prefer hierarchical fp32 fan-in via the atomic-reduction skill.
 - func_name: atom.add.noftz.bf16
   namespace: ptx
   kind: ptx-bf16-atomic-add
@@ -212,6 +192,26 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L11000-L11200
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- vectorized-loads
+- kernel-fusion
+kernel_types:
+- gemm
+- fused-kernel
+confidence: inferred
+tags:
+- vectorized-loads
+- kernel-fusion
+- gemm
+- fused-kernel
+- ptx
+- cuda-cpp
 ---
 ## Scalar FMA throughput table (H200 sm_9.0a, measured)
 

@@ -21,8 +21,7 @@ source:
   anchor: Reference
 artifacts:
   code: artifacts/experience/hw-probes/compiler-hints/launch_bounds_probe.cu
-  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o launch_bounds_probe
-    launch_bounds_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -lineinfo -Xptxas=-v -o launch_bounds_probe launch_bounds_probe.cu
   introspection: ''
   profile: ''
 related_apis:
@@ -39,6 +38,14 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- cluster
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+- communication-overlap
+- fused-kernel
+- ptx
 applies_to:
 - general
 source_refs:
@@ -63,6 +70,24 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L4094-L4130
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+- communication-overlap
+kernel_types:
+- fused-kernel
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/compiler-hints
 ---
 ## What
 

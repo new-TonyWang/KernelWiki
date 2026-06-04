@@ -32,9 +32,7 @@ conclusions:
 back_filled_into: []
 open_questions:
 - clock_policy is unknown; clocks were not locked during measurement.
-- The 1.27x speedup reflects a kernel where each thread calls expf 128 times with
-  an fma rescale between iterations. In memory-bound kernels the speedup will be near
-  zero.
+- The 1.27x speedup reflects a kernel where each thread calls expf 128 times with an fma rescale between iterations. In memory-bound kernels the speedup will be near zero.
 id: exp-fast-math
 type: experience
 vendor: nvidia
@@ -58,6 +56,22 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1556-L1581
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- loop-unrolling
+- software-exp
+- conditional-rescaling
+confidence: experimental
+tags:
+- loop-unrolling
+- software-exp
+- conditional-rescaling
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/fast-math
 ---
 ## Summary
 

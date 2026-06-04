@@ -23,6 +23,19 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cub/cub.md
   anchor: L22478-L22555
+languages:
+- cuda-cpp
+- python
+techniques:
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- kernel-fusion
+- fused-kernel
+- cuda-cpp
+- python
 ---
 # Indexing -- Library Fallback Paths
 

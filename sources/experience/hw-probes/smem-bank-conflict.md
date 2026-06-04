@@ -31,9 +31,7 @@ conclusions:
   ratio: null
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- 2-way bank conflict shows near-zero overhead (31.01 vs 30.01 cycles); this may indicate
-  that H200 LSU handles low-degree conflicts nearly for free, or the measurement granularity
-  (1 cycle) may not capture sub-cycle penalties.
+- 2-way bank conflict shows near-zero overhead (31.01 vs 30.01 cycles); this may indicate that H200 LSU handles low-degree conflicts nearly for free, or the measurement granularity (1 cycle) may not capture sub-cycle penalties.
 id: exp-smem-bank-conflict
 type: experience
 vendor: nvidia
@@ -60,6 +58,24 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: Miscellaneous/cupti/cupti_index.html.md
   anchor: L4506-L4510
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- loop-unrolling
+- shared-memory-optimization
+- tma-multicast
+confidence: experimental
+tags:
+- loop-unrolling
+- shared-memory-optimization
+- tma-multicast
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/smem-bank-conflict
 ---
 ## Summary
 

@@ -142,6 +142,6 @@ When asking about:
 - `prerequisites`: list of wiki page IDs the reader should read first
 - `candidate_techniques` (pattern only): list of technique/hw/migration IDs that address the symptoms
 
-## Blackwell-First Scope
+## Architecture-Neutral Scope
 
-Pages including `sm90` in `architectures` WITHOUT any `sm100*` variant MUST include a `blackwell_relevance:` field explaining why the Hopper content is kept. Enforced by validator.
+SM90/Hopper, SM100/Blackwell, and general CUDA pages are all first-class. Architecture applicability is expressed with `architectures`; no architecture requires a special relevance-justification field.

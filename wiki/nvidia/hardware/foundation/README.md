@@ -12,7 +12,6 @@ confidence: source-reported
 related: []
 sources: []
 aliases: []
-blackwell_relevance: Runtime introspection concepts apply to both Hopper and Blackwell
 ---
 # Runtime Introspection (MVP subset of booklet 07 §R)
 

@@ -50,6 +50,9 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- cache-policy
+- fused-kernel
+- ptx
 applies_to:
 - general
 source_refs:
@@ -65,6 +68,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L4132-L4168
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- cache-policy
+kernel_types:
+- fused-kernel
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/l2-residency
 ---
 ## What
 

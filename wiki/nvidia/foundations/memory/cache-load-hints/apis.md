@@ -9,91 +9,68 @@ apis:
   namespace: cuda-runtime
   kind: load-intrinsic-readonly
   signature: T __ldg(const T* ptr);
-  notes: 'Non-coherent read-only cache load (PTX ld.global.nc). On sm_70+ the compiler
-    auto-emits this for `const __restrict__` pointers; explicit __ldg is redundant
-    on H200. Measured on sm_9.0a: 0.1-0.4% difference vs default (within noise).'
+  notes: 'Non-coherent read-only cache load (PTX ld.global.nc). On sm_70+ the compiler auto-emits this for `const __restrict__` pointers; explicit __ldg is redundant on H200. Measured on sm_9.0a: 0.1-0.4% difference vs default (within noise).'
   ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldg.md
 - func_name: __ldca
   namespace: cuda-runtime
   kind: load-intrinsic-cache-all
   signature: T __ldca(const T* ptr);
-  notes: Cache-all load (PTX ld.global.ca, SASS LDG.E.STRONG.SM on H200). Distinct
-    from the compiler default on `const __restrict__` pointers (which lower to ld.global.nc
-    / LDG.E.CONSTANT); __ldca forces the L1 + L2 cache-all path. Use for any load
-    where data is reused within the SM but the pointer is not const-qualified (otherwise
-    default does the same thing via the .nc path).
+  notes: Cache-all load (PTX ld.global.ca, SASS LDG.E.STRONG.SM on H200). Distinct from the compiler default on `const __restrict__` pointers (which lower to ld.global.nc / LDG.E.CONSTANT); __ldca forces the L1 + L2 cache-all path. Use for any load where data is reused within the SM but the pointer is not const-qualified (otherwise default does the same thing via the .nc path).
   ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldca.md
 - func_name: __ldcg
   namespace: cuda-runtime
   kind: load-intrinsic-cache-global
   signature: T __ldcg(const T* ptr);
-  notes: 'Cache-global load (PTX ld.global.cg). Caches in L2 only, bypasses L1. Measured
-    on H200: 2.26x slower than default at L2-resident 16-pass regime because L1 staging
-    is bypassed. Use ONLY when data is not reused within the SM.'
+  notes: 'Cache-global load (PTX ld.global.cg). Caches in L2 only, bypasses L1. Measured on H200: 2.26x slower than default at L2-resident 16-pass regime because L1 staging is bypassed. Use ONLY when data is not reused within the SM.'
   ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldcg.md
 - func_name: __ldcs
   namespace: cuda-runtime
   kind: load-intrinsic-cache-streaming
   signature: T __ldcs(const T* ptr);
-  notes: 'Cache-streaming load (PTX ld.global.cs). L1 + L2 but tagged evict-first.
-    Measured on H200: identical to default in un-contended L2 (8 MiB buffer in 60
-    MiB L2); the evict-first tag only matters when another workload is fighting for
-    L2. Legacy P4.'
+  notes: 'Cache-streaming load (PTX ld.global.cs). L1 + L2 but tagged evict-first. Measured on H200: identical to default in un-contended L2 (8 MiB buffer in 60 MiB L2); the evict-first tag only matters when another workload is fighting for L2. Legacy P4.'
   ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldcs.md
 - func_name: __ldlu
   namespace: cuda-runtime
   kind: load-intrinsic-last-use
   signature: T __ldlu(const T* ptr);
-  notes: Last-use load (PTX ld.global.lu). Marks the cache line for eviction after
-    this load retires. Effect is on subsequent kernels' L2 state; not observable in
-    single-kernel microbenches. Retained as inferred pending multi-kernel probe.
+  notes: Last-use load (PTX ld.global.lu). Marks the cache line for eviction after this load retires. Effect is on subsequent kernels' L2 state; not observable in single-kernel microbenches. Retained as inferred pending multi-kernel probe.
   ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldlu.md
 - func_name: __ldcv
   namespace: cuda-runtime
   kind: load-intrinsic-volatile
   signature: T __ldcv(const T* ptr);
-  notes: 'Cache-volatile load (PTX ld.global.cv). Always re-fetches (bypasses cache
-    tag check). Use ONLY for flags written by other threads/kernels (correctness).
-    Measured on H200: 2.26x slower than default at L2 regime — same penalty as __ldcg
-    — with no compensating benefit for non-volatile data.'
+  notes: 'Cache-volatile load (PTX ld.global.cv). Always re-fetches (bypasses cache tag check). Use ONLY for flags written by other threads/kernels (correctness). Measured on H200: 2.26x slower than default at L2 regime — same penalty as __ldcg — with no compensating benefit for non-volatile data.'
   ten_api_raw: wiki/nvidia/api-definitions/runtime/__ldcv.md
 - func_name: __stwb
   namespace: cuda-runtime
   kind: store-intrinsic-write-back
   signature: void __stwb(T* ptr, T value);
-  notes: Write-back store (PTX st.global.wb, the default). Line stays in L2 and may
-    be re-read by same SM. Not re-measured on H200; retained from legacy Skill 4.
+  notes: Write-back store (PTX st.global.wb, the default). Line stays in L2 and may be re-read by same SM. Not re-measured on H200; retained from legacy Skill 4.
 - func_name: __stcg
   namespace: cuda-runtime
   kind: store-intrinsic-cache-global
   signature: void __stcg(T* ptr, T value);
-  notes: Cache-global store (PTX st.global.cg). L2 only, bypass L1. Symmetric with
-    __ldcg. Not re-measured on H200.
+  notes: Cache-global store (PTX st.global.cg). L2 only, bypass L1. Symmetric with __ldcg. Not re-measured on H200.
 - func_name: __stcs
   namespace: cuda-runtime
   kind: store-intrinsic-cache-streaming
   signature: void __stcs(T* ptr, T value);
-  notes: Cache-streaming store (PTX st.global.cs). L1 + L2 evict-first. Symmetric
-    with __ldcs. Not re-measured on H200.
+  notes: Cache-streaming store (PTX st.global.cs). L1 + L2 evict-first. Symmetric with __ldcs. Not re-measured on H200.
 - func_name: __stwt
   namespace: cuda-runtime
   kind: store-intrinsic-write-through
   signature: void __stwt(T* ptr, T value);
-  notes: Write-through store (PTX st.global.wt). Writes visible to system memory immediately;
-    useful for cross-device / host-observable writes. Not re-measured on H200.
+  notes: Write-through store (PTX st.global.wt). Writes visible to system memory immediately; useful for cross-device / host-observable writes. Not re-measured on H200.
 - func_name: ld.global.nc
   namespace: ptx
   kind: ptx-load-readonly
   signature: ld.global.nc.type d, [a];
-  notes: Non-coherent read-only load. Emitted by __ldg and by compiler from const
-    __restrict__ parameters. On H200 sm_9.0a, the L1/TEX are unified so this is the
-    same cache as .ca.
+  notes: Non-coherent read-only load. Emitted by __ldg and by compiler from const __restrict__ parameters. On H200 sm_9.0a, the L1/TEX are unified so this is the same cache as .ca.
 - func_name: ld.global.ca
   namespace: ptx
   kind: ptx-load-cache-all
   signature: ld.global.ca.type d, [a];
-  notes: Cache-all (default). Caches in L1 + L2. Emitted by __ldca and by default
-    C loads.
+  notes: Cache-all (default). Caches in L1 + L2. Emitted by __ldca and by default C loads.
 - func_name: ld.global.cg
   namespace: ptx
   kind: ptx-load-cache-global
@@ -103,14 +80,12 @@ apis:
   namespace: ptx
   kind: ptx-load-cache-streaming
   signature: ld.global.cs.type d, [a];
-  notes: Cache-streaming. Caches in L1 + L2 with evict-first priority. Emitted by
-    __ldcs.
+  notes: Cache-streaming. Caches in L1 + L2 with evict-first priority. Emitted by __ldcs.
 - func_name: ld.global.lu
   namespace: ptx
   kind: ptx-load-last-use
   signature: ld.global.lu.type d, [a];
-  notes: Last-use. Caches normally but tags the line for eviction after this load.
-    Emitted by __ldlu.
+  notes: Last-use. Caches normally but tags the line for eviction after this load. Emitted by __ldlu.
 - func_name: ld.global.cv
   namespace: ptx
   kind: ptx-load-cache-volatile
@@ -136,14 +111,11 @@ apis:
   namespace: cuda-runtime
   kind: cache-config-setter
   signature: cudaError_t cudaFuncSetCacheConfig(const void* func, cudaFuncCache cacheConfig);
-  notes: 'Sets the preferred L1 / shared memory balance for a kernel. Legacy pitfall
-    P10: on Ampere+ the split is hardware-managed; this call has no observable effect.
-    Not re-measured on H200 in this probe.'
+  notes: 'Sets the preferred L1 / shared memory balance for a kernel. Legacy pitfall P10: on Ampere+ the split is hardware-managed; this call has no observable effect. Not re-measured on H200 in this probe.'
 - func_name: cudaFuncAttributePreferredSharedMemoryCarveout
   namespace: cuda-runtime
   kind: func-attribute
-  notes: Newer alternative to cudaFuncSetCacheConfig; expresses desired shared-memory
-    carveout as a percentage. Also may be a no-op on sm_9.0a.
+  notes: Newer alternative to cudaFuncSetCacheConfig; expresses desired shared-memory carveout as a percentage. Also may be a no-op on sm_9.0a.
 id: api-cache-load-hints-ref
 type: api-definition
 vendor: nvidia
@@ -158,6 +130,25 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L10400-L10490
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- vectorized-loads
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+confidence: inferred
+tags:
+- vectorized-loads
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+- ptx
+- cuda-cpp
 ---
 ## Core load intrinsics (measured on H200 sm_9.0a)
 

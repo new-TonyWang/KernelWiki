@@ -10,6 +10,43 @@ measured_on:
   sm: sm_90a
   cuda_runtime: '12.8'
   driver: '570'
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- pipeline-stages
+- data-reuse
+- shared-memory-optimization
+- tile-scheduling
+- tma-multicast
+kernel_types:
+- gemm
+confidence: experimental
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- pipeline-stages
+- data-reuse
+- shared-memory-optimization
+- tile-scheduling
+- tma-multicast
+- gemm
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # 2026-04-29 — Cutlass-free warp-specialized GEMM (record)
 

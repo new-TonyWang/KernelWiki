@@ -1,17 +1,27 @@
 ---
 id: technique-kernel-fusion
-title: "Kernel Fusion"
+title: Kernel Fusion
 type: technique
-architectures: [sm100, sm90]
-tags: [kernel-fusion, fused-kernel, tmem]
+architectures:
+- sm100
+- sm90
+tags:
+- kernel-fusion
+- fused-kernel
+- tmem
 confidence: source-reported
 reproducibility: snippet
-prerequisites: [hw-tmem]
-related: [kernel-fused-moe, kernel-nvfp4-gemm, technique-epilogue-fusion]
-sources: [contest-gpumode-p3, contest-flashinfer-track-a, blog-tflops-gap-fp4-moe]
-blackwell_relevance: "TMEM enables multi-accumulator fusion (gate+up dual GEMM) without register pressure; technique valuable on both architectures."
+prerequisites:
+- hw-tmem
+related:
+- kernel-fused-moe
+- kernel-nvfp4-gemm
+- technique-epilogue-fusion
+sources:
+- contest-gpumode-p3
+- contest-flashinfer-track-a
+- blog-tflops-gap-fp4-moe
 ---
-
 # Kernel Fusion
 
 ## Overview

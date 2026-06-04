@@ -9,8 +9,7 @@ apis:
   namespace: cuda-language
   kind: storage-class
   signature: __shared__ T arr[N];
-  notes: Static (compile-time-known size) shared-memory declaration. Lives for block
-    lifetime.
+  notes: Static (compile-time-known size) shared-memory declaration. Lives for block lifetime.
 - func_name: extern __shared__
   namespace: cuda-language
   kind: storage-class
@@ -20,8 +19,7 @@ apis:
   namespace: cuda-runtime
   kind: barrier
   signature: void __syncthreads();
-  notes: Block-level barrier; required after smem writes and before cross-warp smem
-    reads.
+  notes: Block-level barrier; required after smem writes and before cross-warp smem reads.
 - func_name: __syncwarp
   namespace: cuda-runtime
   kind: barrier
@@ -30,8 +28,7 @@ apis:
 - func_name: cudaFuncSetAttribute
   namespace: cuda-runtime
   kind: host-config
-  signature: cudaError_t cudaFuncSetAttribute(const void* func, cudaFuncAttribute
-    attr, int value);
+  signature: cudaError_t cudaFuncSetAttribute(const void* func, cudaFuncAttribute attr, int value);
   notes: Sets per-kernel attributes including MaxDynamicSharedMemorySize and PreferredSharedMemoryCarveout.
 - func_name: cudaFuncAttributeMaxDynamicSharedMemorySize
   namespace: cuda-runtime
@@ -45,26 +42,21 @@ apis:
   namespace: cuda-runtime
   kind: host-config
   signature: cudaError_t cudaFuncSetCacheConfig(const void* func, cudaFuncCache cacheConfig);
-  notes: Legacy API; prefer cudaFuncSetAttribute because it does not force serialization
-    between differently-configured launches (PG §3.2.6 note).
+  notes: Legacy API; prefer cudaFuncSetAttribute because it does not force serialization between differently-configured launches (PG §3.2.6 note).
 - func_name: cudaOccupancyAvailableDynamicSMemPerBlock
   namespace: cuda-runtime
   kind: host-occupancy
-  signature: cudaError_t cudaOccupancyAvailableDynamicSMemPerBlock(size_t* dynSmemSize,
-    const void* func, int numBlocks, int blockSize);
+  signature: cudaError_t cudaOccupancyAvailableDynamicSMemPerBlock(size_t* dynSmemSize, const void* func, int numBlocks, int blockSize);
   notes: Query max dynamic smem allowed if launching numBlocks per SM at blockSize.
 - func_name: cudaDeviceGetAttribute
   namespace: cuda-runtime
   kind: host-query
-  signature: cudaError_t cudaDeviceGetAttribute(int* value, cudaDeviceAttr attr, int
-    device);
-  notes: Query cudaDevAttrMaxSharedMemoryPerBlockOptin for the architecture's hard
-    ceiling.
+  signature: cudaError_t cudaDeviceGetAttribute(int* value, cudaDeviceAttr attr, int device);
+  notes: Query cudaDevAttrMaxSharedMemoryPerBlockOptin for the architecture's hard ceiling.
 - func_name: ld.shared.{vec}.{type}
   namespace: ptx
   kind: ptx-load
-  notes: Shared-memory load. Generated automatically from C++ smem reads; inspect
-    via -Xptxas=-v or SASS.
+  notes: Shared-memory load. Generated automatically from C++ smem reads; inspect via -Xptxas=-v or SASS.
 - func_name: st.shared.{vec}.{type}
   namespace: ptx
   kind: ptx-store
@@ -90,6 +82,26 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L728-L732
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- tma
+- cluster
+techniques:
+- cache-policy
+- shared-memory-optimization
+confidence: inferred
+tags:
+- tma
+- cluster
+- cache-policy
+- shared-memory-optimization
+- ptx
+- cuda-cpp
+architectures:
+- sm90
+- sm90a
 ---
 ## Core APIs
 

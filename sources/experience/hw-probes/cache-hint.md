@@ -26,9 +26,7 @@ source:
 - path: spec
   anchor: Reference
 conclusions:
-  workload: 'grid-stride read kernel, grid=528 blocks x 256 threads. Two regimes:
-    DRAM (256 MiB buffer > 60 MiB L2, single pass) and L2 (8 MiB buffer << L2, 16
-    inner passes).'
+  workload: 'grid-stride read kernel, grid=528 blocks x 256 threads. Two regimes: DRAM (256 MiB buffer > 60 MiB L2, single pass) and L2 (8 MiB buffer << L2, 16 inner passes).'
   dram_default_ms: 0.1949
   dram_default_gbps: 1377.44
   dram_ldg_ms: 0.194
@@ -61,42 +59,14 @@ conclusions:
   ncu_default_dram_sol_pct: 26.6
   ncu_default_l2_hit_sectors: 0
 open_questions:
-- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz)
-  but was not explicitly locked. Absolute GB/s subject to boost-clock variation; ratios
-  across (regime, variant) cells are robust.
-- NCU --launch-count 12 captured only the first variant's 12 launches (5 warmup +
-  7 of 20 timed iters of `default` variant at DRAM regime). To get per-variant NCU
-  metrics we would need --launch-count 300 (12 variants x 25 launches each) or to
-  wrap each (regime, variant) invocation in a separate binary. Wall-clock GB/s is
-  authoritative here; NCU only corroborates that the DRAM-regime default variant generates
-  ~268 MB DRAM reads per launch (matches the 256 MiB × 1 pass = 268.4 MB expected).
-- '**RESOLVED (PTX/SASS audit 2026-04-23)**: all 6 variants emit distinct PTX (`ld.global.{nc,ca,cg,cs,cv}`)
-  AND distinct SASS opcodes (`LDG.E.CONSTANT` / `LDG.E.STRONG.SM` / `LDG.E.STRONG.GPU`
-  / `LDG.E.EF` / `LDG.E.STRONG.SYS`). The DRAM-regime 0.5% collapse is ''all hints
-  honoured identically'', not ''all hints ignored'' — confirmed by opcode distinctness.
-  Note the non-obvious finding: default (`*p` with `const __restrict__`) lowers to
-  `ld.global.nc` / `LDG.E.CONSTANT`, identical to `__ldg` — that is why default ≡
-  `__ldg` at wall-clock.'
-- 'Legacy P6 / Q2 answered: `__ldg` vs default is 0.4% on H200 DRAM regime and 0.1%
-  on L2 regime — within measurement noise. On sm_90a with `const __restrict__`, explicit
-  `__ldg` is unnecessary. Keep explicit `__ldg` only for non-const pointers the compiler
-  cannot prove read-only.'
-- 'Legacy P1 (staleness from __ldg non-coherent cache): not re-measured. Single-kernel
-  harness reads but never writes the buffer, so the coherency hazard never materializes.
-  Pitfall retained as legacy-anecdotal.'
-- Store hints (`__stcs`, `__stwb`, `__stwt`) are out of scope for this probe — the
-  kernel never writes to the hot buffer. Legacy skill's Skill 4 sub-skill retained
-  as inferred pending a dedicated store-hint probe (`sources/experience/hw-probes/store-hint/`,
-  open).
-- '`__ldlu` (last-use) not measured. Its effect is coupled with subsequent kernels''
-  L2 pressure; single-kernel microbench cannot reveal benefit. Same regime-gap pattern
-  as the `l2-residency` probe. Follow-up: `sources/experience/hw-probes/cache-hint-contended/`
-  (open).'
-- 'The L2 regime''s `__ldcs` (evict-first) result is *identical* to default. Reason:
-  with an 8 MiB buffer in a 60 MiB L2 with no competing traffic, the evict-first tag
-  never triggers an actual eviction across the 16 inner passes. A contended regime
-  (8 MiB hot + another stream touching 50+ MiB) would expose the degradation. Belongs
-  in the same contended follow-up probe.'
+- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz) but was not explicitly locked. Absolute GB/s subject to boost-clock variation; ratios across (regime, variant) cells are robust.
+- NCU --launch-count 12 captured only the first variant's 12 launches (5 warmup + 7 of 20 timed iters of `default` variant at DRAM regime). To get per-variant NCU metrics we would need --launch-count 300 (12 variants x 25 launches each) or to wrap each (regime, variant) invocation in a separate binary. Wall-clock GB/s is authoritative here; NCU only corroborates that the DRAM-regime default variant generates ~268 MB DRAM reads per launch (matches the 256 MiB × 1 pass = 268.4 MB expected).
+- '**RESOLVED (PTX/SASS audit 2026-04-23)**: all 6 variants emit distinct PTX (`ld.global.{nc,ca,cg,cs,cv}`) AND distinct SASS opcodes (`LDG.E.CONSTANT` / `LDG.E.STRONG.SM` / `LDG.E.STRONG.GPU` / `LDG.E.EF` / `LDG.E.STRONG.SYS`). The DRAM-regime 0.5% collapse is ''all hints honoured identically'', not ''all hints ignored'' — confirmed by opcode distinctness. Note the non-obvious finding: default (`*p` with `const __restrict__`) lowers to `ld.global.nc` / `LDG.E.CONSTANT`, identical to `__ldg` — that is why default ≡ `__ldg` at wall-clock.'
+- 'Legacy P6 / Q2 answered: `__ldg` vs default is 0.4% on H200 DRAM regime and 0.1% on L2 regime — within measurement noise. On sm_90a with `const __restrict__`, explicit `__ldg` is unnecessary. Keep explicit `__ldg` only for non-const pointers the compiler cannot prove read-only.'
+- 'Legacy P1 (staleness from __ldg non-coherent cache): not re-measured. Single-kernel harness reads but never writes the buffer, so the coherency hazard never materializes. Pitfall retained as legacy-anecdotal.'
+- Store hints (`__stcs`, `__stwb`, `__stwt`) are out of scope for this probe — the kernel never writes to the hot buffer. Legacy skill's Skill 4 sub-skill retained as inferred pending a dedicated store-hint probe (`sources/experience/hw-probes/store-hint/`, open).
+- '`__ldlu` (last-use) not measured. Its effect is coupled with subsequent kernels'' L2 pressure; single-kernel microbench cannot reveal benefit. Same regime-gap pattern as the `l2-residency` probe. Follow-up: `sources/experience/hw-probes/cache-hint-contended/` (open).'
+- 'The L2 regime''s `__ldcs` (evict-first) result is *identical* to default. Reason: with an 8 MiB buffer in a 60 MiB L2 with no competing traffic, the evict-first tag never triggers an actual eviction across the 16 inner passes. A contended regime (8 MiB hot + another stream touching 50+ MiB) would expose the degradation. Belongs in the same contended follow-up probe.'
 id: exp-cache-hint
 type: experience
 vendor: nvidia
@@ -114,6 +84,27 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L10400-L10490
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- vectorized-loads
+- cache-policy
+- data-reuse
+kernel_types:
+- quantization
+confidence: experimental
+tags:
+- vectorized-loads
+- cache-policy
+- data-reuse
+- quantization
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/cache-hint
 ---
 ## Summary
 

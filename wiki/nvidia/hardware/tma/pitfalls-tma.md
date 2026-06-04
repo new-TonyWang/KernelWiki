@@ -3,6 +3,40 @@ id: pitfall-tma
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+- sm100
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+techniques:
+- warp-specialization
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- wgmma
+- tma
+- mbarrier
+- warp-specialization
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- gemm
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # TMA — pitfalls
 

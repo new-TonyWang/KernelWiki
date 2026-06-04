@@ -35,17 +35,30 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- swizzling
+- software-exp
+- gemm
+- attention
+- fused-kernel
+- quantization
+- ptx
+- cute-dsl
 applies_to:
 - general
 source_refs:
 - source_id: source-code/cutlass
   path: examples/50_hopper_gemm_with_epilogue_swizzle/50_hopper_gemm_with_epilogue_swizzle.cu
-  anchor: S8 GEMM + epilogue-swizzle fusion (output-tensor stride/swizzle absorbed
-    into the epilogue)
+  anchor: S8 GEMM + epilogue-swizzle fusion (output-tensor stride/swizzle absorbed into the epilogue)
 - source_id: source-code/cutlass
   path: examples/55_hopper_mixed_dtype_gemm/55_hopper_mixed_dtype_gemm.cu
-  anchor: mixed-dtype GEMM (int4 × bf16) — int4 dequantization is the prologue fusion
-    absorbed into the mainloop
+  anchor: mixed-dtype GEMM (int4 × bf16) — int4 dequantization is the prologue fusion absorbed into the mainloop
 - source_id: source-code/cutlass
   path: examples/61_hopper_gemm_with_topk_and_softmax/61_hopper_gemm_with_topk_and_softmax.cu
   anchor: epilogue-fused topK + softmax for output projection
@@ -54,11 +67,35 @@ source_refs:
   anchor: LinearCombinationRelu — Activation fusion as a thread-level epilogue
 - source_id: blogs/colfax
   path: epilogue-fusion-in-cutlass-with-epilogue-visitor-trees
-  anchor: epilogue-visitor-tree (EVT) abstraction; LinearCombination / Activation
-    / Bias / Aux fusion patterns
+  anchor: epilogue-visitor-tree (EVT) abstraction; LinearCombination / Activation / Bias / Aux fusion patterns
 - source_id: blogs/colfax
   path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: epilogue customization for Hopper wgmma GEMM
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- swizzling
+- software-exp
+kernel_types:
+- gemm
+- attention
+- fused-kernel
+- quantization
+confidence: experimental
+artifact_dir: artifacts/experience/api-probes/gemm
 ---
 # Hopper fused-GEMM (epilogue + prologue fusion via cutlass)
 

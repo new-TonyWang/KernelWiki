@@ -32,11 +32,7 @@ conclusions:
 back_filled_into: []
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- '__ldlu measured ~0.6% faster than plain load, essentially matching __ldcs (ratio
-  1.0066). This is consistent with the PTX spec: on global addresses ld.lu is defined
-  to perform ld.cs. The intrinsic is primarily intended for local memory / spill restore,
-  where ''last use'' lets the compiler avoid a write-back; that path is not exercised
-  by a global-memory probe.'
+- '__ldlu measured ~0.6% faster than plain load, essentially matching __ldcs (ratio 1.0066). This is consistent with the PTX spec: on global addresses ld.lu is defined to perform ld.cs. The intrinsic is primarily intended for local memory / spill restore, where ''last use'' lets the compiler avoid a write-back; that path is not exercised by a global-memory probe.'
 id: exp-2026-04-17-runtime-ldlu
 type: experience
 vendor: nvidia
@@ -54,6 +50,22 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L12971-L13050
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- cache-policy
+- register-budgeting
+confidence: experimental
+tags:
+- cache-policy
+- register-budgeting
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

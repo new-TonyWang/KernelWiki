@@ -27,7 +27,6 @@ def find_page(lookup):
         p = WIKI_ROOT / lookup
         if p.exists():
             return p
-        return None
 
     # Otherwise scan all md files and match by frontmatter id
     for subdir in ["wiki", "sources"]:
@@ -157,21 +156,55 @@ def main():
     print()
     print(content)
 
-    if args.follow_sources and fm and "sources" in fm:
+    if args.follow_sources and fm:
         print()
         print("---")
         print("## Cited Sources (excerpts)")
         print()
-        for src_id in fm.get("sources", []):
-            src_page = find_page(src_id)
+
+        source_entries = []
+        for src_id in fm.get("sources", []) or []:
+            source_entries.append(("source-id", src_id, src_id))
+        for src in fm.get("source", []) or []:
+            if isinstance(src, dict) and src.get("path"):
+                source_entries.append(("source-path", src.get("path"), src.get("anchor", "")))
+            elif isinstance(src, str):
+                source_entries.append(("source-path", src, ""))
+        for src in fm.get("source_refs", []) or []:
+            if isinstance(src, dict) and src.get("source_id"):
+                label = src.get("source_id")
+                detail = " / ".join(str(x) for x in (src.get("path"), src.get("anchor")) if x)
+                source_entries.append(("source-ref", label, detail))
+
+        seen = set()
+        for kind, lookup, detail in source_entries:
+            key = (kind, lookup, detail)
+            if key in seen:
+                continue
+            seen.add(key)
+            src_page = None
+            if kind == "source-path":
+                p = WIKI_ROOT / str(lookup)
+                if p.is_file():
+                    src_page = p
+            if src_page is None:
+                src_page = find_page(str(lookup))
             if src_page:
                 src_content = src_page.read_text(encoding="utf-8")
                 _, src_body = split_frontmatter(src_content)
                 excerpt = (src_body or "")[:500].strip()
-                print(f"### {src_id}")
+                print(f"### {lookup}")
                 print(f"`{src_page.relative_to(WIKI_ROOT)}`")
+                if detail and detail != lookup:
+                    print(f"anchor/detail: {detail}")
                 print()
                 print(excerpt)
+                print()
+            else:
+                print(f"### {lookup}")
+                if detail and detail != lookup:
+                    print(f"anchor/detail: {detail}")
+                print("_No local markdown page resolved; use the path/source_ref metadata above._")
                 print()
 
     if args.include_code:

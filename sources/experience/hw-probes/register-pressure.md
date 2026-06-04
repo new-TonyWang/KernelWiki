@@ -15,9 +15,7 @@ measured_on:
   driver: 570.124.06
 artifacts:
   code: artifacts/experience/hw-probes/register-pressure/reg_pressure_probe.cu
-  build: nvcc -arch=sm_90a -O3 -std=c++17 -Xptxas=-v -o probe_default reg_pressure_probe.cu
-    && nvcc -arch=sm_90a -O3 -std=c++17 -Xptxas=-v --maxrregcount=32 -o probe_maxreg32
-    reg_pressure_probe.cu
+  build: nvcc -arch=sm_90a -O3 -std=c++17 -Xptxas=-v -o probe_default reg_pressure_probe.cu && nvcc -arch=sm_90a -O3 -std=c++17 -Xptxas=-v --maxrregcount=32 -o probe_maxreg32 reg_pressure_probe.cu
   introspection: ''
   profile: ''
 source:
@@ -33,10 +31,7 @@ conclusions:
   ratio: 4.84
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- 'ptxas emitted a warning for maxrregcount=32: ''Too big maxrregcount value specified
-  32, will be ignored'' followed by ''Overriding maximum register limit 256 ... with
-  32 of maxrregcount option''. The warning text is misleading but the cap was applied
-  correctly.'
+- 'ptxas emitted a warning for maxrregcount=32: ''Too big maxrregcount value specified 32, will be ignored'' followed by ''Overriding maximum register limit 256 ... with 32 of maxrregcount option''. The warning text is misleading but the cap was applied correctly.'
 id: exp-register-pressure
 type: experience
 vendor: nvidia
@@ -60,6 +55,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L22890-L22905
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- register-budgeting
+confidence: experimental
+tags:
+- register-budgeting
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/register-pressure
 ---
 ## Summary
 

@@ -4,6 +4,35 @@ type: code-walkthrough
 vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- fp8
+techniques:
+- warp-specialization
+- shared-memory-optimization
+kernel_types:
+- gemm
+- quantization
+- decode
+confidence: inferred
+tags:
+- wgmma
+- fp8
+- warp-specialization
+- shared-memory-optimization
+- gemm
+- quantization
+- decode
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # wiki/nvidia/code-walkthroughs/cutlass-cute/wgmma-atom-decoding — understanding CUTLASS WGMMA atoms
 

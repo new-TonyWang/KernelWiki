@@ -33,6 +33,14 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/3_CUDA_Features/bf16TensorCoreGemm/bf16TensorCoreGemm.cu
   anchor: L782-L782
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # cudaFuncSetAttribute
 

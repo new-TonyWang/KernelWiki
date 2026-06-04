@@ -39,11 +39,8 @@ performance_claims:
   value: 18.5
   utilization: compute-bound
   source_id: contest-gpumode-p3
-blackwell_relevance: TMEM holds two accumulators simultaneously (gate, up), enabling
-  single-kernel fusion that Hopper register file could not handle efficiently.
 artifact_dir: artifacts/kernels/gated-dual-gemm
 ---
-
 # Gated Dual GEMM
 
 ## Overview

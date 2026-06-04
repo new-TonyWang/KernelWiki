@@ -14,6 +14,16 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L6800-L6950
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+confidence: inferred
+tags:
+- ptx
+- cuda-cpp
 ---
 All pitfalls below are grounded either in the branchless-patterns probe 2026-04-23 (10-variant SASS audit) or in the PTX ISA documentation cited in the skill's frontmatter. None is anecdotal.
 

@@ -54,6 +54,25 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L940-L999
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- tma
+techniques:
+- pipeline-stages
+- cache-policy
+- shared-memory-optimization
+confidence: experimental
+tags:
+- tma
+- pipeline-stages
+- cache-policy
+- shared-memory-optimization
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/async-copy
 ---
 ## Summary
 

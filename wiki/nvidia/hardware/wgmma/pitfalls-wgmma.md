@@ -3,6 +3,34 @@ id: pitfall-wgmma
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+- sm100
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- mbarrier
+techniques:
+- cache-policy
+- shared-memory-optimization
+- swizzling
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- wgmma
+- mbarrier
+- cache-policy
+- shared-memory-optimization
+- swizzling
+- gemm
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # wgmma — pitfalls
 

@@ -4,6 +4,37 @@ type: code-walkthrough
 vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+techniques:
+- warp-specialization
+- kernel-fusion
+- swizzling
+- software-exp
+kernel_types:
+- gemm
+- attention
+- fused-kernel
+- quantization
+confidence: inferred
+tags:
+- wgmma
+- warp-specialization
+- kernel-fusion
+- swizzling
+- software-exp
+- gemm
+- attention
+- fused-kernel
+- quantization
+- cuda-cpp
+- cute-dsl
 ---
 # wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-fused — fused-GEMM library usage
 

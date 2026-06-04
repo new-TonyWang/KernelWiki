@@ -1,17 +1,24 @@
 ---
 id: migration-wgmma-to-tcgen05
-title: "Migrating from wgmma to tcgen05"
+title: Migrating from wgmma to tcgen05
 type: migration
 from_arch: sm90
 to_arch: sm100
-tags: [tcgen05, wgmma, tmem]
-related: [hw-tcgen05-mma, hw-tmem, technique-warp-specialization]
-sources: [doc-nvidia-tuning-guide, blog-tcgen05-tutorial, blog-colfax-cutlass]
-blackwell_relevance: "Core MMA instruction change. wgmma (warp-group, register accumulators) replaced by tcgen05 (single-thread, TMEM accumulators)."
+tags:
+- tcgen05
+- wgmma
+- tmem
+related:
+- hw-tcgen05-mma
+- hw-tmem
+- technique-warp-specialization
+sources:
+- doc-nvidia-tuning-guide
+- blog-tcgen05-tutorial
+- blog-colfax-cutlass
 confidence: source-reported
 reproducibility: pseudocode
 ---
-
 # Migrating from wgmma to tcgen05
 
 ## Overview

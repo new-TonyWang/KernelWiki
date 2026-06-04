@@ -17,6 +17,19 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1561-L1610
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- persistent-kernel
+- cache-policy
+confidence: inferred
+tags:
+- persistent-kernel
+- cache-policy
+- cuda-cpp
 ---
 Legacy P1–P5 came from L3-sandbox verification on pre-H200 hardware (A100 unless noted). P6–P10 are L3-sandbox findings copied from the legacy KB and annotated with the current H200 measurement where the probe touches them. "**Measured on H200 sm_9.0a**" tags indicate pitfalls validated by sources/experience/hw-probes/l2-residency/.
 

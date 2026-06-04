@@ -6,12 +6,31 @@ status: draft
 source:
 - path: reasoning/task-packet.md
   anchor: L1-L109
-  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This
-    file is the task packet.'
+  excerpt: 'The KB-gen agent takes exactly one input: a YAML file under tasks/. This file is the task packet.'
 id: routing-transpose-TASK-PACKET
 type: operator-routing
 vendor: nvidia
 operator: transpose
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- vectorized-loads
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+confidence: inferred
+tags:
+- vectorized-loads
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+- fused-kernel
+- cuda-cpp
+kernel_types:
+- fused-kernel
 ---
 # Transpose -- Task Packet Template
 

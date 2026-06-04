@@ -103,12 +103,33 @@ def load_all_pages():
 
 def detect_page_type(fm, path):
     """Return a page-type label for filtering: source-pr/source-blog/..., wiki-hardware/..."""
-    if "type" in fm:
-        return f"wiki-{fm['type']}"
     parts = path.split("/")
     if parts[0] == "sources" and len(parts) > 1:
-        return f"source-{parts[1].rstrip('s')}"  # prs → source-pr
+        # Source-side experience records also carry `type: experience`.
+        # Prefer the physical corpus role here so output/filtering makes it
+        # clear that these are evidence records, not synthesized wiki pages.
+        if parts[1] == "experience":
+            return "source-experience"
+        if "type" not in fm:
+            return f"source-{parts[1].rstrip('s')}"  # prs → source-pr
+    if "type" in fm:
+        return f"wiki-{fm['type']}"
     return "unknown"
+
+
+def _flatten_meta_values(value):
+    """Yield strings from nested frontmatter structures for search/filtering."""
+    if value is None:
+        return
+    if isinstance(value, (str, int, float, bool)):
+        yield str(value)
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            yield str(k)
+            yield from _flatten_meta_values(v)
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            yield from _flatten_meta_values(item)
 
 
 def score_keyword_match(fm, body, keywords):
@@ -124,6 +145,16 @@ def score_keyword_match(fm, body, keywords):
                           "languages", "aliases", "symptoms")
         for v in (fm.get(k) or [])
     ).lower()
+    metadata_text = " ".join(
+        s
+        for k in (
+            "repo", "upstream_repo", "source_refs", "source", "sources",
+            "artifacts", "artifact_dir", "api", "namespace", "func_name",
+            "operator", "applies_to", "applies_to_ops", "requires_features",
+            "related", "related_apis", "related_skills", "probe_slug",
+        )
+        for s in _flatten_meta_values(fm.get(k))
+    ).lower()
     body_lower = body.lower()
     for kw in keywords:
         best_variant_score = 0
@@ -134,6 +165,8 @@ def score_keyword_match(fm, body, keywords):
                 variant_score += 10
             if v_l in tag_text:
                 variant_score += 5
+            if v_l in metadata_text:
+                variant_score += 4
             body_hits = body_lower.count(v_l)
             variant_score += min(body_hits, 3)
             if variant_score > best_variant_score:
@@ -173,8 +206,15 @@ def filter_pages(pages, args):
                 continue
 
         if args.repo:
-            repo = str(fm.get("repo", "")).lower()
-            if args.repo.lower() not in repo:
+            repo_text = " ".join(
+                _flatten_meta_values({
+                    "repo": fm.get("repo"),
+                    "upstream_repo": fm.get("upstream_repo"),
+                    "source_refs": fm.get("source_refs"),
+                    "source": fm.get("source"),
+                })
+            ).lower()
+            if args.repo.lower() not in repo_text:
                 continue
 
         if args.language:
@@ -226,6 +266,19 @@ def filter_pages(pages, args):
             if ad:
                 candidate_dirs.append(WIKI_ROOT / ad)
 
+            # New merged pages often use an `artifacts:` mapping (code/build/
+            # profile/etc.) instead of a single artifact_dir. Treat any source
+            # file referenced by that mapping as code-backed, and also add its
+            # containing directories as scan candidates.
+            explicit_artifact_files = []
+            for art in _flatten_meta_values(fm.get("artifacts")):
+                art_path = WIKI_ROOT / art
+                if art_path.is_file():
+                    explicit_artifact_files.append(art_path)
+                    candidate_dirs.append(art_path.parent)
+                elif art_path.is_dir():
+                    candidate_dirs.append(art_path)
+
             # Fallback 1: conventional bundle locations per page type.
             # A source-blog's extracted code lives at artifacts/blogs/<slug>/code/;
             # a source-contest's reconstructed bundles live under
@@ -248,7 +301,13 @@ def filter_pages(pages, args):
                 candidate_dirs.append(WIKI_ROOT / "artifacts" / "prs" / repo_short / f"PR-{fm['pr']}")
 
             has_any = False
+            for f in explicit_artifact_files:
+                if f.suffix.lower() in exts:
+                    has_any = True
+                    break
             for cand in candidate_dirs:
+                if has_any:
+                    break
                 if not cand.is_dir():
                     continue
                 for f in cand.rglob("*"):

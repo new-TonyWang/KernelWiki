@@ -25,10 +25,8 @@ source:
 - path: spec
   anchor: Reference
 conclusions:
-  workload: 4096x4096 fp32 matrix transpose; N^2 = 16,777,216 elements; read+write
-    = 128 MB of HBM traffic
-  baseline_name: naive_transpose (direct gmem read + transposed gmem write; non-coalesced
-    store)
+  workload: 4096x4096 fp32 matrix transpose; N^2 = 16,777,216 elements; read+write = 128 MB of HBM traffic
+  baseline_name: naive_transpose (direct gmem read + transposed gmem write; non-coalesced store)
   baseline_ms: 0.2544
   smem_conflict_ms: 0.1363
   smem_padded_ms: 0.0796
@@ -39,20 +37,10 @@ conclusions:
   bank_conflicts_ld_padded_kernel: 33449
   bank_conflict_reduction_ratio: 488.4
 open_questions:
-- clock_policy is `unlocked-logged-only` — the H200 was observed running at its max
-  graphics clock (1980 MHz) for the duration of the run, so the timings are stable
-  at maximum-performance state. For a formal measured-env contract the run should
-  be repeated with `nvidia-smi -lgc 1980,1980` (requires privileged access we did
-  not have in this session); speedup ratios are robust but absolute GB/s figures should
-  be retaken under locked clocks.
-- 'Only the S2 sub-skill (coalescing transform via smem) was probed. S1 (in-block
-  temporal reuse: e.g. tiled GEMM with A-row reuse across the tile) is a separate
-  probe under `sources/experience/hw-probes/smem-tile-reuse-gemm/` (open).'
-- 'S3 (dynamic vs static smem cost) and S4 (carveout sweep) are not yet probed. Legacy
-  pitfalls P9-P11 are therefore still anecdotal. Open: `sources/experience/hw-probes/smem-carveout-sweep/`.'
-- 'bf16 variant of the padded-transpose kernel is open (T3/T4 seed tasks in `wiki/nvidia/operator-routing/cuda-core/transpose/TASK-PACKET.md`,
-  pending layout-transform migration). Expectation: half the bytes per warp, so `[TILE][TILE+1]`
-  may no longer be strictly optimal — `[TILE][TILE+2]` or swizzle may dominate.'
+- clock_policy is `unlocked-logged-only` — the H200 was observed running at its max graphics clock (1980 MHz) for the duration of the run, so the timings are stable at maximum-performance state. For a formal measured-env contract the run should be repeated with `nvidia-smi -lgc 1980,1980` (requires privileged access we did not have in this session); speedup ratios are robust but absolute GB/s figures should be retaken under locked clocks.
+- 'Only the S2 sub-skill (coalescing transform via smem) was probed. S1 (in-block temporal reuse: e.g. tiled GEMM with A-row reuse across the tile) is a separate probe under `sources/experience/hw-probes/smem-tile-reuse-gemm/` (open).'
+- 'S3 (dynamic vs static smem cost) and S4 (carveout sweep) are not yet probed. Legacy pitfalls P9-P11 are therefore still anecdotal. Open: `sources/experience/hw-probes/smem-carveout-sweep/`.'
+- 'bf16 variant of the padded-transpose kernel is open (T3/T4 seed tasks in `wiki/nvidia/operator-routing/cuda-core/transpose/TASK-PACKET.md`, pending layout-transform migration). Expectation: half the bytes per warp, so `[TILE][TILE+1]` may no longer be strictly optimal — `[TILE][TILE+2]` or swizzle may dominate.'
 id: exp-smem-tile-reuse
 type: experience
 vendor: nvidia
@@ -73,6 +61,29 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L4094-L4130
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- cache-policy
+- register-budgeting
+- data-reuse
+- shared-memory-optimization
+- swizzling
+kernel_types:
+- gemm
+confidence: experimental
+tags:
+- cache-policy
+- register-budgeting
+- data-reuse
+- shared-memory-optimization
+- swizzling
+- gemm
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/smem-tile-reuse
 ---
 ## Summary
 

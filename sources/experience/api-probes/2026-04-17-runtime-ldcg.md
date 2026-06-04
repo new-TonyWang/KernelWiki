@@ -32,10 +32,7 @@ conclusions:
 back_filled_into: []
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- For a 256 MB buffer that exceeds H200 L2 (~60 MB), __ldcg matches the default ld.ca
-  path within noise. The expected L1-bypass benefit would only show up on pollution-sensitive
-  workloads or when coexisting with cache-resident data, which this single-kernel
-  probe does not exercise.
+- For a 256 MB buffer that exceeds H200 L2 (~60 MB), __ldcg matches the default ld.ca path within noise. The expected L1-bypass benefit would only show up on pollution-sensitive workloads or when coexisting with cache-resident data, which this single-kernel probe does not exercise.
 id: exp-2026-04-17-runtime-ldcg
 type: experience
 vendor: nvidia
@@ -53,6 +50,22 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L12971-L13050
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- cache-policy
+- data-reuse
+confidence: experimental
+tags:
+- cache-policy
+- data-reuse
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

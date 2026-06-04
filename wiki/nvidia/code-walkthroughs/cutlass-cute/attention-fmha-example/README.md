@@ -4,6 +4,45 @@ type: code-walkthrough
 vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- fp8
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- tile-scheduling
+- software-exp
+- conditional-rescaling
+kernel_types:
+- gemm
+- attention
+- flash-attention
+- quantization
+confidence: inferred
+tags:
+- wgmma
+- tma
+- fp8
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- tile-scheduling
+- software-exp
+- conditional-rescaling
+- gemm
+- attention
+- flash-attention
+- quantization
+- cuda-cpp
+- cute-dsl
 ---
 # cutlass example 88: Hopper FMHA
 

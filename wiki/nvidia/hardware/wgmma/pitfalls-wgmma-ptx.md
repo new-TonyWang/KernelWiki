@@ -3,6 +3,28 @@ id: pitfall-wgmma-ptx
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+techniques:
+- shared-memory-optimization
+- swizzling
+confidence: inferred
+tags:
+- wgmma
+- tma
+- shared-memory-optimization
+- swizzling
+- ptx
+- cuda-cpp
+- cute-dsl
 ---
 # Hopper wgmma via raw PTX — pitfalls
 

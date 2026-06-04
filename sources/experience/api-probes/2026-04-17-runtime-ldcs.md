@@ -32,10 +32,7 @@ conclusions:
 back_filled_into: []
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- __ldcs measured ~0.66% faster than plain load on this 256 MB HBM-bound streaming
-  workload. The effect is small but consistent across p10/p50/p90. Its larger payoff
-  is expected in multi-kernel or concurrent workloads where the evict-first policy
-  keeps useful data resident in L2 for other consumers.
+- __ldcs measured ~0.66% faster than plain load on this 256 MB HBM-bound streaming workload. The effect is small but consistent across p10/p50/p90. Its larger payoff is expected in multi-kernel or concurrent workloads where the evict-first policy keeps useful data resident in L2 for other consumers.
 id: exp-2026-04-17-runtime-ldcs
 type: experience
 vendor: nvidia
@@ -53,6 +50,22 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L12971-L13050
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- pipeline-stages
+- cache-policy
+confidence: experimental
+tags:
+- pipeline-stages
+- cache-policy
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/api-probes/artifacts
 ---
 ## Summary
 

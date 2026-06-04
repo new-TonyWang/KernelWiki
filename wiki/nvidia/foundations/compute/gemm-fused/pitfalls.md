@@ -3,6 +3,35 @@ id: pitfall-gemm-fused
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- wgmma
+- tma
+techniques:
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- swizzling
+kernel_types:
+- gemm
+- fused-kernel
+- quantization
+confidence: inferred
+tags:
+- wgmma
+- tma
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- swizzling
+- gemm
+- fused-kernel
+- quantization
+- cuda-cpp
 ---
 # Hopper fused-GEMM (epilogue + prologue) — pitfalls
 

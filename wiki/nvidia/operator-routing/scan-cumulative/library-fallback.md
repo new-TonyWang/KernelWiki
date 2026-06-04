@@ -29,6 +29,19 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cccl/cccl.md
   anchor: L99812-L99891
+languages:
+- cuda-cpp
+- python
+techniques:
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- kernel-fusion
+- fused-kernel
+- cuda-cpp
+- python
 ---
 # Scan (Cumulative) -- Library Fallback Paths
 

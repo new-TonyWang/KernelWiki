@@ -1,16 +1,28 @@
 ---
 id: hw-pdl-gdc
-title: "Programmatic Dependent Launch / Grid Dependency Control"
+title: Programmatic Dependent Launch / Grid Dependency Control
 type: hardware
-architectures: [sm100, sm100a, sm90]
-tags: [pdl, gdc]
+architectures:
+- sm100
+- sm100a
+- sm90
+tags:
+- pdl
+- gdc
 confidence: source-reported
-related: [technique-persistent-kernels, hw-clc]
-sources: [doc-nvidia-tuning-guide, pr-cutlass-2161, doc-cutlass-changelog-sm100]
-aliases: [PDL, GDC, "programmatic dependent launch", "grid dependency control"]
-blackwell_relevance: "PDL available on Hopper but enabled by default on Blackwell SM100."
+related:
+- technique-persistent-kernels
+- hw-clc
+sources:
+- doc-nvidia-tuning-guide
+- pr-cutlass-2161
+- doc-cutlass-changelog-sm100
+aliases:
+- PDL
+- GDC
+- programmatic dependent launch
+- grid dependency control
 ---
-
 ## Overview
 
 PDL/GDC allows overlapping execution of dependent kernel launches. The primary kernel signals it is finishing; the secondary kernel begins before the primary fully completes.

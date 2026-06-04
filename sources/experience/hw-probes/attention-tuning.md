@@ -10,6 +10,16 @@ measured_on:
   sm: sm_90a
   cuda_runtime: '12.8'
   driver: '570'
+architectures:
+- sm90
+- sm90a
+kernel_types:
+- attention
+- flash-attention
+confidence: experimental
+tags:
+- attention
+- flash-attention
 ---
 # attention-tuning
 

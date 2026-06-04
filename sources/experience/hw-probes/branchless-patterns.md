@@ -26,10 +26,7 @@ source:
 - path: spec
   anchor: Reference
 conclusions:
-  workload: '10 variants of branchful vs branchless rewrites for 3 canonical patterns
-    (relu / abs / conditional-register-assign). Compute-bound harness: 4 independent
-    accumulator chains × 1024 inner iterations per thread, grid = 132 × 4 blocks ×
-    256 threads. Input seeded so ~50% of lanes in each warp take each branch arm.'
+  workload: '10 variants of branchful vs branchless rewrites for 3 canonical patterns (relu / abs / conditional-register-assign). Compute-bound harness: 4 independent accumulator chains × 1024 inner iterations per thread, grid = 132 × 4 blocks × 256 threads. Input seeded so ~50% of lanes in each warp take each branch arm.'
   relu_branch_ms: 0.0896
   relu_branch_ns: 21.867
   relu_ternary_ms: 0.0896
@@ -55,27 +52,11 @@ conclusions:
   abs_bittrick_vs_branch: 1.56
   cond_arith_vs_branch: 0.79
 open_questions:
-- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz)
-  but was not explicitly locked. Absolute ns/op subject to boost-clock variation;
-  the within-group RATIOS (1.56×, 2.36×, 0.79×) are robust because all variants share
-  the same launch context and PTX/SASS counts verify the ratio is instruction-count-driven.
-- Each variant's per-iter cost includes the shared `__fmaf_rn(acc, 0.9999f, ±1e-6f)`
-  post-op used to defeat hoisting. That shared cost (4 FFMA per iter) is the baseline
-  the variants sit on top of; it is why `cond-ternary` at 1 SASS op/iter still measures
-  22 ns (the 4 FFMA dominate). The within-group deltas are what the probe actually
-  measures.
-- '`__fmul_rn` and `copysignf` were not included. `copysignf` should emit a single
-  `LOP3.LUT` (bit-level sign transplant) and would parallel `fabsf`''s 9 ns tier;
-  unmeasured.'
-- Integer-typed conditional-assign (all-`int` variants, no fp arithmetic) not measured
-  — the probe uses float throughout so Group C results include the `(1 - c) + v2*c`
-  FP arithmetic overhead for `cond-arith`. An int-only conditional-assign variant
-  might recover different cost ratios; not in scope here.
-- Divergence-cost separation is **not** what this probe measures. All 10 variants
-  run on the same lane-variant `cond = (threadIdx.x + i) & 1` mix — so the branchful
-  variants of this probe do NOT show real divergence cost (they all compile to selp/FMNMX
-  at SASS, which is branchless). For measured divergence cost with non-predicable
-  branch bodies, see `sources/experience/hw-probes/warp-divergence-cost.md`.
+- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz) but was not explicitly locked. Absolute ns/op subject to boost-clock variation; the within-group RATIOS (1.56×, 2.36×, 0.79×) are robust because all variants share the same launch context and PTX/SASS counts verify the ratio is instruction-count-driven.
+- Each variant's per-iter cost includes the shared `__fmaf_rn(acc, 0.9999f, ±1e-6f)` post-op used to defeat hoisting. That shared cost (4 FFMA per iter) is the baseline the variants sit on top of; it is why `cond-ternary` at 1 SASS op/iter still measures 22 ns (the 4 FFMA dominate). The within-group deltas are what the probe actually measures.
+- '`__fmul_rn` and `copysignf` were not included. `copysignf` should emit a single `LOP3.LUT` (bit-level sign transplant) and would parallel `fabsf`''s 9 ns tier; unmeasured.'
+- Integer-typed conditional-assign (all-`int` variants, no fp arithmetic) not measured — the probe uses float throughout so Group C results include the `(1 - c) + v2*c` FP arithmetic overhead for `cond-arith`. An int-only conditional-assign variant might recover different cost ratios; not in scope here.
+- Divergence-cost separation is **not** what this probe measures. All 10 variants run on the same lane-variant `cond = (threadIdx.x + i) & 1` mix — so the branchful variants of this probe do NOT show real divergence cost (they all compile to selp/FMNMX at SASS, which is branchless). For measured divergence cost with non-predicable branch bodies, see `sources/experience/hw-probes/warp-divergence-cost.md`.
 id: exp-branchless-patterns
 type: experience
 vendor: nvidia
@@ -87,6 +68,25 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L6800-L6950
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- vectorized-loads
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: experimental
+tags:
+- vectorized-loads
+- kernel-fusion
+- fused-kernel
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/branchless-patterns
 ---
 ## Summary
 

@@ -16,6 +16,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L22574-L22702
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- vectorized-loads
+- cache-policy
+- register-budgeting
+confidence: inferred
+tags:
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- ptx
+- cuda-cpp
 ---
 # Vectorized Memory Access API Reference
 

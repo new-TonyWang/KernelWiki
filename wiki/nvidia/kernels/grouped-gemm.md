@@ -1,26 +1,49 @@
 ---
 id: kernel-grouped-gemm
-title: "Grouped GEMM for MoE"
+title: Grouped GEMM for MoE
 type: kernel
-architectures: [sm100, sm100a, sm90]
-tags: [grouped-gemm, moe, gemm, fp8, nvfp4, tcgen05, persistent-kernel, tile-scheduling]
+architectures:
+- sm100
+- sm100a
+- sm90
+tags:
+- grouped-gemm
+- moe
+- gemm
+- fp8
+- nvfp4
+- tcgen05
+- persistent-kernel
+- tile-scheduling
 confidence: source-reported
 reproducibility: snippet
-kernel_types: [grouped-gemm, gemm, moe]
-languages: [cuda-cpp, cute-dsl]
-related: [kernel-fused-moe, kernel-deepgemm, hw-tcgen05-mma, hw-clc, technique-persistent-kernels, technique-tile-scheduling]
-sources: [contest-gpumode-p4, blog-deepgemm, doc-cutlass-blackwell]
+kernel_types:
+- grouped-gemm
+- gemm
+- moe
+languages:
+- cuda-cpp
+- cute-dsl
+related:
+- kernel-fused-moe
+- kernel-deepgemm
+- hw-tcgen05-mma
+- hw-clc
+- technique-persistent-kernels
+- technique-tile-scheduling
+sources:
+- contest-gpumode-p4
+- blog-deepgemm
+- doc-cutlass-blackwell
 performance_claims:
-  - gpu: B200
-    dtype: nvfp4
-    shape: "variable M, shared N=K, 15 groups"
-    metric: latency_us
-    value: 11.2
-    utilization: "compute-bound"
-    source_id: contest-gpumode-p4
-blackwell_relevance: "SM100 CLC enables dynamic tile scheduling critical for variable-M grouped GEMM in MoE workloads."
+- gpu: B200
+  dtype: nvfp4
+  shape: variable M, shared N=K, 15 groups
+  metric: latency_us
+  value: 11.2
+  utilization: compute-bound
+  source_id: contest-gpumode-p4
 ---
-
 # Grouped GEMM for MoE
 
 ## Overview

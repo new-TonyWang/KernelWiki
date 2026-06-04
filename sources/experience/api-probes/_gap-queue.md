@@ -10,6 +10,16 @@ measured_on:
   sm: sm_90a
   cuda_runtime: '12.8'
   driver: '570'
+architectures:
+- sm90
+- sm90a
+techniques:
+- vectorized-loads
+- software-exp
+confidence: experimental
+tags:
+- vectorized-loads
+- software-exp
 ---
 # API Probe Gap Queue
 

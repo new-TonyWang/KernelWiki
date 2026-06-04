@@ -1,17 +1,27 @@
 ---
 id: technique-swizzling
-title: "Shared Memory Swizzling"
+title: Shared Memory Swizzling
 type: technique
-architectures: [sm100, sm90]
-tags: [swizzling, shared-memory-optimization, tma]
+architectures:
+- sm100
+- sm90
+tags:
+- swizzling
+- shared-memory-optimization
+- tma
 confidence: source-reported
 reproducibility: snippet
-prerequisites: [hw-tma]
-related: [hw-tma, technique-pipeline-stages, pattern-memory-bound]
-sources: [doc-nvidia-tuning-guide, blog-tcgen05-tutorial, blog-modular-blackwell]
-blackwell_relevance: "128-byte swizzling mandatory for Blackwell tcgen05 inputs; same concept on Hopper but less critical."
+prerequisites:
+- hw-tma
+related:
+- hw-tma
+- technique-pipeline-stages
+- pattern-memory-bound
+sources:
+- doc-nvidia-tuning-guide
+- blog-tcgen05-tutorial
+- blog-modular-blackwell
 ---
-
 ## Overview
 
 Shared memory swizzling remaps the linear address layout of a matrix tile in SMEM so that threads accessing consecutive columns (or rows) hit different 32-byte banks rather than the same bank. This eliminates bank conflicts that would otherwise serialize concurrent accesses. On Blackwell (SM100), 128-byte swizzling is mandatory for TMA loads and tcgen05.mma operands. Without it, performance drops to 46% of the achievable throughput for GEMM workloads.

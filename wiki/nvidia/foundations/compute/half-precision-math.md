@@ -29,9 +29,7 @@ precision:
     eps_relative: 0.000488
     range_decimal: 6.1e-5 to 6.55e4
     accumulation_safe: false
-    notes: 'Narrow dynamic range. Safe for activations in inference; dangerous for
-      reductions unless promoted to fp32. Denormals: flushed unless the instruction
-      is a `.noftz` variant (e.g., atom.add.noftz.f16 preserves them).'
+    notes: 'Narrow dynamic range. Safe for activations in inference; dangerous for reductions unless promoted to fp32. Denormals: flushed unless the instruction is a `.noftz` variant (e.g., atom.add.noftz.f16 preserves them).'
   bf16:
     exponent_bits: 8
     mantissa_bits: 7
@@ -40,13 +38,8 @@ precision:
     eps_relative: 0.00781
     range_decimal: 1.2e-38 to 3.4e+38 (same as fp32)
     accumulation_safe: false
-    notes: 'Training-friendly: covers fp32 dynamic range, so no overflow in typical
-      weight / gradient paths. Precision is coarser than fp16 (~7 bits mantissa vs
-      10). Still not safe for long reduction chains — promote accumulator to fp32.'
-  fp32_accumulator_rule: When input is fp16/bf16 but the operation is a reduction,
-    dot product, softmax normaliser, variance, or any sum of many terms, accumulate
-    in fp32 and only cast back at store time. This is the mixed-precision pattern;
-    skill §S3 documents the canonical shape.
+    notes: 'Training-friendly: covers fp32 dynamic range, so no overflow in typical weight / gradient paths. Precision is coarser than fp16 (~7 bits mantissa vs 10). Still not safe for long reduction chains — promote accumulator to fp32.'
+  fp32_accumulator_rule: When input is fp16/bf16 but the operation is a reduction, dot product, softmax normaliser, variance, or any sum of many terms, accumulate in fp32 and only cast back at store time. This is the mixed-precision pattern; skill §S3 documents the canonical shape.
 source:
 - path: spec
   anchor: Reference
@@ -96,6 +89,16 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- data-reuse
+- kernel-fusion
+- software-exp
+- fused-kernel
+- gemm
+- attention
+- ptx
 applies_to:
 - general
 source_refs:
@@ -108,6 +111,25 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L11000-L11150
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- data-reuse
+- kernel-fusion
+- software-exp
+kernel_types:
+- fused-kernel
+- gemm
+- attention
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/half2-throughput
 ---
 ## What
 

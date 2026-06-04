@@ -33,6 +33,14 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/0_Introduction/simpleIPC/README.md
   anchor: L26-L26
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # cudaOccupancyMaxActiveBlocksPerMultiprocessor
 

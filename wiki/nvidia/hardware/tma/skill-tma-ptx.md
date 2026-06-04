@@ -44,6 +44,19 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+- gemm
+- ptx
+- cute-dsl
 applies_to:
 - general
 source_refs:
@@ -68,6 +81,29 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
   anchor: Hopper TMA walkthrough — cuTensorMapEncodeTiled + cp.async.bulk.tensor + mbarrier protocol
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- pipeline-stages
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+kernel_types:
+- gemm
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/tma-ptx
 ---
 # Hopper TMA via raw PTX (cutlass-free)
 

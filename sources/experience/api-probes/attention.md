@@ -25,6 +25,34 @@ id: exp-attention
 type: experience
 vendor: nvidia
 title: 2026 05 08 Mvp Attention
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+techniques:
+- software-exp
+- conditional-rescaling
+kernel_types:
+- gemm
+- attention
+- flash-attention
+confidence: experimental
+tags:
+- wgmma
+- tma
+- software-exp
+- conditional-rescaling
+- gemm
+- attention
+- flash-attention
+- cuda-cpp
+- cute-dsl
+artifact_dir: artifacts/experience/api-probes/attention
 ---
 # MVP Minimal Flash-Attention — H200 Measured Record
 

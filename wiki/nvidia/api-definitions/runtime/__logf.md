@@ -33,6 +33,11 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/5_Domain_Specific/quasirandomGenerator/quasirandomGenerator_kernel.cu
   anchor: L133-L133
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # __logf
 

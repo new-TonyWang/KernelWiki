@@ -29,6 +29,34 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: wgmma atom shape selection
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- cluster
+- fp8
+techniques:
+- data-reuse
+kernel_types:
+- gemm
+- quantization
+confidence: experimental
+tags:
+- wgmma
+- cluster
+- fp8
+- data-reuse
+- gemm
+- quantization
+- ptx
+- cuda-cpp
+- cute-dsl
+artifact_dir: artifacts/experience/api-probes/gemm
 ---
 # Probe — wgmma problem-size sweep within cutlass example 48 GEMM (5 problem sizes, 1 atom)
 

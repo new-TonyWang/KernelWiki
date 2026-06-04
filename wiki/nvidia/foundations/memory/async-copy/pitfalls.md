@@ -29,6 +29,27 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L11269
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- tma
+techniques:
+- pipeline-stages
+- cache-policy
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: source-reported
+tags:
+- tma
+- pipeline-stages
+- cache-policy
+- shared-memory-optimization
+- fused-kernel
+- cuda-cpp
 ---
 ## P1: Alignment requirements for L1 BYPASS mode
 

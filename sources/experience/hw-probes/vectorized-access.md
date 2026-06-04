@@ -31,9 +31,7 @@ conclusions:
   ratio: 2.59
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- The vectorized BW of 3783.77 GB/s is below peak HBM BW (4916.7 GB/s theoretical)
-  due to non-saturated memory controller at 256 MB working set. The relative comparison
-  between scalar and vectorized is the meaningful metric.
+- The vectorized BW of 3783.77 GB/s is below peak HBM BW (4916.7 GB/s theoretical) due to non-saturated memory controller at 256 MB working set. The relative comparison between scalar and vectorized is the meaningful metric.
 id: exp-vectorized-access
 type: experience
 vendor: nvidia
@@ -54,6 +52,22 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1062
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- vectorized-loads
+- cache-policy
+- tile-scheduling
+confidence: experimental
+tags:
+- vectorized-loads
+- cache-policy
+- tile-scheduling
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/vectorized-access
 ---
 ## Summary
 

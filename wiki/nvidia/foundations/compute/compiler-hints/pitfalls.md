@@ -33,6 +33,28 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L22324
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+- communication-overlap
+kernel_types:
+- fused-kernel
+confidence: experimental
+tags:
+- cache-policy
+- register-budgeting
+- loop-unrolling
+- shared-memory-optimization
+- communication-overlap
+- fused-kernel
+- cuda-cpp
 ---
 ## P1: Register spilling from overly tight launch_bounds
 

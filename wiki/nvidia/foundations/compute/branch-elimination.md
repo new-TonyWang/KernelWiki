@@ -54,6 +54,9 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- kernel-fusion
+- fused-kernel
+- ptx
 applies_to:
 - general
 source_refs:
@@ -63,6 +66,18 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L6800-L6950
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: experimental
+artifact_dir: artifacts/experience/hw-probes/branchless-patterns
 ---
 ## What
 

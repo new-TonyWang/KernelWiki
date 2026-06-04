@@ -40,6 +40,24 @@ type: algorithm
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- data-reuse
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+- gemm
+- fused-kernel
+- attention
+- quantization
+- ptx
+- cute-dsl
 source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
@@ -53,6 +71,34 @@ source_refs:
 - source_id: blogs/colfax
   path: developing-cuda-kernels-for-gemm-on-nvidia-hopper-architecture-using-cutlass
   anchor: pingpong vs cooperative scheduling section
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- data-reuse
+- shared-memory-optimization
+- swizzling
+- tile-scheduling
+- tma-multicast
+kernel_types:
+- gemm
+- fused-kernel
+- attention
+- quantization
+confidence: experimental
+artifact_dir: artifacts/experience/api-probes/gemm
 ---
 # Persistent kernel (algorithm skeleton)
 

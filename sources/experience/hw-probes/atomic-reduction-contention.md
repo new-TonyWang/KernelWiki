@@ -30,21 +30,10 @@ conclusions:
   baseline_ms: 58.8769
   ratio: 1498.29
 open_questions:
-- clock_policy is unknown — H200 GPU clocks were not explicitly locked during this
-  run. Speedup ratios are robust (>100x), but the absolute GB/s numbers should be
-  retaken with `nvidia-smi -lgc` lock-and-report for the measured-env contract.
-- naive_atomic produced rel_err = 5.03e-02 vs the double-precision reference. The
-  error is NOT a bug in the kernel — it is the well-known FP32 accumulation loss when
-  millions of small positive values are summed into a single scalar whose magnitude
-  grows into the thousands. This means the naive pattern is both contention-pathological
-  AND numerically wrong; `hierarchical_s1` cures both because warp/block-local sums
-  stay small before the final atomic. This finding has been back-filled into `skill.md`
-  as a new sub-pitfall note.
-- Scope-latency measurement (cta vs gpu vs sys) from the S2 technique is not yet probed;
-  follow-up probe under `sources/experience/hw-probes/atomic-reduction-scope-latency/`
-  is open.
-- 'Histogram variant (S4: shared-memory atomics vs global-only) is not yet probed;
-  follow-up under `sources/experience/hw-probes/atomic-reduction-histogram/` is open.'
+- clock_policy is unknown — H200 GPU clocks were not explicitly locked during this run. Speedup ratios are robust (>100x), but the absolute GB/s numbers should be retaken with `nvidia-smi -lgc` lock-and-report for the measured-env contract.
+- naive_atomic produced rel_err = 5.03e-02 vs the double-precision reference. The error is NOT a bug in the kernel — it is the well-known FP32 accumulation loss when millions of small positive values are summed into a single scalar whose magnitude grows into the thousands. This means the naive pattern is both contention-pathological AND numerically wrong; `hierarchical_s1` cures both because warp/block-local sums stay small before the final atomic. This finding has been back-filled into `skill.md` as a new sub-pitfall note.
+- Scope-latency measurement (cta vs gpu vs sys) from the S2 technique is not yet probed; follow-up probe under `sources/experience/hw-probes/atomic-reduction-scope-latency/` is open.
+- 'Histogram variant (S4: shared-memory atomics vs global-only) is not yet probed; follow-up under `sources/experience/hw-probes/atomic-reduction-histogram/` is open.'
 id: exp-atomic-reduction-contention
 type: experience
 vendor: nvidia
@@ -65,6 +54,23 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L23252-L23295
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- persistent-kernel
+- cache-policy
+kernel_types:
+- quantization
+confidence: experimental
+tags:
+- persistent-kernel
+- cache-policy
+- quantization
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/atomic-reduction-contention
 ---
 ## Summary
 

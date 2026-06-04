@@ -26,9 +26,7 @@ source:
 - path: spec
   anchor: Reference
 conclusions:
-  workload: repeat_read_sum, grid=528 blocks x 256 threads, N_REPEATS=32 inner passes
-    per launch, buffer filled with 1.0f; buffer slice sized to WS; accessPolicyWindow
-    applied per-stream.
+  workload: repeat_read_sum, grid=528 blocks x 256 threads, N_REPEATS=32 inner passes per launch, buffer filled with 1.0f; buffer slice sized to WS; accessPolicyWindow applied per-stream.
   h200_l2_total_bytes: 62914560
   h200_persisting_l2_max_bytes: 39321600
   h200_access_policy_max_window_bytes: 134217728
@@ -53,32 +51,11 @@ conclusions:
   ws80_persist_tuned_gbps: 1689.68
   ws80_tuned_speedup_over_none: 1.177
 open_questions:
-- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz)
-  but was not explicitly locked. Absolute GB/s are subject to boost-clock variation;
-  ratios across (WS, policy) cells are robust because they share the same launch context.
-- 'NCU shows `lts__t_sectors_srcunit_tex_op_read_lookup_hit.sum = 0` for every profiled
-  launch. This is an artifact of NCU''s replay model: each profiled kernel runs with
-  cache state reset between the 17 replay passes, so per-profile hit counters never
-  see the warm L2 that the outer N_REPEATS=32 loop creates in a normal run. The authoritative
-  measurement is wall-clock GB/s; the L2-hit-rate evidence is indirect (WS=4MiB effective
-  BW ≫ HBM3e peak of ~4.8 TB/s would imply L2 hits, but the measured 4524 GB/s is
-  merely ~94% of HBM peak, so the direct L2 residency signature is not clean even
-  in wall-clock form). A follow-up probe that exposes hit rate without NCU replay
-  interference (e.g., running 2 kernels back-to-back and timing only the second with
-  per-kernel `__prof_trigger`) is open.'
-- 'WS=40 MiB case is a soft-null: all three policies land within 0.1% of 4357 GB/s.
-  Cause is that 40 MiB fits naturally in H200''s 60 MiB L2 after the first of 32 inner
-  passes, so accessPolicyWindow cannot pin data that is not in contention. A competing
-  workload (concurrent kernel on a second stream that touches > 20 MiB) would reveal
-  the window''s pinning effect; not measured in this probe. Follow-up: `sources/experience/hw-probes/l2-residency-contended/`
-  (open).'
-- persistingL2CacheMaxSize on H200 is 37.5 MiB — only 62.5% of the 60 MiB L2 physical
-  size. The set-aside ratio is a hardware-fixed fraction, not user-tunable beyond
-  that cap.
-- Graph-node / CUDA-Graph variant (`cudaKernelNodeAttributeAccessPolicyWindow`) not
-  measured; this probe uses the stream-level `cudaStreamAttributeAccessPolicyWindow`.
-  Legacy skill S4 (graph nodes) is retained in `skill.md` as inferred pending a graph-focused
-  probe.
+- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz) but was not explicitly locked. Absolute GB/s are subject to boost-clock variation; ratios across (WS, policy) cells are robust because they share the same launch context.
+- 'NCU shows `lts__t_sectors_srcunit_tex_op_read_lookup_hit.sum = 0` for every profiled launch. This is an artifact of NCU''s replay model: each profiled kernel runs with cache state reset between the 17 replay passes, so per-profile hit counters never see the warm L2 that the outer N_REPEATS=32 loop creates in a normal run. The authoritative measurement is wall-clock GB/s; the L2-hit-rate evidence is indirect (WS=4MiB effective BW ≫ HBM3e peak of ~4.8 TB/s would imply L2 hits, but the measured 4524 GB/s is merely ~94% of HBM peak, so the direct L2 residency signature is not clean even in wall-clock form). A follow-up probe that exposes hit rate without NCU replay interference (e.g., running 2 kernels back-to-back and timing only the second with per-kernel `__prof_trigger`) is open.'
+- 'WS=40 MiB case is a soft-null: all three policies land within 0.1% of 4357 GB/s. Cause is that 40 MiB fits naturally in H200''s 60 MiB L2 after the first of 32 inner passes, so accessPolicyWindow cannot pin data that is not in contention. A competing workload (concurrent kernel on a second stream that touches > 20 MiB) would reveal the window''s pinning effect; not measured in this probe. Follow-up: `sources/experience/hw-probes/l2-residency-contended/` (open).'
+- persistingL2CacheMaxSize on H200 is 37.5 MiB — only 62.5% of the 60 MiB L2 physical size. The set-aside ratio is a hardware-fixed fraction, not user-tunable beyond that cap.
+- Graph-node / CUDA-Graph variant (`cudaKernelNodeAttributeAccessPolicyWindow`) not measured; this probe uses the stream-level `cudaStreamAttributeAccessPolicyWindow`. Legacy skill S4 (graph nodes) is retained in `skill.md` as inferred pending a graph-focused probe.
 id: exp-l2-residency
 type: experience
 vendor: nvidia
@@ -96,6 +73,21 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L1561-L1581
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- cache-policy
+kernel_types:
+- quantization
+confidence: experimental
+tags:
+- cache-policy
+- quantization
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/l2-residency
 ---
 ## Summary
 

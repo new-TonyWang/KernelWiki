@@ -23,6 +23,24 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cub/cub.md
   anchor: L26607-L26630
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- fused-kernel
+- cuda-cpp
 ---
 # Reduction Pattern -- Decision Tree
 

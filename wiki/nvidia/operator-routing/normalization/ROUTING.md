@@ -7,6 +7,44 @@ id: routing-normalization-ROUTING
 type: operator-routing
 vendor: nvidia
 operator: normalization
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- triton
+techniques:
+- persistent-kernel
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- kernel-fusion
+- loop-unrolling
+- shared-memory-optimization
+- software-exp
+kernel_types:
+- fused-kernel
+- gemm
+- quantization
+confidence: inferred
+tags:
+- persistent-kernel
+- pipeline-stages
+- vectorized-loads
+- cache-policy
+- register-budgeting
+- data-reuse
+- kernel-fusion
+- loop-unrolling
+- shared-memory-optimization
+- software-exp
+- fused-kernel
+- gemm
+- quantization
+- cuda-cpp
+- triton
 ---
 # Normalization Pattern -- Skill Whitelist
 

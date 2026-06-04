@@ -33,6 +33,14 @@ source_refs:
 - source_id: source-code/cutlass
   path: examples/111_hopper_ssd/collective/common.hpp
   anchor: L162-L162
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # __shfl_sync
 

@@ -3,6 +3,33 @@ id: pitfall-attention
 type: pitfall
 vendor: nvidia
 title: Pitfalls
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- wgmma
+- tma
+techniques:
+- pipeline-stages
+- shared-memory-optimization
+- software-exp
+- conditional-rescaling
+kernel_types:
+- attention
+- flash-attention
+confidence: inferred
+tags:
+- wgmma
+- tma
+- pipeline-stages
+- shared-memory-optimization
+- software-exp
+- conditional-rescaling
+- attention
+- flash-attention
+- cuda-cpp
 ---
 # MVP Minimal Flash-Attention Pitfalls
 

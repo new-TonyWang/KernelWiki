@@ -45,27 +45,11 @@ conclusions:
   predicated_slowdown_across_p: 1.07
   warp_uniform_slowdown_across_p: 1.01
 open_questions:
-- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz)
-  but was not explicitly locked with `nvidia-smi -lgc`. Slowdown ratios are robust;
-  absolute ms need re-measurement under lock for a strict measured-env contract.
-- 'NCU `smsp__thread_inst_executed_per_inst_executed.ratio` reports 32 across all
-  p for branch_variant — i.e. the metric does NOT directly reveal warp-body serialization.
-  This is because NCU counts each serialized sub-warp-slice as a distinct issued instruction;
-  the average active threads per issued instruction stays at 32. The authoritative
-  divergence-cost signature is **wall-clock at constant Compute(SM) Throughput ~89%**:
-  serializing both bodies doubles total issued instructions at unchanged throughput,
-  so wall-clock roughly doubles. Skill''s §''profile first'' principle now carries
-  this nuance — do not rely on the SIMT efficiency metric alone.'
-- Divergence slowdown is 1.82× not 2.00× because the two paths share register pressure
-  and some FMA-pipe parallelism survives the serialized branches. A cleaner 2.00×
-  would require paths that compete for the same FMA chain. Probe does not isolate
-  this; adequate as shipped.
-- 'Independent Thread Scheduling (CC 7.0+) correctness effects not probed by this
-  experiment — all three variants here are correctness-safe without explicit `__syncwarp`.
-  Follow-up probe for ITS race-observability open: `sources/experience/hw-probes/warp-divergence-its-race/`.'
-- Compiler predication threshold sweep (BP §13.2 'a certain threshold') not measured.
-  migration plan §2 open question Q1 scheduled for a follow-up compile-time-parameterized
-  probe.
+- clock_policy is `unlocked-logged-only` — H200 ran at max graphics clock (1980 MHz) but was not explicitly locked with `nvidia-smi -lgc`. Slowdown ratios are robust; absolute ms need re-measurement under lock for a strict measured-env contract.
+- 'NCU `smsp__thread_inst_executed_per_inst_executed.ratio` reports 32 across all p for branch_variant — i.e. the metric does NOT directly reveal warp-body serialization. This is because NCU counts each serialized sub-warp-slice as a distinct issued instruction; the average active threads per issued instruction stays at 32. The authoritative divergence-cost signature is **wall-clock at constant Compute(SM) Throughput ~89%**: serializing both bodies doubles total issued instructions at unchanged throughput, so wall-clock roughly doubles. Skill''s §''profile first'' principle now carries this nuance — do not rely on the SIMT efficiency metric alone.'
+- Divergence slowdown is 1.82× not 2.00× because the two paths share register pressure and some FMA-pipe parallelism survives the serialized branches. A cleaner 2.00× would require paths that compete for the same FMA chain. Probe does not isolate this; adequate as shipped.
+- 'Independent Thread Scheduling (CC 7.0+) correctness effects not probed by this experiment — all three variants here are correctness-safe without explicit `__syncwarp`. Follow-up probe for ITS race-observability open: `sources/experience/hw-probes/warp-divergence-its-race/`.'
+- Compiler predication threshold sweep (BP §13.2 'a certain threshold') not measured. migration plan §2 open question Q1 scheduled for a follow-up compile-time-parameterized probe.
 id: exp-warp-divergence-cost
 type: experience
 vendor: nvidia
@@ -83,6 +67,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
   anchor: L3427-L3436
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- register-budgeting
+confidence: experimental
+tags:
+- register-budgeting
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/warp-divergence-cost
 ---
 ## Summary
 

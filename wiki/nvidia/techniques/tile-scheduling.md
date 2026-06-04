@@ -1,17 +1,27 @@
 ---
 id: technique-tile-scheduling
-title: "Tile Scheduling Strategies"
+title: Tile Scheduling Strategies
 type: technique
-architectures: [sm100, sm90]
-tags: [tile-scheduling, clc, persistent-kernel]
+architectures:
+- sm100
+- sm90
+tags:
+- tile-scheduling
+- clc
+- persistent-kernel
 confidence: source-reported
 reproducibility: snippet
-prerequisites: [hw-clc]
-related: [hw-clc, technique-persistent-kernels, pattern-low-sm-utilization]
-sources: [doc-nvidia-tuning-guide, doc-cutlass-blackwell, pr-cutlass-2161]
-blackwell_relevance: "CLC (SM100-only) replaces static scheduling; Hopper patterns provide baseline comparison."
+prerequisites:
+- hw-clc
+related:
+- hw-clc
+- technique-persistent-kernels
+- pattern-low-sm-utilization
+sources:
+- doc-nvidia-tuning-guide
+- doc-cutlass-blackwell
+- pr-cutlass-2161
 ---
-
 ## Overview
 
 Tile scheduling determines the order in which output tiles of a GEMM (or attention) kernel are assigned to CTAs. The scheduling order affects L2 cache hit rates, tail-effect severity, and overall GPU utilization. On Blackwell, the CLC hardware unit supports dynamic scheduling policies including swizzled raster, while Hopper relies on software-based static stride or swizzled patterns computed at launch time.

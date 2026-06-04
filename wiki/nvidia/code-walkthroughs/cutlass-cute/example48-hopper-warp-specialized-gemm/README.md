@@ -4,6 +4,35 @@ type: code-walkthrough
 vendor: nvidia
 title: Readme
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- cluster
+techniques:
+- warp-specialization
+- pipeline-stages
+- shared-memory-optimization
+- tma-multicast
+kernel_types:
+- gemm
+confidence: inferred
+tags:
+- wgmma
+- tma
+- cluster
+- warp-specialization
+- pipeline-stages
+- shared-memory-optimization
+- tma-multicast
+- gemm
+- cuda-cpp
+- cute-dsl
 ---
 # wiki/nvidia/code-walkthroughs/cutlass-cute/example48-hopper-warp-specialized-gemm
 

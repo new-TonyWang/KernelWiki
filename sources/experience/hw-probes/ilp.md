@@ -31,8 +31,7 @@ conclusions:
   ratio: null
 open_questions:
 - clock_policy is unknown -- clocks were not locked during measurement.
-- The probe uses __fmaf_rn which maps to fma.rn.f32; results should be identical for
-  fadd or fmul since they share the same FP32 pipeline on sm_90a.
+- The probe uses __fmaf_rn which maps to fma.rn.f32; results should be identical for fadd or fmul since they share the same FP32 pipeline on sm_90a.
 id: exp-ilp
 type: experience
 vendor: nvidia
@@ -59,6 +58,29 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/parallel-thread-execution/cuda_parallel-thread-execution_index.html.md
   anchor: L9106-L9155
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+techniques:
+- pipeline-stages
+- register-budgeting
+- kernel-fusion
+- loop-unrolling
+kernel_types:
+- fused-kernel
+confidence: experimental
+tags:
+- pipeline-stages
+- register-budgeting
+- kernel-fusion
+- loop-unrolling
+- fused-kernel
+- ptx
+- cuda-cpp
+artifact_dir: artifacts/experience/hw-probes/ilp
 ---
 ## Summary
 

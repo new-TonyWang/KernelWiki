@@ -2,8 +2,7 @@
 func_name: cudaOccupancyMaxActiveBlocksPerMultiprocessor
 namespace: runtime
 header: cuda_runtime_api.h
-signature: cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor(int* numBlocks,
-  const void* func, int blockSize, size_t dynamicSMemSize)
+signature: cudaError_t cudaOccupancyMaxActiveBlocksPerMultiprocessor(int* numBlocks, const void* func, int blockSize, size_t dynamicSMemSize)
 status: documented
 has_end_to_end_example: true
 source:
@@ -17,6 +16,20 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA API References/cuda-runtime-api/cuda_cuda-runtime-api_index.html.md
   anchor: L3862-L3890
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- cluster
+techniques:
+- shared-memory-optimization
+confidence: inferred
+tags:
+- cluster
+- shared-memory-optimization
+- cuda-cpp
 ---
 # Occupancy Tuning API Reference
 

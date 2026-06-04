@@ -33,6 +33,14 @@ source_refs:
 - source_id: source-code/cuda-samples
   path: Samples/2_Concepts_and_Techniques/reduction/reduction_kernel.cu
   anchor: L78-L78
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+confidence: inferred
+tags:
+- cuda-cpp
 ---
 # __shfl_down_sync
 

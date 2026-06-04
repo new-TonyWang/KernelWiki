@@ -1,26 +1,42 @@
 ---
 id: kernel-fp8-block-scale-gemm
-title: "FP8 Block-Scale GEMM"
+title: FP8 Block-Scale GEMM
 type: kernel
-architectures: [sm100, sm90]
-tags: [gemm, fp8, block-scale, fine-grained-quantization, tcgen05, wgmma]
+architectures:
+- sm100
+- sm90
+tags:
+- gemm
+- fp8
+- block-scale
+- fine-grained-quantization
+- tcgen05
+- wgmma
 confidence: source-reported
 reproducibility: snippet
-kernel_types: [gemm]
-languages: [cuda-cpp, cute-dsl]
-related: [kernel-deepgemm, kernel-nvfp4-gemm, technique-fine-grained-quantization, hw-tcgen05-mma]
-sources: [blog-deepgemm, doc-cutlass-blackwell, doc-cutlass-changelog-sm100]
+kernel_types:
+- gemm
+languages:
+- cuda-cpp
+- cute-dsl
+related:
+- kernel-deepgemm
+- kernel-nvfp4-gemm
+- technique-fine-grained-quantization
+- hw-tcgen05-mma
+sources:
+- blog-deepgemm
+- doc-cutlass-blackwell
+- doc-cutlass-changelog-sm100
 performance_claims:
-  - gpu: H800
-    dtype: fp8
-    shape: "M=4096, N=4096, K=4096"
-    metric: TFLOPS
-    value: 1550
-    utilization: "~90% via CUDA core promotion"
-    source_id: blog-deepgemm
-blackwell_relevance: "SM100 tcgen05.mma has native UE8M0 block scaling; SM90 requires Nc=128 CUDA core promotion. Same kernel pattern works on both but different scale handling."
+- gpu: H800
+  dtype: fp8
+  shape: M=4096, N=4096, K=4096
+  metric: TFLOPS
+  value: 1550
+  utilization: ~90% via CUDA core promotion
+  source_id: blog-deepgemm
 ---
-
 # FP8 Block-Scale GEMM
 
 ## Overview

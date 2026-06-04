@@ -32,6 +32,21 @@ source_refs:
 - source_id: cuda-official/toolkit-docs-13.2
   path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
   anchor: L569-L603
+languages:
+- cuda-cpp
+techniques:
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+confidence: source-reported
+tags:
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+- fused-kernel
+- cuda-cpp
 ---
 ## P1: Array-of-Structures (AoS) layout
 

@@ -4,6 +4,56 @@ type: code-walkthrough
 vendor: nvidia
 title: Audit
 upstream_repo: NVIDIA/cutlass-cute
+architectures:
+- sm90
+- sm90a
+- sm100
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+- python
+hardware_features:
+- wgmma
+- tma
+- ldmatrix
+- tcgen05
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+- software-exp
+kernel_types:
+- gemm
+- attention
+- flash-attention
+- fused-kernel
+confidence: inferred
+tags:
+- wgmma
+- tma
+- ldmatrix
+- tcgen05
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- swizzling
+- tma-multicast
+- software-exp
+- gemm
+- attention
+- flash-attention
+- fused-kernel
+- ptx
+- cuda-cpp
+- cute-dsl
+- python
 ---
 <!--
 lint-exempt: this file lives under wiki/nvidia/code-walkthroughs/ which reasoning/AGENTS.md exempts from frontmatter

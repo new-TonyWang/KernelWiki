@@ -22,11 +22,8 @@ sources:
 - doc-cutlass-blackwell
 - blog-colfax-cutlass
 - pr-vllm-16032
-blackwell_relevance: TMEM-based epilogue fusion is new to Blackwell; Hopper pattern
-  provides conceptual foundation.
 artifact_dir: artifacts/kernels/epilogue-fusion
 ---
-
 ## Overview
 
 Epilogue fusion overlaps the post-MMA operations (scaling, bias addition, activation functions, quantization, store to global memory) with ongoing MMA computation. On Blackwell, the accumulator lives in TMEM rather than registers, enabling dedicated epilogue warps (typically warps 2-15) to read TMEM concurrently while the MMA warp (warp 1) continues accumulating the next tile. This overlap is achieved by double-buffering the TMEM accumulator: the MMA warp writes to one half while the epilogue warps read from the other half.

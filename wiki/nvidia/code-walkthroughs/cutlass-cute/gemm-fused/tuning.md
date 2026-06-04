@@ -4,6 +4,34 @@ type: code-walkthrough
 vendor: nvidia
 title: Tuning
 upstream_repo: NVIDIA/cutlass-cute
+languages:
+- cuda-cpp
+- cute-dsl
+techniques:
+- warp-specialization
+- register-budgeting
+- kernel-fusion
+- software-exp
+kernel_types:
+- gemm
+- attention
+- fused-kernel
+- quantization
+confidence: inferred
+tags:
+- warp-specialization
+- register-budgeting
+- kernel-fusion
+- software-exp
+- gemm
+- attention
+- fused-kernel
+- quantization
+- cuda-cpp
+- cute-dsl
+architectures:
+- sm90
+- sm90a
 ---
 # gemm-fused — tuning log (skeleton)
 

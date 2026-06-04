@@ -29,6 +29,44 @@ source_refs:
 - source_id: blogs/colfax
   path: cutlass-tutorial-fast-matrix-multiplication-with-wgmma-on-nvidia-hopper-gpus
   anchor: Hopper wgmma GEMM walkthrough
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+- cute-dsl
+hardware_features:
+- wgmma
+- tma
+- mbarrier
+- cluster
+techniques:
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+kernel_types:
+- gemm
+- fused-kernel
+confidence: experimental
+tags:
+- wgmma
+- tma
+- mbarrier
+- cluster
+- warp-specialization
+- persistent-kernel
+- pipeline-stages
+- kernel-fusion
+- shared-memory-optimization
+- gemm
+- fused-kernel
+- ptx
+- cuda-cpp
+- cute-dsl
+artifact_dir: artifacts/experience/api-probes/gemm-ptx
 ---
 # Probe — Cutlass-free GEMM hello-world
 

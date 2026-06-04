@@ -6,6 +6,22 @@ id: routing-elementwise-TASK-PACKET
 type: operator-routing
 vendor: nvidia
 operator: elementwise
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+techniques:
+- vectorized-loads
+- kernel-fusion
+kernel_types:
+- fused-kernel
+confidence: inferred
+tags:
+- vectorized-loads
+- kernel-fusion
+- fused-kernel
+- cuda-cpp
 ---
 # Elementwise -- Task Packet Input Contract
 

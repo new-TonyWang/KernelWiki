@@ -36,12 +36,42 @@ type: skill
 vendor: nvidia
 tags:
 - cuda-cpp
+- wgmma
+- tma
+- shared-memory-optimization
+- swizzling
+- software-exp
+- conditional-rescaling
+- attention
+- gemm
+- flash-attention
+- ptx
 applies_to:
 - general
 source_refs:
 - source_id: source-code/cutlass
   path: examples/88_hopper_fmha/88_hopper_fmha.cu
   anchor: Hopper FMHA example — used as algorithmic reference only, not as code dependency
+architectures:
+- sm90
+- sm90a
+languages:
+- ptx
+- cuda-cpp
+hardware_features:
+- wgmma
+- tma
+techniques:
+- shared-memory-optimization
+- swizzling
+- software-exp
+- conditional-rescaling
+kernel_types:
+- attention
+- gemm
+- flash-attention
+confidence: experimental
+artifact_dir: artifacts/experience/api-probes/attention
 ---
 # MVP Minimal Flash-Attention Kernel
 
