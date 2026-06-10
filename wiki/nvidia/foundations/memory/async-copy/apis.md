@@ -116,15 +116,6 @@ This file lists the APIs touched by the async-copy skill. Each entry records the
 - **Semantics**: Block-wide cooperative async copy. The group collectively copies `size` bytes from `src` (global) to `dst` (shared). Completion is signaled via `cooperative_groups::wait(group)`. Only asynchronous if source is global memory and destination is shared memory and both are at least 4-byte aligned (programming guide L8855).
 - **Source**: Programming guide L8824-L8855
 
-## Thrust Integration
-
-### `cuda::proclaim_copyable_arguments`
-
-- **Namespace**: libcupp / CCCL
-- **Header**: included via `<thrust/transform.h>` with CCCL
-- **Signature**: wraps a functor: `auto f = cuda::proclaim_copyable_arguments(lambda)`
-- **Semantics**: Tells `thrust::transform` that the functor's arguments can be safely copied to shared memory, which enables TMA under the hood. Thrust will internally auto-tune to maximize bytes-in-flight based on the lambda's register usage (GTC25-S72683, slide interval_0201).
-- **Source**: GTC25-S72683, slide interval_0201-L0203
 
 ## Related Probes
 

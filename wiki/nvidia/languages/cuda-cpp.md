@@ -12,7 +12,7 @@ confidence: source-reported
 
 ## Overview
 
-Plain CUDA C++ with inline PTX is used for hand-optimized Blackwell kernels. The tcgen05 tutorial achieved 98% of cuBLAS performance using this approach.
+Plain CUDA C++ with inline PTX is used for hand-optimized Blackwell kernels. The tcgen05 tutorial achieved 98% of reference GEMM performance using this approach.
 
 ## tcgen05 via Inline PTX
 

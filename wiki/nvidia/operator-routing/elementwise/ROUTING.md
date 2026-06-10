@@ -153,7 +153,7 @@ This file lists the optimization skills applicable to custom elementwise kernels
 - **When NOT to apply**:
   - **Any long-running accumulation without fp32 promotion** (softmax denominator over H=4096, dot products, running averages). fp16 overflows at ~6e4; bf16 mantissa error ~0.8% per add. Skill P1, P2.
   - **Pure-streaming memory-bound kernel where packing adds alignment fragility**. The 1.16× compute gain is invisible behind memory stalls (P11). Use scalar `__hadd` / `__hfma`.
-  - **Kernels built via `torch.utils.cpp_extension`** without explicit `__hadd` / `__hgt` calls (PyTorch build defines `-D__CUDA_NO_HALF_OPERATORS__`; P13).
+  - **Framework-built CUDA extensions** without explicit `__hadd` / `__hgt` calls may define `-D__CUDA_NO_HALF_OPERATORS__` (P13).
 - **Measured impact on H200 sm_9.0a**:
   - fp16 scalar = 1.58× fp32 scalar throughput (45 vs 29 TFLOPS).
   - fp16 packed (`__hfma2`) = 1.84× fp32 scalar (1.16× over fp16 scalar).

@@ -215,7 +215,7 @@ PG 3.2.4.1.2 (L3641-L3645) states shared-memory atomics are faster than global-m
 - **When the reduction is not actually atomic-bound.** If the kernel is memory-bandwidth-bound (load-heavy, atomics are <5% of issued instructions), optimizing the atomic path is invisible on wall-clock. Profile first: check whether `stall_long_scoreboard` or `stall_mio_throttle` on atomic instructions is actually material before rewriting.
 - **When the output is large and dense.** If every thread writes to a distinct address (e.g., elementwise `out[tid] = ...`), no atomic is needed; use a plain store. Atomic instructions on an uncontended address are still more expensive than a plain store.
 - **When correctness requires stronger ordering.** `relaxed` is not a default for producer-consumer flags, lock-free queues, or any pattern where one thread's write must be visible before another thread's read. See the `memory-ordering` skill.
-- **For device-wide reductions with a library path available.** CUB's `DeviceReduce::Sum` / `BlockReduce` already implements S1+S4 with hardware-tuned block sizes; custom code is only justified when a library is unavailable or the reduction is fused with surrounding ops.
+- **For device-wide reductions with a pre-existing tuned reduction path available.** Custom code is justified when the reduction must be fused with surrounding ops or the task requires kernel-side control over the final accumulation stage.
 
 ## Measured Characteristics
 
@@ -244,7 +244,6 @@ Hierarchical S1 cures this as a side effect: warp-lane partial sums stay in O(32
 1. **Minimize contention before minimizing per-op cost.** Dropping the per-block atomic count from 1024 to 1 is a larger win than switching `seq_cst` to `relaxed`.
 2. **Scope narrows the cache level; ordering narrows the fence.** Both are independent, and both contribute to the final cost.
 3. **Shared memory is a first-class reduction staging area.** S1 and S4 compose: block-local reduction in shared memory, then one global atomic per block.
-4. **Library first.** CUB `DeviceReduce` applies all four techniques under the hood; only hand-write when the library path is proven insufficient (library-fallback contract in `wiki/nvidia/operator-routing/`).
 
 ## Open questions
 

@@ -78,7 +78,7 @@ For `wgmma_RS_<...>` (A in registers, B in smem), only `transB` is a free immedi
 ```
 wgmma.mma_async.sync.aligned.m64nNk16.f32.bf16.bf16 {acc...}, {a0,a1,a2,a3}, descB, scaleD, scaleA, scaleB, transB;
 ```
-For bf16 / fp16 m64xK16, each thread holds 4 × 32-bit registers (= 8 fp16/bf16 elements per K-row slice). Where the bytes for those registers come from is *not* dictated by the wgmma instruction — it is the kernel's job to arrange them per the per-thread fragment layout in PTX ISA section "Asynchronous Warpgroup-Level Matrix Instructions / Matrix Fragments". Get the load wrong and the result is *layout-permuted but not catastrophic*; an all-ones-input correctness gate cannot detect this. Use non-uniform inputs + cuBLAS-reference to expose the bug.
+For bf16 / fp16 m64xK16, each thread holds 4 × 32-bit registers (= 8 fp16/bf16 elements per K-row slice). Where the bytes for those registers come from is *not* dictated by the wgmma instruction — it is the kernel's job to arrange them per the per-thread fragment layout in PTX ISA section "Asynchronous Warpgroup-Level Matrix Instructions / Matrix Fragments". Get the load wrong and the result is *layout-permuted but not catastrophic*; an all-ones-input correctness gate cannot detect this. Use non-uniform inputs to expose the bug.
 
 ## 11. Single-warpgroup serialized wgmma plateaus at ~5.6 TFLOPS on H200
 

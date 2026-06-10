@@ -44,7 +44,7 @@ Pitfall #1 below describes the per-thread fragment layout, which is independent 
 
 ## 1. wgmma m64nNk16 fragment layout is NOT the m16n8k16 layout
 
-The Ampere `mma.sync.aligned.m16n8k16.f32.bf16.bf16` instruction has a well-known per-thread fragment layout: each thread holds 4 floats at row=`(lane_id/4)`, col=`(lane_id%4)*2..(lane_id%4)*2+1`, and a sister pair at row+8. The Hopper `wgmma.mma_async.sync.aligned.m64nNk16.f32.bf16.bf16` is **not** the same: it spans 4 warps in the M direction (M=64 = 4 warps × 16 rows) and the per-thread fragment layout is described in PTX ISA §"Hopper Tensor Core Operations / Matrix Fragments" — it is NOT `warp_id*16 + lane_id/4` for the M-row offset. The correct mapping requires careful reading of that section or extracting it from cutlass's `cute::SM90::GMMA::MMA_64x*x16_F32BF16BF16_SS_TN` atom traits. The current cutlass-free harness uses the (incorrect) Ampere-style mapping and therefore produces a permuted output, which is why outputs differ from cuBLAS at M=64 N=8 K=16.
+The Ampere `mma.sync.aligned.m16n8k16.f32.bf16.bf16` instruction has a well-known per-thread fragment layout: each thread holds 4 floats at row=`(lane_id/4)`, col=`(lane_id%4)*2..(lane_id%4)*2+1`, and a sister pair at row+8. The Hopper `wgmma.mma_async.sync.aligned.m64nNk16.f32.bf16.bf16` is **not** the same: it spans 4 warps in the M direction (M=64 = 4 warps × 16 rows) and the per-thread fragment layout is described in PTX ISA §"Hopper Tensor Core Operations / Matrix Fragments" — it is NOT `warp_id*16 + lane_id/4` for the M-row offset. The correct mapping requires careful reading of that section or extracting it from cutlass's `cute::SM90::GMMA::MMA_64x*x16_F32BF16BF16_SS_TN` atom traits. The current cutlass-free harness uses the (incorrect) Ampere-style mapping and therefore produces a permuted output, which is why outputs differ from reference GEMM at M=64 N=8 K=16.
 
 ## 2. wgmma SS-variant descriptors: ld_bytes vs sd_bytes are atom-shape-dependent
 
@@ -54,12 +54,12 @@ The smem matrix descriptor encodes two strides — leading-dim and stride-dim �
 
 Using `ld=256, sd=256` is correct for M=64 K=16 only by coincidence (8*16*2 = 256 AND 8*32 = 256 because of the row-vs-col-major interpretation); for other atom shapes the values must be recomputed.
 
-## 3. cuBLAS row-major-vs-col-major requires careful op_T handling
+## 3. reference GEMM row-major-vs-col-major requires careful op_T handling
 
-cuBLAS internally is column-major. To compute D[M×N] = A[M×K] · B[K×N] in row-major using cuBLAS, the canonical idiom is:
+reference GEMM internally is column-major. To compute D[M×N] = A[M×K] · B[K×N] in row-major using reference GEMM, the canonical idiom is:
 
 ```cpp
-cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
+`reference_gemm`(handle, REF_GEMM_OP_N, REF_GEMM_OP_N,
              N, M, K,         // sizes swapped to compute (B^T)·(A^T) col-major
              &alpha,
              B, ..., N,       // B is K×N row-major == N×K col-major (lda=N)
@@ -68,7 +68,7 @@ cublasGemmEx(handle, CUBLAS_OP_N, CUBLAS_OP_N,
 // Result D is M×N in row-major.
 ```
 
-Get the lda/ldb wrong and the cuBLAS comparison fails identically to a layout-mapped GEMM bug — making it hard to isolate the wgmma layout bug from a cuBLAS-call bug. Sanity-check by setting all-1.0 inputs and verifying both ours and cuBLAS produce all-K outputs first.
+Get the lda/ldb wrong and the reference GEMM comparison fails identically to a layout-mapped GEMM bug — making it hard to isolate the wgmma layout bug from a reference GEMM-call bug. Sanity-check by setting all-1.0 inputs and verifying both ours and reference GEMM produce all-K outputs first.
 
 ## 4. CUtensorMap dimension order: fastest-moving FIRST
 
@@ -76,7 +76,7 @@ For both A and B, `cuTensorMapEncodeTiled`'s `global_dim` array has the fastest-
 
 ## 5. The cutlass-free gate (zero symbols) is necessary but NOT sufficient
 
-Verification has two components: (a) zero `cutlass::` / `cute::` symbols, (b) numeric correctness against cuBLAS within tolerance. The current code passes (a) but not (b). Don't claim closure on (a) alone — the cutlass-abandonment guarantee is structural, but the "matches cuBLAS within tolerance" is the correctness guarantee. Both must hold.
+Verification has two components: (a) zero `cutlass::` / `cute::` symbols, (b) numeric correctness against reference GEMM within tolerance. The current code passes (a) but not (b). Don't claim closure on (a) alone — the cutlass-abandonment guarantee is structural, but the "matches reference GEMM within tolerance" is the correctness guarantee. Both must hold.
 
 ## 6. Fragment-layout debugging is faster with a single-warp kernel first
 

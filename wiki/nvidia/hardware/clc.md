@@ -221,7 +221,7 @@ CLC delivers significant performance gains, especially for small-to-medium GEMMs
 | 4096x4096 (medium) | 92% SM utilization | 98% SM utilization | +6.5% |
 | 8192x8192 (large) | 97% SM utilization | 99% SM utilization | +2% |
 
-The canonical benchmark from the "tcgen05 for dummies" tutorial shows the jump from 940 TFLOPS (pipelined, static scheduling) to **1476 TFLOPS** (persistent + CLC), approaching 98% of cuBLAS (1507 TFLOPS).
+The canonical benchmark from the "tcgen05 for dummies" tutorial shows the jump from 940 TFLOPS (pipelined, static scheduling) to **1476 TFLOPS** (persistent + CLC), approaching 98% of reference GEMM (1507 TFLOPS).
 
 ### Why CLC Matters for Inference
 

@@ -55,6 +55,6 @@ EVT-based fusion produces a heavily templated kernel; compile times of 60-300 se
 
 A fused `Y = ReLU(α·AB + β·C)` does the ReLU before the F32→F16 (or whatever the output dtype is) downcast. The non-fused chain `Y' = ReLU(downcast(α·AB + β·C))` does the downcast first. The two are numerically very close at TF32/F32 → F32 (no downcast); they can differ at TF32 → bf16 / int8 because the downcast quantizes negative-near-zero values that ReLU would have killed. Always document the numerical boundary in a `pitfalls.md` for the specific operator chain.
 
-## 6. cuBLAS LT does not expose all the same fusion patterns
+## 6. reference GEMM does not expose all the same fusion patterns
 
-cuBLAS LT (the heuristic-driven matmul) supports linear-combination + bias + ReLU/GELU as fused epilogues (`CUBLASLT_EPILOGUE_RELU_BIAS`, …) but does NOT expose arbitrary EVT trees. If your fusion needs a custom pattern that cuBLAS LT can't express, cutlass + EVT is the production path; if your fusion is one of cuBLAS LT's named patterns, cuBLAS LT may be faster because of its per-shape kernel selection.
+reference GEMM (the heuristic-driven matmul) supports linear-combination + bias + ReLU/GELU as fused epilogues (`named epilogue`, …) but does NOT expose arbitrary EVT trees. If your fusion needs a custom pattern that reference GEMM can't express, cutlass + EVT is the production path; if your fusion is one of reference GEMM's named patterns, reference GEMM may be faster because of its per-shape kernel selection.

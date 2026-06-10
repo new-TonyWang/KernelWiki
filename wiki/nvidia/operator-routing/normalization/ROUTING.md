@@ -150,7 +150,7 @@ Normalization kernels are hybrid: a **reduction phase** (computing mean / varian
 - **Skill path**: `wiki/nvidia/foundations/sync/atomic-reduction/`
 - **Why it matters for normalization**: when the hidden dimension H exceeds a single block's capacity (roughly H > 4096 for simple LayerNorm), the mean / variance reduction is split across multiple blocks per row and the per-block partial sums must be combined with a global atomic. Each block must commit **one atomic per block** (S1 pattern), NOT one per thread -- a per-thread atomic on a single per-row accumulator is both contention-pathological and numerically unsound in FP32 (on H200 the running-sum mantissa saturates after ~1e5 adds; atomic-reduction skill pitfall P7). For LayerNorm, accumulate in FP32 (or promote to FP64 at the block boundary) even when input/output are FP16/BF16, so precision loss at the atomic stage does not poison `mean` and `rstd`.
 - **When to apply**: only when the per-row reduction is split across blocks. For the common case where one block handles one row (H <= 4096 on H200), use the in-block warp+shmem reduction and skip this skill.
-- **Caveat**: most production LayerNorm kernels (Apex, Triton, cuDNN) choose their block layout specifically to keep one row per block and avoid the atomic path altogether. Only reach for this skill when row size forces multi-block partitioning.
+- **Caveat**: most production LayerNorm kernels choose their block layout specifically to keep one row per block and avoid the atomic path altogether. Only reach for this skill when row size forces multi-block partitioning.
 
 ### 14. L2 Access Policy (weight / gamma / beta residency across launches)
 

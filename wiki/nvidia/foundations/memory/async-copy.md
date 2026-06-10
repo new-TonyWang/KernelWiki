@@ -310,7 +310,6 @@ Key differences from LDGSTS:
 - TMA 1D requires 16-byte alignment and copy size as a multiple of 16 bytes.
 - Programming model is **warp-uniform**: issue from one thread per warp.
 - `cuda::memcpy_async` auto-uses TMA when alignment/size requirements are met (GTC25-S72683 slide interval_0177).
-- `thrust::transform` with `cuda::proclaim_copyable_arguments` enables TMA "for free" -- Thrust auto-tunes to maximize bytes-in-flight.
 - Use `cooperative_groups::invoke_one` to eliminate the compiler's peeling loop when issuing TMA from within an `if (threadIdx.x == 0)` block.
 
 ## Measured Characteristics

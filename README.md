@@ -50,7 +50,7 @@ All tools run from the skill root, no env var needed.
 
 | Tool | Purpose |
 |---|---|
-| `scripts/query.py` | Unified search across 2,490 source/wiki pages (keywords + filters + alias-aware) |
+| `scripts/query.py` | Unified search across 2,482 source/wiki pages (keywords + filters + alias-aware) |
 | `scripts/get_page.py` | Fetch any page by `id` or path; `--follow-sources` expands `sources`, `source`, and `source_refs` |
 | `scripts/grep_wiki.py` | Regex text search across wiki bodies and PR pages |
 
@@ -110,13 +110,13 @@ Supporting files:
 
 ```bash
 pip install -r requirements.txt
-python3 scripts/validate.py            # reports 2490 files / 117 bundles / 6 ledgers, 0 errors
+python3 scripts/validate.py            # reports 2482 files / 117 bundles / 6 ledgers, 0 errors
 python3 scripts/generate-indices.py    # regenerate query indices
 ```
 
 ## Quality Gates (knowledge cutoff: 2026-04-27)
 
-- 2,490 files, 2,265 source IDs, 0 validation errors
+- 2,482 files, 2,265 source IDs, 0 validation errors
 - 117 asset bundles validated (verbatim=92, extracted=13, derived=12)
 - 6 candidate ledgers normalized
 - 0 broken links across all internal references

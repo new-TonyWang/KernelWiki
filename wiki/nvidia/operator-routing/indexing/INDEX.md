@@ -60,57 +60,9 @@ This document guides the kernel-writing agent through an indexing task from init
 
 ---
 
-## Step 0 -- Try the library first
+## Scope
 
-Before writing any custom CUDA code, check whether a production-quality library already handles the indexing operation.
-
-```
-Q0. Is the caller's environment PyTorch-based?
-    YES --> Can one of the following handle the shape + dtype?
-            - torch.gather(input, dim, index)
-            - torch.scatter(input, dim, index, src)
-            - torch.scatter_add(input, dim, index, src)
-            - torch.index_select(input, dim, index)
-            - torch.topk(input, k, dim)
-            - torch.nn.functional.one_hot(tensor, num_classes)
-            - torch.nn.functional.embedding(input, weight)
-            YES --> Use the PyTorch op. DONE.
-            NO  --> Continue to Q1.
-    NO  --> Continue to Q1.
-
-Q1. Is this a gather or scatter over a flat or axis-aligned contiguous
-    buffer?
-    YES --> Use thrust::gather / thrust::scatter / thrust::gather_if /
-            thrust::scatter_if.
-            See library-fallback.md for API details.  DONE.
-    NO  --> Continue to Q2.
-
-Q2. Is this a topk operation (find the largest/smallest k elements)?
-    YES --> Is k small relative to N (k << N, e.g., k <= 256 and N > 10K)?
-            YES --> cub::DeviceRadixSort::SortPairs (sort key-value
-                    pairs, then truncate to the first k entries) is the
-                    most reliable library path.
-                    See library-fallback.md.  DONE.
-            NO  --> torch.topk or a custom partial-sort may be faster
-                    than a full sort + truncate.  Continue to Q3.
-    NO  --> Continue to Q3.
-
-Q3. Does the library path fail to meet performance requirements after
-    benchmarking (e.g., fused gather inside a larger kernel, gather
-    with non-standard strides, scatter with conflict resolution)?
-    YES --> Proceed to Step 1 (custom kernel).
-    NO  --> Re-examine the library path. Most indexing operations are
-            well-served by the library. Only proceed to custom if
-            benchmark evidence shows the library is insufficient.
-```
-
-**When to skip the library**: the library path is insufficient when:
-- The gather/scatter must be fused with preceding or following compute to avoid an extra global-memory round-trip (e.g., gather + activation in one kernel).
-- Scatter with **conflict resolution** is needed: multiple source elements map to the same destination index and must be combined (sum, max, etc.) rather than producing undefined behavior.
-- The index pattern has exploitable locality (e.g., sorted or block-clustered indices) that a generic library implementation cannot leverage.
-- A topk operation requires a partial sort rather than a full radix sort, because the full sort is O(N) whereas a partial select can be O(N) with a smaller constant for small k.
-
----
+This decision tree covers custom-kernel implementation choices only. It starts after the task has been classified as requiring a dedicated kernel implementation.
 
 ## Step 1 -- Choose the custom kernel strategy
 
@@ -215,8 +167,9 @@ Q4d. What is the relationship between k and N?
          do a second pass to collect all elements >= pivot.
 
      k > 1024 or full sort needed -->
-         Use cub::DeviceRadixSort::SortPairs + truncate.
-         See library-fallback.md.
+         Prefer a task-approved reference baseline for correctness, then
+         implement a bounded partial-select or radix-select kernel if the
+         workload still requires a custom path.
 ```
 
 ### One-hot encoding
@@ -249,13 +202,12 @@ After the basic custom kernel is working and correct, apply optimization skills 
 
 4. **Atomic reduction** (wiki/nvidia/foundations/sync/memory-ordering/) -- required for scatter-add / scatter-max where multiple threads write to the same destination index.
 
-After each skill application, re-benchmark against the baseline (torch.<op> or thrust equivalent) and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
+After each skill application, re-benchmark against the task-provided baseline and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
 
 ---
 
 ## Cross-references
 
-- **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
 - **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

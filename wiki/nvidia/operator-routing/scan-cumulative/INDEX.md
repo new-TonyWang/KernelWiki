@@ -50,57 +50,15 @@ tags:
 ---
 # Scan (Cumulative) Pattern -- Decision Tree
 
-This document guides the kernel-writing agent through a scan (prefix sum / cumulative sum) task from initial problem statement to a working, optimized kernel. The decision tree enforces a **library-first** policy: only proceed to a custom kernel when the library path has been proven insufficient.
+This document guides the kernel-writing agent through a scan (prefix sum / cumulative sum) task from a custom-kernel requirement to a working, optimized kernel.
 
 Scan operators covered: inclusive scan, exclusive scan, cumulative sum (cumsum), prefix sum, prefix max/min, and segmented variants.
 
 Key distinction from reduction: a scan produces an output element for every input element (output length == input length), whereas a reduction collapses the input to a single value (or one value per reduction axis).
 
-## Step 0 -- Try the library first
+## Scope
 
-Before writing any custom CUDA code, check whether a production-quality library already handles the scan.
-
-```
-Q0. Is the caller's environment PyTorch-based?
-    YES --> Can torch.cumsum (or torch.cumprod / torch.cummax / torch.cummin)
-            handle the shape + dtype + axis?
-            YES --> Use the PyTorch op. DONE.
-            NO  --> Continue to Q1.
-    NO  --> Continue to Q1.
-
-Q1. Is the scan a flat (1-D) or axis-aligned scan over a contiguous
-    buffer with a standard operator (sum, max, min)?
-    YES --> Use cub::DeviceScan::InclusiveSum / ExclusiveSum (for sum)
-            or cub::DeviceScan::InclusiveScan / ExclusiveScan (for
-            custom ops such as max, min).
-            See library-fallback.md for API details and usage examples.
-            DONE.
-    NO  --> Continue to Q2.
-
-Q2. Is the scan a simple prefix fold with a custom binary operator
-    over a flat, contiguous range?
-    YES --> Use cub::DeviceScan::InclusiveScan / ExclusiveScan with a
-            user-defined functor, or thrust::inclusive_scan /
-            thrust::exclusive_scan with a custom op.
-            See library-fallback.md. DONE.
-    NO  --> Continue to Q3.
-
-Q3. Does the library path fail to meet performance requirements after
-    benchmarking (e.g., fused scan inside a larger kernel, segmented
-    scan with non-standard segment boundaries, or measured >10%
-    overhead vs. theoretical peak)?
-    YES --> Proceed to Step 1 (custom kernel).
-    NO  --> Re-examine the library path. CUB's decoupled look-back
-            scan runs at near-memcpy speed for large N. Only proceed
-            to custom if benchmark evidence shows the library is
-            insufficient.
-```
-
-**When to skip the library**: the library path is insufficient when:
-- The scan must be **fused** with preceding or following elementwise operations to avoid an extra global-memory round-trip (e.g., a cumulative softmax where the scan feeds directly into an elementwise divide).
-- A **segmented scan** is needed and the segment boundaries do not map to CUB's DeviceSegmentedScan API (e.g., variable-length segments stored as a flag array rather than an offset array).
-- The scan is part of a larger **multi-operator pipeline** (e.g., compact/stream compaction where the scan generates scatter indices) and fusing avoids a kernel-launch boundary.
-- The measured library latency exceeds the theoretical bandwidth-bound limit by more than 10% for the given shape.
+This decision tree covers custom-kernel implementation choices only. It starts after the task has been classified as requiring a dedicated kernel implementation.
 
 ## Step 1 -- Choose the custom scan strategy
 
@@ -162,7 +120,7 @@ After the basic custom kernel is working and correct, apply optimization skills 
 
 3. **Bank-conflict avoidance** (wiki/nvidia/foundations/memory/bank-conflict/) -- if the kernel uses shared memory for inter-warp communication of warp totals, ensure the access pattern does not cause bank conflicts. The standard pattern of writing to `smem[warp_id]` is conflict-free (one thread per bank) but the subsequent read by warp 0 of all entries must also be checked.
 
-After each skill application, re-benchmark against the baseline (torch.cumsum or cub::DeviceScan) and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
+After each skill application, re-benchmark against the task-provided baseline and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
 
 ## Step 3 -- Advanced techniques
 
@@ -172,7 +130,7 @@ For large scans where each thread processes multiple elements sequentially befor
 
 ### Decoupled lookback for single-pass
 
-If the library cannot be used but single-pass performance is needed, implement the decoupled lookback protocol:
+If single-pass custom-kernel performance is needed, implement the decoupled lookback protocol:
 1. Each block atomically publishes its status: `X` (not started), `P` (partial aggregate available), `A` (full inclusive prefix available).
 2. After computing its local scan, a block lookbacks through preceding blocks, accumulating their aggregates until it finds a block with status `A`.
 3. The block then updates its own status to `A` and writes its inclusive prefix for subsequent blocks.
@@ -181,7 +139,6 @@ This is non-trivial to implement correctly. Memory ordering (`__threadfence()`, 
 
 ## Cross-references
 
-- **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
 - **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

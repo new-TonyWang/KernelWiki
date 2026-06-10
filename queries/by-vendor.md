@@ -3,7 +3,7 @@
 *Auto-generated. Do not edit.*
 
 
-## nvidia (225 pages)
+## nvidia (209 pages)
 
 
 ### algorithm (4)
@@ -129,40 +129,24 @@
 - [Migrating from wgmma to tcgen05](../wiki/nvidia/migration/wgmma-to-tcgen05.md) (`migration-wgmma-to-tcgen05`)
 - [Register Accumulators to TMEM](../wiki/nvidia/migration/register-to-tmem.md) (`migration-register-to-tmem`)
 
-### operator-routing (32)
+### operator-routing (16)
 
-- [Elementwise Library Fallback Paths](../wiki/nvidia/operator-routing/elementwise/library-fallback.md) (`routing-elementwise-library-fallback`)
 - [Elementwise Operator Pattern](../wiki/nvidia/operator-routing/elementwise/INDEX.md) (`routing-elementwise-INDEX`)
 - [Elementwise Skill Routing](../wiki/nvidia/operator-routing/elementwise/ROUTING.md) (`routing-elementwise-ROUTING`)
-- [Elementwise Task Packet Template](../wiki/nvidia/operator-routing/elementwise/TASK-PACKET.md) (`routing-elementwise-TASK-PACKET`)
 - [Indexing Pattern -- Decision Tree](../wiki/nvidia/operator-routing/indexing/INDEX.md) (`routing-indexing-INDEX`)
-- [Indexing Pattern -- Library Fallback Paths](../wiki/nvidia/operator-routing/indexing/library-fallback.md) (`routing-indexing-library-fallback`)
 - [Indexing Pattern -- Skill Routing](../wiki/nvidia/operator-routing/indexing/ROUTING.md) (`routing-indexing-ROUTING`)
-- [Indexing Pattern -- Task Packet Template](../wiki/nvidia/operator-routing/indexing/TASK-PACKET.md) (`routing-indexing-TASK-PACKET`)
 - [Normalization Pattern -- Decision Tree](../wiki/nvidia/operator-routing/normalization/INDEX.md) (`routing-normalization-INDEX`)
-- [Normalization Pattern -- Library Fallback Paths](../wiki/nvidia/operator-routing/normalization/library-fallback.md) (`routing-normalization-library-fallback`)
 - [Normalization Pattern -- Skill Routing](../wiki/nvidia/operator-routing/normalization/ROUTING.md) (`routing-normalization-ROUTING`)
-- [Normalization Pattern -- Task Packet Template](../wiki/nvidia/operator-routing/normalization/TASK-PACKET.md) (`routing-normalization-TASK-PACKET`)
 - [Pooling Pattern -- Decision Tree](../wiki/nvidia/operator-routing/pooling/INDEX.md) (`routing-pooling-INDEX`)
-- [Pooling Pattern -- Library Fallback Paths](../wiki/nvidia/operator-routing/pooling/library-fallback.md) (`routing-pooling-library-fallback`)
 - [Pooling Pattern -- Skill Routing](../wiki/nvidia/operator-routing/pooling/ROUTING.md) (`routing-pooling-ROUTING`)
-- [Pooling Pattern -- Task Packet Template](../wiki/nvidia/operator-routing/pooling/TASK-PACKET.md) (`routing-pooling-TASK-PACKET`)
 - [Reduction Pattern -- Decision Tree](../wiki/nvidia/operator-routing/reduction/INDEX.md) (`routing-reduction-INDEX`)
-- [Reduction Pattern -- Library Fallback Paths](../wiki/nvidia/operator-routing/reduction/library-fallback.md) (`routing-reduction-library-fallback`)
 - [Reduction Pattern -- Skill Routing](../wiki/nvidia/operator-routing/reduction/ROUTING.md) (`routing-reduction-ROUTING`)
-- [Reduction Pattern -- Task Packet Template](../wiki/nvidia/operator-routing/reduction/TASK-PACKET.md) (`routing-reduction-TASK-PACKET`)
 - [Scan (Cumulative) Pattern -- Decision Tree](../wiki/nvidia/operator-routing/scan-cumulative/INDEX.md) (`routing-scan-cumulative-INDEX`)
-- [Scan (Cumulative) Pattern -- Library Fallback Paths](../wiki/nvidia/operator-routing/scan-cumulative/library-fallback.md) (`routing-scan-cumulative-library-fallback`)
 - [Scan (Cumulative) Pattern -- Skill Routing](../wiki/nvidia/operator-routing/scan-cumulative/ROUTING.md) (`routing-scan-cumulative-ROUTING`)
-- [Scan (Cumulative) Pattern -- Task Packet Template](../wiki/nvidia/operator-routing/scan-cumulative/TASK-PACKET.md) (`routing-scan-cumulative-TASK-PACKET`)
 - [Tensor-core GEMM Pattern -- Decision Tree](../wiki/nvidia/operator-routing/gemm/INDEX.md) (`routing-gemm-INDEX`)
-- [Tensor-core GEMM Pattern -- Library Fallback Paths](../wiki/nvidia/operator-routing/gemm/library-fallback.md) (`routing-gemm-library-fallback`)
 - [Tensor-core GEMM Pattern -- Skill Routing](../wiki/nvidia/operator-routing/gemm/ROUTING.md) (`routing-gemm-ROUTING`)
-- [Tensor-core GEMM Pattern -- Task Packet Template](../wiki/nvidia/operator-routing/gemm/TASK-PACKET.md) (`routing-gemm-TASK-PACKET`)
 - [Transpose Pattern -- Decision Tree](../wiki/nvidia/operator-routing/transpose/INDEX.md) (`routing-transpose-INDEX`)
-- [Transpose Pattern -- Library Fallback Paths](../wiki/nvidia/operator-routing/transpose/library-fallback.md) (`routing-transpose-library-fallback`)
 - [Transpose Pattern -- Skill Routing](../wiki/nvidia/operator-routing/transpose/ROUTING.md) (`routing-transpose-ROUTING`)
-- [Transpose Pattern -- Task Packet Template](../wiki/nvidia/operator-routing/transpose/TASK-PACKET.md) (`routing-transpose-TASK-PACKET`)
 
 ### pattern (7)
 

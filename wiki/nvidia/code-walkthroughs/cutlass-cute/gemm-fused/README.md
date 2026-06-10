@@ -47,9 +47,9 @@ This directory is the **distilled-knowledge view**. No buildable code lives here
 
 ## When to use
 
-Whenever the GEMM is followed (or preceded) by an elementwise / reduction operation that the cuBLASLt epilogue catalogue does **not** cover. Typical examples: custom quantize/dequantize scales, EVT topK+softmax, output-stride / swizzle absorption, mixed-dtype prologue dequant.
+Whenever the GEMM is followed (or preceded) by an elementwise / reduction operation that must be implemented inside the custom kernel. Typical examples: custom quantize/dequantize scales, EVT topK+softmax, output-stride / swizzle absorption, mixed-dtype prologue dequant.
 
-For epilogues that *are* in cuBLASLt's catalogue (`CUBLASLT_EPILOGUE_BIAS / RELU / GELU / DRELU_BGRAD / ...`) library-first is the default — see `wiki/nvidia/operator-routing/tensor-core/gemm/library-fallback.md`.
+This walkthrough now focuses on cases where the fused epilogue/prologue must be implemented inside the custom kernel.
 
 ## Fusion pattern landscape
 
@@ -72,4 +72,4 @@ For epilogues that *are* in cuBLASLt's catalogue (`CUBLASLT_EPILOGUE_BIAS / RELU
 - Skill: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md`
 - Pitfalls: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/pitfalls.md`
 - ReLU fusion probe: `sources/experience/api-probes/gemm.md`
-- Library-first decision: `wiki/nvidia/operator-routing/tensor-core/gemm/library-fallback.md` §3 cuBLASLt
+- Custom-kernel decision tree: `wiki/nvidia/operator-routing/gemm/INDEX.md`

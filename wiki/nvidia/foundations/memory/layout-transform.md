@@ -29,7 +29,6 @@ related_apis:
 - cudaMallocPitch
 - cudaMemcpy2D
 - cudaMalloc3D
-- cublasLtMatrixTransform
 - prmt.b32
 - cp.async.bulk.tensor
 related_skills:

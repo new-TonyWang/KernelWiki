@@ -36,7 +36,7 @@ When the "without strategy" anchor is at a different problem size than the "with
 
 ## 3. Direct same-input numeric comparison vs analytic surrogate
 
-When verifying the extracted skill's correctness, prefer a direct same-A-and-B comparison against a reference implementation (e.g. `cublasGemmEx` for GEMM) over an analytic surrogate (e.g. "the all-ones input gives `C[0] = K`"). The analytic surrogate misses any per-element bug that happens not to affect `C[0]`. The aligned-GEMM landing in this KB uses `gemm_compare.cu` for exactly this reason.
+When verifying the extracted skill's correctness, prefer a direct same-A-and-B comparison against a reference implementation (e.g. `reference_gemm` for GEMM) over an analytic surrogate (e.g. "the all-ones input gives `C[0] = K`"). The analytic surrogate misses any per-element bug that happens not to affect `C[0]`. The aligned-GEMM landing in this KB uses `gemm_compare.cu` for exactly this reason.
 
 ## 4. Source-corpus backlinks are a hard requirement, not a nice-to-have
 

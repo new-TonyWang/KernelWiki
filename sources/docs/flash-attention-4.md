@@ -29,5 +29,5 @@ FlashAttention-4 paper — algorithm-kernel co-design for Blackwell's asymmetric
 
 ## Performance
 - Up to 1605 TFLOPS on B200 BF16 (71% utilization)
-- 1.1-1.3x over cuDNN 9.13
+- 1.1-1.3x over reference_nn_api 9.13
 - 2.1-2.7x over Triton

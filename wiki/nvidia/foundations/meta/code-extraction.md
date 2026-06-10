@@ -172,7 +172,7 @@ For every skill landed in steps 2-4: build the code anchor on the target hardwar
 1. `evidence_level: measured` is set (with `measured_on`, `cuda_version_tested`, `toolchain`, `driver_version_tested` populated).
 2. The experience record's `verdict` is `verified`.
 3. At least one source backlink to `corpus/nvidia/blogs/colfax/...` (or equivalent third-party walkthrough) is present.
-4. The numeric correctness gate is the strongest available — direct same-input comparison against a reference (e.g. cuBLAS for GEMM), not an analytic surrogate.
+4. The numeric correctness gate is the strongest available — direct same-input comparison against a reference (e.g. reference GEMM for GEMM), not an analytic surrogate.
 
 ### Step 6: Cross-reference
 
@@ -188,7 +188,7 @@ The procedure was applied end-to-end against `cutlass@f74fea9c` on H200-SXM (cud
 | Step 2 (wgmma hw-feature scan) | `wiki/nvidia/hardware/wgmma/skill.md` | verified | M64xN{64,128,256}xK8 atom-shape sweep |
 | Step 3 (warp-spec algo extraction) | `wiki/nvidia/techniques/warp-specialization.md` | verified | TMA-only 178.9 → plain WS 195.4 TFLOPS = +9.2% |
 | Step 3 (persistent-kernel algo extraction) | `wiki/nvidia/techniques/persistent-kernels.md` | verified | pingpong 193.8 / cooperative 186.9 / plain WS 195.4 TFLOPS at 2048³ |
-| Step 4 (aligned GEMM operator) | `wiki/nvidia/foundations/compute/gemm.md` | verified | 512³ 21.7, 2048³ 188.7, 8192³ 292.7 TFLOPS, max_abs=0 vs cuBLAS |
+| Step 4 (aligned GEMM operator) | `wiki/nvidia/foundations/compute/gemm.md` | verified | 512³ 21.7, 2048³ 188.7, 8192³ 292.7 TFLOPS, max_abs=0 vs reference GEMM |
 | Step 4 (non-aligned-tail operator) | `wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md` | partial | 80³, 200³, 1440³ all max_abs=0; A/B is documented proxy |
 | Step 4 (fused GEMM operator) | `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md` | **partial** (prologue half unimplemented; the `2026-04-28-gemm-fused.md` epilogue probe itself is independently verified with a fused-vs-fused-reference correctness gate at 2048³, fused 86.83 vs non-fused 100.21 μs = ~13% savings, 40% less DRAM traffic) |
 
@@ -208,7 +208,7 @@ The procedure above was applied to cutlass `f74fea9c` on H200-SXM. Each step lan
 | 3 (persistent kernel) | persistent-kernel classical-algo skill + pingpong-vs-cooperative A/B at 2048³ | `wiki/nvidia/techniques/persistent-kernel/`, `wiki/nvidia/code-walkthroughs/cutlass-cute/persistent-kernel/`, `sources/experience/api-probes/gemm.md` |
 | 4 (fused) | fused-GEMM (skill partial; prologue not yet implemented) | `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/` (status: partial), `wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-fused/`, `sources/experience/api-probes/gemm.md` (probe is epilogue-scoped and independently verified) |
 
-Each landing follows the canonical artifact-bundle layout (cf. `artifacts/experience/hw-probes/warp-divergence-cost/` reference); the cutlass-vs-cuBLAS direct-comparator harness (`artifacts/experience/api-probes/gemm/gemm_compare.cu`) is the numeric-correctness gate for the aligned, non-aligned-tail, and warp-spec/persistent-kernel skills.
+Each landing follows the canonical artifact-bundle layout (cf. `artifacts/experience/hw-probes/warp-divergence-cost/` reference); the cutlass-vs-reference GEMM direct-comparator harness (`artifacts/experience/api-probes/gemm/gemm_compare.cu`) is the numeric-correctness gate for the aligned, non-aligned-tail, and warp-spec/persistent-kernel skills.
 
 ## Non-coverage (explicit)
 

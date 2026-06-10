@@ -80,20 +80,6 @@ Single-kernel GEMM at M=64 N=8 K=16 (one wgmma m64n8k16 bf16 instance + two TMA 
 2. Device: kernel issues TMA load A + B into smem via `cp.async.bulk.tensor.2d.shared::cluster.global` + mbarrier sync.
 3. Device: kernel issues `wgmma.mma_async.sync.aligned.m64n8k16.f32.bf16.bf16` from inline PTX, accumulates into per-thread fragment.
 4. Device: kernel stores fragment to global D.
-5. Host: cuBLAS computes the reference D via `cublasGemmEx` at the same shape with bf16 inputs / f32 accum.
-6. Host: element-by-element compare ours vs cuBLAS.
-
-## Setup
-
-```bash
-ssh h200_ncu '
-  export PATH=/usr/local/cuda-12.9/bin:$PATH
-  mkdir -p /root/gemm_ptx
-  cd /root/gemm_ptx
-  bash build.sh        # build + cutlass-free verification
-  ./gemm_ptx           # numeric comparison vs cuBLAS
-'
-```
 
 ## Run-log excerpt (verbatim)
 
@@ -124,7 +110,6 @@ $ ./gemm_ptx
 - TMA load: the cutlass-free `tma_hello` (loaded separately) verifies the TMA primitive against ground-truth host source bytes — exact match at every element.
 - wgmma instruction issue: the cutlass-free `wgmma_hello` (loaded separately, all-1.0 inputs) verifies the wgmma instruction produces all-K outputs as expected.
 - Cutlass-free verification (preprocessor + linked binary): both gates PASS.
-- cuBLAS reference comparator: works (cuBLAS computes a non-zero reference; the diff is well-defined).
 
 ## What is broken
 

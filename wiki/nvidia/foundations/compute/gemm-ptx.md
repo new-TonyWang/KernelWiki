@@ -15,7 +15,7 @@ requires_features:
 single_kernel_useful: true
 cuda_version_tested: 12.9.86
 driver_version_tested: 570.124.06
-toolchain: nvcc 12.9 + ptxas 12.9 + libcuda + libcublas
+toolchain: nvcc 12.9 + ptxas 12.9 + libcuda + reference-gemm-lib
 measured_on: H200-SXM | sm_90a | cuda 12.9.86 | driver 570.124.06
 source:
 - path: sources/experience/api-probes/gemm-ptx.md
@@ -103,9 +103,11 @@ A minimum-viable cutlass-free GEMM kernel that composes the TMA-PTX + wgmma-PTX 
 
 ## Status
 
-**The cutlass-free verification gates PASS** (zero `cutlass::` / `cute::` symbols in both `nvcc -E` and `cuobjdump --dump-elf-symbols`). The kernel builds, runs, and produces a non-zero output that differs from cuBLAS at the same shape. The per-thread fragment-to-output mapping in the wgmma m64n8k16 store path is **not yet correct**: at M=64 N=8 K=16, 497/512 elements differ from cuBLAS.
+**Recommendation**: If you want to hand-write a PTX GEMM, first implement and validate it through CuTe / CUTLASS / CuTe DSL to confirm the layout, fragment mapping, pipeline, and numerical correctness. Drop down to raw PTX only when those paths cannot cover the target experiment or when minimizing dependencies is required.
 
-**Why partial**: Multiple coordinated layout decisions all need to be correct for a cutlass-free wgmma kernel to match cuBLAS. Two fixes are applied in code:
+**The cutlass-free verification gates PASS** (zero `cutlass::` / `cute::` symbols in both `nvcc -E` and `cuobjdump --dump-elf-symbols`). The kernel builds, runs, and produces a non-zero output that differs from reference GEMM at the same shape. The per-thread fragment-to-output mapping in the wgmma m64n8k16 store path is **not yet correct**: at M=64 N=8 K=16, 497/512 elements differ from reference GEMM.
+
+**Why partial**: Multiple coordinated layout decisions all need to be correct for a cutlass-free wgmma kernel to match reference GEMM. Two fixes are applied in code:
 
 1. **Fixed**: B's physical storage. wgmma `.SS_TN` expects B in col-major K×N. An earlier harness allocated B as row-major K×N (= N-major in storage). The current code transposes B on host so smem holds it in col-major K×N. **Done in `gemm_ptx.cu`.**
 2. **Fixed**: descriptor SBO encoding. SBO encodes the byte stride within an 8-block to skip 8 elements along the contracting dim = 8 × sizeof(elem). The current code sets SBO=16 for both A and B (was 256). **Done in `gemm_ptx.cu`.**
@@ -125,7 +127,7 @@ H200-SXM, sm_90a, cuda 12.9.86 + driver 570.124.06. Single-CTA kernel at M=64 N=
 | TMA load completes (mbarrier signals) | ✓ | verified separately by tma_hello at the same target |
 | wgmma instruction issues + completes | ✓ | verified separately by wgmma_hello with all-1.0 inputs (returns all-16.0) |
 | All 512 outputs are non-zero | ✓ | kernel produces an output, not a hang or empty result |
-| Element-by-element match against cuBLAS at the same shape | ✗ | 497/512 mismatches after the B-layout + SBO fixes. Residual error is in the per-thread fragment-store mapping (Pitfall #1). |
+| Element-by-element match against reference GEMM at the same shape | ✗ | 497/512 mismatches after the B-layout + SBO fixes. Residual error is in the per-thread fragment-store mapping (Pitfall #1). |
 
 Sample outputs:
 

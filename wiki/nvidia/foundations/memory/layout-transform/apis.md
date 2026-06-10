@@ -24,11 +24,6 @@ apis:
   namespace: cuda-runtime
   kind: host-copy
   notes: Async variant; takes a cudaStream_t.
-- func_name: cublasLtMatrixTransform
-  namespace: cublas
-  kind: library
-  signature: cublasStatus_t cublasLtMatrixTransform(cublasLtHandle_t lightHandle, cublasLtMatrixTransformDesc_t transformDesc, const void* alpha, const void* A, cublasLtMatrixLayout_t Adesc, const void* beta, const void* B, cublasLtMatrixLayout_t Bdesc, void* C, cublasLtMatrixLayout_t Cdesc, cudaStream_t stream);
-  notes: Performs C = alpha * opTrans(A) + beta * opTrans(B) with configurable row/column major, data type conversion, and stride transformation. Use for AoS ↔ packed-tile layouts that feed cuBLAS GEMM.
 - func_name: cp.async.bulk.tensor.{dim}.{dst}.{src}.{mode}
   namespace: ptx
   kind: ptx-tma
@@ -101,7 +96,6 @@ tags:
 | `cudaMallocPitch(&ptr, &pitch, widthBytes, height)` | Runtime | 2D pitched allocation (returns bytes-aligned row stride) |
 | `cudaMalloc3D(&pitchedPtr, extent)` | Runtime | 3D pitched analog |
 | `cudaMemcpy2D(dst, dpitch, src, spitch, width, height, kind)` | Runtime | Mandatory for pitched buffers |
-| `cublasLtMatrixTransform(...)` | cuBLAS | Library-level layout + dtype transform |
 | `__byte_perm(x, y, selector)` | Intrinsic | Compile-time-friendly wrapper for `prmt.b32` |
 
 ## PTX-level

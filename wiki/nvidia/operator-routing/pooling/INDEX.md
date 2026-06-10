@@ -56,46 +56,13 @@ tags:
 ---
 # Pooling Pattern -- Decision Tree
 
-This document guides the kernel-writing agent through a pooling task from initial problem statement to a working, optimized kernel. The decision tree enforces a **library-first** policy: only proceed to a custom kernel when the library path has been proven insufficient.
+This document guides the kernel-writing agent through a pooling task from a custom-kernel requirement to a working, optimized kernel.
 
 Pooling operators compute a windowed reduction over spatial dimensions of a tensor. Common variants: max-pool, avg-pool, and adaptive-pool in 1D, 2D, and 3D. The input is typically in NCHW (or NHWC) layout, and the output spatial dimensions are determined by kernel size, stride, and padding.
 
-## Step 0 -- Try the library first
+## Scope
 
-Before writing any custom CUDA code, check whether a production-quality library already handles the pooling operation.
-
-```
-Q0. Is the caller's environment PyTorch-based?
-    YES --> Can torch.nn.functional.max_pool2d / avg_pool2d /
-            adaptive_avg_pool2d / adaptive_max_pool2d handle the
-            shape + dtype + kernel_size + stride + padding?
-            YES --> Use the PyTorch op (cuDNN backend). DONE.
-            NO  --> Continue to Q1.
-    NO  --> Continue to Q1.
-
-Q1. Is the caller using CUDA C++ and can invoke cuDNN?
-    YES --> Use cudnnPoolingForward with the appropriate pooling
-            mode (CUDNN_POOLING_MAX, CUDNN_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
-            CUDNN_POOLING_AVERAGE_COUNT_EXCLUDE_PADDING).
-            cuDNN pooling is heavily optimized for standard window sizes
-            and NCHW/NHWC layouts.
-            See library-fallback.md for API details. DONE.
-    NO  --> Continue to Q2.
-
-Q2. Does the library path fail to meet performance requirements after
-    benchmarking, or does the use case require a feature the library
-    does not support?
-    YES --> Proceed to Step 1 (custom kernel).
-    NO  --> Re-examine the library path. cuDNN pooling covers the
-            vast majority of standard use cases.
-```
-
-**When to skip the library**: the library path is insufficient when:
-- The pooling must be fused with a preceding or following operation (e.g., pooling + activation, pooling + batch-norm) to avoid an extra global-memory round-trip.
-- A non-standard window shape or reduction rule is needed (e.g., weighted pooling, Lp-norm pooling, stochastic pooling).
-- An unusual padding mode is required that the library does not support (e.g., reflection padding combined with pooling).
-- The measured library latency exceeds the theoretical bandwidth-bound limit by more than 10% for the given shape.
-- The operation is a small component of a larger fused kernel that must remain in a single launch (e.g., pooling inside a custom attention block).
+This decision tree covers custom-kernel implementation choices only. It starts after the task has been classified as requiring a dedicated kernel implementation.
 
 ## Step 1 -- Choose the custom pooling strategy
 
@@ -147,7 +114,7 @@ After the basic custom kernel is working and correct, apply optimization skills 
 
 4. **Instruction-level parallelism** (wiki/nvidia/foundations/compute/ilp/) -- within the pooling window loop, unrolling with `#pragma unroll` exposes independent loads and comparisons to the instruction scheduler. Most beneficial for larger window sizes (5x5, 7x7).
 
-After each skill application, re-benchmark against the baseline (torch.nn.functional.max_pool2d / avg_pool2d or cuDNN) and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
+After each skill application, re-benchmark against the task-provided baseline and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
 
 ## Step 3 -- Shared memory tiling for large windows
 
@@ -172,7 +139,6 @@ This approach trades shared memory capacity for reduced global memory traffic. T
 
 ## Cross-references
 
-- **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
 - **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

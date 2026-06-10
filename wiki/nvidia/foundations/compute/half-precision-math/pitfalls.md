@@ -116,10 +116,10 @@ Pitfalls group: P1–P6 are numerical-format and availability facts grounded in 
 **Status**: Not re-measured on H200 sm_9.0a. Follow-up probe (open).
 **Source**: Documented architectural constraint that native half-precision atomics share a lower-throughput atomic pipe vs fp32; exact H200 ratio unmeasured by the half2-throughput probe.
 
-## P13. PyTorch extension build disables half operators
+## P13. the external framework extension build disables half operators
 
-**Symptom**: Compile errors like `no operator ">" matches these operands` or `no suitable constructor from "float" to "__half"` when using `__half` in CUDA kernels built via `torch.utils.cpp_extension`.
-**Root cause**: PyTorch's extension build adds
+**Symptom**: Compile errors like `no operator ">" matches these operands` or `no suitable constructor from "float" to "__half"` when using `__half` in CUDA kernels built via `framework extension build`.
+**Root cause**: Framework extension build adds
 - `-D__CUDA_NO_HALF_OPERATORS__` — disables `__half + __half`, `__half > __half`, etc.
 - `-D__CUDA_NO_HALF_CONVERSIONS__` — disables implicit `float` → `__half`.
 - `-D__CUDA_NO_HALF2_OPERATORS__` — disables `__half2` arithmetic operators.
@@ -134,7 +134,7 @@ __half h = __float2half_rn(3.14f);
 ```
 
 For `__half2` use `__hadd2`, `__hmul2`, `__hfma2`. Always `#include <cuda_fp16.h>`. Do **not** use `__half` types in `.cpp` files — keep them strictly in `.cu` sources compiled by nvcc.
-**Source**: PyTorch `torch.utils.cpp_extension` build flags (external framework constraint, not H200-specific).
+**Source**: Framework extension build build flags (external framework constraint, not H200-specific).
 
 ## P14. `__hfma2` is 1.16× scalar `__hfma` on H200, not 2× (measured)
 

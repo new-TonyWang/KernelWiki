@@ -67,28 +67,11 @@ The kernel shape is always *one logical thread per element* (or per vector of el
 ## Decision tree
 
 ```
-Step 0  Can a library / framework handle this?
+Step 0  Confirm this is a custom elementwise-kernel task.
  |
- +---> Q0a. Is the operation a single built-in torch op?
- |       (torch.add, torch.mul, torch.relu, torch.sigmoid, ...)
- |       YES --> Use it.  PyTorch's ATen kernels are already fused
- |               and vectorized for contiguous tensors.  STOP.
- |       NO  --> Q0b.
+ |  - Requirements include a custom layout, fusion pattern, or measured gap.
+ |  - The remaining tree selects dtype, thread mapping, and optimization skills.
  |
- +---> Q0b. Is this a short chain of ops that torch.compile can fuse?
- |       (e.g., x * scale + bias, followed by gelu)
- |       YES --> Wrap in a function, call torch.compile().
- |               The Triton codegen in torch.compile fuses
- |               elementwise chains into a single kernel
- |               automatically.  STOP.
- |       NO  --> Q0c.
- |
- +---> Q0c. Can thrust::transform express the operation?
- |       (simple unary or binary functor on device_vector)
- |       YES --> Use thrust::transform for a quick C++ prototype.
- |               Thrust generates a reasonably efficient kernel
- |               under the hood.  STOP.
- |       NO  --> Go to Step 1 (custom kernel).
 
 Step 1  Write a custom elementwise kernel.
  |
@@ -189,23 +172,6 @@ Step 2  Optimize via skills from ROUTING.md.
         For a well-optimized elementwise kernel on H200, expect
         to reach 80-95% of peak memory bandwidth (~3.35 TB/s HBM3e).
 ```
-
----
-
-## Why library-first?
-
-Writing a custom CUDA kernel for elementwise operations is almost never necessary when working from Python:
-
-1. **PyTorch built-in ops** (torch.add, torch.relu, etc.) use ATen kernels that are already vectorized and coalesced for contiguous tensors. They match or approach peak bandwidth.
-
-2. **torch.compile** fuses short chains of pointwise ops into a single Triton kernel, eliminating intermediate materializations. This is the recommended path for fused elementwise chains like `gelu(x * W + b)`.
-
-3. **thrust::transform** covers the C++ prototyping case -- the user provides a functor, and Thrust handles grid sizing and memory management.
-
-A custom kernel is justified only when:
-- The fusion pattern is not expressible by torch.compile (rare for pure elementwise).
-- The operation requires a custom data layout or in-place update that the library does not support.
-- Profiling shows the library version is measurably slower (e.g., non-contiguous tensors causing uncoalesced access in the ATen path).
 
 ---
 

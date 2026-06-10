@@ -76,47 +76,11 @@ tags:
 ---
 # Tensor-core GEMM Pattern -- Decision Tree
 
-This document guides the kernel-writing agent through a Hopper tensor-core GEMM task. The decision tree enforces a **library-first** policy and only proceeds to a custom kernel when measurement shows the library path is insufficient. Within "custom", a second tree picks between the cutlass-API track (`wiki/nvidia/foundations/compute/gemm/aligned`) and the cutlass-free PTX track (`wiki/nvidia/foundations/compute/gemm-ptx`).
+This document guides the kernel-writing agent through a Hopper tensor-core GEMM task that requires a dedicated kernel implementation. It picks between the cutlass-API track (`wiki/nvidia/foundations/compute/gemm/aligned`) and the cutlass-free PTX track (`wiki/nvidia/foundations/compute/gemm-ptx`).
 
-## Step 0 -- Try the library first
+## Scope
 
-Before writing any custom CUDA / inline-PTX code, check the production paths.
-
-```
-Q0. Is the caller's environment PyTorch-based AND the GEMM is a standard
-    matmul (no fused epilogue beyond bias/relu/gelu)?
-    YES --> Use torch.matmul / torch.mm / torch.nn.functional.linear.
-            Backend dispatch (cuBLAS / cuBLASLt / cutlass) is automatic.
-            DONE.
-    NO  --> Continue to Q1.
-
-Q1. Is the GEMM a plain D = alpha * A @ B + beta * C with A/B in a dtype
-    cuBLAS supports (fp32, fp16, bf16, tf32, fp8, int8) and standard
-    row/col-major layout?
-    YES --> Use cublasGemmEx / cublasLtMatmul.
-            See library-fallback.md.  DONE.
-    NO  --> Continue to Q2.
-
-Q2. Does the GEMM need a fused epilogue (bias-add + activation + scale +
-    optional D-write) with a layout that cuBLASLt's epilogue catalogue
-    covers (CUBLASLT_EPILOGUE_BIAS / RELU / GELU / DRELU_BGRAD / etc.)?
-    YES --> Use cublasLtMatmul with the matching CUBLASLT_EPILOGUE_*.
-            DONE.
-    NO  --> Continue to Q3.
-
-Q3. Does the library path fail to meet performance / fusion / dtype
-    requirements after benchmarking on the target shape?
-    YES --> Proceed to Step 1 (custom kernel selection).
-    NO  --> Re-examine the library path. Most production GEMMs are
-            well-served by cuBLASLt. Only proceed when measurement
-            shows the gap is not closeable by tuning the library call.
-```
-
-**When to skip the library**: the library path is insufficient when:
-- The fused epilogue is not in the cuBLASLt catalogue (e.g. fused softmax, fused per-row reduction, custom quantization scale / dequant pattern).
-- The dtype combo is not supported (e.g. mxfp8 / nvfp4 with custom scale layout that pre-dates cuBLASLt support on the target driver).
-- The kernel must compose with a non-GEMM mainloop (e.g. attention's QK^T followed by softmax followed by PV with shared smem stages).
-- The measured cuBLASLt latency exceeds the wgmma-issue floor by more than ~10% at the target shape, leaving room for a hand-tuned schedule.
+This decision tree covers custom-kernel implementation choices only. It starts after the task has been classified as requiring a dedicated kernel implementation.
 
 ## Step 1 -- Choose the custom track
 
@@ -178,18 +142,17 @@ The minimum-viable variant is **plain WS**. The cutlass-free working artifact in
 
 ## Step 3 -- Optimization via ROUTING.md skills
 
-After the basic kernel is correct (cutlass-free preprocessor + linked-binary gate, OR cuBLAS numeric gate), apply the optimization skills from `ROUTING.md` in priority order. The hot levers for tensor-core GEMM are:
+After the basic kernel is correct (cutlass-free preprocessor + linked-binary gate, OR task numeric gate), apply the optimization skills from `ROUTING.md` in priority order. The hot levers for tensor-core GEMM are:
 
 1. **TMA pipeline depth** -- producer's stage count. 2 is the minimum that overlaps; 3-4 the H200 sweet spot; >4 rarely justified.
 2. **Multi-warpgroup consumers** -- pingpong / cooperative variants for problems that amortize their setup.
 3. **Cluster-multicast TMA** -- cooperative-only; broadcasts one TMA load to two CTAs.
 4. **Persistent kernel scheduling** -- pair with pingpong / cooperative; one CTA processes many output tiles serially, hiding launch overhead.
 
-After each optimization, re-benchmark against `baseline` (cuBLASLt at the same shape) and follow the bottleneck triage in `reasoning/bottleneck-triage.md`.
+After each optimization, re-benchmark against the task-provided baseline and follow the bottleneck triage in `reasoning/bottleneck-triage.md`.
 
 ## Cross-references
 
-- **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
 - **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

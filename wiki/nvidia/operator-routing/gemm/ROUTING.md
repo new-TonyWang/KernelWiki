@@ -107,7 +107,7 @@ Each entry below marks which track(s) it applies to. Track-agnostic skills (most
 - **Why it matters for GEMM**: composes skill 6 (`tma-ptx`) and skill 7 (`wgmma-ptx`) into a single GEMM kernel that contains zero `cutlass::` / `cute::` symbols. Verified by `nvcc -E | grep` and `cuobjdump --dump-elf-symbols | grep`. The single-tile starting point for the cutlass-free track; the warp-specialized extension lives at `sources/experience/kernel-records/2026-04-29-gemm-ws-ptx/`.
 - **When to apply**: cutlass-free track only. Required when the project cannot accept cutlass as a build-time or link-time dependency.
 - **Tracks**: cutlass-free.
-- **Status as of writing**: structural cutlass-free gates pass (0 `cutlass::` / `cute::` symbols); numeric correctness vs cuBLAS at the smallest shape has a residual 497-501 / 512 mismatches traced to the per-thread fragment-store mapping (skill's `pitfalls.md` #1). The WS extension inherits the same residual.
+- **Status as of writing**: structural cutlass-free gates pass (0 `cutlass::` / `cute::` symbols); numeric correctness against the task reference at the smallest shape has a residual 497-501 / 512 mismatches traced to the per-thread fragment-store mapping (skill's `pitfalls.md` #1). The WS extension inherits the same residual.
 - **Relevance to bottleneck triage**: not a triage-driven skill; this is the *baseline* the triage tree's cutlass-free branch returns to first.
 
 ### 6. TMA producer (primary)
@@ -145,8 +145,8 @@ Each entry below marks which track(s) it applies to. Track-agnostic skills (most
 ### 8. Fused epilogue / prologue (secondary, cutlass-API)
 
 - **Skill path**: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/`
-- **Why it matters for GEMM**: extends the cutlass GEMM with a custom epilogue (e.g. fused activation, scale, quantize) or prologue (e.g. dequantize from a scaled buffer) when the cuBLASLt epilogue catalogue does not cover the pattern. Avoids the global-memory round-trip of a separate post-GEMM kernel.
-- **When to apply**: cutlass-API GEMM where the fused pattern is outside cuBLASLt's `CUBLASLT_EPILOGUE_*` set. Library-first (`INDEX.md` Step 0 Q2) is checked before reaching this skill.
+- **Why it matters for GEMM**: extends the cutlass GEMM with a custom epilogue (e.g. fused activation, scale, quantize) or prologue (e.g. dequantize from a scaled buffer) when the required epilogue/prologue fusion is outside the preselected implementation track. Avoids the global-memory round-trip of a separate post-GEMM kernel.
+- **When to apply**: cutlass-API GEMM where the fused pattern must be implemented inside the custom epilogue/prologue.
 - **Tracks**: cutlass-API.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` -- "Post-GEMM elementwise kernel re-reads D from DRAM."
 

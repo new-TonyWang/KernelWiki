@@ -63,7 +63,7 @@ This file lists the optimization skills applicable to a custom indexing kernel, 
   - **Non-128-B-aligned 2-D source**: apply S2 (`cudaMallocPitch`) before the gather kernel — otherwise the first-column coalescing penalty stacks on top of the random-index penalty.
 - **Specific guidance for indexing**:
   - Gather with sorted indices (Q4a YES branch in `INDEX.md`) benefits most from SoA because the L2 locality increase on the stride-1 SoA layout compounds with the sorted-index L2 hit rate gain.
-  - For `torch.embedding` / embedding-lookup style kernels where the inner dim is already stride-1, layout transform is not needed — the gather already reaches HBM peak on coalesced load-slice.
+  - For embedding-lookup style kernels where the inner dim is already stride-1, layout transform is not needed — the gather already reaches HBM peak on coalesced load-slice.
 - **Measured on H200**: AoS-one-field gather is ~2× slower than SoA even with stride-1 access patterns; on random-index gather the penalty compounds. See `sources/experience/hw-probes/aos-vs-soa/`.
 - **Relevance to bottleneck triage**: Q4 in `reasoning/bottleneck-triage.md` — "Struct-shaped source amplifies the random-access penalty."
 
@@ -91,7 +91,7 @@ This file lists the optimization skills applicable to a custom indexing kernel, 
 - **Skill path**: `wiki/nvidia/foundations/compute/warp-divergence/`
 - **Why it matters for indexing**: gather with a validity mask (`if (mask[i]) dst[i] = src[idx[i]]`) and scatter-with-predicate are natural divergence sources — adjacent lanes have independent mask values. If the gather/scatter body is longer than nvcc's predication threshold (function call, nested indexing expression), the branch becomes a real serialization. Measured on H200 (compute-bound proxy): divergent-branch kernel is **1.82× slower** than the uniform-warp baseline at any p ∈ (0, 1).
 - **When to apply**:
-  - Collapse masked reads into `dst[i] = mask[i] ? src[idx[i]] : fallback` (single selp, no branch). For writes, prefer `dst[i] = mask[i] ? new : dst[i]` over a guarded `if (mask[i]) dst[i] = new;`.
+  - Collapse masked reads into `dst[i] = mask[i] ? src[idx[i]] : default_value` (single selp, no branch). For writes, prefer `dst[i] = mask[i] ? new : dst[i]` over a guarded `if (mask[i]) dst[i] = new;`.
   - For very skewed mask distributions (most lanes inactive), use `__any_sync(0xFFFFFFFFu, mask[i])` to early-exit entire inactive warps (S3 in the skill).
   - For mask-with-reorder (compact active indices into a dense prefix then gather), fall through to the skill's S4 data-compaction guidance — note pitfall P8: compaction overhead can exceed the divergence it was meant to fix.
 - **When NOT to apply**: gathers with random-access patterns already dominated by L2 miss latency are typically memory-bound — divergence cost is invisible, and code churn to predicate doesn't move wall-clock.
@@ -176,7 +176,7 @@ This file lists the optimization skills applicable to a custom indexing kernel, 
 - **Why it matters for indexing**: indexing kernels frequently have predicates — validity masks (`if (mask[i]) dst[i] = src[idx[i]]`), scatter-with-guard (`if (keep[i]) dst[idx[i]] = val[i]`), conditional bounds (`idx = max(0, min(idx, N-1))`). On H200 sm_9.0a, the simple-body forms of these predicates compile to `FSEL` (branchless SASS) automatically; the measurable wins come from using single-op intrinsics (`fmaxf` / `fabsf` / `fminf`) where they apply.
 - **When to apply**:
   - **Bounds clamping** on indices: `idx = min(max(idx, 0), N-1)` compiles to two `IMNMX` (integer min/max) — single-op per clamp. Prefer this over branchful bounds checks.
-  - **Masked load-with-fallback**: `dst[i] = mask[i] ? src[idx[i]] : fallback;` emits one FSEL; **do not** rewrite as `dst[i] = src[idx[i]] * mask[i] + fallback * (1 - mask[i])` which emits 4 FP ops and is 1.27× slower (measured branchless-patterns probe's cond-arith variant).
+  - **Masked load-with-default_value**: `dst[i] = mask[i] ? src[idx[i]] : default_value;` emits one FSEL; **do not** rewrite as `dst[i] = src[idx[i]] * mask[i] + default_value * (1 - mask[i])` which emits 4 FP ops and is 1.27× slower (measured branchless-patterns probe's cond-arith variant).
   - **Conditional scatter-add**: use `if (mask[i]) atomicAdd(&dst[idx[i]], v)` directly — the compiler preserves the predicate on the atomic. Rewriting the atomic value as `mask[i] * v` to "always atomic-add" is incorrect on its face (adds zero noisily) and adds ops.
 - **When NOT to apply**:
   - Do not rewrite gather-with-mask as arithmetic; the measured 1.27× slowdown from cond-arith pattern applies here too.

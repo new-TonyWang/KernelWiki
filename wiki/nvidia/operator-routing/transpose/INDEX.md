@@ -63,48 +63,9 @@ This document guides the kernel-writing agent through a transpose task from init
 
 ---
 
-## Step 0 -- Try the library first
+## Scope
 
-```
-Q0. Is the caller's environment PyTorch-based?
-    YES --> Can one of the following handle the shape + dtype?
-            - tensor.transpose(dim0, dim1)      # swap two dims
-            - tensor.permute(dims)               # general N-D permute
-            - tensor.T                            # 2-D convenience
-            - tensor.contiguous()                 # force materialization
-            YES --> Use PyTorch op. DONE.
-            NO  --> Continue to Q1.
-    NO  --> Continue to Q1.
-
-Q1. Is this a 2-D matrix transpose with dim0↔dim1 swap, standard dtype
-    (fp32/fp16/bf16), and the matrix fits in device memory?
-    YES --> Is the data going to feed cuBLAS / cuBLASLt / CUTLASS next?
-            YES --> Use cublasLtMatrixTransform. DONE.
-            NO  --> Proceed to Q2.
-    NO  --> Continue to Q3.
-
-Q2. For library-GEMM downstream: does cublasLtMatrix{Transform,Layout}
-    accept the needed (order, stride, dtype) tuple?
-    YES --> Use cublasLtMatrixTransform. See library-fallback.md. DONE.
-    NO  --> Continue to Q3.
-
-Q3. Is this an AoS → SoA split (struct-of-fields → array-per-field)?
-    YES --> This is a layout transform, not a transpose. Follow
-            wiki/nvidia/foundations/memory/layout-transform/skill.md S1; the kernel
-            is a one-pass conversion, not a smem-tiled transpose.
-    NO  --> Continue to Q4.
-
-Q4. Does library performance fall >10% below a bandwidth-bound
-    theoretical limit for your shape, OR does the transpose need to
-    fuse with a neighboring op to avoid an extra gmem round-trip?
-    YES --> Proceed to Step 1 (custom kernel).
-    NO  --> Stay with the library path. Most transposes are
-            well-served by torch.permute + cublasLtMatrixTransform.
-```
-
-**When to skip the library**: custom is justified when (a) the transpose fuses with surrounding compute (e.g. transpose + elementwise in one kernel), (b) the shape regime is too small for the library to amortize its own launch overhead, or (c) an unusual dtype / layout (packed int8 / packed fp8 / strided views) is not supported by the library.
-
----
+This decision tree covers custom-kernel implementation choices only. It starts after the task has been classified as requiring a dedicated kernel implementation.
 
 ## Step 1 -- Choose the custom kernel strategy
 
@@ -203,13 +164,12 @@ After the basic custom kernel is working and correct, apply optimization skills 
 4. **Vectorized access** (`wiki/nvidia/foundations/memory/vectorized-access/`) — when the tile element is float or fp16, wider loads (float4 / bfloat162) reduce instruction count. Applies most to Q5a's large-shape regime.
 5. **Coalescing** (`wiki/nvidia/foundations/memory/coalescing/`) — sanity-check that both the smem-load and smem-store sides of the transpose are stride-1 on global memory.
 
-After each skill application, re-benchmark against the baseline (`torch.permute` / `cublasLtMatrixTransform`) and follow the bottleneck-triage procedure in `reasoning/bottleneck-triage.md`.
+After each skill application, re-benchmark against the task-provided baseline and follow the bottleneck-triage procedure in `reasoning/bottleneck-triage.md`.
 
 ---
 
 ## Cross-references
 
-- **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
 - **Central mechanism**: `wiki/nvidia/foundations/memory/shared-memory-cache/`

@@ -44,48 +44,11 @@ tags:
 ---
 # Reduction Pattern -- Decision Tree
 
-This document guides the kernel-writing agent through a reduction task from initial problem statement to a working, optimized kernel. The decision tree enforces a **library-first** policy: only proceed to a custom kernel when the library path has been proven insufficient.
+This document guides the kernel-writing agent through a reduction task from a custom-kernel requirement to a working, optimized kernel.
 
-## Step 0 -- Try the library first
+## Scope
 
-Before writing any custom CUDA code, check whether a production-quality library already handles the reduction.
-
-```
-Q0. Is the caller's environment PyTorch-based?
-    YES --> Can torch.sum / torch.mean / torch.max / torch.min /
-            torch.argmax / torch.argmin handle the shape + dtype + axis?
-            YES --> Use the PyTorch op. DONE.
-            NO  --> Continue to Q1.
-    NO  --> Continue to Q1.
-
-Q1. Is the reduction a flat (1-D) or axis-aligned reduction over a
-    contiguous buffer with a standard operator (sum, min, max, argmin, argmax)?
-    YES --> Use cub::DeviceReduce::Sum / Min / Max / ArgMin / ArgMax.
-            See library-fallback.md for API details and usage examples.
-            DONE.
-    NO  --> Continue to Q2.
-
-Q2. Is the reduction a simple fold with a custom binary operator over a
-    flat, contiguous range?
-    YES --> Use cub::DeviceReduce::Reduce with a user-defined functor,
-            or thrust::reduce with a custom op.
-            See library-fallback.md. DONE.
-    NO  --> Continue to Q3.
-
-Q3. Does the library path fail to meet performance requirements after
-    benchmarking (e.g., fused reduction inside a larger kernel, non-standard
-    axis layout, or measured >10% overhead vs. theoretical peak)?
-    YES --> Proceed to Step 1 (custom kernel).
-    NO  --> Re-examine the library path. Most reductions are well-served
-            by cub::DeviceReduce. Only proceed to custom if benchmark
-            evidence shows the library is insufficient.
-```
-
-**When to skip the library**: the library path is insufficient when:
-- The reduction must be fused with preceding or following elementwise operations to avoid an extra global-memory round-trip.
-- The reduction axis is non-contiguous and cannot be made contiguous via a reshape / permute without excessive overhead.
-- A partial (per-row, per-column) reduction of a 2-D tensor is needed and the library's 1-D API would require repeated calls.
-- The measured library latency exceeds the theoretical bandwidth-bound limit by more than 10% for the given shape.
+This decision tree covers custom-kernel implementation choices only. It starts after the task has been classified as requiring a dedicated kernel implementation.
 
 ## Step 1 -- Choose the custom reduction strategy
 
@@ -137,7 +100,7 @@ After the basic custom kernel is working and correct, apply optimization skills 
 
 4. **Atomic reduction contention control** (wiki/nvidia/foundations/sync/atomic-reduction/) -- for the grid-level combining step in multi-block reductions, the atomic tail must issue **one atomic per block**, not one per thread. The S1 hierarchical pattern (warp shuffle -> shmem -> block-level atomicAdd) is required when the kernel's final stage is a global atomicAdd. Pair with skill 2 (warp-primitives, for the inner shuffle) and skill 9 (memory-ordering, for scope / ordering correctness). Measured on H200: 247.8x speedup over the naive per-thread atomic pattern; 1498x with grid-stride loop on top of S1.
 
-After each skill application, re-benchmark against the baseline (torch.<op> or cub::DeviceReduce) and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
+After each skill application, re-benchmark against the task-provided baseline and follow the bottleneck-triage procedure in reasoning/bottleneck-triage.md.
 
 ## Step 3 -- Advanced techniques (Brent's theorem)
 
@@ -157,7 +120,6 @@ while (i < n) {
 
 ## Cross-references
 
-- **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
 - **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

@@ -274,7 +274,7 @@ Available on sm_70+ (fp16) and sm_80+ (bf16). PTX maps to `atom.add.noftz.f16` /
 - **Explicit `__hfma2` on `__nv_bfloat162` for compute speedup.** Measured 1.02× over scalar bf16 on H200 — noise-level. The compiler already auto-packs scalar bf16 into `HFMA2.MMA.BF16_V2`; explicit packing is redundant for bf16.
 - **bf16 in precision-sensitive downstream consumers.** bf16's ~0.8% eps (vs fp16's ~0.05%) is coarser; any operation whose result is within 1% of a decision threshold will have false crossings.
 - **Atomics on a single fp16/bf16 destination under contention.** Use hierarchical fp32 fan-in instead (`atomic-reduction` S1).
-- **Kernels built via `torch.utils.cpp_extension` that use `__half` via operators.** PyTorch's extension build defines `-D__CUDA_NO_HALF_OPERATORS__` etc. — use explicit `__hadd`, `__hgt`, `__float2half_rn` calls (pitfall P13).
+- **Kernels built via `framework extension build` that use `__half` via operators.** Framework extension build defines `-D__CUDA_NO_HALF_OPERATORS__` etc. — use explicit `__hadd`, `__hgt`, `__float2half_rn` calls (pitfall P13).
 
 ## Measured Characteristics
 
@@ -319,7 +319,7 @@ Key measured findings on H200 sm_9.0a:
   - Re-orders by the measured H200 hierarchy: memory-bw-first (§S1), packed-is-marginal (§S2, fp16 only), accumulation-in-fp32 (§S3), transcendentals (§S4), fused FMA+ReLU (§S5), native atomics (§S6).
   - Adds the **Precision** section before any sub-skill — making the correctness-risk annotation the first thing a pattern-level INDEX or ROUTING caller reads.
   - The legacy "2× from packing" claim is corrected by the half2-throughput probe to 1.16× on fp16 / 1.02× on bf16.
-- Legacy pitfalls retained in body (rewritten to stand on PG / PTX ISA sources): P1 (fp16 overflow), P2 (bf16 mantissa loss), P3 (packed alignment), P4 (denormal FTZ), P5 (conversion overhead), P6 (bf16 sm_80+ only), P13 (PyTorch extension build flags). P10 / P11 / P12 kept as open risks (not re-measured on H200; follow-up probes listed in §Open questions).
+- Legacy pitfalls retained in body (rewritten to stand on PG / PTX ISA sources): P1 (fp16 overflow), P2 (bf16 mantissa loss), P3 (packed alignment), P4 (denormal FTZ), P5 (conversion overhead), P6 (bf16 sm_80+ only), P13 (the external framework extension build flags). P10 / P11 / P12 kept as open risks (not re-measured on H200; follow-up probes listed in §Open questions).
 - Legacy sandbox-only pitfalls dropped from body (no independent doc source, not re-measured by the half2-throughput probe): "L1 cache hit rate drop with half2" and "BF16 packed changes cache-line reuse" — these were empirical observations without authoritative grounding; they are available in the legacy-knowledge tree if needed but are not carried forward as measured facts.
 - Measured pitfalls added by the half2-throughput probe (2026-04-23): P14 (`__hfma2` is 1.16× not 2×), P15 (bf16 packed is 12% slower than fp16 packed), P16 (`<cuda_bf16.h>` overload-resolution gotcha).
 - **Related but distinct**:

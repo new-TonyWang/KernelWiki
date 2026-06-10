@@ -152,7 +152,6 @@ tags:
 
 **How to detect**:
 - Input size is small enough that `nvprof` / NCU reports the kernel as launch-overhead-dominated.
-- Both baseline and optimized kernels are slower than a `torch.sum` reference for the same problem size.
 
 **Fix**: Size the benchmark input so the reduction path occupies
 >= 50% of H200 HBM bandwidth for S1/S4 comparisons. Follow

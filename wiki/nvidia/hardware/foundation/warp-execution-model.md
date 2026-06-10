@@ -93,7 +93,7 @@ H100 introduces **warp groups** for cooperative matrix operations:
 - **Warp groups** enable MMA instructions that act on large matrices spanning 4 warps simultaneously.
 - Dynamic register capacity can be reassigned among warp groups to support larger matrix tiles.
 - Operand matrices can be accessed directly from shared memory (avoiding register staging).
-- This feature is exposed via inline PTX; for application code, use CUTLASS or cuBLAS.
+- This feature is exposed via inline PTX.
 
 ### Warp Specialization
 

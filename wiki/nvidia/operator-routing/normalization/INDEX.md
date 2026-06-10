@@ -44,7 +44,7 @@ tags:
 ---
 # Normalization Pattern -- Decision Tree
 
-This document guides the kernel-writing agent through a normalization task (LayerNorm, RMSNorm, BatchNorm, GroupNorm) from initial problem statement to a working, optimized kernel. The decision tree enforces a **library-first** policy: only proceed to a custom kernel when the library path has been proven insufficient.
+This document guides the kernel-writing agent through a normalization task (LayerNorm, RMSNorm, BatchNorm, GroupNorm) from a custom-kernel requirement to a working, optimized kernel.
 
 ## Background -- what normalization operators share
 
@@ -64,45 +64,9 @@ The reduction axis distinguishes the variants:
 
 Because the kernel fuses both phases (reduction + scaling) into a single launch, custom normalization kernels avoid the extra global-memory round-trip that separate reduce-then-scale would incur. This fusion is the primary reason custom kernels outperform naive compositions.
 
-## Step 0 -- Try the library first
+## Scope
 
-Before writing any custom CUDA code, check whether a production-quality library already handles the normalization.
-
-```
-Q0. Is the caller's environment PyTorch-based?
-    YES --> Can torch.nn.functional.layer_norm / rms_norm /
-            batch_norm / group_norm handle the shape + dtype?
-            YES --> Use the PyTorch op. DONE.
-            NO  --> Continue to Q1.
-    NO  --> Continue to Q1.
-
-Q1. Is the normalization a standard BatchNorm and is cuDNN available?
-    YES --> Use cudnnBatchNormalizationForwardTraining (train) or
-            cudnnBatchNormalizationForwardInference (eval).
-            See library-fallback.md for API details. DONE.
-    NO  --> Continue to Q2.
-
-Q2. Is an optimized fused kernel available via a third-party library
-    (e.g., Apex fused LayerNorm / RMSNorm)?
-    YES --> Benchmark the fused kernel against the PyTorch op.
-            If faster, use it. DONE.
-    NO  --> Continue to Q3.
-
-Q3. Does the library path fail to meet performance requirements after
-    benchmarking (e.g., fused normalization + residual add, custom
-    norm variant, or measured >10% overhead vs. theoretical peak)?
-    YES --> Proceed to Step 1 (custom kernel).
-    NO  --> Re-examine the library path. Most normalization workloads
-            in transformer models are well-served by PyTorch or Apex.
-            Only proceed to custom if benchmark evidence shows the
-            library is insufficient.
-```
-
-**When to skip the library**: the library path is insufficient when:
-- The normalization must be fused with adjacent operations (e.g., residual add + layernorm, or layernorm + dropout) to avoid an extra global-memory round-trip.
-- A non-standard normalization variant is needed (e.g., RMSNorm before PyTorch native support, or a custom normalization axis).
-- The measured library latency exceeds the theoretical bandwidth-bound limit by more than 10% for the given shape.
-- The model uses a custom epsilon, clamping, or other non-standard behavior not supported by the library.
+This decision tree covers custom-kernel implementation choices only. It starts after the task has been classified as requiring a dedicated kernel implementation.
 
 ## Step 1 -- Choose the custom kernel strategy
 
@@ -248,7 +212,7 @@ After the basic custom kernel is working and correct, apply optimization skills 
 
 4. **Bank-conflict avoidance** (`wiki/nvidia/foundations/memory/bank-conflict/`) -- if the block-level reduction uses shared memory for inter-warp communication (warp leaders writing partials to smem[warpId]), ensure no bank conflicts.
 
-After each skill application, re-benchmark against the baseline (torch.nn.functional op or Apex fused kernel) and follow the bottleneck-triage procedure in `reasoning/bottleneck-triage.md`.
+After each skill application, re-benchmark against the task-provided baseline and follow the bottleneck-triage procedure in `reasoning/bottleneck-triage.md`.
 
 ## Step 4 -- Advanced techniques
 
@@ -258,7 +222,6 @@ After each skill application, re-benchmark against the baseline (torch.nn.functi
 
 ## Cross-references
 
-- **Library fallback details**: `library-fallback.md`
 - **Skill whitelist for this pattern**: `ROUTING.md`
 - **Task packet template**: `TASK-PACKET.md`
 - **Reduction pattern (shared primitive)**: `wiki/nvidia/operator-routing/cuda-core/reduction/INDEX.md`

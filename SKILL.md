@@ -93,6 +93,31 @@ Companion docs under `references/`:
 - `references/schema.md` — condensed frontmatter schema, confidence rules, reproducibility ladder, controlled vocabulary, canonical aliases.
 - `references/examples.md` — 10 worked query patterns mapping user questions → command sequences → synthesis.
 
+### Hopper / SM90 example queries
+
+Use these examples when the user asks for Hopper-specific kernel guidance:
+
+```bash
+# Hopper wgmma / TMA GEMM implementation paths
+python3 scripts/query.py "Hopper wgmma TMA GEMM" --architecture sm90 --type skill
+python3 scripts/get_page.py wiki/nvidia/foundations/compute/gemm.md --follow-sources
+python3 scripts/get_page.py wiki/nvidia/foundations/compute/gemm-ptx.md
+
+# Raw PTX primitives on Hopper
+python3 scripts/query.py "cutlass-free wgmma ptx" --architecture sm90 --language ptx
+python3 scripts/query.py "TMA PTX cuTensorMapEncodeTiled mbarrier" --architecture sm90 --language ptx
+python3 scripts/grep_wiki.py "wgmma.mma_async" --only wiki
+
+# Hopper optimization symptoms
+python3 scripts/query.py --symptom pipeline-stalls --architecture sm90
+python3 scripts/query.py --symptom tail-effect --architecture sm90
+python3 scripts/query.py "Hopper warp specialization pingpong cooperative" --architecture sm90
+
+# Hopper migration context
+python3 scripts/query.py "Hopper wgmma to Blackwell tcgen05 migration"
+python3 scripts/query.py "register accumulators to TMEM" --architecture sm100
+```
+
 ## Output Pattern
 
 When answering from this KB:
@@ -105,13 +130,13 @@ When answering from this KB:
 
 ## Knowledge Base Contents (knowledge cutoff: 2026-04-27)
 
-- **2490 total markdown pages — 2179 PR references + 200+ wiki synthesis (hardware, techniques, kernels, foundations, API definitions, operator routing, code walkthroughs) + 48 experience records + 20 blogs + 11 docs + 7 contests
+- **2474 total markdown pages — 2179 PR references + 200+ wiki synthesis (hardware, techniques, kernels, foundations, API definitions, operator routing, code walkthroughs) + 48 experience records + 20 blogs + 11 docs + 7 contests
 - **6 candidate ledgers** in `candidates/` — 4,222 merged PRs classified (include/defer/exclude) Jan 2025 – Apr 2026
 - **117 verbatim/extracted/derived asset bundles** in `artifacts/` (PR diffs, kernel files, blog code) — pinned to upstream SHAs via `PROVENANCE.yaml`
 - **6 auto-generated query indices** in `queries/`
 - **Controlled vocabulary** (80+ tags) in `data/tags.yaml`, alias map in `data/aliases.yaml`
 - **Hybrid version-claim registry** — per-page `version_sensitive: <id>` pointers + `data/version-claims.yaml` central registry, validated for bidirectional consistency
-- **Validator** `scripts/validate.py` — 2489 files / 117 bundles / 6 ledgers / 0 errors
+- **Validator** `scripts/validate.py` — 2474 files / 117 bundles / 6 ledgers / 0 errors
 - **Architecture-neutral** — SM90/Hopper, SM100/Blackwell, and general CUDA pages are all first-class when tagged with `architectures`.
 
 The knowledge cutoff date is the last day on which upstream PRs / blog snapshots were refreshed. To advance it: run `scripts/refresh_candidate_ledger.py`, regenerate PR pages, then bump `data/refresh-cutoff.yaml::cutoff_date`.

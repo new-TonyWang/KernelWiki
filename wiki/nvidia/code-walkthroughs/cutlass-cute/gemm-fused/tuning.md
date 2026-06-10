@@ -40,9 +40,9 @@ Fusion decision tree + EVT plumbing notes. Numbers are link-only — pull from `
 ## When to fuse (vs run a separate post-kernel)
 
 ```
-Q1. Is the post-GEMM op in cuBLASLt's epilogue catalogue?
-    YES -> use cuBLASLt with the corresponding CUBLASLT_EPILOGUE_*. Done.
-    NO  -> Q2.
+Q1. Does the post-GEMM op need to run inside this custom kernel?
+    YES -> Q2.
+    NO  -> keep the unfused GEMM path for this walkthrough.
 
 Q2. Is the GEMM at a shape where the post-GEMM kernel's DRAM round-trip
     (read D, write D') dominates its own compute?
@@ -78,4 +78,4 @@ Q2. Is the GEMM at a shape where the post-GEMM kernel's DRAM round-trip
 - Skill: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/skill.md`
 - Pitfalls: `wiki/nvidia/foundations/compute/gemm-fused/cutlass-epilogue-prologue/pitfalls.md`
 - Probe: `sources/experience/api-probes/gemm.md`
-- cuBLASLt fallback: `wiki/nvidia/operator-routing/tensor-core/gemm/library-fallback.md` §3
+- Custom-kernel decision tree: `wiki/nvidia/operator-routing/gemm/INDEX.md`
