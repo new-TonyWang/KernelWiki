@@ -2,7 +2,7 @@ origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1039
 upstream_repo: flashinfer-ai/flashinfer
 upstream_sha: 9a05c92a
 license: inherits-from-upstream
-retrieved_at: '2026-04-17'
+retrieved_at: '2026-06-10'
 asset_mode: verbatim
 size_cap_truncated: false
 generated_by: scripts/fetch_pr_diff.py
@@ -22,11 +22,29 @@ files:
   mode: verbatim
   upstream_path: csrc/fmha_cutlass_sm100_pybind.cu
   sha256: f6c631824f6c3d31afd48415db605e927d7d7165698561cca84bc4b2a224a280
+- local_path: key-files/flashinfer/jit/attention/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/__init__.py
+  sha256: 5500c4e030d36e8f358a09066a12760591682308ffb9a8bd1fbc383781f08646
+- local_path: key-files/flashinfer/jit/attention/pytorch.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/pytorch.py
+  sha256: 2944c218ae46217166847e7495b511907935d081b703eeb3fb1a679ef1c2faab
 - local_path: key-files/flashinfer/triton/__init__.py
   role: upstream-file
   mode: verbatim
   upstream_path: flashinfer/triton/__init__.py
   sha256: 905db8562ab08de70dea898bc06614cfdb126041eb6c4a2c368e455bcbff7348
+- local_path: key-files/flashinfer/triton/format_conversion.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/triton/format_conversion.py
+  sha256: 5e41c1a495a4b523654264c5a74ab17544118f4ba1cc25cc3c0f9e294b6f5fff
+  upstream_sha: 71002782fe1b63fd091c6178929258be8d885dd1
+  captured_at_base_sha_note: 'PR #1039 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
 - local_path: key-files/include/flashinfer/attention/blackwell/collective/fmha_common.hpp
   role: upstream-file
   mode: verbatim
@@ -122,11 +140,3 @@ files:
   mode: verbatim
   upstream_path: include/flashinfer/attention/blackwell/kernel/sm100_mla_tile_scheduler.hpp
   sha256: e1db9b47e7326ba0cc9579a1f51c80596ca220030211e28647138ddfbf97365e
-- local_path: key-files/flashinfer/triton/format_conversion.py
-  role: upstream-file
-  mode: verbatim
-  upstream_path: flashinfer/triton/format_conversion.py
-  upstream_sha: 71002782fe1b63fd091c6178929258be8d885dd1
-  sha256: 5e41c1a495a4b523654264c5a74ab17544118f4ba1cc25cc3c0f9e294b6f5fff
-  captured_at_base_sha_note: PR-1039 deletes this file. Captured verbatim at the PR's
-    base SHA (pre-merge) so users can inspect the pre-deletion state locally.

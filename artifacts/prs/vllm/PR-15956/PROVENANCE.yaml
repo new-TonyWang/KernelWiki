@@ -1,0 +1,49 @@
+origin_url: https://github.com/vllm-project/vllm/pull/15956
+upstream_repo: vllm-project/vllm
+upstream_sha: f9c069c8
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-15956
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 4b1e0ef5c029a231fa9ed3e3f9afa71b09b2d7ecb199f409315bc3b8401abd69
+- local_path: key-files/csrc/activation_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/activation_kernels.cu
+  sha256: 9eb60d82ad729e099508b650df1760ce27a9789956eba2071f81ab3dd1e14755
+- local_path: key-files/csrc/dispatch_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/dispatch_utils.h
+  sha256: 57d6233756d7fc4c768df6a1a41fe32fb07490abbb06127016eff0e3c95420d8
+- local_path: key-files/csrc/moe/moe_align_sum_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/moe_align_sum_kernels.cu
+  sha256: 9791c2ff50265af2b560b7ff71e5e24402ebda8417ba76423fffb6d7869b7dfd
+- local_path: key-files/csrc/moe/topk_softmax_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/topk_softmax_kernels.cu
+  sha256: af2102bb4f6ce6f3f4a379a99e171c93335fc6557ffbd7792c0d0f773edfbb69
+- local_path: key-files/vllm/model_executor/layers/fused_moe/modular_kernel.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/modular_kernel.py
+  sha256: 2b3e6d77435be1d92636daeaceb4d310ae7420015ccf6d59beb631b52009bbdd
+- local_path: key-files/vllm/model_executor/layers/fused_moe/triton_deep_gemm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/triton_deep_gemm_moe.py
+  sha256: e32839c8f8726fe88ca654320c1fe709da6c78e1e44c41028b768595bf529ab5
+- local_path: key-files/vllm/v1/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/common.py
+  sha256: 26fa54165dedeacbe4319ddb793a5d42f24e3bd14c9fdd9e36f8fe7ca264d1b2

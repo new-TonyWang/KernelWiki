@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/15099
+upstream_repo: vllm-project/vllm
+upstream_sha: 2f540455
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-15099
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 3ed71d3951ed8adc20f1e8f395768eb263b18399c105098be85bed982141b24e
+- local_path: key-files/vllm/model_executor/layers/mamba/ops/mamba_ssm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/mamba/ops/mamba_ssm.py
+  sha256: 6d05f9d2aff5cfddd5b0973fb79811aa15aaa8b9f42d996e1157e16b809a3c39
+- local_path: key-files/vllm/triton_utils/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/triton_utils/__init__.py
+  sha256: 62b90d8b9cce6fba31ca47c74049809c0bb02c9e9f8c0cf89c71c141deedfa4f
+- local_path: key-files/vllm/triton_utils/importing.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/triton_utils/importing.py
+  sha256: fcb892290fad1bf0e109516d168ee29ecae56e86c6f3f77bd6113df5ce73b3dc

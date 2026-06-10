@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/20401
+upstream_repo: vllm-project/vllm
+upstream_sha: aa7012eb
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-20401
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 2ecfdb3da85a0fc381bdbcdec888cabd142cbee1cb9ab84ab85b2d30a3b22c7c
+- local_path: key-files/vllm/attention/ops/triton_unified_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/ops/triton_unified_attention.py
+  sha256: 2027258a8fc60ba83b271730445c7e4c243518369bb87a200549f67fb59a843e
+- local_path: key-files/vllm/v1/attention/backends/tree_attn.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/tree_attn.py
+  sha256: b5ed13a3605c11424f40bed083ae3a0542fba00fa0d2584f960457416368ce43
+- local_path: key-files/vllm/v1/attention/backends/utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/utils.py
+  sha256: 57c275230ac8ed0cd3bef0e2f802ef253a6902de0d5e6587c8c4c5c202cb605c

@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/20903
+upstream_repo: vllm-project/vllm
+upstream_sha: 11dfdf21
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-20903
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 93d1c32259899b3ffaa87a7c1f23da8b0bcc7f44cbe8e2c0ee4792df0e1e01da
+- local_path: key-files/vllm/model_executor/layers/fused_moe/batched_triton_or_deep_gemm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/batched_triton_or_deep_gemm_moe.py
+  sha256: b5608176464f4355e29cc4efa41b62fafc5bf2d5f0b500d904e1ee7a8d2a108d
+- local_path: key-files/vllm/model_executor/layers/fused_moe/modular_kernel.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/modular_kernel.py
+  sha256: 747aa2ad0340f6687e827452a7e0140bc8e0f029901a9c152491a1aef908d6e5
+- local_path: key-files/vllm/model_executor/layers/fused_moe/triton_deep_gemm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/triton_deep_gemm_moe.py
+  sha256: a5395454d968279ff2b6ee57977a704cb8fe337439487135fee17c08571f13fc

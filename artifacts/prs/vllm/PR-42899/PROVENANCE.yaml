@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/42899
+upstream_repo: vllm-project/vllm
+upstream_sha: 3ca8db2e
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-42899
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 30528addf7a92bd88e9a34e174214ec702763c07d63f3bdaaf862d282b095f40
+- local_path: key-files/vllm/v1/attention/ops/deepseek_v4_ops/cutedsl_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/deepseek_v4_ops/cutedsl_utils.py
+  sha256: c71537f0f1a1bc9d0633e9254e0a5b0091cfdecfecf0cdef65ce70f5b377d9b8
+- local_path: key-files/vllm/v1/attention/ops/deepseek_v4_ops/fused_indexer_q.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/deepseek_v4_ops/fused_indexer_q.py
+  sha256: 5d584a515f8e37783c7a7a257826139fa79b7543db664376966ee7eddbc8eda9
+- local_path: key-files/vllm/v1/attention/ops/deepseek_v4_ops/fused_indexer_q_cutedsl.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/deepseek_v4_ops/fused_indexer_q_cutedsl.py
+  sha256: ae306db6dfeeb62e997950b384fdcd7fd6fcd6549339b9b5d571fea3f5021feb

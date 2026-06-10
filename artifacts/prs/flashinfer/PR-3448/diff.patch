@@ -1,0 +1,3704 @@
+diff --git a/benchmarks/bench_nvfp4_quantize_backend_comparison.py b/benchmarks/bench_nvfp4_quantize_backend_comparison.py
+index 54e9f84679..b05ef8f99f 100644
+--- a/benchmarks/bench_nvfp4_quantize_backend_comparison.py
++++ b/benchmarks/bench_nvfp4_quantize_backend_comparison.py
+@@ -33,6 +33,15 @@
+     # Run only a subset of layouts (comma-separated)
+     python bench_nvfp4_quantize_backend_comparison.py --layouts swizzled_128x4,swizzled_8x4
+ 
++    # Compare per-token MSE 4over6 with quantizer fast math disabled
++    FLASHINFER_NVFP4_4OVER6=1 \
++    FLASHINFER_NVFP4_4OVER6_ERR_MODE=MSE \
++    FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH=0 \
++    FLASHINFER_NVFP4_4OVER6_E4M3_USE_256=0 \
++    FLASHINFER_DISABLE_FP4_QUANT_FAST_MATH=1 \
++    python bench_nvfp4_quantize_backend_comparison.py \
++        --layouts swizzled_128x4 --per-token-activation
++
+ Requirements:
+     - Blackwell GPU (SM100+) for CuTe-DSL backend
+     - matplotlib for visualization
+@@ -40,10 +49,19 @@
+ 
+ import argparse
+ import numpy as np
++import os
+ import torch
+ from typing import Dict, List, Tuple
+ 
+ from flashinfer import SfLayout
++from flashinfer.quantization.fp4_quantization import NVFP4_QUANT_ENV_VARS
++from flashinfer.quantization.nvfp4_quantization_utils import (
++    NVFP44Over6Config,
++    current_nvfp4_4over6_config,
++    make_nvfp4_global_scale,
++    nvfp4_4over6_mode_label,
++    nvfp4_e4m3_max,
++)
+ from flashinfer.testing.utils import bench_gpu_time
+ 
+ # Mapping from CLI layout name to SfLayout enum
+@@ -63,8 +81,6 @@ def _sf_layout_flags(sf_layout: SfLayout) -> Tuple[bool, bool]:
+ 
+ # Constants for NVFP4
+ NVFP4_SF_VEC_SIZE = 16
+-FLOAT4_E2M1_MAX = 6.0
+-FLOAT8_E4M3_MAX = float(torch.finfo(torch.float8_e4m3fn).max)
+ 
+ 
+ def get_cc():
+@@ -73,11 +89,39 @@ def get_cc():
+     return major * 10 + minor
+ 
+ 
++def _run_nvfp4_quantize(
++    x: torch.Tensor,
++    global_sf: torch.Tensor,
++    sf_layout: SfLayout,
++    backend: str,
++    per_token_activation: bool,
++):
++    from flashinfer.quantization.fp4_quantization import nvfp4_quantize
++
++    return nvfp4_quantize(
++        x,
++        global_sf,
++        sfLayout=sf_layout,
++        per_token_activation=per_token_activation,
++        backend=backend,
++    )
++
++
++def _split_quantize_result(result, per_token_activation: bool):
++    if per_token_activation:
++        quant, scale, per_token_scale = result
++        return quant, scale, per_token_scale
++    quant, scale = result
++    return quant, scale, None
++
++
+ def verify_nvfp4_correctness(
+     m: int,
+     k: int,
+     dtype: torch.dtype,
+     sf_layout: SfLayout,
++    per_token_activation: bool,
++    nvfp4_4over6_config: NVFP44Over6Config | None,
+ ) -> Tuple[bool, str, float, float]:
+     """
+     Verify that both backends produce correct outputs.
+@@ -90,39 +134,28 @@ def verify_nvfp4_correctness(
+         Tuple of (success, message, quant_match_pct, scale_match_pct)
+         On failure, quant_match_pct and scale_match_pct are 0.0
+     """
+-    from flashinfer.quantization.fp4_quantization import (
+-        e2m1_and_ufp8sf_scale_to_float,
+-        fp4_quantize,
+-    )
++    from flashinfer.quantization.fp4_quantization import e2m1_and_ufp8sf_scale_to_float
+ 
+     is_sf_swizzled_layout, is_sf_8x4_layout = _sf_layout_flags(sf_layout)
+ 
+     torch.manual_seed(42)
+     x = torch.randn(m, k, device="cuda", dtype=dtype)
+-    amax = x.abs().max().to(torch.float32)
+-    global_sf = (FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX / amax).cuda()
++    global_sf = make_nvfp4_global_scale(
++        x,
++        per_token_activation=per_token_activation,
++        nvfp4_4over6_config=nvfp4_4over6_config,
++    )
+ 
+     try:
+-        # Test CUDA backend
+-        quant_cuda, scale_cuda = fp4_quantize(
+-            x,
+-            global_sf,
+-            sf_vec_size=16,
+-            sf_use_ue8m0=False,
+-            is_sf_swizzled_layout=is_sf_swizzled_layout,
+-            is_sf_8x4_layout=is_sf_8x4_layout,
+-            backend="cuda",
++        quant_cuda, scale_cuda, per_token_scale_cuda = _split_quantize_result(
++            _run_nvfp4_quantize(x, global_sf, sf_layout, "cuda", per_token_activation),
++            per_token_activation,
+         )
+-
+-        # Test CuTe-DSL backend
+-        quant_cute, scale_cute = fp4_quantize(
+-            x,
+-            global_sf,
+-            sf_vec_size=16,
+-            sf_use_ue8m0=False,
+-            is_sf_swizzled_layout=is_sf_swizzled_layout,
+-            is_sf_8x4_layout=is_sf_8x4_layout,
+-            backend="cute-dsl",
++        quant_cute, scale_cute, per_token_scale_cute = _split_quantize_result(
++            _run_nvfp4_quantize(
++                x, global_sf, sf_layout, "cute-dsl", per_token_activation
++            ),
++            per_token_activation,
+         )
+ 
+         # Check shapes match
+@@ -141,13 +174,39 @@ def verify_nvfp4_correctness(
+                 0.0,
+             )
+ 
++        if per_token_activation:
++            if per_token_scale_cuda.shape != per_token_scale_cute.shape:
++                return (
++                    False,
++                    "Per-token scale shape mismatch: "
++                    f"CUDA={per_token_scale_cuda.shape}, "
++                    f"CuTe={per_token_scale_cute.shape}",
++                    0.0,
++                    0.0,
++                )
++            per_token_scale_match_pct = (
++                per_token_scale_cuda == per_token_scale_cute
++            ).float().mean().item() * 100
++            if per_token_scale_match_pct < 100.0:
++                return (
++                    False,
++                    "Per-token scale mismatch: "
++                    f"match={per_token_scale_match_pct:.1f}%, "
++                    f"CUDA={per_token_scale_cuda.shape}, "
++                    f"CuTe={per_token_scale_cute.shape}",
++                    0.0,
++                    0.0,
++                )
++
+         # Check backend agreement
+         quant_match_pct = (quant_cuda == quant_cute).float().mean().item() * 100
+         scale_match_pct = (scale_cuda == scale_cute).float().mean().item() * 100
++        if per_token_activation:
++            scale_match_pct = min(scale_match_pct, per_token_scale_match_pct)
+ 
+         # The dequant helper only supports 128x4 swizzled and linear layouts.
+         # Skip roundtrip for 8x4 and rely on the backend agreement check above.
+-        if not is_sf_8x4_layout:
++        if not is_sf_8x4_layout and not per_token_activation:
+             dq_cuda = e2m1_and_ufp8sf_scale_to_float(
+                 quant_cuda.cpu().view(torch.uint8),
+                 scale_cuda.cpu().view(torch.uint8).reshape(-1),
+@@ -203,6 +262,8 @@ def bench_nvfp4_quantize(
+     dtype: torch.dtype,
+     sf_layout: SfLayout,
+     backend: str,
++    per_token_activation: bool,
++    nvfp4_4over6_config: NVFP44Over6Config | None,
+ ) -> float:
+     """
+     Benchmark NVFP4 quantization for a specific configuration.
+@@ -210,35 +271,18 @@ def bench_nvfp4_quantize(
+     Returns:
+         Median execution time in milliseconds
+     """
+-    from flashinfer.quantization.fp4_quantization import fp4_quantize
+-
+-    is_sf_swizzled_layout, is_sf_8x4_layout = _sf_layout_flags(sf_layout)
+-
+     x = torch.randn(m, k, device="cuda", dtype=dtype)
+-    amax = x.abs().max().to(torch.float32)
+-    global_sf = (FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX / amax).cuda()
+-
+-    # Warmup
+-    _ = fp4_quantize(
++    global_sf = make_nvfp4_global_scale(
+         x,
+-        global_sf,
+-        sf_vec_size=16,
+-        sf_use_ue8m0=False,
+-        is_sf_swizzled_layout=is_sf_swizzled_layout,
+-        is_sf_8x4_layout=is_sf_8x4_layout,
+-        backend=backend,
++        per_token_activation=per_token_activation,
++        nvfp4_4over6_config=nvfp4_4over6_config,
+     )
+ 
+     def run_kernel():
+-        fp4_quantize(
+-            x,
+-            global_sf,
+-            sf_vec_size=16,
+-            sf_use_ue8m0=False,
+-            is_sf_swizzled_layout=is_sf_swizzled_layout,
+-            is_sf_8x4_layout=is_sf_8x4_layout,
+-            backend=backend,
+-        )
++        _run_nvfp4_quantize(x, global_sf, sf_layout, backend, per_token_activation)
++
++    # Warmup, including any JIT compilation before timing starts.
++    run_kernel()
+ 
+     times = bench_gpu_time(
+         fn=run_kernel,
+@@ -253,7 +297,7 @@ def run_kernel():
+ 
+ 
+ def compute_bandwidth_tb_per_sec(
+-    m: int, k: int, dtype: torch.dtype, time_ms: float
++    m: int, k: int, dtype: torch.dtype, time_ms: float, per_token_activation: bool
+ ) -> float:
+     """
+     Compute achieved memory bandwidth in TB/s.
+@@ -273,17 +317,27 @@ def compute_bandwidth_tb_per_sec(
+         + num_elements // 2  # fp4 output write
+         + num_scale_factors * 1  # scale factors write
+     )
++    if per_token_activation:
++        problem_bytes += m * 4  # per-token fp32 scale writes
+ 
+     tb_per_sec = problem_bytes / (1e9 * time_ms)
+     return tb_per_sec
+ 
+ 
++def mode_label(
++    per_token_activation: bool, nvfp4_4over6_config: NVFP44Over6Config | None
++) -> str:
++    return nvfp4_4over6_mode_label(per_token_activation, nvfp4_4over6_config)
++
++
+ def run_bandwidth_sweep(
+     m_values: List[int],
+     k_values: List[int],
+     dtype: torch.dtype,
+     sf_layout: SfLayout,
+     layout_label: str,
++    per_token_activation: bool,
++    nvfp4_4over6_config: NVFP44Over6Config | None,
+ ) -> Dict[Tuple[int, int], float]:
+     """Run bandwidth benchmark sweep for CuTe-DSL backend only."""
+     bandwidth_results = {}
+@@ -301,9 +355,19 @@ def run_bandwidth_sweep(
+             current += 1
+             print(f"[{current}/{total}] M={m:5d}, K={k:5d} ... ", end="", flush=True)
+ 
+-            time_ms = bench_nvfp4_quantize(m, k, dtype, sf_layout, backend="cute-dsl")
++            time_ms = bench_nvfp4_quantize(
++                m,
++                k,
++                dtype,
++                sf_layout,
++                backend="cute-dsl",
++                per_token_activation=per_token_activation,
++                nvfp4_4over6_config=nvfp4_4over6_config,
++            )
+ 
+-            bandwidth = compute_bandwidth_tb_per_sec(m, k, dtype, time_ms)
++            bandwidth = compute_bandwidth_tb_per_sec(
++                m, k, dtype, time_ms, per_token_activation
++            )
+             bandwidth_results[(m, k)] = bandwidth
+ 
+             print(f"time={time_ms:.3f}ms, bandwidth={bandwidth:.2f} TB/s")
+@@ -317,6 +381,8 @@ def run_benchmark_sweep(
+     dtype: torch.dtype,
+     sf_layout: SfLayout,
+     layout_label: str,
++    per_token_activation: bool,
++    nvfp4_4over6_config: NVFP44Over6Config | None,
+ ) -> Tuple[Dict[Tuple[int, int], float], Dict[Tuple[int, int], float]]:
+     """Run benchmark sweep for both backends with inline correctness verification."""
+     cuda_times = {}
+@@ -346,7 +412,12 @@ def run_benchmark_sweep(
+ 
+             # Verify correctness first
+             success, verify_msg, quant_match, scale_match = verify_nvfp4_correctness(
+-                m, k, dtype, sf_layout
++                m,
++                k,
++                dtype,
++                sf_layout,
++                per_token_activation=per_token_activation,
++                nvfp4_4over6_config=nvfp4_4over6_config,
+             )
+             if not success:
+                 failures.append((m, k, verify_msg))
+@@ -354,12 +425,26 @@ def run_benchmark_sweep(
+                 continue
+ 
+             # Benchmark CUDA backend
+-            cuda_time = bench_nvfp4_quantize(m, k, dtype, sf_layout, backend="cuda")
++            cuda_time = bench_nvfp4_quantize(
++                m,
++                k,
++                dtype,
++                sf_layout,
++                backend="cuda",
++                per_token_activation=per_token_activation,
++                nvfp4_4over6_config=nvfp4_4over6_config,
++            )
+             cuda_times[(m, k)] = cuda_time
+ 
+             # Benchmark CuTe-DSL backend
+             cute_dsl_time = bench_nvfp4_quantize(
+-                m, k, dtype, sf_layout, backend="cute-dsl"
++                m,
++                k,
++                dtype,
++                sf_layout,
++                backend="cute-dsl",
++                per_token_activation=per_token_activation,
++                nvfp4_4over6_config=nvfp4_4over6_config,
+             )
+             cute_dsl_times[(m, k)] = cute_dsl_time
+ 
+@@ -629,7 +714,13 @@ def main():
+             "(swizzled_128x4, swizzled_8x4, linear). Default: all three."
+         ),
+     )
++    parser.add_argument(
++        "--per-token-activation",
++        action="store_true",
++        help="Benchmark NVFP4 per-token activation quantization.",
++    )
+     args = parser.parse_args()
++    nvfp4_4over6_config = current_nvfp4_4over6_config()
+ 
+     selected_layouts: List[str] = []
+     for name in args.layouts.split(","):
+@@ -709,6 +800,17 @@ def main():
+ 
+     print(f"\nM values: {m_values}")
+     print(f"K values: {k_values}")
++    print(
++        "Mode: "
++        + mode_label(
++            per_token_activation=args.per_token_activation,
++            nvfp4_4over6_config=nvfp4_4over6_config,
++        )
++    )
++    print("NVFP4 quantization environment:")
++    for name in NVFP4_QUANT_ENV_VARS:
++        print(f"  {name}={os.environ.get(name, '<unset>')}")
++    print(f"4over6 E4M3 max: {nvfp4_e4m3_max(nvfp4_4over6_config):.0f}")
+ 
+     if args.bandwidth:
+         print("\n" + "=" * 80)
+@@ -723,7 +825,13 @@ def main():
+             print("=" * 80)
+ 
+             bandwidth = run_bandwidth_sweep(
+-                m_values, k_values, dtype, sf_layout, layout_name
++                m_values,
++                k_values,
++                dtype,
++                sf_layout,
++                layout_name,
++                per_token_activation=args.per_token_activation,
++                nvfp4_4over6_config=nvfp4_4over6_config,
+             )
+             print_bandwidth_summary_table(
+                 m_values, k_values, bandwidth, f"{layout_name} layout"
+@@ -732,8 +840,20 @@ def main():
+                 m_values,
+                 k_values,
+                 bandwidth,
+-                f"NVFP4 Quantization Bandwidth (CuTe-DSL) - {layout_name} - {args.dtype}",
+-                f"{args.output_prefix}_bandwidth_{layout_name}_{args.dtype}.png",
++                "NVFP4 Quantization Bandwidth (CuTe-DSL) - "
++                f"{layout_name} - {args.dtype} - "
++                + mode_label(
++                    per_token_activation=args.per_token_activation,
++                    nvfp4_4over6_config=nvfp4_4over6_config,
++                ),
++                f"{args.output_prefix}_bandwidth_{layout_name}_{args.dtype}_"
++                + mode_label(
++                    per_token_activation=args.per_token_activation,
++                    nvfp4_4over6_config=nvfp4_4over6_config,
++                )
++                .replace(", ", "_")
++                .replace("-", "_")
++                + ".png",
+             )
+     else:
+         # Speedup comparison mode: CUDA vs CuTe-DSL
+@@ -750,6 +870,8 @@ def main():
+                 dtype,
+                 sf_layout,
+                 layout_name,
++                per_token_activation=args.per_token_activation,
++                nvfp4_4over6_config=nvfp4_4over6_config,
+             )
+             print_summary_table(
+                 m_values,
+@@ -763,8 +885,20 @@ def main():
+                 k_values,
+                 cuda_times,
+                 cute_dsl_times,
+-                f"NVFP4 Quantization Speedup (CuTe-DSL vs CUDA) - {layout_name} - {args.dtype}",
+-                f"{args.output_prefix}_comparison_{layout_name}_{args.dtype}.png",
++                "NVFP4 Quantization Speedup (CuTe-DSL vs CUDA) - "
++                f"{layout_name} - {args.dtype} - "
++                + mode_label(
++                    per_token_activation=args.per_token_activation,
++                    nvfp4_4over6_config=nvfp4_4over6_config,
++                ),
++                f"{args.output_prefix}_comparison_{layout_name}_{args.dtype}_"
++                + mode_label(
++                    per_token_activation=args.per_token_activation,
++                    nvfp4_4over6_config=nvfp4_4over6_config,
++                )
++                .replace(", ", "_")
++                .replace("-", "_")
++                + ".png",
+             )
+ 
+     print("\n" + "=" * 80)
+diff --git a/benchmarks/routines/quantization.py b/benchmarks/routines/quantization.py
+index 6c04018a84..b41a7108f1 100644
+--- a/benchmarks/routines/quantization.py
++++ b/benchmarks/routines/quantization.py
+@@ -15,11 +15,19 @@
+ """
+ 
+ from collections import defaultdict
++import os
+ 
+ import numpy as np
+ import torch
+ 
+ import flashinfer
++from flashinfer.quantization.fp4_quantization import NVFP4_QUANT_ENV_VARS
++from flashinfer.quantization.nvfp4_quantization_utils import (
++    current_nvfp4_4over6_config,
++    env_flag_enabled as _env_flag_enabled,
++    make_nvfp4_global_scale,
++    nvfp4_e4m3_max,
++)
+ from flashinfer.testing.utils import bench_gpu_time
+ 
+ from .flashinfer_benchmark_utils import (
+@@ -32,6 +40,31 @@
+ )
+ 
+ 
++def _assert_nvfp4_refcheck_tensor_equal(
++    name: str,
++    backend: str,
++    ref_backend: str,
++    actual: torch.Tensor,
++    expected: torch.Tensor,
++):
++    if actual.shape != expected.shape:
++        raise AssertionError(
++            f"[nvfp4_quantize] {name} shape mismatch: "
++            f"{backend}={actual.shape}, {ref_backend}={expected.shape}"
++        )
++    if actual.dtype != expected.dtype:
++        raise AssertionError(
++            f"[nvfp4_quantize] {name} dtype mismatch: "
++            f"{backend}={actual.dtype}, {ref_backend}={expected.dtype}"
++        )
++    if not torch.equal(actual, expected):
++        mismatch_pct = (actual != expected).float().mean().item() * 100
++        raise AssertionError(
++            f"[nvfp4_quantize] {name} value mismatch: "
++            f"{backend} vs {ref_backend}, mismatch={mismatch_pct:.4f}%"
++        )
++
++
+ def run_quantization_test(args):
+     """
+     Run a quantization test.
+@@ -150,6 +183,12 @@ def parse_quantization_args(line, parser):
+         default=16,
+         help="Scale factor vector size for NVFP4 quantization. Default: 16",
+     )
++    parser.add_argument(
++        "--per_token_activation",
++        action="store_true",
++        default=False,
++        help="Benchmark NVFP4 per-token activation quantization.",
++    )
+ 
+     args = parser.parse_args(line)
+ 
+@@ -571,6 +610,8 @@ def testNvfp4Quantize(args):
+     do_shuffle = args.do_shuffle
+     sf_vec_size = args.sf_vec_size
+     enable_pdl = args.enable_pdl
++    per_token_activation = args.per_token_activation
++    nvfp4_4over6_config = current_nvfp4_4over6_config()
+     is_cuda_graph_compatible = not args.no_cuda_graph
+     run_refcheck = args.refcheck
+     res = []
+@@ -595,6 +636,8 @@ def testNvfp4Quantize(args):
+         raise ValueError(
+             f"k ({k}) must be divisible by sf_vec_size ({sf_vec_size}) for nvfp4_quantize"
+         )
++    if per_token_activation and sf_vec_size != 16:
++        raise ValueError("Per-token NVFP4 quantization only supports sf_vec_size=16")
+ 
+     backends = filter_backends_by_compute_capability(backends, args.routine, device)
+     if len(backends) == 0:
+@@ -611,7 +654,12 @@ def testNvfp4Quantize(args):
+     ## Prepare input tensors
+     input_shape = (m, k)
+     input_tensor = torch.randn(input_shape, dtype=input_dtype, device=device)
+-    global_sf_tensor = torch.tensor([global_scale], dtype=torch.float32, device=device)
++    global_sf_tensor = make_nvfp4_global_scale(
++        input_tensor,
++        per_token_activation=per_token_activation,
++        global_scale=global_scale,
++        nvfp4_4over6_config=nvfp4_4over6_config,
++    )
+ 
+     if args.verbose >= 2:
+         print(f"[VVERBOSE] {input_tensor.shape = }")
+@@ -621,6 +669,10 @@ def testNvfp4Quantize(args):
+         print(f"[VVERBOSE] {do_shuffle = }")
+         print(f"[VVERBOSE] {sf_vec_size = }")
+         print(f"[VVERBOSE] {enable_pdl = }")
++        print(f"[VVERBOSE] {per_token_activation = }")
++        for name in NVFP4_QUANT_ENV_VARS:
++            print(f"[VVERBOSE] {name} = {os.environ.get(name, '<unset>')}")
++        print(f"[VVERBOSE] nvfp4_e4m3_max = {nvfp4_e4m3_max(nvfp4_4over6_config):.0f}")
+ 
+     def run_backend(backend, input_tensor, global_sf_tensor):
+         return flashinfer.nvfp4_quantize(
+@@ -631,6 +683,7 @@ def run_backend(backend, input_tensor, global_sf_tensor):
+             sf_vec_size=sf_vec_size,
+             enable_pdl=enable_pdl,
+             backend=backend,
++            per_token_activation=per_token_activation,
+         )
+ 
+     # Storage for timing results and outputs
+@@ -638,8 +691,17 @@ def run_backend(backend, input_tensor, global_sf_tensor):
+     outputs = {}
+     for cur_backend in backends:
+         if run_refcheck:
+-            x_q, sf = run_backend(cur_backend, input_tensor, global_sf_tensor)
+-            outputs[cur_backend] = (x_q.detach().clone(), sf.detach().clone())
++            result = run_backend(cur_backend, input_tensor, global_sf_tensor)
++            if per_token_activation:
++                x_q, sf, per_token_scale = result
++                outputs[cur_backend] = (
++                    x_q.detach().clone(),
++                    sf.detach().clone(),
++                    per_token_scale.detach().clone(),
++                )
++            else:
++                x_q, sf = result
++                outputs[cur_backend] = (x_q.detach().clone(), sf.detach().clone())
+         backend_times[cur_backend] = bench_gpu_time(
+             fn=run_backend,
+             dry_run_iters=args.dry_run_iters,
+@@ -652,20 +714,49 @@ def run_backend(backend, input_tensor, global_sf_tensor):
+     tested_backends = list(outputs.keys())
+     if len(tested_backends) > 0:
+         if run_refcheck:
++            ref_backend = tested_backends[0]
++            ref_output = outputs[ref_backend]
+             for i in range(len(tested_backends)):
+-                x_q, sf = outputs[tested_backends[i]]
++                cur_backend = tested_backends[i]
++                if per_token_activation:
++                    x_q, sf, per_token_scale = outputs[cur_backend]
++                else:
++                    x_q, sf = outputs[cur_backend]
++                    per_token_scale = None
+                 if args.verbose >= 2:
+                     print(
+-                        f"[VVERBOSE] Backend {tested_backends[i]}: "
++                        f"[VVERBOSE] Backend {cur_backend}: "
+                         f"x_q.shape = {x_q.shape}, x_q.dtype = {x_q.dtype}, "
+                         f"sf.shape = {sf.shape}, sf.dtype = {sf.dtype}"
+                     )
++                    if per_token_scale is not None:
++                        print(
++                            f"[VVERBOSE] Backend {cur_backend}: "
++                            f"per_token_scale.shape = {per_token_scale.shape}, "
++                            f"per_token_scale.dtype = {per_token_scale.dtype}"
++                        )
+                 # Verify output shape (M, K/2) for FP4
+                 expected_shape = (m, k // 2)
+                 if x_q.shape != expected_shape:
+                     print(
+                         f"[WARNING] Unexpected output shape: {x_q.shape}, expected {expected_shape}"
+                     )
++                if cur_backend != ref_backend:
++                    ref_x_q, ref_sf = ref_output[:2]
++                    _assert_nvfp4_refcheck_tensor_equal(
++                        "x_q", cur_backend, ref_backend, x_q, ref_x_q
++                    )
++                    _assert_nvfp4_refcheck_tensor_equal(
++                        "sf", cur_backend, ref_backend, sf, ref_sf
++                    )
++                    if per_token_activation:
++                        _assert_nvfp4_refcheck_tensor_equal(
++                            "per_token_scale",
++                            cur_backend,
++                            ref_backend,
++                            per_token_scale,
++                            ref_output[2],
++                        )
+ 
+     for backend in backends:
+         if len(backend_times[backend]) > 0:
+@@ -683,6 +774,8 @@ def run_backend(backend, input_tensor, global_sf_tensor):
+                 + num_elements // 2  # quantized output write (fp4 = 0.5 byte)
+                 + num_scale_factors * 1  # scale factors write (1 byte each, e4m3)
+             )
++            if per_token_activation:
++                problem_bytes += m * 4  # per-token fp32 scale writes
+             problem_flops = num_elements * 3  # rough estimate
+             tflops = problem_flops / (10**9 * median_time)
+             tb_per_sec = problem_bytes / (10**9 * median_time)
+@@ -704,6 +797,17 @@ def run_backend(backend, input_tensor, global_sf_tensor):
+                 cur_res["do_shuffle"] = do_shuffle
+                 cur_res["sf_vec_size"] = sf_vec_size
+                 cur_res["enable_pdl"] = enable_pdl
++                cur_res["per_token_activation"] = per_token_activation
++                cur_res["use_4over6"] = nvfp4_4over6_config is not None
++                cur_res["disable_quant_fast_math"] = _env_flag_enabled(
++                    "FLASHINFER_DISABLE_FP4_QUANT_FAST_MATH"
++                )
++                if nvfp4_4over6_config is not None:
++                    cur_res["nvfp4_4over6_err_mode"] = nvfp4_4over6_config.err_mode_name
++                    cur_res["nvfp4_4over6_err_use_fast_math"] = (
++                        nvfp4_4over6_config.err_use_fast_math
++                    )
++                    cur_res["nvfp4_4over6_e4m3_max"] = nvfp4_4over6_config.e4m3_max
+                 cur_res["backend"] = backend
+                 cur_res["case_tag"] = args.case_tag
+                 res.append(cur_res)
+diff --git a/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh b/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+index 532686900b..20f8e21c49 100644
+--- a/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
++++ b/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+@@ -1051,7 +1051,8 @@ __device__ auto quantizePackedFPXValue(
+   // Do the conversion and set the output and scaling factor
+   auto func = [&]() {
+     if constexpr (is_fp8) {
+-      return [](PackedVec<GemmOutputType>& vec, float /* ignored */, uint8_t* SFout) -> uint64_t {
++      return [](PackedVec<GemmOutputType>& vec, float /* ignored */, uint8_t* SFout,
++                float /* ignored */) -> uint64_t {
+         static_assert(TmaWarpSpecializedGroupedGemmInput::MXFPXBlockScaleVectorSize == VecSize);
+         return cvt_warp_fp16_to_mxfp8<GemmOutputType, VecSize, CVT_ELTS_PER_THREAD>(vec, SFout);
+       };
+@@ -1065,7 +1066,7 @@ __device__ auto quantizePackedFPXValue(
+     }
+   }();
+ 
+-  return func(packed_vec, global_scale_val, sf_out);
++  return func(packed_vec, global_scale_val, sf_out, 0.0f);
+ }
+ 
+ template <int VecSize, int ElementsPerThread>
+diff --git a/csrc/nv_internal/cpp/common/envUtils.cpp b/csrc/nv_internal/cpp/common/envUtils.cpp
+index 31b7a49402..7a25707846 100644
+--- a/csrc/nv_internal/cpp/common/envUtils.cpp
++++ b/csrc/nv_internal/cpp/common/envUtils.cpp
+@@ -360,7 +360,10 @@ bool getEnvEplbForceGdrcopy() {
+   return forceGdrcopy;
+ }
+ 
+-bool getEnvDisableFP4QuantFastMath() { return getBoolEnv("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH"); }
++bool getEnvDisableFP4QuantFastMath() {
++  return getBoolEnv("FLASHINFER_DISABLE_FP4_QUANT_FAST_MATH") ||
++         getBoolEnv("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH");
++}
+ 
+ bool getEnvNVFP4Use4Over6() { return getBoolEnv("FLASHINFER_NVFP4_4OVER6"); }
+ 
+diff --git a/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh b/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+index 0f52f6f2fb..29ac5815ae 100644
+--- a/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
++++ b/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+@@ -772,15 +772,21 @@ __global__ void nvfp4QuantAndPerTokenScaleKernel(
+ 
+   using BlockReduce = cub::BlockReduce<float, BLOCK_SIZE>;
+   __shared__ typename BlockReduce::TempStorage tempStorage;
+-  float globalAmax = BlockReduce(tempStorage).Reduce(localAmax, cuda::maximum<>{});
++  float rowAmax = BlockReduce(tempStorage).Reduce(localAmax, cuda::maximum<>{});
++  __shared__ float rowAmaxSmem;
++  if (threadIdx.x == 0) {
++    rowAmaxSmem = rowAmax;
++  }
++  __syncthreads();
++  rowAmax = rowAmaxSmem;
+ 
+   float perTokenScale;
+   float globalEncodeScale;
+   if constexpr (IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value && DISABLE_FP4_QUANT_FAST_MATH) {
+     if (threadIdx.x == 0) {
+       float const globalScale = __fdiv_rn(1.0f, globalScaleInv);
+-      if (globalAmax != 0.0f) {
+-        float const rowEncodeScale = fminf(__fdiv_rn(globalScale, globalAmax), FLT_MAX);
++      if (rowAmax != 0.0f) {
++        float const rowEncodeScale = fminf(__fdiv_rn(globalScale, rowAmax), FLT_MAX);
+         if (rowEncodeScale != 0.0f) {
+           perTokenScaleOutput[rowIdx] = rowEncodeScale;
+         } else {
+@@ -806,7 +812,7 @@ __global__ void nvfp4QuantAndPerTokenScaleKernel(
+     if (threadIdx.x == 0) {
+       float const globalScale = __fdiv_rn(1.0f, globalScaleInv);
+       float const rowEncodeScale =
+-          globalAmax != 0.0f ? fminf(__fdiv_rn(globalScale, globalAmax), FLT_MAX) : FLT_MAX;
++          rowAmax != 0.0f ? fminf(__fdiv_rn(globalScale, rowAmax), FLT_MAX) : FLT_MAX;
+       perTokenScaleOutput[rowIdx] = rowEncodeScale != 0.0f ? rowEncodeScale : 1.0f;
+     }
+     __syncthreads();
+@@ -817,7 +823,7 @@ __global__ void nvfp4QuantAndPerTokenScaleKernel(
+       perTokenScaleOutput[rowIdx] = perTokenScale;
+     }
+   } else {
+-    perTokenScale = globalAmax * globalScaleInv;
++    perTokenScale = rowAmax * globalScaleInv;
+     if (threadIdx.x == 0) {
+       perTokenScaleOutput[rowIdx] = perTokenScale;
+     }
+@@ -844,7 +850,7 @@ __global__ void nvfp4QuantAndPerTokenScaleKernel(
+     uint8_t fp8Scale;
+     auto fp4Vals =
+         cvt_warp_fp16_to_fp4<T, SF_VEC_SIZE, SF_VEC_SIZE, false, DISABLE_FP4_QUANT_FAST_MATH,
+-                             NVFP4_4OVER6_CONFIG>(vec_in, globalEncodeScale, &fp8Scale);
++                             NVFP4_4OVER6_CONFIG>(vec_in, globalEncodeScale, &fp8Scale, rowAmax);
+     reinterpret_cast<PackedFp4Type*>(weightOutput)[vecOffset] = fp4Vals;
+ 
+     int64_t sfOffset;
+diff --git a/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh b/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
+index 54db109c11..65dc992916 100644
+--- a/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
++++ b/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
+@@ -282,6 +282,77 @@ __device__ __forceinline__ float e2m1_code_to_float(uint8_t code) {
+   return value;
+ }
+ 
++__device__ __forceinline__ float2 e2m1x2_byte_to_float2(uint32_t byteVal) {
++  float2 result;
++#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000)
++  asm volatile(
++      "{\n"
++      ".reg .b8 byte0, byte1, byte2, byte3;\n"
++      ".reg .b32 h2;\n"
++      ".reg .b16 lo, hi;\n"
++      ".reg .b32 code_lo, code_hi;\n"
++      ".reg .b32 bits_lo, bits_hi;\n"
++      ".reg .f32 f_lo, f_hi;\n"
++      ".reg .pred negzero_lo, negzero_hi;\n"
++      "mov.b32 {byte0, byte1, byte2, byte3}, %2;\n"
++      "cvt.rn.f16x2.e2m1x2 h2, byte0;\n"
++      "mov.b32 {lo, hi}, h2;\n"
++      "cvt.f32.f16 f_lo, lo;\n"
++      "cvt.f32.f16 f_hi, hi;\n"
++      "mov.b32 bits_lo, f_lo;\n"
++      "mov.b32 bits_hi, f_hi;\n"
++      "and.b32 code_lo, %2, 0xF;\n"
++      "shr.u32 code_hi, %2, 4;\n"
++      "and.b32 code_hi, code_hi, 0xF;\n"
++      "setp.eq.u32 negzero_lo, code_lo, 0x8;\n"
++      "setp.eq.u32 negzero_hi, code_hi, 0x8;\n"
++      "selp.u32 bits_lo, 0x80000000, bits_lo, negzero_lo;\n"
++      "selp.u32 bits_hi, 0x80000000, bits_hi, negzero_hi;\n"
++      "mov.b32 %0, bits_lo;\n"
++      "mov.b32 %1, bits_hi;\n"
++      "}"
++      : "=f"(result.x), "=f"(result.y)
++      : "r"(byteVal));
++#else
++  result.x = e2m1_code_to_float(static_cast<uint8_t>(byteVal & 0xF));
++  result.y = e2m1_code_to_float(static_cast<uint8_t>((byteVal >> 4) & 0xF));
++#endif
++  return result;
++}
++
++__device__ __forceinline__ float2 e2m1x2_byte_scaled_e4m3_to_float2(uint32_t byteVal,
++                                                                    uint8_t scaleVal) {
++  float2 result;
++#if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000)
++  asm volatile(
++      "{\n"
++      ".reg .b8 byte0, byte1, byte2, byte3;\n"
++      ".reg .b16 fp8_pair;\n"
++      ".reg .b16 scale_h, unused_h;\n"
++      ".reg .b16 lo, hi;\n"
++      ".reg .b32 q_h2;\n"
++      ".reg .b32 scale_h2;\n"
++      ".reg .b32 prod_h2;\n"
++      "mov.b32 {byte0, byte1, byte2, byte3}, %2;\n"
++      "cvt.rn.f16x2.e2m1x2 q_h2, byte0;\n"
++      "cvt.u16.u32 fp8_pair, %3;\n"
++      "cvt.rn.f16x2.e4m3x2 scale_h2, fp8_pair;\n"
++      "mov.b32 {scale_h, unused_h}, scale_h2;\n"
++      "mov.b32 scale_h2, {scale_h, scale_h};\n"
++      "mul.rn.f16x2 prod_h2, q_h2, scale_h2;\n"
++      "mov.b32 {lo, hi}, prod_h2;\n"
++      "cvt.f32.f16 %0, lo;\n"
++      "cvt.f32.f16 %1, hi;\n"
++      "}"
++      : "=f"(result.x), "=f"(result.y)
++      : "r"(byteVal), "r"(static_cast<uint32_t>(scaleVal)));
++#else
++  result.x = 0.0f;
++  result.y = 0.0f;
++#endif
++  return result;
++}
++
+ ////////////////////////////////////////////////////////////////////////////////////////////////////
+ // Type converters for packed vectors
+ 
+@@ -323,18 +394,6 @@ struct PackedVec<__nv_fp8_e4m3, NUM_ELTS> {
+ ////////////////////////////////////////////////////////////////////////////////////////////////////
+ // Quantization helper functions
+ 
+-// Quantizes the provided PackedVec into the uint32_t or uint64_t output
+-template <typename NVFP4_4OVER6_CONFIG>
+-__device__ __forceinline__ float compute_4over6_error(float diff) {
+-  if constexpr (NVFP4_4OVER6_CONFIG::errMode == NVFP44Over6ErrMode::MSE) {
+-    return diff * diff;
+-  } else if constexpr (NVFP4_4OVER6_CONFIG::errMode == NVFP44Over6ErrMode::MAE) {
+-    return fabsf(diff);
+-  } else {
+-    return fabsf(diff);
+-  }
+-}
+-
+ template <typename NVFP4_4OVER6_CONFIG>
+ __device__ __forceinline__ float compute_4over6_error_rn(float diff) {
+   if constexpr (NVFP4_4OVER6_CONFIG::errMode == NVFP44Over6ErrMode::MSE) {
+@@ -342,14 +401,16 @@ __device__ __forceinline__ float compute_4over6_error_rn(float diff) {
+   } else if constexpr (NVFP4_4OVER6_CONFIG::errMode == NVFP44Over6ErrMode::MAE) {
+     return fabsf(diff);
+   } else {
+-    return fabsf(diff);
++    static_assert(NVFP4_4OVER6_CONFIG::errMode == NVFP44Over6ErrMode::MAE,
++                  "Unsupported NVFP4 4over6 error mode.");
+   }
+ }
+ 
+ template <class Type, int SF_VEC_SIZE, int CVT_ELTS_PER_THREAD, bool UE8M0_SF,
+           bool DISABLE_FP4_QUANT_FAST_MATH = false, typename NVFP4_4OVER6_CONFIG = std::false_type>
+ __device__ std::conditional_t<CVT_ELTS_PER_THREAD == 16, uint64_t, uint32_t> cvt_warp_fp16_to_fp4(
+-    PackedVec<Type, CVT_ELTS_PER_THREAD>& vec, float SFScaleVal, uint8_t* SFout) {
++    PackedVec<Type, CVT_ELTS_PER_THREAD>& vec, float SFScaleVal, uint8_t* SFout,
++    float rowAmax = 0.0f) {
+ #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000)
+   static_assert(CVT_ELTS_PER_THREAD == 8 || CVT_ELTS_PER_THREAD == 16,
+                 "CVT_ELTS_PER_THREAD must be 8 or 16");
+@@ -437,7 +498,7 @@ __device__ std::conditional_t<CVT_ELTS_PER_THREAD == 16, uint64_t, uint32_t> cvt
+     constexpr float E2M1_MAX_VALUE = 6.0f;
+     float sfHighPrecision6;
+     if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
+-      sfHighPrecision6 = __fmul_rn(vecMax, __fdiv_rn(SFScaleVal, E2M1_MAX_VALUE));
++      sfHighPrecision6 = __fmul_rn(__fdiv_rn(vecMax, E2M1_MAX_VALUE), SFScaleVal);
+     } else {
+       sfHighPrecision6 = SFScaleVal * (vecMax * reciprocal_approximate_ftz(E2M1_MAX_VALUE));
+     }
+@@ -460,6 +521,7 @@ __device__ std::conditional_t<CVT_ELTS_PER_THREAD == 16, uint64_t, uint32_t> cvt
+     } else {
+       globalDecodeScale = reciprocal_approximate_ftz(SFScaleVal);
+     }
++    constexpr float ERROR_DENOM = E2M1_MAX_VALUE * float(NVFP4_4OVER6_CONFIG::e4m3Max);
+     float outputScale4;
+     float outputScale6;
+     if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
+@@ -502,56 +564,65 @@ __device__ std::conditional_t<CVT_ELTS_PER_THREAD == 16, uint64_t, uint32_t> cvt
+     float error6 = 0.0f;
+ 
+ #pragma unroll
+-    for (int i = 0; i < CVT_ELTS_PER_THREAD; i++) {
+-      float inputVal = fp2Vals[i / 2].x;
+-      if ((i & 1) != 0) {
+-        inputVal = fp2Vals[i / 2].y;
+-      }
+-
+-      uint8_t const code4 = static_cast<uint8_t>((e2m1Bits4 >> (4 * i)) & 0xF);
+-      float const e2m1Val4 = e2m1_code_to_float(code4);
+-      float diff4;
+-      if constexpr (!NVFP4_4OVER6_CONFIG::errUseFastMath) {
+-        float const dequant4 = __fmul_rn(__fmul_rn(e2m1Val4, sfValue4), globalDecodeScale);
+-        diff4 = __fsub_rn(dequant4, inputVal);
++    for (int i = 0; i < CVT_ELTS_PER_THREAD / 2; i++) {
++      uint32_t const byte4 = static_cast<uint32_t>((e2m1Bits4 >> (8 * i)) & 0xFF);
++      uint32_t const byte6 = static_cast<uint32_t>((e2m1Bits6 >> (8 * i)) & 0xFF);
++      if constexpr (NVFP4_4OVER6_CONFIG::errUseFastMath) {
++        float2 const candidate4 = e2m1x2_byte_scaled_e4m3_to_float2(byte4, fp8SFVal4);
++        float2 const candidate6 = e2m1x2_byte_scaled_e4m3_to_float2(byte6, fp8SFVal6);
++        float2 originalScaled;
++        float diff4;
++        float diff6;
++        originalScaled.x = __fmul_rn(fp2Vals[i].x, SFScaleVal);
++        originalScaled.y = __fmul_rn(fp2Vals[i].y, SFScaleVal);
++        diff4 = __fsub_rn(candidate4.x, originalScaled.x);
++        error4 = __fadd_rn(error4, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff4));
++        diff6 = __fsub_rn(candidate6.x, originalScaled.x);
++        error6 = __fadd_rn(error6, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff6));
++        diff4 = __fsub_rn(candidate4.y, originalScaled.y);
+         error4 = __fadd_rn(error4, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff4));
++        diff6 = __fsub_rn(candidate6.y, originalScaled.y);
++        error6 = __fadd_rn(error6, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff6));
+       } else {
+-        float const dequant4 = e2m1Val4 * sfValue4 * globalDecodeScale;
+-        diff4 = dequant4 - inputVal;
+-        error4 += compute_4over6_error<NVFP4_4OVER6_CONFIG>(diff4);
+-      }
++        float2 const e2m1Val4 = e2m1x2_byte_to_float2(byte4);
++        float2 const e2m1Val6 = e2m1x2_byte_to_float2(byte6);
++        float diff4;
++        float dequant4 =
++            rowAmax > 0.0f
++                ? __fdiv_rn(__fmul_rn(__fmul_rn(e2m1Val4.x, sfValue4), rowAmax), ERROR_DENOM)
++                : __fmul_rn(__fmul_rn(e2m1Val4.x, sfValue4), globalDecodeScale);
++        diff4 = __fsub_rn(dequant4, fp2Vals[i].x);
++        error4 = __fadd_rn(error4, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff4));
+ 
+-      uint8_t const code6 = static_cast<uint8_t>((e2m1Bits6 >> (4 * i)) & 0xF);
+-      float const e2m1Val6 = e2m1_code_to_float(code6);
+-      float diff6;
+-      if constexpr (!NVFP4_4OVER6_CONFIG::errUseFastMath) {
+-        float const dequant6 = __fmul_rn(__fmul_rn(e2m1Val6, sfValue6), globalDecodeScale);
+-        diff6 = __fsub_rn(dequant6, inputVal);
++        float diff6;
++        float dequant6 =
++            rowAmax > 0.0f
++                ? __fdiv_rn(__fmul_rn(__fmul_rn(e2m1Val6.x, sfValue6), rowAmax), ERROR_DENOM)
++                : __fmul_rn(__fmul_rn(e2m1Val6.x, sfValue6), globalDecodeScale);
++        diff6 = __fsub_rn(dequant6, fp2Vals[i].x);
++        error6 = __fadd_rn(error6, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff6));
++
++        dequant4 = rowAmax > 0.0f
++                       ? __fdiv_rn(__fmul_rn(__fmul_rn(e2m1Val4.y, sfValue4), rowAmax), ERROR_DENOM)
++                       : __fmul_rn(__fmul_rn(e2m1Val4.y, sfValue4), globalDecodeScale);
++        diff4 = __fsub_rn(dequant4, fp2Vals[i].y);
++        error4 = __fadd_rn(error4, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff4));
++
++        dequant6 = rowAmax > 0.0f
++                       ? __fdiv_rn(__fmul_rn(__fmul_rn(e2m1Val6.y, sfValue6), rowAmax), ERROR_DENOM)
++                       : __fmul_rn(__fmul_rn(e2m1Val6.y, sfValue6), globalDecodeScale);
++        diff6 = __fsub_rn(dequant6, fp2Vals[i].y);
+         error6 = __fadd_rn(error6, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff6));
+-      } else {
+-        float const dequant6 = e2m1Val6 * sfValue6 * globalDecodeScale;
+-        diff6 = dequant6 - inputVal;
+-        error6 += compute_4over6_error<NVFP4_4OVER6_CONFIG>(diff6);
+       }
+     }
+ 
+     if constexpr (CVT_NUM_THREADS_PER_SF >= 2) {
+-      if constexpr (!NVFP4_4OVER6_CONFIG::errUseFastMath) {
+-        error4 = __fadd_rn(error4, __shfl_xor_sync(uint32_t(-1), error4, 1));
+-        error6 = __fadd_rn(error6, __shfl_xor_sync(uint32_t(-1), error6, 1));
+-      } else {
+-        error4 += __shfl_xor_sync(uint32_t(-1), error4, 1);
+-        error6 += __shfl_xor_sync(uint32_t(-1), error6, 1);
+-      }
++      error4 = __fadd_rn(error4, __shfl_xor_sync(uint32_t(-1), error4, 1));
++      error6 = __fadd_rn(error6, __shfl_xor_sync(uint32_t(-1), error6, 1));
+     }
+     if constexpr (CVT_NUM_THREADS_PER_SF == 4) {
+-      if constexpr (!NVFP4_4OVER6_CONFIG::errUseFastMath) {
+-        error4 = __fadd_rn(error4, __shfl_xor_sync(uint32_t(-1), error4, 2));
+-        error6 = __fadd_rn(error6, __shfl_xor_sync(uint32_t(-1), error6, 2));
+-      } else {
+-        error4 += __shfl_xor_sync(uint32_t(-1), error4, 2);
+-        error6 += __shfl_xor_sync(uint32_t(-1), error6, 2);
+-      }
++      error4 = __fadd_rn(error4, __shfl_xor_sync(uint32_t(-1), error4, 2));
++      error6 = __fadd_rn(error6, __shfl_xor_sync(uint32_t(-1), error6, 2));
+     }
+ 
+     if (error4 < error6) {
+diff --git a/flashinfer/cute_dsl/fp4_common.py b/flashinfer/cute_dsl/fp4_common.py
+index 8090a6d755..1400a31585 100644
+--- a/flashinfer/cute_dsl/fp4_common.py
++++ b/flashinfer/cute_dsl/fp4_common.py
+@@ -376,6 +376,78 @@ def rcp_rn(a: Float32, *, loc=None, ip=None) -> Float32:
+     )
+ 
+ 
++@dsl_user_op
++def fadd_rn(a: Float32, b: Float32, loc=None, ip=None) -> Float32:
++    """Round-to-nearest float32 addition."""
++    return Float32(
++        llvm.inline_asm(
++            T.f32(),
++            [Float32(a).ir_value(loc=loc, ip=ip), Float32(b).ir_value(loc=loc, ip=ip)],
++            "add.rn.f32 $0, $1, $2;",
++            "=f,f,f",
++            has_side_effects=False,
++            is_align_stack=False,
++            asm_dialect=llvm.AsmDialect.AD_ATT,
++            loc=loc,
++            ip=ip,
++        )
++    )
++
++
++@dsl_user_op
++def fsub_rn(a: Float32, b: Float32, loc=None, ip=None) -> Float32:
++    """Round-to-nearest float32 subtraction."""
++    return Float32(
++        llvm.inline_asm(
++            T.f32(),
++            [Float32(a).ir_value(loc=loc, ip=ip), Float32(b).ir_value(loc=loc, ip=ip)],
++            "sub.rn.f32 $0, $1, $2;",
++            "=f,f,f",
++            has_side_effects=False,
++            is_align_stack=False,
++            asm_dialect=llvm.AsmDialect.AD_ATT,
++            loc=loc,
++            ip=ip,
++        )
++    )
++
++
++@dsl_user_op
++def fmul_rn(a: Float32, b: Float32, loc=None, ip=None) -> Float32:
++    """Round-to-nearest float32 multiplication."""
++    return Float32(
++        llvm.inline_asm(
++            T.f32(),
++            [Float32(a).ir_value(loc=loc, ip=ip), Float32(b).ir_value(loc=loc, ip=ip)],
++            "mul.rn.f32 $0, $1, $2;",
++            "=f,f,f",
++            has_side_effects=False,
++            is_align_stack=False,
++            asm_dialect=llvm.AsmDialect.AD_ATT,
++            loc=loc,
++            ip=ip,
++        )
++    )
++
++
++@dsl_user_op
++def fdiv_rn(a: Float32, b: Float32, loc=None, ip=None) -> Float32:
++    """Round-to-nearest float32 division."""
++    return Float32(
++        llvm.inline_asm(
++            T.f32(),
++            [Float32(a).ir_value(loc=loc, ip=ip), Float32(b).ir_value(loc=loc, ip=ip)],
++            "div.rn.f32 $0, $1, $2;",
++            "=f,f,f",
++            has_side_effects=False,
++            is_align_stack=False,
++            asm_dialect=llvm.AsmDialect.AD_ATT,
++            loc=loc,
++            ip=ip,
++        )
++    )
++
++
+ @dsl_user_op
+ def fmin_f32(a: Float32, b: Float32, *, loc=None, ip=None) -> Float32:
+     """Compute min of two float32 values using PTX min.f32."""
+diff --git a/flashinfer/quantization/__init__.py b/flashinfer/quantization/__init__.py
+index bebe8424bc..c7ef5c68ec 100644
+--- a/flashinfer/quantization/__init__.py
++++ b/flashinfer/quantization/__init__.py
+@@ -48,7 +48,10 @@
+     if is_cute_dsl_available():
+         from .kernels.mxfp8_quantize import mxfp8_quantize_cute_dsl
+         from .kernels.mxfp4_quantize import mxfp4_quantize_cute_dsl
+-        from .kernels.nvfp4_quantize import nvfp4_quantize_cute_dsl
++        from .kernels.nvfp4_quantize import (
++            nvfp4_quantize_cute_dsl,
++            nvfp4_quantize_per_token_cute_dsl,
++        )
+ 
+         _cute_dsl_available = True
+ except ImportError:
+@@ -85,4 +88,5 @@
+         "mxfp8_quantize_cute_dsl",
+         "mxfp4_quantize_cute_dsl",
+         "nvfp4_quantize_cute_dsl",
++        "nvfp4_quantize_per_token_cute_dsl",
+     ]
+diff --git a/flashinfer/quantization/fp4_quantization.py b/flashinfer/quantization/fp4_quantization.py
+index 905355a316..42a59f10d7 100644
+--- a/flashinfer/quantization/fp4_quantization.py
++++ b/flashinfer/quantization/fp4_quantization.py
+@@ -54,6 +54,15 @@
+ from ..tllm_enums import SfLayout
+ 
+ 
++NVFP4_QUANT_ENV_VARS = (
++    "FLASHINFER_DISABLE_FP4_QUANT_FAST_MATH",
++    "FLASHINFER_NVFP4_4OVER6",
++    "FLASHINFER_NVFP4_4OVER6_ERR_MODE",
++    "FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH",
++    "FLASHINFER_NVFP4_4OVER6_E4M3_USE_256",
++)
++
++
+ def _compute_swizzled_layout_sf_size(total_row, total_column, row_size=128):
+     padded_row = round_up(total_row, row_size)
+     padded_column = round_up(total_column, 4)
+@@ -1141,7 +1150,6 @@ def nvfp4_quantize(
+     sf_vec_size=16,
+     enable_pdl=None,
+     backend: str = "cuda",
+-    *,
+     per_token_activation: bool = False,
+     expanded_idx_to_permuted_idx: Optional[torch.Tensor] = None,
+ ):
+@@ -1181,40 +1189,74 @@ def nvfp4_quantize(
+         It may change or be removed in future versions without notice.
+     """
+     if per_token_activation:
+-        if backend != "cuda":
+-            raise ValueError(
+-                "Per-token NVFP4 quantization only supports backend='cuda'"
+-            )
+         if sf_vec_size != 16:
+             raise ValueError(
+                 "Per-token NVFP4 quantization only supports sf_vec_size=16"
+             )
+ 
+-        scale_inv = (
+-            float(a_global_sf.item())
+-            if isinstance(a_global_sf, torch.Tensor)
+-            else float(a_global_sf)
+-        )
+         sf_layout = SfLayout.layout_linear if do_shuffle else sfLayout
+         if do_shuffle:
+             assert sfLayout == SfLayout.layout_128x4
+ 
+-        a_cuda = a.cuda()
+-        expanded_idx_to_permuted_idx_cuda = (
+-            expanded_idx_to_permuted_idx.cuda()
+-            if expanded_idx_to_permuted_idx is not None
+-            else None
+-        )
+-        major, minor = get_compute_capability(a_cuda.device)
+-        device_arch = f"{major * 10 + minor}"
+-        a_fp4, a_sf, per_token_scale = get_fp4_quantization_module(
+-            device_arch
+-        ).nvfp4_quant_and_per_token_scale_sm100(
+-            a_cuda,
+-            scale_inv,
+-            expanded_idx_to_permuted_idx_cuda,
+-            sf_layout.value,
+-        )
++        if backend == "cuda":
++            scale_inv = (
++                float(a_global_sf.item())
++                if isinstance(a_global_sf, torch.Tensor)
++                else float(a_global_sf)
++            )
++            a_cuda = a.cuda()
++            expanded_idx_to_permuted_idx_cuda = (
++                expanded_idx_to_permuted_idx.cuda()
++                if expanded_idx_to_permuted_idx is not None
++                else None
++            )
++            major, minor = get_compute_capability(a_cuda.device)
++            device_arch = f"{major * 10 + minor}"
++            a_fp4, a_sf, per_token_scale = get_fp4_quantization_module(
++                device_arch
++            ).nvfp4_quant_and_per_token_scale_sm100(
++                a_cuda,
++                scale_inv,
++                expanded_idx_to_permuted_idx_cuda,
++                sf_layout.value,
++            )
++        elif backend == "cute-dsl":
++            from ..cute_dsl import is_cute_dsl_available
++
++            if expanded_idx_to_permuted_idx is not None:
++                raise ValueError(
++                    "CuTe-DSL per-token NVFP4 quantization does not support "
++                    "expanded_idx_to_permuted_idx"
++                )
++            if not is_cute_dsl_available():
++                raise RuntimeError(
++                    "CuTe-DSL backend requested but CuTe-DSL is not available. "
++                    "Please install the required dependencies."
++                )
++            from .kernels.nvfp4_quantize import (
++                SF_LAYOUT_128x4,
++                SF_LAYOUT_8x4,
++                SF_LAYOUT_LINEAR,
++                nvfp4_quantize_per_token_cute_dsl,
++            )
++
++            _sf_layout_map = {
++                SfLayout.layout_128x4: SF_LAYOUT_128x4,
++                SfLayout.layout_8x4: SF_LAYOUT_8x4,
++                SfLayout.layout_linear: SF_LAYOUT_LINEAR,
++            }
++            a_fp4, a_sf, per_token_scale = nvfp4_quantize_per_token_cute_dsl(
++                a.cuda(),
++                a_global_sf.cuda()
++                if isinstance(a_global_sf, torch.Tensor)
++                else a_global_sf,
++                sf_layout=_sf_layout_map[sf_layout],
++                enable_pdl=enable_pdl,
++            )
++        else:
++            raise ValueError(
++                f"Unknown backend: {backend}. Must be 'cuda' or 'cute-dsl'."
++            )
+     elif backend == "cuda":
+         if expanded_idx_to_permuted_idx is not None:
+             raise ValueError(
+diff --git a/flashinfer/quantization/kernels/__init__.py b/flashinfer/quantization/kernels/__init__.py
+index 0f30455b43..5f386be5b3 100644
+--- a/flashinfer/quantization/kernels/__init__.py
++++ b/flashinfer/quantization/kernels/__init__.py
+@@ -37,8 +37,10 @@
+     mxfp8_quantize_cute_dsl,
+ )
+ from .nvfp4_quantize import (
++    NVFP4QuantizePerTokenKernel,
+     NVFP4QuantizeSwizzledKernel,
+     nvfp4_quantize_cute_dsl,
++    nvfp4_quantize_per_token_cute_dsl,
+ )
+ 
+ __all__ = [
+@@ -48,6 +50,8 @@
+     "MXFP8QuantizeLinearKernel",
+     "MXFP8QuantizeSwizzledKernel",
+     "mxfp8_quantize_cute_dsl",
++    "NVFP4QuantizePerTokenKernel",
+     "NVFP4QuantizeSwizzledKernel",
+     "nvfp4_quantize_cute_dsl",
++    "nvfp4_quantize_per_token_cute_dsl",
+ ]
+diff --git a/flashinfer/quantization/kernels/nvfp4_quantize.py b/flashinfer/quantization/kernels/nvfp4_quantize.py
+index 7e1f0eed5b..d3e1045a26 100644
+--- a/flashinfer/quantization/kernels/nvfp4_quantize.py
++++ b/flashinfer/quantization/kernels/nvfp4_quantize.py
+@@ -31,7 +31,6 @@
+ """
+ 
+ import functools
+-import os
+ from typing import Callable, Tuple
+ 
+ import cutlass
+@@ -43,9 +42,25 @@
+ from cutlass import Float32, Int32, Uint8
+ 
+ from ...api_logging import flashinfer_api
+-from ...cute_dsl.fp4_common import get_ptr_as_int64, st_global_u64
++from ...cute_dsl.fp4_common import (
++    block_reduce,
++    fdiv_rn,
++    fmax_f32,
++    fmin_f32,
++    get_ptr_as_int64,
++    ld_global_v4_u32,
++    rcp_approx_ftz,
++    st_global_u64,
++    warp_reduce,
++)
+ from ...cute_dsl.utils import get_num_sm
++from ..nvfp4_quantization_utils import (
++    NVFP44Over6Config,
++    current_nvfp4_4over6_config,
++    env_flag_enabled as _env_flag_enabled,
++)
+ from ..quantization_cute_dsl_utils import (
++    FLOAT32_MAX,
+     NVFP4_SF_VEC_SIZE,
+     WARP_SIZE,
+     ROW_TILE_SIZE,
+@@ -82,10 +97,6 @@
+ _LINEAR_SF_BLOCKS_PER_TB = _LINEAR_WARPS_PER_BLOCK * WARP_SIZE  # 512
+ 
+ 
+-def _env_flag_enabled(name: str) -> bool:
+-    return os.environ.get(name) == "1"
+-
+-
+ def _compute_optimal_threads(K: int) -> int:
+     """
+     Compute optimal thread count for 100% utilization in the swizzled kernel.
+@@ -156,14 +167,16 @@ def __init__(
+         dtype: cutlass.Numeric,
+         K: int,
+         enable_pdl: bool = False,
+-        disable_fast_math: bool = False,
++        disable_fp4_quant_fast_math: bool = False,
++        nvfp4_4over6_config: NVFP44Over6Config | None = None,
+     ):
+         self.dtype = dtype
+         self.K = K
+         self.is_bfloat16 = dtype == cutlass.BFloat16
+         self.is_fp8 = dtype == cutlass.Float8E4M3FN
+         self.enable_pdl = enable_pdl
+-        self.disable_fast_math = disable_fast_math
++        self.disable_fp4_quant_fast_math = disable_fp4_quant_fast_math
++        self.nvfp4_4over6_config = nvfp4_4over6_config
+ 
+         assert K % NVFP4_SF_VEC_SIZE == 0
+         self.num_sf_blocks_per_row = K // NVFP4_SF_VEC_SIZE
+@@ -216,6 +229,7 @@ def kernel(
+ 
+         # Read global_scale from device memory (avoids CPU-GPU sync at launch)
+         global_scale = Float32(mGlobalScale[Int32(0)])
++        row_amax = Float32(0.0)
+ 
+         num_sf_blocks_per_row = self.num_sf_blocks_per_row
+         sf_blocks_per_tb = self.SF_BLOCKS_PER_TB
+@@ -234,15 +248,25 @@ def kernel(
+             # Process block: load, compute scale, convert to E2M1
+             if cutlass.const_expr(self.is_fp8):
+                 scale_fp8, packed64 = process_nvfp4_block_fp8(
+-                    row_input, elem_base, global_scale, self.disable_fast_math
++                    row_input, elem_base, global_scale, self.disable_fp4_quant_fast_math
+                 )
+             elif cutlass.const_expr(self.is_bfloat16):
+                 scale_fp8, packed64 = process_nvfp4_block_bfloat(
+-                    row_input, elem_base, global_scale, self.disable_fast_math
++                    row_input,
++                    elem_base,
++                    global_scale,
++                    self.disable_fp4_quant_fast_math,
++                    self.nvfp4_4over6_config,
++                    row_amax,
+                 )
+             else:
+                 scale_fp8, packed64 = process_nvfp4_block_half(
+-                    row_input, elem_base, global_scale, self.disable_fast_math
++                    row_input,
++                    elem_base,
++                    global_scale,
++                    self.disable_fp4_quant_fast_math,
++                    self.nvfp4_4over6_config,
++                    row_amax,
+                 )
+ 
+             # Write scale factor using linear indexing
+@@ -296,14 +320,16 @@ def __init__(
+         K: int,
+         sf_layout: int = SF_LAYOUT_128x4,
+         enable_pdl: bool = False,
+-        disable_fast_math: bool = False,
++        disable_fp4_quant_fast_math: bool = False,
++        nvfp4_4over6_config: NVFP44Over6Config | None = None,
+     ):
+         self.dtype = dtype
+         self.K = K
+         self.is_bfloat16 = dtype == cutlass.BFloat16
+         self.is_fp8 = dtype == cutlass.Float8E4M3FN
+         self.enable_pdl = enable_pdl
+-        self.disable_fast_math = disable_fast_math
++        self.disable_fp4_quant_fast_math = disable_fp4_quant_fast_math
++        self.nvfp4_4over6_config = nvfp4_4over6_config
+         self.sf_layout = sf_layout
+         self.sf_is_128x4 = sf_layout == SF_LAYOUT_128x4
+         self.sf_is_8x4 = sf_layout == SF_LAYOUT_8x4
+@@ -380,6 +406,7 @@ def kernel(
+ 
+         # Read global_scale from device memory (avoids CPU-GPU sync at launch)
+         global_scale = Float32(mGlobalScale[Int32(0)])
++        row_amax = Float32(0.0)
+ 
+         # Compile-time constants
+         num_sf_blocks_per_row = self.num_sf_blocks_per_row
+@@ -418,21 +445,25 @@ def kernel(
+                                 row_input,
+                                 elem_base,
+                                 global_scale,
+-                                self.disable_fast_math,
++                                self.disable_fp4_quant_fast_math,
+                             )
+                         elif cutlass.const_expr(self.is_bfloat16):
+                             scale_fp8, packed64 = process_nvfp4_block_bfloat(
+                                 row_input,
+                                 elem_base,
+                                 global_scale,
+-                                self.disable_fast_math,
++                                self.disable_fp4_quant_fast_math,
++                                self.nvfp4_4over6_config,
++                                row_amax,
+                             )
+                         else:
+                             scale_fp8, packed64 = process_nvfp4_block_half(
+                                 row_input,
+                                 elem_base,
+                                 global_scale,
+-                                self.disable_fast_math,
++                                self.disable_fp4_quant_fast_math,
++                                self.nvfp4_4over6_config,
++                                row_amax,
+                             )
+ 
+                         # Write scale factor using swizzled indexing
+@@ -498,21 +529,25 @@ def kernel(
+                                     row_input,
+                                     elem_base,
+                                     global_scale,
+-                                    self.disable_fast_math,
++                                    self.disable_fp4_quant_fast_math,
+                                 )
+                             elif cutlass.const_expr(self.is_bfloat16):
+                                 scale_fp8, packed64 = process_nvfp4_block_bfloat(
+                                     row_input,
+                                     elem_base,
+                                     global_scale,
+-                                    self.disable_fast_math,
++                                    self.disable_fp4_quant_fast_math,
++                                    self.nvfp4_4over6_config,
++                                    row_amax,
+                                 )
+                             else:
+                                 scale_fp8, packed64 = process_nvfp4_block_half(
+                                     row_input,
+                                     elem_base,
+                                     global_scale,
+-                                    self.disable_fast_math,
++                                    self.disable_fp4_quant_fast_math,
++                                    self.nvfp4_4over6_config,
++                                    row_amax,
+                                 )
+ 
+                             # Write scale factor using swizzled indexing
+@@ -549,6 +584,218 @@ def kernel(
+             cute.arch.griddepcontrol_launch_dependents()
+ 
+ 
++# =============================================================================
++# CuTe-DSL Kernel Class for Per-Token Activation Quantization
++# =============================================================================
++
++
++_PER_TOKEN_THREADS = 128
++_PER_TOKEN_WARPS = _PER_TOKEN_THREADS // WARP_SIZE
++
++
++class NVFP4QuantizePerTokenKernel:
++    """
++    One CTA per token row. The first pass reduces the row amax, then the
++    second pass reuses the regular NVFP4 block quantizer with that row's
++    global encode scale.
++    """
++
++    def __init__(
++        self,
++        dtype: cutlass.Numeric,
++        K: int,
++        sf_layout: int = SF_LAYOUT_128x4,
++        enable_pdl: bool = False,
++        disable_fp4_quant_fast_math: bool = False,
++        nvfp4_4over6_config: NVFP44Over6Config | None = None,
++    ):
++        self.dtype = dtype
++        self.K = K
++        self.is_bfloat16 = dtype == cutlass.BFloat16
++        self.enable_pdl = enable_pdl
++        self.disable_fp4_quant_fast_math = disable_fp4_quant_fast_math
++        self.nvfp4_4over6_config = nvfp4_4over6_config
++        self.sf_layout = sf_layout
++        self.sf_is_128x4 = sf_layout == SF_LAYOUT_128x4
++        self.sf_is_8x4 = sf_layout == SF_LAYOUT_8x4
++
++        assert dtype != cutlass.Float8E4M3FN, (
++            "per-token NVFP4 does not support FP8 input"
++        )
++        assert K % NVFP4_SF_VEC_SIZE == 0
++        self.num_sf_blocks_per_row = K // NVFP4_SF_VEC_SIZE
++        if sf_layout == SF_LAYOUT_LINEAR:
++            self.padded_sf_cols = self.num_sf_blocks_per_row
++        else:
++            self.padded_sf_cols = ((self.num_sf_blocks_per_row + 3) // 4) * 4
++
++    @cute.jit
++    def _compute_sf_offset(
++        self, row_idx: Int32, col_idx: Int32, padded_cols: Int32
++    ) -> Int32:
++        if cutlass.const_expr(self.sf_is_128x4):
++            return compute_sf_index_swizzled_128x4_gpu(row_idx, col_idx, padded_cols)
++        else:
++            if cutlass.const_expr(self.sf_is_8x4):
++                return compute_sf_index_swizzled_8x4_gpu(row_idx, col_idx, padded_cols)
++            else:
++                return compute_sf_index_linear_gpu(row_idx, col_idx, padded_cols)
++
++    @cute.jit
++    def _row_scales(
++        self, row_amax: Float32, global_scale_inv: Float32
++    ) -> Tuple[Float32, Float32]:
++        global_encode_scale = Float32(0.0)
++        per_token_scale = Float32(0.0)
++        if cutlass.const_expr(self.disable_fp4_quant_fast_math):
++            global_scale = fdiv_rn(Float32(1.0), global_scale_inv)
++            if row_amax == Float32(0.0):
++                per_token_scale = Float32(0.0)
++                if cutlass.const_expr(self.nvfp4_4over6_config is not None):
++                    global_encode_scale = Float32(0.0)
++                else:
++                    global_encode_scale = Float32(FLOAT32_MAX)
++            else:
++                row_encode_scale = fmin_f32(
++                    fdiv_rn(global_scale, row_amax), Float32(FLOAT32_MAX)
++                )
++                if row_encode_scale != Float32(0.0):
++                    global_encode_scale = row_encode_scale
++                else:
++                    global_encode_scale = Float32(1.0)
++                per_token_scale = fdiv_rn(Float32(1.0), global_encode_scale)
++        else:
++            if row_amax == Float32(0.0):
++                per_token_scale = Float32(0.0)
++                if cutlass.const_expr(self.nvfp4_4over6_config is not None):
++                    global_encode_scale = Float32(0.0)
++                else:
++                    global_encode_scale = Float32(FLOAT32_MAX)
++            else:
++                per_token_scale = row_amax * global_scale_inv
++                global_encode_scale = rcp_approx_ftz(per_token_scale)
++        return global_encode_scale, per_token_scale
++
++    @cute.jit
++    def __call__(
++        self,
++        mInput: cute.Tensor,
++        mOutput: cute.Tensor,
++        mScales: cute.Tensor,
++        mPerTokenScale: cute.Tensor,
++        M: Int32,
++        mGlobalScaleInv: cute.Tensor,
++        stream,
++    ):
++        self.kernel(
++            mInput, mOutput, mScales, mPerTokenScale, M, mGlobalScaleInv
++        ).launch(
++            grid=[M, 1, 1],
++            block=[_PER_TOKEN_THREADS, 1, 1],
++            max_number_threads=[_MAX_THREADS_PER_BLOCK, 1, 1],
++            min_blocks_per_mp=_BLOCKS_PER_SM,
++            stream=stream,
++            use_pdl=self.enable_pdl,
++        )
++
++    @cute.kernel
++    def kernel(
++        self,
++        mInput: cute.Tensor,
++        mOutput: cute.Tensor,
++        mScales: cute.Tensor,
++        mPerTokenScale: cute.Tensor,
++        M: Int32,
++        mGlobalScaleInv: cute.Tensor,
++    ):
++        tidx, _, _ = cute.arch.thread_idx()
++        bidx, _, _ = cute.arch.block_idx()
++
++        if cutlass.const_expr(self.enable_pdl):
++            cute.arch.griddepcontrol_wait()
++
++        smem = cutlass.utils.SmemAllocator()
++        reduction_buffer = smem.allocate_tensor(
++            Float32,
++            cute.make_layout((1, _PER_TOKEN_WARPS)),
++            byte_alignment=4,
++        )
++
++        row_idx = bidx
++        num_sf_blocks_per_row = self.num_sf_blocks_per_row
++        padded_sf_cols = self.padded_sf_cols
++        row_input = mInput[row_idx, None]
++
++        local_amax = Float32(0.0)
++        sf_col_idx = tidx
++        while sf_col_idx < num_sf_blocks_per_row:
++            elem_base = sf_col_idx * NVFP4_SF_VEC_SIZE
++            ptr0 = get_ptr_as_int64(row_input, elem_base)
++            ptr1 = get_ptr_as_int64(row_input, elem_base + Int32(8))
++            h0, h1, h2, h3 = ld_global_v4_u32(ptr0)
++            h4, h5, h6, h7 = ld_global_v4_u32(ptr1)
++            if cutlass.const_expr(self.is_bfloat16):
++                block_max_h2 = bfloat2_max_abs_8_fn(h0, h1, h2, h3, h4, h5, h6, h7)
++                block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
++            else:
++                block_max_h2 = half2_max_abs_8_fn(h0, h1, h2, h3, h4, h5, h6, h7)
++                block_max = hmax_reduce_to_f32(block_max_h2)
++            local_amax = fmax_f32(local_amax, block_max)
++            sf_col_idx = sf_col_idx + Int32(_PER_TOKEN_THREADS)
++
++        warp_amax = warp_reduce(local_amax, fmax_f32)
++        row_amax = block_reduce(warp_amax, fmax_f32, reduction_buffer, Float32(0.0))
++        global_scale_inv = Float32(mGlobalScaleInv[Int32(0)])
++        global_encode_scale, per_token_scale = self._row_scales(
++            row_amax, global_scale_inv
++        )
++        if tidx == Int32(0):
++            mPerTokenScale[row_idx] = per_token_scale
++        cute.arch.barrier()
++
++        sf_col_idx = tidx
++        while sf_col_idx < num_sf_blocks_per_row:
++            elem_base = sf_col_idx * NVFP4_SF_VEC_SIZE
++            if cutlass.const_expr(self.is_bfloat16):
++                scale_fp8, packed64 = process_nvfp4_block_bfloat(
++                    row_input,
++                    elem_base,
++                    global_encode_scale,
++                    self.disable_fp4_quant_fast_math,
++                    self.nvfp4_4over6_config,
++                    row_amax,
++                )
++            else:
++                scale_fp8, packed64 = process_nvfp4_block_half(
++                    row_input,
++                    elem_base,
++                    global_encode_scale,
++                    self.disable_fp4_quant_fast_math,
++                    self.nvfp4_4over6_config,
++                    row_amax,
++                )
++
++            sf_offset = self._compute_sf_offset(row_idx, sf_col_idx, padded_sf_cols)
++            mScales[sf_offset] = scale_fp8
++
++            row_output = mOutput[row_idx, None]
++            out_base = sf_col_idx * Int32(NVFP4_SF_VEC_SIZE // 2)
++            out_ptr = get_ptr_as_int64(row_output, out_base)
++            st_global_u64(out_ptr, packed64)
++
++            sf_col_idx = sf_col_idx + Int32(_PER_TOKEN_THREADS)
++
++        if cutlass.const_expr(self.sf_layout != SF_LAYOUT_LINEAR):
++            sf_col_idx = num_sf_blocks_per_row + tidx
++            while sf_col_idx < padded_sf_cols:
++                sf_offset = self._compute_sf_offset(row_idx, sf_col_idx, padded_sf_cols)
++                mScales[sf_offset] = Uint8(0)
++                sf_col_idx = sf_col_idx + Int32(_PER_TOKEN_THREADS)
++
++        if cutlass.const_expr(self.enable_pdl):
++            cute.arch.griddepcontrol_launch_dependents()
++
++
+ # =============================================================================
+ # CuTe-DSL TMA Kernel Class for NVFP4
+ # =============================================================================
+@@ -587,14 +834,14 @@ def __init__(
+         K: int,
+         sf_layout: int = SF_LAYOUT_128x4,
+         enable_pdl: bool = False,
+-        disable_fast_math: bool = False,
++        disable_fp4_quant_fast_math: bool = False,
+     ):
+         self.dtype = dtype
+         self.K = K
+         self.is_bfloat16 = dtype == cutlass.BFloat16
+         self.is_fp8 = dtype == cutlass.Float8E4M3FN
+         self.enable_pdl = enable_pdl
+-        self.disable_fast_math = disable_fast_math
++        self.disable_fp4_quant_fast_math = disable_fp4_quant_fast_math
+         self.sf_layout = sf_layout
+         self.sf_is_128x4 = sf_layout == SF_LAYOUT_128x4
+         self.sf_is_8x4 = sf_layout == SF_LAYOUT_8x4
+@@ -683,7 +930,7 @@ def _quantize_sf_block(
+                     block_max_h2 = half2_max_abs_8_fn(h0, h1, h2, h3, h4, h5, h6, h7)
+                     block_max = hmax_reduce_to_f32(block_max_h2)
+ 
+-                if cutlass.const_expr(self.disable_fast_math):
++                if cutlass.const_expr(self.disable_fp4_quant_fast_math):
+                     scale_float = nvfp4_scale_from_amax_rn(block_max, global_scale)
+                 else:
+                     fp4_max_rcp = rcp_approx_ftz(Float32(6.0))
+@@ -691,7 +938,7 @@ def _quantize_sf_block(
+                 scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
+                 scale_fp8 = Uint8(scale_fp8_u32 & cutlass.Uint32(0xFF))
+ 
+-                if cutlass.const_expr(self.disable_fast_math):
++                if cutlass.const_expr(self.disable_fp4_quant_fast_math):
+                     output_scale = nvfp4_compute_output_scale_rn(
+                         scale_fp8_u32, global_scale, block_max
+                     )
+@@ -1086,7 +1333,8 @@ def _get_compiled_kernel_nvfp4(
+     K: int,
+     sf_layout: int = SF_LAYOUT_128x4,
+     enable_pdl: bool = False,
+-    disable_fast_math: bool = False,
++    disable_fp4_quant_fast_math: bool = False,
++    nvfp4_4over6_config: NVFP44Over6Config | None = None,
+ ) -> Tuple[Callable, int]:
+     """
+     Get or compile NVFP4 kernel with TVM-FFI.
+@@ -1129,7 +1377,11 @@ def _get_compiled_kernel_nvfp4(
+ 
+     if sf_layout == SF_LAYOUT_LINEAR:
+         linear_obj = NVFP4QuantizeLinearKernel(
+-            cutlass_dtype, K, enable_pdl, disable_fast_math
++            cutlass_dtype,
++            K,
++            enable_pdl,
++            disable_fp4_quant_fast_math,
++            nvfp4_4over6_config,
+         )
+ 
+         compiled_kernel = cute.compile(
+@@ -1152,7 +1404,8 @@ def _get_compiled_kernel_nvfp4(
+             K,
+             sf_layout=sf_layout,
+             enable_pdl=enable_pdl,
+-            disable_fast_math=disable_fast_math,
++            disable_fp4_quant_fast_math=disable_fp4_quant_fast_math,
++            nvfp4_4over6_config=nvfp4_4over6_config,
+         )
+ 
+         compiled_kernel = cute.compile(
+@@ -1171,6 +1424,63 @@ def _get_compiled_kernel_nvfp4(
+         return compiled_kernel, swizzled_obj.rows_per_block
+ 
+ 
++@functools.cache
++def _get_compiled_kernel_nvfp4_per_token(
++    dtype_key: str,
++    K: int,
++    sf_layout: int = SF_LAYOUT_128x4,
++    enable_pdl: bool = False,
++    disable_fp4_quant_fast_math: bool = False,
++    nvfp4_4over6_config: NVFP44Over6Config | None = None,
++) -> Callable:
++    _dtype_map = {
++        "float16": cutlass.Float16,
++        "bfloat16": cutlass.BFloat16,
++    }
++    cutlass_dtype = _dtype_map[dtype_key]
++
++    sym_m = cute.sym_int()
++    sym_scale_size = cute.sym_int()
++
++    input_fake = cute.runtime.make_fake_compact_tensor(
++        cutlass_dtype, (sym_m, K), stride_order=(1, 0), assumed_align=16
++    )
++    output_fake = cute.runtime.make_fake_compact_tensor(
++        cutlass.Uint8, (sym_m, K // 2), stride_order=(1, 0), assumed_align=16
++    )
++    scales_fake = cute.runtime.make_fake_compact_tensor(
++        cutlass.Uint8, (sym_scale_size,), assumed_align=16
++    )
++    per_token_scale_fake = cute.runtime.make_fake_compact_tensor(
++        cutlass.Float32, (sym_m,), assumed_align=4
++    )
++    global_scale_inv_fake = cute.runtime.make_fake_compact_tensor(
++        cutlass.Float32, (1,), assumed_align=4
++    )
++    stream_fake = cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True)
++
++    kernel_obj = NVFP4QuantizePerTokenKernel(
++        cutlass_dtype,
++        K,
++        sf_layout=sf_layout,
++        enable_pdl=enable_pdl,
++        disable_fp4_quant_fast_math=disable_fp4_quant_fast_math,
++        nvfp4_4over6_config=nvfp4_4over6_config,
++    )
++
++    return cute.compile(
++        kernel_obj,
++        input_fake,
++        output_fake,
++        scales_fake,
++        per_token_scale_fake,
++        Int32(1),
++        global_scale_inv_fake,
++        stream_fake,
++        options="--enable-tvm-ffi",
++    )
++
++
+ _TMA_MIN_M = 1024
+ # TMA wins when the total problem is large enough to amortize pipeline overhead.
+ # Empirically, floor(log2(M)) + floor(log2(K)) >= 25 is the crossover where TMA
+@@ -1198,7 +1508,7 @@ def _get_compiled_kernel_nvfp4_tma(
+     K: int,
+     sf_layout: int = SF_LAYOUT_128x4,
+     enable_pdl: bool = False,
+-    disable_fast_math: bool = False,
++    disable_fp4_quant_fast_math: bool = False,
+ ) -> Tuple[Callable, int]:
+     """
+     Get or compile TMA-based NVFP4 kernel with TVM-FFI.
+@@ -1215,7 +1525,7 @@ def _get_compiled_kernel_nvfp4_tma(
+         K,
+         sf_layout=sf_layout,
+         enable_pdl=enable_pdl,
+-        disable_fast_math=disable_fast_math,
++        disable_fp4_quant_fast_math=disable_fp4_quant_fast_math,
+     )
+ 
+     sym_m = cute.sym_int()
+@@ -1331,8 +1641,13 @@ def nvfp4_quantize_cute_dsl(
+ 
+     num_sf_blocks_per_row = k // NVFP4_SF_VEC_SIZE
+ 
+-    use_tma = _should_use_tma(m, k, input.dtype)
+-    disable_fast_math = _env_flag_enabled("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH")
++    disable_fp4_quant_fast_math = _env_flag_enabled(
++        "FLASHINFER_DISABLE_FP4_QUANT_FAST_MATH"
++    )
++    nvfp4_4over6_config = current_nvfp4_4over6_config()
++    if nvfp4_4over6_config is not None and input.dtype == torch.float8_e4m3fn:
++        raise ValueError("FLASHINFER_NVFP4_4OVER6 requires fp16 or bf16 input")
++    use_tma = _should_use_tma(m, k, input.dtype) and nvfp4_4over6_config is None
+ 
+     if use_tma:
+         tma_row_tile = _TMA_ROW_TILE
+@@ -1349,7 +1664,7 @@ def nvfp4_quantize_cute_dsl(
+         scale_output_size = padded_m * padded_sf_cols
+ 
+         kernel_fn, rows_per_block = _get_compiled_kernel_nvfp4_tma(
+-            dtype_key, k, sf_layout, enable_pdl, disable_fast_math
++            dtype_key, k, sf_layout, enable_pdl, disable_fp4_quant_fast_math
+         )
+ 
+         # Match CUDA TMA kernel: grid = min(row_tiles, SM_count * 2)
+@@ -1393,7 +1708,12 @@ def nvfp4_quantize_cute_dsl(
+     # Non-TMA path: dual-path dispatch
+     # Get or compile kernel (device-independent)
+     kernel_fn, block_unit = _get_compiled_kernel_nvfp4(
+-        dtype_key, k, sf_layout, enable_pdl, disable_fast_math
++        dtype_key,
++        k,
++        sf_layout,
++        enable_pdl,
++        disable_fp4_quant_fast_math,
++        nvfp4_4over6_config,
+     )
+ 
+     target_grid = num_sm * _BLOCKS_PER_SM
+@@ -1461,14 +1781,104 @@ def nvfp4_quantize_cute_dsl(
+     return fp4_output, scale_output
+ 
+ 
++@flashinfer_api
++def nvfp4_quantize_per_token_cute_dsl(
++    input: torch.Tensor,
++    global_scale_inv: torch.Tensor,
++    sf_layout: int = SF_LAYOUT_128x4,
++    enable_pdl: bool | None = None,
++) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
++    """Per-token NVFP4 activation quantization using CuTe-DSL."""
++    from ...utils import device_support_pdl
++
++    _valid_sf_layouts = (SF_LAYOUT_128x4, SF_LAYOUT_8x4, SF_LAYOUT_LINEAR)
++    assert sf_layout in _valid_sf_layouts, (
++        f"sf_layout must be one of {_valid_sf_layouts}, got {sf_layout}"
++    )
++    _supported_dtypes = (torch.float16, torch.bfloat16)
++    assert input.dtype in _supported_dtypes, (
++        f"Per-token NVFP4 input dtype must be one of {_supported_dtypes}, got {input.dtype}"
++    )
++    assert input.is_cuda, "Input must be on CUDA device"
++    assert input.dim() == 2, "Per-token NVFP4 quantization expects a 2D input"
++
++    enable_pdl = device_support_pdl(input.device) if enable_pdl is not False else False
++    input = input.contiguous()
++    m, k = input.shape
++    assert k % NVFP4_SF_VEC_SIZE == 0, (
++        f"K ({k}) must be divisible by NVFP4_SF_VEC_SIZE={NVFP4_SF_VEC_SIZE}"
++    )
++
++    _torch_to_dtype_key = {
++        torch.float16: "float16",
++        torch.bfloat16: "bfloat16",
++    }
++    dtype_key = _torch_to_dtype_key[input.dtype]
++
++    if isinstance(global_scale_inv, torch.Tensor):
++        global_scale_inv_tensor = (
++            global_scale_inv.float().reshape(1).contiguous().to(input.device)
++        )
++    else:
++        global_scale_inv_tensor = torch.tensor(
++            [float(global_scale_inv)], dtype=torch.float32, device=input.device
++        )
++
++    num_sf_blocks_per_row = k // NVFP4_SF_VEC_SIZE
++    if sf_layout == SF_LAYOUT_LINEAR:
++        padded_m = m
++        padded_sf_cols = num_sf_blocks_per_row
++    elif sf_layout == SF_LAYOUT_8x4:
++        padded_m = _round_up(m, 8)
++        padded_sf_cols = ((num_sf_blocks_per_row + 3) // 4) * 4
++    else:
++        padded_m = _round_up(m, ROW_TILE_SIZE)
++        padded_sf_cols = ((num_sf_blocks_per_row + 3) // 4) * 4
++
++    disable_fp4_quant_fast_math = _env_flag_enabled(
++        "FLASHINFER_DISABLE_FP4_QUANT_FAST_MATH"
++    )
++    nvfp4_4over6_config = current_nvfp4_4over6_config()
++
++    kernel_fn = _get_compiled_kernel_nvfp4_per_token(
++        dtype_key,
++        k,
++        sf_layout,
++        enable_pdl,
++        disable_fp4_quant_fast_math,
++        nvfp4_4over6_config,
++    )
++
++    fp4_output = torch.empty(m, k // 2, dtype=torch.uint8, device=input.device)
++    scale_output = torch.zeros(
++        padded_m * padded_sf_cols, dtype=torch.uint8, device=input.device
++    )
++    per_token_scale = torch.empty(m, dtype=torch.float32, device=input.device)
++
++    kernel_fn(
++        input,
++        fp4_output,
++        scale_output,
++        per_token_scale,
++        m,
++        global_scale_inv_tensor,
++    )
++
++    scale_output = scale_output.reshape(-1, padded_sf_cols)
++    return fp4_output, scale_output, per_token_scale
++
++
+ __all__ = [
+     "SF_LAYOUT_128x4",
+     "SF_LAYOUT_8x4",
+     "SF_LAYOUT_LINEAR",
+     "NVFP4QuantizeLinearKernel",
+     "NVFP4QuantizeSwizzledKernel",
++    "NVFP4QuantizePerTokenKernel",
+     "NVFP4QuantizeTMAKernel",
+     "nvfp4_quantize_cute_dsl",
++    "nvfp4_quantize_per_token_cute_dsl",
+     "_get_compiled_kernel_nvfp4",
++    "_get_compiled_kernel_nvfp4_per_token",
+     "_get_compiled_kernel_nvfp4_tma",
+ ]
+diff --git a/flashinfer/quantization/nvfp4_quantization_utils.py b/flashinfer/quantization/nvfp4_quantization_utils.py
+new file mode 100644
+index 0000000000..90bbd61c65
+--- /dev/null
++++ b/flashinfer/quantization/nvfp4_quantization_utils.py
+@@ -0,0 +1,141 @@
++"""
++Copyright (c) 2025 by FlashInfer team.
++
++Licensed under the Apache License, Version 2.0 (the "License");
++you may not use this file except in compliance with the License.
++You may obtain a copy of the License at
++
++  http://www.apache.org/licenses/LICENSE-2.0
++
++Unless required by applicable law or agreed to in writing, software
++distributed under the License is distributed on an "AS IS" BASIS,
++WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++See the License for the specific language governing permissions and
++limitations under the License.
++
++Shared NVFP4 quantization helpers.
++"""
++
++from dataclasses import dataclass
++from enum import IntEnum
++import os
++
++import torch
++
++
++FLOAT4_E2M1_MAX = 6.0
++FLOAT8_E4M3_MAX = 448.0
++
++
++class NVFP44Over6ErrMode(IntEnum):
++    """Error metric for selecting between NVFP4 4over6 scale candidates."""
++
++    MAE = 0
++    MSE = 1
++
++
++@dataclass(frozen=True)
++class NVFP44Over6Config:
++    """NVFP4 4over6 configuration shared by Python drivers and kernels."""
++
++    e4m3_max: int = 448
++    err_mode: NVFP44Over6ErrMode | str = NVFP44Over6ErrMode.MAE
++    err_use_fast_math: bool = False
++
++    def __post_init__(self) -> None:
++        if self.e4m3_max not in (256, 448):
++            raise ValueError("NVFP4 4over6 E4M3 max must be either 256 or 448.")
++        try:
++            if isinstance(self.err_mode, str):
++                err_mode = NVFP44Over6ErrMode[self.err_mode.upper()]
++            else:
++                err_mode = NVFP44Over6ErrMode(self.err_mode)
++        except (KeyError, ValueError):
++            raise ValueError("NVFP4 4over6 error mode must be MAE or MSE.") from None
++        object.__setattr__(self, "err_mode", err_mode)
++
++    @property
++    def err_mode_name(self) -> str:
++        if isinstance(self.err_mode, str):
++            return self.err_mode.upper()
++        return self.err_mode.name
++
++
++def env_flag_enabled(name: str) -> bool:
++    return os.environ.get(name) == "1"
++
++
++def current_nvfp4_4over6_config() -> NVFP44Over6Config | None:
++    if not env_flag_enabled("FLASHINFER_NVFP4_4OVER6"):
++        return None
++
++    return NVFP44Over6Config(
++        e4m3_max=256
++        if env_flag_enabled("FLASHINFER_NVFP4_4OVER6_E4M3_USE_256")
++        else 448,
++        err_mode=os.environ.get("FLASHINFER_NVFP4_4OVER6_ERR_MODE", "MAE"),
++        err_use_fast_math=env_flag_enabled("FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH"),
++    )
++
++
++def nvfp4_e4m3_max(nvfp4_4over6_config: NVFP44Over6Config | None) -> float:
++    if nvfp4_4over6_config is not None:
++        return float(nvfp4_4over6_config.e4m3_max)
++    return FLOAT8_E4M3_MAX
++
++
++def make_nvfp4_global_scale(
++    input_tensor: torch.Tensor,
++    per_token_activation: bool,
++    global_scale: float | None = None,
++    nvfp4_4over6_config: NVFP44Over6Config | None = None,
++) -> torch.Tensor:
++    e4m3_max = nvfp4_e4m3_max(nvfp4_4over6_config)
++    if per_token_activation:
++        scale = 1.0 / (e4m3_max * FLOAT4_E2M1_MAX)
++    elif global_scale is not None:
++        scale = global_scale
++    else:
++        amax = input_tensor.abs().max().to(torch.float32)
++        if amax == 0:
++            return torch.full(
++                (1,),
++                torch.finfo(torch.float32).max,
++                dtype=torch.float32,
++                device=input_tensor.device,
++            )
++        return (e4m3_max * FLOAT4_E2M1_MAX / amax).reshape(1).to(input_tensor.device)
++
++    return torch.tensor(
++        [scale],
++        dtype=torch.float32,
++        device=input_tensor.device,
++    )
++
++
++def nvfp4_4over6_mode_label(
++    per_token_activation: bool, nvfp4_4over6_config: NVFP44Over6Config | None
++) -> str:
++    parts = []
++    if per_token_activation:
++        parts.append("per-token")
++    if nvfp4_4over6_config is not None:
++        parts.append(f"4over6-{nvfp4_4over6_config.err_mode_name.lower()}")
++        parts.append(f"e4m3-{nvfp4_4over6_config.e4m3_max}")
++        parts.append(
++            "err-fastmath" if nvfp4_4over6_config.err_use_fast_math else "err-exactmath"
++        )
++    return ", ".join(parts) if parts else "standard"
++
++
++__all__ = [
++    "FLOAT4_E2M1_MAX",
++    "FLOAT8_E4M3_MAX",
++    "NVFP44Over6Config",
++    "NVFP44Over6ErrMode",
++    "current_nvfp4_4over6_config",
++    "env_flag_enabled",
++    "make_nvfp4_global_scale",
++    "nvfp4_4over6_mode_label",
++    "nvfp4_e4m3_max",
++]
+diff --git a/flashinfer/quantization/quantization_cute_dsl_utils.py b/flashinfer/quantization/quantization_cute_dsl_utils.py
+index 2be6188e65..143824717c 100644
+--- a/flashinfer/quantization/quantization_cute_dsl_utils.py
++++ b/flashinfer/quantization/quantization_cute_dsl_utils.py
+@@ -26,6 +26,7 @@
+ from cutlass.cutlass_dsl import T, dsl_user_op
+ 
+ from ..cute_dsl.fp4_common import habs2, hmax2, bfloat2_habs2, bfloat2_hmax2
++from .nvfp4_quantization_utils import NVFP44Over6Config, NVFP44Over6ErrMode
+ 
+ 
+ # =============================================================================
+@@ -65,6 +66,9 @@
+ # Scale factor vector size for NVFP4: each scale factor covers 16 elements
+ NVFP4_SF_VEC_SIZE = 16
+ 
++
++FLOAT32_MAX = 3.4028234663852886e38
++
+ # =============================================================================
+ # MXFP4 Constants
+ # =============================================================================
+@@ -1127,9 +1131,610 @@ def bfloat2x8_to_e2m1x16_packed(
+     return (Uint64(packed_hi) << Uint64(32)) | Uint64(packed_lo)
+ 
+ 
++@cute.jit
++def _half2x8_to_f32x16(
++    h0: Uint32,
++    h1: Uint32,
++    h2: Uint32,
++    h3: Uint32,
++    h4: Uint32,
++    h5: Uint32,
++    h6: Uint32,
++    h7: Uint32,
++) -> tuple:
++    one = Float32(1.0)
++    x0, x1 = half2_to_float2_scaled(h0, one)
++    x2, x3 = half2_to_float2_scaled(h1, one)
++    x4, x5 = half2_to_float2_scaled(h2, one)
++    x6, x7 = half2_to_float2_scaled(h3, one)
++    x8, x9 = half2_to_float2_scaled(h4, one)
++    x10, x11 = half2_to_float2_scaled(h5, one)
++    x12, x13 = half2_to_float2_scaled(h6, one)
++    x14, x15 = half2_to_float2_scaled(h7, one)
++    return (
++        x0,
++        x1,
++        x2,
++        x3,
++        x4,
++        x5,
++        x6,
++        x7,
++        x8,
++        x9,
++        x10,
++        x11,
++        x12,
++        x13,
++        x14,
++        x15,
++    )
++
++
++@cute.jit
++def _bfloat2x8_to_f32x16(
++    h0: Uint32,
++    h1: Uint32,
++    h2: Uint32,
++    h3: Uint32,
++    h4: Uint32,
++    h5: Uint32,
++    h6: Uint32,
++    h7: Uint32,
++) -> tuple:
++    one = Float32(1.0)
++    x0, x1 = bfloat2_to_float2_scaled(h0, one)
++    x2, x3 = bfloat2_to_float2_scaled(h1, one)
++    x4, x5 = bfloat2_to_float2_scaled(h2, one)
++    x6, x7 = bfloat2_to_float2_scaled(h3, one)
++    x8, x9 = bfloat2_to_float2_scaled(h4, one)
++    x10, x11 = bfloat2_to_float2_scaled(h5, one)
++    x12, x13 = bfloat2_to_float2_scaled(h6, one)
++    x14, x15 = bfloat2_to_float2_scaled(h7, one)
++    return (
++        x0,
++        x1,
++        x2,
++        x3,
++        x4,
++        x5,
++        x6,
++        x7,
++        x8,
++        x9,
++        x10,
++        x11,
++        x12,
++        x13,
++        x14,
++        x15,
++    )
++
++
++@cute.jit
++def _scale_f32x16(
++    values: tuple, scale: Float32, disable_fp4_quant_fast_math: bool
++) -> tuple:
++    from ..cute_dsl.fp4_common import fmul_rn
++
++    if cutlass.const_expr(disable_fp4_quant_fast_math):
++        return (
++            fmul_rn(values[0], scale),
++            fmul_rn(values[1], scale),
++            fmul_rn(values[2], scale),
++            fmul_rn(values[3], scale),
++            fmul_rn(values[4], scale),
++            fmul_rn(values[5], scale),
++            fmul_rn(values[6], scale),
++            fmul_rn(values[7], scale),
++            fmul_rn(values[8], scale),
++            fmul_rn(values[9], scale),
++            fmul_rn(values[10], scale),
++            fmul_rn(values[11], scale),
++            fmul_rn(values[12], scale),
++            fmul_rn(values[13], scale),
++            fmul_rn(values[14], scale),
++            fmul_rn(values[15], scale),
++        )
++    else:
++        return (
++            values[0] * scale,
++            values[1] * scale,
++            values[2] * scale,
++            values[3] * scale,
++            values[4] * scale,
++            values[5] * scale,
++            values[6] * scale,
++            values[7] * scale,
++            values[8] * scale,
++            values[9] * scale,
++            values[10] * scale,
++            values[11] * scale,
++            values[12] * scale,
++            values[13] * scale,
++            values[14] * scale,
++            values[15] * scale,
++        )
++
++
++@cute.jit
++def _pack_f32x16_to_e2m1(values: tuple) -> tuple:
++    packed_lo = cvt_e2m1x8_f32(
++        values[0],
++        values[1],
++        values[2],
++        values[3],
++        values[4],
++        values[5],
++        values[6],
++        values[7],
++    )
++    packed_hi = cvt_e2m1x8_f32(
++        values[8],
++        values[9],
++        values[10],
++        values[11],
++        values[12],
++        values[13],
++        values[14],
++        values[15],
++    )
++    packed64 = (Uint64(packed_hi) << Uint64(32)) | Uint64(packed_lo)
++    return packed_lo, packed_hi, packed64
++
++
++@dsl_user_op
++def _e2m1x2_to_f32x2(byte_val: Uint32, *, loc=None, ip=None) -> tuple:
++    """Decode one packed E2M1x2 byte to FP32 values."""
++    result = llvm.inline_asm(
++        llvm.StructType.get_literal([T.f32(), T.f32()]),
++        [Uint32(byte_val).ir_value(loc=loc, ip=ip)],
++        """
++        {
++            .reg .b8 byte0, byte1, byte2, byte3;
++            .reg .b32 h2;
++            .reg .b16 lo, hi;
++            .reg .b32 code_lo, code_hi;
++            .reg .b32 bits_lo, bits_hi;
++            .reg .f32 f_lo, f_hi;
++            .reg .pred negzero_lo, negzero_hi;
++
++            mov.b32 {byte0, byte1, byte2, byte3}, $2;
++            cvt.rn.f16x2.e2m1x2 h2, byte0;
++            mov.b32 {lo, hi}, h2;
++            cvt.f32.f16 f_lo, lo;
++            cvt.f32.f16 f_hi, hi;
++            mov.b32 bits_lo, f_lo;
++            mov.b32 bits_hi, f_hi;
++
++            and.b32 code_lo, $2, 0xF;
++            shr.u32 code_hi, $2, 4;
++            and.b32 code_hi, code_hi, 0xF;
++            setp.eq.u32 negzero_lo, code_lo, 0x8;
++            setp.eq.u32 negzero_hi, code_hi, 0x8;
++            selp.u32 bits_lo, 0x80000000, bits_lo, negzero_lo;
++            selp.u32 bits_hi, 0x80000000, bits_hi, negzero_hi;
++
++            mov.b32 $0, bits_lo;
++            mov.b32 $1, bits_hi;
++        }
++        """,
++        "=f,=f,r",
++        has_side_effects=False,
++        is_align_stack=False,
++        asm_dialect=llvm.AsmDialect.AD_ATT,
++        loc=loc,
++        ip=ip,
++    )
++    return (
++        Float32(llvm.extractvalue(T.f32(), result, [0], loc=loc, ip=ip)),
++        Float32(llvm.extractvalue(T.f32(), result, [1], loc=loc, ip=ip)),
++    )
++
++
++@cute.jit
++def _decode_e2m1x16_to_f32(packed_lo: Uint32, packed_hi: Uint32) -> tuple:
++    q0, q1 = _e2m1x2_to_f32x2(packed_lo)
++    q2, q3 = _e2m1x2_to_f32x2(packed_lo >> Uint32(8))
++    q4, q5 = _e2m1x2_to_f32x2(packed_lo >> Uint32(16))
++    q6, q7 = _e2m1x2_to_f32x2(packed_lo >> Uint32(24))
++    q8, q9 = _e2m1x2_to_f32x2(packed_hi)
++    q10, q11 = _e2m1x2_to_f32x2(packed_hi >> Uint32(8))
++    q12, q13 = _e2m1x2_to_f32x2(packed_hi >> Uint32(16))
++    q14, q15 = _e2m1x2_to_f32x2(packed_hi >> Uint32(24))
++    return (
++        q0,
++        q1,
++        q2,
++        q3,
++        q4,
++        q5,
++        q6,
++        q7,
++        q8,
++        q9,
++        q10,
++        q11,
++        q12,
++        q13,
++        q14,
++        q15,
++    )
++
++
++@cute.jit
++def _e2m1_code_at(packed_lo: Uint32, packed_hi: Uint32, idx: int) -> Uint32:
++    if cutlass.const_expr(idx < 8):
++        code = packed_lo >> Uint32(4 * idx)
++    else:
++        code = packed_hi >> Uint32(4 * (idx - 8))
++    return code & Uint32(0xF)
++
++
++@cute.jit
++def _nvfp4_4over6_dequant_abs_value(
++    value: Float32,
++    scale: Float32,
++    row_amax: Float32,
++    denom: Float32,
++    global_decode_scale: Float32,
++) -> Float32:
++    from ..cute_dsl.fp4_common import fdiv_rn, fmul_rn
++
++    dequant = fmul_rn(fmul_rn(value, scale), global_decode_scale)
++    if row_amax > Float32(0.0):
++        dequant = fdiv_rn(fmul_rn(fmul_rn(value, scale), row_amax), denom)
++    return dequant
++
++
++@cute.jit
++def _nvfp4_4over6_dequant_abs_values(
++    scale: Float32,
++    row_amax: Float32,
++    denom: Float32,
++    global_decode_scale: Float32,
++) -> tuple:
++    return (
++        Float32(0.0),
++        _nvfp4_4over6_dequant_abs_value(
++            Float32(0.5), scale, row_amax, denom, global_decode_scale
++        ),
++        _nvfp4_4over6_dequant_abs_value(
++            Float32(1.0), scale, row_amax, denom, global_decode_scale
++        ),
++        _nvfp4_4over6_dequant_abs_value(
++            Float32(1.5), scale, row_amax, denom, global_decode_scale
++        ),
++        _nvfp4_4over6_dequant_abs_value(
++            Float32(2.0), scale, row_amax, denom, global_decode_scale
++        ),
++        _nvfp4_4over6_dequant_abs_value(
++            Float32(3.0), scale, row_amax, denom, global_decode_scale
++        ),
++        _nvfp4_4over6_dequant_abs_value(
++            Float32(4.0), scale, row_amax, denom, global_decode_scale
++        ),
++        _nvfp4_4over6_dequant_abs_value(
++            Float32(6.0), scale, row_amax, denom, global_decode_scale
++        ),
++    )
++
++
++@cute.jit
++def _nvfp4_4over6_dequant_from_code(code: Uint32, dequant_abs: tuple) -> Float32:
++    magnitude = code & Uint32(0x7)
++    dequant = Float32(0.0)
++    if magnitude == Uint32(1):
++        dequant = dequant_abs[1]
++    elif magnitude == Uint32(2):
++        dequant = dequant_abs[2]
++    elif magnitude == Uint32(3):
++        dequant = dequant_abs[3]
++    elif magnitude == Uint32(4):
++        dequant = dequant_abs[4]
++    elif magnitude == Uint32(5):
++        dequant = dequant_abs[5]
++    elif magnitude == Uint32(6):
++        dequant = dequant_abs[6]
++    elif magnitude == Uint32(7):
++        dequant = dequant_abs[7]
++
++    if (code & Uint32(0x8)) != Uint32(0):
++        dequant = -dequant
++    return dequant
++
++
++@dsl_user_op
++def _e2m1x2_scaled_e4m3_to_f32x2(
++    byte_val: Uint32, scale_fp8: Uint32, *, loc=None, ip=None
++) -> tuple:
++    """Decode E2M1x2 and multiply by an E4M3 scale in f16."""
++    result = llvm.inline_asm(
++        llvm.StructType.get_literal([T.f32(), T.f32()]),
++        [
++            Uint32(byte_val).ir_value(loc=loc, ip=ip),
++            Uint32(scale_fp8).ir_value(loc=loc, ip=ip),
++        ],
++        """
++        {
++            .reg .b8 byte0, byte1, byte2, byte3;
++            .reg .b16 fp8_pair;
++            .reg .b16 scale_h, unused_h;
++            .reg .b16 lo, hi;
++            .reg .b32 q_h2;
++            .reg .b32 scale_h2;
++            .reg .b32 prod_h2;
++
++            mov.b32 {byte0, byte1, byte2, byte3}, $2;
++            cvt.rn.f16x2.e2m1x2 q_h2, byte0;
++            cvt.u16.u32 fp8_pair, $3;
++            cvt.rn.f16x2.e4m3x2 scale_h2, fp8_pair;
++            mov.b32 {scale_h, unused_h}, scale_h2;
++            mov.b32 scale_h2, {scale_h, scale_h};
++            mul.rn.f16x2 prod_h2, q_h2, scale_h2;
++            mov.b32 {lo, hi}, prod_h2;
++            cvt.f32.f16 $0, lo;
++            cvt.f32.f16 $1, hi;
++        }
++        """,
++        "=f,=f,r,r",
++        has_side_effects=False,
++        is_align_stack=False,
++        asm_dialect=llvm.AsmDialect.AD_ATT,
++        loc=loc,
++        ip=ip,
++    )
++    return (
++        Float32(llvm.extractvalue(T.f32(), result, [0], loc=loc, ip=ip)),
++        Float32(llvm.extractvalue(T.f32(), result, [1], loc=loc, ip=ip)),
++    )
++
++
++@cute.jit
++def _decode_e2m1x16_scaled_e4m3_to_f32(
++    packed_lo: Uint32, packed_hi: Uint32, scale_fp8: Uint32
++) -> tuple:
++    q0, q1 = _e2m1x2_scaled_e4m3_to_f32x2(packed_lo, scale_fp8)
++    q2, q3 = _e2m1x2_scaled_e4m3_to_f32x2(packed_lo >> Uint32(8), scale_fp8)
++    q4, q5 = _e2m1x2_scaled_e4m3_to_f32x2(packed_lo >> Uint32(16), scale_fp8)
++    q6, q7 = _e2m1x2_scaled_e4m3_to_f32x2(packed_lo >> Uint32(24), scale_fp8)
++    q8, q9 = _e2m1x2_scaled_e4m3_to_f32x2(packed_hi, scale_fp8)
++    q10, q11 = _e2m1x2_scaled_e4m3_to_f32x2(packed_hi >> Uint32(8), scale_fp8)
++    q12, q13 = _e2m1x2_scaled_e4m3_to_f32x2(packed_hi >> Uint32(16), scale_fp8)
++    q14, q15 = _e2m1x2_scaled_e4m3_to_f32x2(packed_hi >> Uint32(24), scale_fp8)
++    return (
++        q0,
++        q1,
++        q2,
++        q3,
++        q4,
++        q5,
++        q6,
++        q7,
++        q8,
++        q9,
++        q10,
++        q11,
++        q12,
++        q13,
++        q14,
++        q15,
++    )
++
++
++@cute.jit
++def _nvfp4_4over6_fp16_error(
++    original_scaled: tuple,
++    candidate_scaled: tuple,
++    nvfp4_4over6_config: NVFP44Over6Config,
++) -> Float32:
++    from ..cute_dsl.fp4_common import (
++        fadd_rn,
++        fabs_f32,
++        fmul_rn,
++        fsub_rn,
++    )
++
++    err = Float32(0.0)
++    for i in cutlass.range_constexpr(16):
++        diff = fsub_rn(candidate_scaled[i], original_scaled[i])
++        if cutlass.const_expr(nvfp4_4over6_config.err_mode == NVFP44Over6ErrMode.MSE):
++            term = fmul_rn(diff, diff)
++        elif cutlass.const_expr(nvfp4_4over6_config.err_mode == NVFP44Over6ErrMode.MAE):
++            term = fabs_f32(diff)
++        else:
++            raise ValueError("Unsupported NVFP4 4over6 fp16 error mode.")
++        err = fadd_rn(err, term)
++    return err
++
++
++@cute.jit
++def _nvfp4_4over6_error_strict_from_packed(
++    original: tuple,
++    packed_lo: Uint32,
++    packed_hi: Uint32,
++    scale: Float32,
++    row_amax: Float32,
++    global_decode_scale: Float32,
++    nvfp4_4over6_config: NVFP44Over6Config,
++) -> Float32:
++    from ..cute_dsl.fp4_common import (
++        fadd_rn,
++        fabs_f32,
++        fmul_rn,
++        fsub_rn,
++    )
++
++    err = Float32(0.0)
++    denom = Float32(6.0 * nvfp4_4over6_config.e4m3_max)
++    dequant_abs = _nvfp4_4over6_dequant_abs_values(
++        scale, row_amax, denom, global_decode_scale
++    )
++    for i in cutlass.range_constexpr(16):
++        code = _e2m1_code_at(packed_lo, packed_hi, i)
++        dequant = _nvfp4_4over6_dequant_from_code(code, dequant_abs)
++        diff = fsub_rn(dequant, original[i])
++        if cutlass.const_expr(nvfp4_4over6_config.err_mode == NVFP44Over6ErrMode.MSE):
++            term = fmul_rn(diff, diff)
++        elif cutlass.const_expr(nvfp4_4over6_config.err_mode == NVFP44Over6ErrMode.MAE):
++            term = fabs_f32(diff)
++        else:
++            raise ValueError("Unsupported NVFP4 4over6 error mode.")
++        err = fadd_rn(err, term)
++    return err
++
++
++@cute.jit
++def _nvfp4_standard_quant_from_amax(
++    block_max: Float32, global_scale: Float32, disable_fp4_quant_fast_math: bool
++) -> tuple:
++    from cutlass import Uint8
++
++    from ..cute_dsl.fp4_common import (
++        cvt_f32_to_e4m3,
++        nvfp4_compute_output_scale,
++        nvfp4_compute_output_scale_rn,
++        nvfp4_scale_from_amax_rn,
++        rcp_approx_ftz,
++    )
++
++    if cutlass.const_expr(disable_fp4_quant_fast_math):
++        scale_float = nvfp4_scale_from_amax_rn(block_max, global_scale)
++    else:
++        fp4_max_rcp = rcp_approx_ftz(Float32(6.0))
++        scale_float = global_scale * (block_max * fp4_max_rcp)
++    scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
++    scale_fp8 = Uint8(scale_fp8_u32 & Uint32(0xFF))
++
++    if cutlass.const_expr(disable_fp4_quant_fast_math):
++        output_scale = nvfp4_compute_output_scale_rn(
++            scale_fp8_u32, global_scale, block_max
++        )
++    else:
++        output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
++    return scale_fp8, output_scale
++
++
++@cute.jit
++def _nvfp4_4over6_quant_from_values(
++    values: tuple,
++    block_max: Float32,
++    global_scale: Float32,
++    row_amax: Float32,
++    disable_fp4_quant_fast_math: bool,
++    nvfp4_4over6_config: NVFP44Over6Config,
++) -> tuple:
++    from cutlass import Uint8
++
++    from ..cute_dsl.fp4_common import (
++        cvt_e4m3_to_f32_via_f16,
++        cvt_f32_to_e4m3,
++        fdiv_rn,
++        fmin_f32,
++        fmul_rn,
++        rcp_approx_ftz,
++    )
++
++    scale_fp8 = Uint8(0)
++    packed64 = Uint64(0)
++    if block_max != Float32(0.0):
++        if cutlass.const_expr(disable_fp4_quant_fast_math):
++            sf6_high_precision = fmul_rn(fdiv_rn(block_max, Float32(6.0)), global_scale)
++            sf4_high_precision = fmul_rn(sf6_high_precision, Float32(1.5))
++        else:
++            sf6_high_precision = global_scale * (
++                block_max * rcp_approx_ftz(Float32(6.0))
++            )
++            sf4_high_precision = sf6_high_precision * Float32(1.5)
++
++        scale4_u32 = cvt_f32_to_e4m3(sf4_high_precision)
++        scale6_u32 = cvt_f32_to_e4m3(sf6_high_precision)
++        scale4 = cvt_e4m3_to_f32_via_f16(scale4_u32)
++        scale6 = cvt_e4m3_to_f32_via_f16(scale6_u32)
++
++        if cutlass.const_expr(disable_fp4_quant_fast_math):
++            output_global_decode_scale = fdiv_rn(Float32(1.0), global_scale)
++            output_scale4 = fmin_f32(
++                fdiv_rn(Float32(1.0), fmul_rn(scale4, output_global_decode_scale)),
++                Float32(FLOAT32_MAX),
++            )
++            output_scale6 = fmin_f32(
++                fdiv_rn(Float32(1.0), fmul_rn(scale6, output_global_decode_scale)),
++                Float32(FLOAT32_MAX),
++            )
++        else:
++            output_global_decode_scale = rcp_approx_ftz(global_scale)
++            output_scale4 = rcp_approx_ftz(scale4 * output_global_decode_scale)
++            output_scale6 = rcp_approx_ftz(scale6 * output_global_decode_scale)
++
++        scaled4 = _scale_f32x16(values, output_scale4, disable_fp4_quant_fast_math)
++        scaled6 = _scale_f32x16(values, output_scale6, disable_fp4_quant_fast_math)
++        packed4_lo, packed4_hi, packed4 = _pack_f32x16_to_e2m1(scaled4)
++        packed6_lo, packed6_hi, packed6 = _pack_f32x16_to_e2m1(scaled6)
++
++        if cutlass.const_expr(nvfp4_4over6_config.err_use_fast_math):
++            original_scaled = _scale_f32x16(
++                values,
++                global_scale,
++                True,
++            )
++            candidate4_scaled = _decode_e2m1x16_scaled_e4m3_to_f32(
++                packed4_lo,
++                packed4_hi,
++                scale4_u32,
++            )
++            candidate6_scaled = _decode_e2m1x16_scaled_e4m3_to_f32(
++                packed6_lo,
++                packed6_hi,
++                scale6_u32,
++            )
++            err4 = _nvfp4_4over6_fp16_error(
++                original_scaled,
++                candidate4_scaled,
++                nvfp4_4over6_config,
++            )
++            err6 = _nvfp4_4over6_fp16_error(
++                original_scaled,
++                candidate6_scaled,
++                nvfp4_4over6_config,
++            )
++        else:
++            err4 = _nvfp4_4over6_error_strict_from_packed(
++                values,
++                packed4_lo,
++                packed4_hi,
++                scale4,
++                row_amax,
++                output_global_decode_scale,
++                nvfp4_4over6_config,
++            )
++            err6 = _nvfp4_4over6_error_strict_from_packed(
++                values,
++                packed6_lo,
++                packed6_hi,
++                scale6,
++                row_amax,
++                output_global_decode_scale,
++                nvfp4_4over6_config,
++            )
++
++        scale_fp8 = Uint8(scale6_u32 & Uint32(0xFF))
++        packed64 = packed6
++        if err4 < err6:
++            scale_fp8 = Uint8(scale4_u32 & Uint32(0xFF))
++            packed64 = packed4
++
++    return scale_fp8, packed64
++
++
+ @cute.jit
+ def process_nvfp4_block_half(
+-    row_tensor, elem_base: Int32, global_scale: Float32, disable_fast_math: bool = False
++    row_tensor,
++    elem_base: Int32,
++    global_scale: Float32,
++    disable_fp4_quant_fast_math: bool = False,
++    nvfp4_4over6_config: NVFP44Over6Config | None = None,
++    row_amax: Float32 | None = None,
+ ) -> tuple:
+     """
+     Process a 16-element NVFP4 block for half precision input.
+@@ -1147,16 +1752,9 @@ def process_nvfp4_block_half(
+         - scale_e4m3_u8: E4M3 scale factor as Uint8
+         - packed64: Uint64 containing 16 E2M1 values
+     """
+-    from cutlass import Uint8
+-
+     from ..cute_dsl.fp4_common import (
+-        cvt_f32_to_e4m3,
+         get_ptr_as_int64,
+         ld_global_v4_u32,
+-        nvfp4_compute_output_scale,
+-        nvfp4_compute_output_scale_rn,
+-        nvfp4_scale_from_amax_rn,
+-        rcp_approx_ftz,
+     )
+ 
+     # Load 16 elements (2 x 128-bit = 8 half2 values)
+@@ -1170,23 +1768,20 @@ def process_nvfp4_block_half(
+     block_max_h2 = half2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
+     block_max = hmax_reduce_to_f32(block_max_h2)
+ 
+-    # E4M3 scale factor computation
+-    if cutlass.const_expr(disable_fast_math):
+-        scale_float = nvfp4_scale_from_amax_rn(block_max, global_scale)
+-    else:
+-        fp4_max_rcp = rcp_approx_ftz(Float32(6.0))
+-        scale_float = global_scale * (block_max * fp4_max_rcp)
+-    scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
+-    scale_fp8 = Uint8(scale_fp8_u32 & Uint32(0xFF))
+-
+-    if cutlass.const_expr(disable_fast_math):
+-        output_scale = nvfp4_compute_output_scale_rn(
+-            scale_fp8_u32, global_scale, block_max
++    if cutlass.const_expr(nvfp4_4over6_config is not None):
++        values = _half2x8_to_f32x16(h0, h1, h2, h3, h4, h5, h6, h7)
++        return _nvfp4_4over6_quant_from_values(
++            values,
++            block_max,
++            global_scale,
++            row_amax,
++            disable_fp4_quant_fast_math,
++            nvfp4_4over6_config,
+         )
+-    else:
+-        output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
+ 
+-    # Convert to E2M1 and pack
++    scale_fp8, output_scale = _nvfp4_standard_quant_from_amax(
++        block_max, global_scale, disable_fp4_quant_fast_math
++    )
+     packed64 = half2x8_to_e2m1x16_packed(h0, h1, h2, h3, h4, h5, h6, h7, output_scale)
+ 
+     return scale_fp8, packed64
+@@ -1194,7 +1789,12 @@ def process_nvfp4_block_half(
+ 
+ @cute.jit
+ def process_nvfp4_block_bfloat(
+-    row_tensor, elem_base: Int32, global_scale: Float32, disable_fast_math: bool = False
++    row_tensor,
++    elem_base: Int32,
++    global_scale: Float32,
++    disable_fp4_quant_fast_math: bool = False,
++    nvfp4_4over6_config: NVFP44Over6Config | None = None,
++    row_amax: Float32 | None = None,
+ ) -> tuple:
+     """
+     Process a 16-element NVFP4 block for bfloat16 precision input.
+@@ -1212,16 +1812,9 @@ def process_nvfp4_block_bfloat(
+         - scale_e4m3_u8: E4M3 scale factor as Uint8
+         - packed64: Uint64 containing 16 E2M1 values
+     """
+-    from cutlass import Uint8
+-
+     from ..cute_dsl.fp4_common import (
+-        cvt_f32_to_e4m3,
+         get_ptr_as_int64,
+         ld_global_v4_u32,
+-        nvfp4_compute_output_scale,
+-        nvfp4_compute_output_scale_rn,
+-        nvfp4_scale_from_amax_rn,
+-        rcp_approx_ftz,
+     )
+ 
+     # Load 16 elements (2 x 128-bit = 8 bfloat2 values)
+@@ -1235,23 +1828,20 @@ def process_nvfp4_block_bfloat(
+     block_max_h2 = bfloat2_max_abs_8(h0, h1, h2, h3, h4, h5, h6, h7)
+     block_max = bfloat2_hmax_reduce_to_f32(block_max_h2)
+ 
+-    # E4M3 scale factor computation
+-    if cutlass.const_expr(disable_fast_math):
+-        scale_float = nvfp4_scale_from_amax_rn(block_max, global_scale)
+-    else:
+-        fp4_max_rcp = rcp_approx_ftz(Float32(6.0))
+-        scale_float = global_scale * (block_max * fp4_max_rcp)
+-    scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
+-    scale_fp8 = Uint8(scale_fp8_u32 & Uint32(0xFF))
+-
+-    if cutlass.const_expr(disable_fast_math):
+-        output_scale = nvfp4_compute_output_scale_rn(
+-            scale_fp8_u32, global_scale, block_max
++    if cutlass.const_expr(nvfp4_4over6_config is not None):
++        values = _bfloat2x8_to_f32x16(h0, h1, h2, h3, h4, h5, h6, h7)
++        return _nvfp4_4over6_quant_from_values(
++            values,
++            block_max,
++            global_scale,
++            row_amax,
++            disable_fp4_quant_fast_math,
++            nvfp4_4over6_config,
+         )
+-    else:
+-        output_scale = nvfp4_compute_output_scale(scale_fp8_u32, global_scale)
+ 
+-    # Convert to E2M1 and pack
++    scale_fp8, output_scale = _nvfp4_standard_quant_from_amax(
++        block_max, global_scale, disable_fp4_quant_fast_math
++    )
+     packed64 = bfloat2x8_to_e2m1x16_packed(h0, h1, h2, h3, h4, h5, h6, h7, output_scale)
+ 
+     return scale_fp8, packed64
+@@ -1353,7 +1943,10 @@ def fp8_max_abs_16(w0: Uint32, w1: Uint32, w2: Uint32, w3: Uint32) -> Float32:
+ 
+ @cute.jit
+ def process_nvfp4_block_fp8(
+-    row_tensor, elem_base: Int32, global_scale: Float32, disable_fast_math: bool = False
++    row_tensor,
++    elem_base: Int32,
++    global_scale: Float32,
++    disable_fp4_quant_fast_math: bool = False,
+ ) -> tuple:
+     """
+     Process a 16-element NVFP4 block for FP8 E4M3 input.
+@@ -1393,7 +1986,7 @@ def process_nvfp4_block_fp8(
+     w0, w1, w2, w3 = ld_global_v4_u32(ptr)
+ 
+     # Convert FP8 to float32 and pre-scale by 6/global_scale.
+-    if cutlass.const_expr(disable_fast_math):
++    if cutlass.const_expr(disable_fp4_quant_fast_math):
+         prescale = Float32(6.0) * rcp_rn(global_scale)
+     else:
+         prescale = Float32(6.0) * rcp_approx_ftz(global_scale)
+@@ -1418,7 +2011,7 @@ def process_nvfp4_block_fp8(
+     block_max = hmax_reduce_to_f32(block_max_h2)
+ 
+     # E4M3 scale factor computation
+-    if cutlass.const_expr(disable_fast_math):
++    if cutlass.const_expr(disable_fp4_quant_fast_math):
+         scale_float = nvfp4_scale_from_amax_rn(block_max, global_scale)
+     else:
+         fp4_max_rcp = rcp_approx_ftz(Float32(6.0))
+@@ -1426,7 +2019,7 @@ def process_nvfp4_block_fp8(
+     scale_fp8_u32 = cvt_f32_to_e4m3(scale_float)
+     scale_fp8 = Uint8(scale_fp8_u32 & Uint32(0xFF))
+ 
+-    if cutlass.const_expr(disable_fast_math):
++    if cutlass.const_expr(disable_fp4_quant_fast_math):
+         output_scale = nvfp4_compute_output_scale_rn(
+             scale_fp8_u32, global_scale, block_max
+         )
+@@ -1442,6 +2035,8 @@ def process_nvfp4_block_fp8(
+ __all__ = [
+     # NVFP4 Constants
+     "NVFP4_SF_VEC_SIZE",
++    "NVFP44Over6Config",
++    "NVFP44Over6ErrMode",
+     # MXFP8 Constants
+     "SF_VEC_SIZE",
+     "INV_FLOAT8_E4M3_MAX",
+diff --git a/tests/moe/test_trtllm_cutlass_fused_moe.py b/tests/moe/test_trtllm_cutlass_fused_moe.py
+index 6b7d5a6da9..ffcf142d80 100644
+--- a/tests/moe/test_trtllm_cutlass_fused_moe.py
++++ b/tests/moe/test_trtllm_cutlass_fused_moe.py
+@@ -22,6 +22,7 @@
+ from torch.nn import functional as F
+ 
+ import flashinfer.fused_moe as fused_moe
++from flashinfer.quantization.nvfp4_quantization_utils import NVFP44Over6Config
+ from flashinfer.utils import (
+     is_sm90a_supported,
+     is_sm100a_supported,
+@@ -542,12 +543,13 @@ def test_moe_nvfp4(
+     w2_q = torch.empty((e, k, n // 2), device="cuda", dtype=torch.uint8)
+     w1_gs = torch.empty((e,), device="cuda", dtype=torch.float32)
+     w2_gs = torch.empty((e,), device="cuda", dtype=torch.float32)
++    nvfp4_4over6_config = NVFP44Over6Config() if use_4over6 else None
+ 
+     for expert in range(e):
+-        w1_amax = torch.abs(w1).max().to(torch.float32)
+-        w2_amax = torch.abs(w2).max().to(torch.float32)
+-        w1_gs[expert] = nvfp4_global_encode_scale_te(w1_amax, use_4over6=use_4over6)
+-        w2_gs[expert] = nvfp4_global_encode_scale_te(w2_amax, use_4over6=use_4over6)
++        w1_amax = torch.abs(w1[expert]).max().to(torch.float32)
++        w2_amax = torch.abs(w2[expert]).max().to(torch.float32)
++        w1_gs[expert] = nvfp4_global_encode_scale_te(w1_amax, nvfp4_4over6_config)
++        w2_gs[expert] = nvfp4_global_encode_scale_te(w2_amax, nvfp4_4over6_config)
+ 
+         w1_q[expert], w1_blockscale[expert] = fp4_quantize(w1[expert], w1_gs[expert])
+ 
+@@ -2044,12 +2046,13 @@ def round_up(x, y):
+     w2_q = torch.empty((e, k, n // 2), device="cuda", dtype=torch.uint8)
+     w1_gs = torch.empty((e,), device="cuda", dtype=torch.float32)
+     w2_gs = torch.empty((e,), device="cuda", dtype=torch.float32)
++    nvfp4_4over6_config = NVFP44Over6Config() if use_4over6 else None
+ 
+     for expert in range(e):
+         w1_amax = torch.abs(w1[expert]).max().to(torch.float32)
+         w2_amax = torch.abs(w2[expert]).max().to(torch.float32)
+-        w1_gs[expert] = nvfp4_global_encode_scale_te(w1_amax, use_4over6=use_4over6)
+-        w2_gs[expert] = nvfp4_global_encode_scale_te(w2_amax, use_4over6=use_4over6)
++        w1_gs[expert] = nvfp4_global_encode_scale_te(w1_amax, nvfp4_4over6_config)
++        w2_gs[expert] = nvfp4_global_encode_scale_te(w2_amax, nvfp4_4over6_config)
+ 
+         w1_q[expert], w1_blockscale[expert] = fp4_quantize(w1[expert], w1_gs[expert])
+         w2_q[expert], w2_blockscale[expert] = fp4_quantize(w2[expert], w2_gs[expert])
+diff --git a/tests/moe/test_trtllm_gen_per_token_moe.py b/tests/moe/test_trtllm_gen_per_token_moe.py
+index 5d0527e83c..eb02e8b300 100644
+--- a/tests/moe/test_trtllm_gen_per_token_moe.py
++++ b/tests/moe/test_trtllm_gen_per_token_moe.py
+@@ -32,6 +32,7 @@
+     block_scale_interleave,
+     e2m1_and_ufp8sf_scale_to_float,
+ )
++from flashinfer.quantization.nvfp4_quantization_utils import NVFP44Over6Config
+ from flashinfer.fused_moe.core import (
+     get_w2_permute_indices_with_cache,
+     _maybe_get_cached_w3_w1_permute_indices,
+@@ -113,9 +114,11 @@ def test_routed_fused_moe(
+     ].to(torch.bfloat16)
+ 
+     # ======== Quantize =======
++    nvfp4_4over6_config = NVFP44Over6Config() if use_4over6 else None
++    weights_nvfp4_4over6_config = NVFP44Over6Config() if weights_use_4over6 else None
+     hidden_states_global_scale_inv = nvfp4_global_decode_scale_te(
+         torch.ones((), dtype=torch.float32, device=device),
+-        use_4over6=use_4over6,
++        nvfp4_4over6_config,
+     )
+     hidden_states, hidden_states_scale, per_token_scale_inv = nvfp4_quantize(
+         hidden_states_bf16,
+@@ -130,10 +133,10 @@ def test_routed_fused_moe(
+     w13_global_amax = w13_bf16.abs().amax().to(torch.float32)
+     w2_global_amax = w2_bf16.abs().amax().to(torch.float32)
+     w13_global_scale_inv = nvfp4_global_decode_scale_te(
+-        w13_global_amax, use_4over6=weights_use_4over6
++        w13_global_amax, weights_nvfp4_4over6_config
+     )
+     w2_global_scale_inv = nvfp4_global_decode_scale_te(
+-        w2_global_amax, use_4over6=weights_use_4over6
++        w2_global_amax, weights_nvfp4_4over6_config
+     )
+     with moe_utils.nvfp4_4over6_env(weights_use_4over6):
+         w13, w13_scale = nvfp4_quantize(
+diff --git a/tests/moe/utils.py b/tests/moe/utils.py
+index b5aa440236..2d2d35c7fb 100644
+--- a/tests/moe/utils.py
++++ b/tests/moe/utils.py
+@@ -62,8 +62,8 @@ def set_nvfp4_4over6_env(request):
+         return
+ 
+     env_names = (
++        "FLASHINFER_DISABLE_FP4_QUANT_FAST_MATH",
+         "FLASHINFER_NVFP4_4OVER6",
+-        "TRTLLM_DISABLE_FP4_QUANT_FAST_MATH",
+         "FLASHINFER_NVFP4_4OVER6_ERR_MODE",
+         "FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH",
+         "FLASHINFER_NVFP4_4OVER6_E4M3_USE_256",
+@@ -71,8 +71,8 @@ def set_nvfp4_4over6_env(request):
+     original_values = {name: os.environ.get(name, None) for name in env_names}
+ 
+     use_4over6 = request.getfixturevalue("use_4over6")
++    os.environ["FLASHINFER_DISABLE_FP4_QUANT_FAST_MATH"] = "1"
+     os.environ["FLASHINFER_NVFP4_4OVER6"] = "1" if use_4over6 else "0"
+-    os.environ["TRTLLM_DISABLE_FP4_QUANT_FAST_MATH"] = "1"
+     os.environ["FLASHINFER_NVFP4_4OVER6_ERR_MODE"] = "MAE"
+     os.environ["FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH"] = "0"
+     os.environ["FLASHINFER_NVFP4_4OVER6_E4M3_USE_256"] = "0"
+diff --git a/tests/test_helpers/utils_fp4.py b/tests/test_helpers/utils_fp4.py
+index 1c1c73a980..7c819aa91e 100644
+--- a/tests/test_helpers/utils_fp4.py
++++ b/tests/test_helpers/utils_fp4.py
+@@ -1,5 +1,10 @@
+ import torch
+ 
++from flashinfer.quantization.nvfp4_quantization_utils import (
++    NVFP44Over6Config,
++    NVFP44Over6ErrMode,
++    nvfp4_e4m3_max,
++)
+ import flashinfer.utils as utils
+ 
+ FLOAT4_E2M1_MAX = 6.0
+@@ -90,20 +95,16 @@ def ref_fp4_quant(x, global_scale, block_size, sf_use_ue8m0=False):
+ 
+ def nvfp4_global_encode_scale_te(
+     global_amax: torch.Tensor,
+-    use_4over6: bool = False,
+-    use_256: bool = False,
++    nvfp4_4over6_config: NVFP44Over6Config | None = None,
+ ) -> torch.Tensor:
+     """Return the effective NVFP4 global encode scale."""
+     global_amax = global_amax.to(torch.float32)
+     float4_e2m1_max = torch.tensor(6.0, device=global_amax.device, dtype=torch.float32)
+-    if use_4over6 and use_256:
+-        float8_e4m3_max = torch.tensor(
+-            256.0, device=global_amax.device, dtype=torch.float32
+-        )
+-    else:
+-        float8_e4m3_max = torch.tensor(
+-            448.0, device=global_amax.device, dtype=torch.float32
+-        )
++    float8_e4m3_max = torch.tensor(
++        nvfp4_e4m3_max(nvfp4_4over6_config),
++        device=global_amax.device,
++        dtype=torch.float32,
++    )
+     global_encode_scale = torch.div(float8_e4m3_max * float4_e2m1_max, global_amax)
+     global_encode_scale = torch.min(
+         global_encode_scale,
+@@ -131,14 +132,11 @@ def nvfp4_global_encode_scale_te(
+ 
+ def nvfp4_global_decode_scale_te(
+     global_amax: torch.Tensor,
+-    use_4over6: bool = False,
+-    use_256: bool = False,
++    nvfp4_4over6_config: NVFP44Over6Config | None = None,
+ ) -> torch.Tensor:
+     return torch.div(
+         1.0,
+-        nvfp4_global_encode_scale_te(
+-            global_amax, use_4over6=use_4over6, use_256=use_256
+-        ),
++        nvfp4_global_encode_scale_te(global_amax, nvfp4_4over6_config),
+     )
+ 
+ 
+@@ -225,16 +223,85 @@ def _ref_fp4_quant_te_with_decode_scale(
+     return cast_to_fp4(clipped_x)
+ 
+ 
++def _ref_nvfp4_4over6_fp16_candidate(
++    q: torch.Tensor,
++    scale: torch.Tensor,
++) -> torch.Tensor:
++    """Decode E2M1 x E4M3 with fp16 product semantics.
++
++    The CuTe-DSL implementation uses PTX to decode E2M1x2 and E4M3 to f16,
++    multiply in f16x2, then widen the product to f32 for error accumulation.
++    """
++    # Stage 1: express the decoded E2M1 input as sign and integer significand:
++    # q = (-1)^q_sign * q_sig * 2^-1.
++    q_float = q.to(torch.float32)
++    q_sign = (q_float < 0).to(torch.int32)
++    q_sig = (torch.abs(q_float) * 2).to(torch.int32)
++
++    # Stage 2: decode the E4M3 scale byte as sign and integer significand:
++    # scale = (-1)^scale_sign * scale_sig * 2^scale_exp2.
++    scale_code = scale.contiguous().view(torch.uint8).to(torch.int32)
++    scale_sign = scale_code >> 7
++    scale_exp_field = (scale_code >> 3) & 0xF
++    scale_mantissa = scale_code & 0x7
++    scale_sig = torch.where(
++        scale_exp_field == 0,
++        scale_mantissa,
++        scale_mantissa + 8,
++    )
++    scale_exp2 = torch.where(
++        scale_exp_field == 0,
++        scale_exp_field - 9,
++        scale_exp_field - 10,
++    )
++
++    # Stage 3: multiply the dyadic significands exactly in integer space:
++    # product = (-1)^product_sign * product_sig * 2^product_exp2.
++    product_sign = q_sign ^ scale_sign
++    product_sig = q_sig * scale_sig
++    product_exp2 = scale_exp2 - 1
++
++    # Stage 4: pack that exact dyadic product into fp16 bits. These products
++    # are exactly representable in fp16, so RN does not need a tie path here.
++    log2_sig = torch.zeros_like(product_sig)
++    for threshold in (2, 4, 8, 16, 32, 64, 128, 256):
++        log2_sig = log2_sig + (product_sig >= threshold).to(torch.int32)
++
++    floor_exp = log2_sig + product_exp2
++    normal_bits = ((floor_exp + 15) << 10) | (
++        torch.bitwise_left_shift(product_sig, 10 - log2_sig) - 1024
++    )
++    subnormal_bits = torch.bitwise_left_shift(product_sig, product_exp2 + 24)
++    magnitude_bits = torch.where(floor_exp < -14, subnormal_bits, normal_bits)
++    prod_bits = (product_sign << 15) | magnitude_bits
++    prod_bits = torch.where(product_sig == 0, product_sign << 15, prod_bits)
++    prod_bits = torch.where(
++        (scale_code & 0x7F) == 0x7F,
++        torch.full_like(prod_bits, 0x7E00),
++        prod_bits,
++    )
++
++    # Stage 5: decode the fp16 bit pattern to fp32 without using fp16 math.
++    sign_f32 = torch.where(
++        (prod_bits & 0x8000) != 0,
++        torch.tensor(-1.0, device=prod_bits.device, dtype=torch.float32),
++        torch.tensor(1.0, device=prod_bits.device, dtype=torch.float32),
++    )
++    fp16_exp = (prod_bits >> 10) & 0x1F
++    fp16_frac = prod_bits & 0x3FF
++    normal_f32 = torch.ldexp((fp16_frac + 1024).to(torch.float32), fp16_exp - 25)
++    subnormal_f32 = torch.ldexp(fp16_frac.to(torch.float32), fp16_exp - 24)
++    return sign_f32 * torch.where(fp16_exp == 0, subnormal_f32, normal_f32)
++
++
+ def ref_fp4_quant_4over6_te(
+     x: torch.Tensor,
+     global_amax: torch.Tensor,
+     block_size: int = 16,
+-    *,
+     per_token_rowwise: bool = False,
+-    err_mode: str = "MAE",
+-    use_256: bool = False,
++    nvfp4_4over6_config: NVFP44Over6Config | None = None,
+ ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+-    """NVFP4 4over6 reference: TE quantization plus fouroversix error selection.
++    """NVFP4 4over6 reference for FlashInfer's candidate-error contract.
+ 
+     Returns unpacked E2M1 values, E4M3 block scales in linear layout, the
+     effective global/per-token decode scale, and the chosen candidate mask.
+@@ -244,9 +311,9 @@ def ref_fp4_quant_4over6_te(
+             f"ref_fp4_quant_4over6_te expects a 2D tensor, got {x.ndim}D with shape {x.shape}"
+         )
+     assert block_size == 16
+-    err_mode = err_mode.upper()
+-    if err_mode not in ("MAE", "MSE"):
+-        raise ValueError("err_mode must be 'MAE' or 'MSE'.")
++    if nvfp4_4over6_config is None:
++        nvfp4_4over6_config = NVFP44Over6Config()
++    nvfp4_4over6_err_mode = nvfp4_4over6_config.err_mode
+ 
+     m, n = x.shape
+     x_blocks = x.view(m, n // block_size, block_size).to(torch.float32)
+@@ -254,10 +321,16 @@ def ref_fp4_quant_4over6_te(
+ 
+     e2m1_max = torch.tensor(FLOAT4_E2M1_MAX, device=x.device, dtype=torch.float32)
+ 
++    float8_e4m3_max = torch.tensor(
++        nvfp4_e4m3_max(nvfp4_4over6_config),
++        device=x.device,
++        dtype=torch.float32,
++    )
++
+     if per_token_rowwise:
+         global_amax = global_amax.to(torch.float32).view(m)
+         global_encode_scale = nvfp4_global_encode_scale_te(
+-            global_amax, use_4over6=True, use_256=use_256
++            global_amax, nvfp4_4over6_config
+         )
+         global_decode_scale = torch.where(
+             global_amax == 0.0,
+@@ -266,28 +339,33 @@ def ref_fp4_quant_4over6_te(
+         )
+         global_encode_scale = global_encode_scale.view(m, 1, 1)
+         global_decode_scale_blocks = global_decode_scale.view(m, 1, 1)
++        error_row_amax = global_amax.view(m, 1)
++        error_global_decode_scale = None
+         per_token_scale = global_decode_scale
+     else:
++        global_amax = global_amax.to(torch.float32)
+         global_encode_scale = nvfp4_global_encode_scale_te(
+-            global_amax.to(torch.float32), use_4over6=True, use_256=use_256
++            global_amax, nvfp4_4over6_config
+         )
+         global_decode_scale = torch.div(1.0, global_encode_scale)
+         global_decode_scale_blocks = global_decode_scale
++        error_row_amax = None
++        error_global_decode_scale = global_decode_scale
+         per_token_scale = global_decode_scale.reshape(())
+ 
+     # Candidate scale construction follows the original 4over6 reference.
+     sf6_high_precision = torch.where(
+         vec_max == 0.0,
+         torch.zeros_like(vec_max),
+-        vec_max * torch.div(global_encode_scale, e2m1_max),
++        torch.div(vec_max, e2m1_max) * global_encode_scale,
+     )
+     sf4_high_precision = sf6_high_precision * 1.5
+-    float8_e4m3_max = torch.tensor(448.0, device=x.device, dtype=torch.float32)
++    float8_e4m3_clamp_max = torch.tensor(448.0, device=x.device, dtype=torch.float32)
+     sf4_high_precision = torch.clamp(
+-        sf4_high_precision, min=-float8_e4m3_max, max=float8_e4m3_max
++        sf4_high_precision, min=-float8_e4m3_clamp_max, max=float8_e4m3_clamp_max
+     )
+     sf6_high_precision = torch.clamp(
+-        sf6_high_precision, min=-float8_e4m3_max, max=float8_e4m3_max
++        sf6_high_precision, min=-float8_e4m3_clamp_max, max=float8_e4m3_clamp_max
+     )
+     sf4_fp8 = sf4_high_precision.to(torch.float8_e4m3fn)
+     sf6_fp8 = sf6_high_precision.to(torch.float8_e4m3fn)
+@@ -308,20 +386,49 @@ def ref_fp4_quant_4over6_te(
+         global_decode_scale_blocks,
+     )
+ 
+-    # Error dequantization and strict less-than comparison follow 4over6.
+-    dq4 = q4 * sf4 * global_decode_scale_blocks
+-    dq6 = q6 * sf6 * global_decode_scale_blocks
+     err4 = torch.zeros((m, n // block_size), dtype=torch.float32, device=x.device)
+     err6 = torch.zeros((m, n // block_size), dtype=torch.float32, device=x.device)
+-    for i in range(block_size):
+-        diff4 = dq4[:, :, i] - x_blocks[:, :, i]
+-        diff6 = dq6[:, :, i] - x_blocks[:, :, i]
+-        if err_mode == "MSE":
+-            err4 += diff4 * diff4
+-            err6 += diff6 * diff6
+-        else:
+-            err4 += torch.abs(diff4)
+-            err6 += torch.abs(diff6)
++    if nvfp4_4over6_config.err_use_fast_math:
++        original_scaled = x_blocks * global_encode_scale
++        candidate4_scaled = _ref_nvfp4_4over6_fp16_candidate(q4, sf4_fp8)
++        candidate6_scaled = _ref_nvfp4_4over6_fp16_candidate(q6, sf6_fp8)
++        for i in range(block_size):
++            diff4 = candidate4_scaled[:, :, i] - original_scaled[:, :, i]
++            diff6 = candidate6_scaled[:, :, i] - original_scaled[:, :, i]
++            if nvfp4_4over6_err_mode == NVFP44Over6ErrMode.MSE:
++                err4 += diff4 * diff4
++                err6 += diff6 * diff6
++            else:
++                err4 += torch.abs(diff4)
++                err6 += torch.abs(diff6)
++    else:
++        # Per-token strict scoring uses the row amax that is already computed
++        # online. Per-tensor strict scoring intentionally uses the normal
++        # global-decode-scale expression to avoid an additional tensor amax.
++        denom = e2m1_max * float8_e4m3_max
++        sf4 = sf4.squeeze(-1)
++        sf6 = sf6.squeeze(-1)
++        for i in range(block_size):
++            val4 = q4[:, :, i] * sf4
++            if per_token_rowwise:
++                val4 = val4 * error_row_amax
++                val4 = val4 / denom
++            else:
++                val4 = val4 * error_global_decode_scale
++            diff4 = val4 - x_blocks[:, :, i]
++            val6 = q6[:, :, i] * sf6
++            if per_token_rowwise:
++                val6 = val6 * error_row_amax
++                val6 = val6 / denom
++            else:
++                val6 = val6 * error_global_decode_scale
++            diff6 = val6 - x_blocks[:, :, i]
++            if nvfp4_4over6_err_mode == NVFP44Over6ErrMode.MSE:
++                err4 += diff4 * diff4
++                err6 += diff6 * diff6
++            else:
++                err4 += torch.abs(diff4)
++                err6 += torch.abs(diff6)
+     pick_four = err4 < err6
+ 
+     q_ref = torch.where(pick_four.unsqueeze(-1), q4, q6).reshape(m, n)
+diff --git a/tests/utils/test_fp4_quantize.py b/tests/utils/test_fp4_quantize.py
+index 12c9bfe083..d0669b5c27 100644
+--- a/tests/utils/test_fp4_quantize.py
++++ b/tests/utils/test_fp4_quantize.py
+@@ -26,6 +26,10 @@
+     silu_and_mul,
+     SfLayout,
+ )
++from flashinfer.quantization.nvfp4_quantization_utils import (
++    NVFP44Over6Config,
++)
++from flashinfer.quantization.fp4_quantization import NVFP4_QUANT_ENV_VARS
+ from flashinfer.utils import (
+     is_sm100a_supported,
+     is_sm110a_supported,
+@@ -623,17 +627,9 @@ def test_mxfp4_quantize_layout_backend_parity(
+ NVFP4_ROUNDTRIP_SF_LAYOUTS = [SfLayout.layout_128x4, SfLayout.layout_linear]
+ 
+ 
+-@dataclass(frozen=True)
+-class NVFP44Over6TestConfig:
++@dataclass(frozen=True, kw_only=True)
++class NVFP44Over6TestConfig(NVFP44Over6Config):
+     id: str
+-    e4m3_max: int = 448
+-    err_mode: str = "MAE"
+-    err_use_fast_math: bool = False
+-    exact: bool = False
+-
+-    @property
+-    def use_256(self) -> bool:
+-        return self.e4m3_max == 256
+ 
+ 
+ NVFP4_TE_REFERENCE_CONFIGS = [
+@@ -642,53 +638,45 @@ def use_256(self) -> bool:
+         id="4over6-mae-e4m3-448-exact",
+         e4m3_max=448,
+         err_mode="MAE",
+-        exact=True,
+     ),
+     NVFP44Over6TestConfig(
+-        id="4over6-mae-e4m3-448-err-fast",
++        id="4over6-mae-e4m3-448-fp16",
+         e4m3_max=448,
+         err_mode="MAE",
+         err_use_fast_math=True,
+-        exact=False,
+     ),
+     NVFP44Over6TestConfig(
+         id="4over6-mae-e4m3-256-exact",
+         e4m3_max=256,
+         err_mode="MAE",
+-        exact=True,
+     ),
+     NVFP44Over6TestConfig(
+-        id="4over6-mae-e4m3-256-err-fast",
++        id="4over6-mae-e4m3-256-fp16",
+         e4m3_max=256,
+         err_mode="MAE",
+         err_use_fast_math=True,
+-        exact=False,
+     ),
+     NVFP44Over6TestConfig(
+         id="4over6-mse-e4m3-448-exact",
+         e4m3_max=448,
+         err_mode="MSE",
+-        exact=True,
+     ),
+     NVFP44Over6TestConfig(
+-        id="4over6-mse-e4m3-448-err-fast",
++        id="4over6-mse-e4m3-448-fp16",
+         e4m3_max=448,
+         err_mode="MSE",
+         err_use_fast_math=True,
+-        exact=False,
+     ),
+     NVFP44Over6TestConfig(
+         id="4over6-mse-e4m3-256-exact",
+         e4m3_max=256,
+         err_mode="MSE",
+-        exact=True,
+     ),
+     NVFP44Over6TestConfig(
+-        id="4over6-mse-e4m3-256-err-fast",
++        id="4over6-mse-e4m3-256-fp16",
+         e4m3_max=256,
+         err_mode="MSE",
+         err_use_fast_math=True,
+-        exact=False,
+     ),
+ ]
+ NVFP4_DEFAULT_4OVER6_CONFIGS = [
+@@ -698,17 +686,10 @@ def use_256(self) -> bool:
+         e4m3_max=448,
+         err_mode="MAE",
+         err_use_fast_math=False,
+-        exact=False,
+     ),
+ ]
+ 
+ 
+-def _nvfp4_quant_config_id(config: NVFP44Over6TestConfig | None) -> str:
+-    if config is None:
+-        return "nvfp4"
+-    return config.id
+-
+-
+ def _te_ref_scale_bytes_for_layout(
+     scale_ref: torch.Tensor,
+     sf_layout: SfLayout,
+@@ -744,16 +725,26 @@ def _te_ref_scale_bytes_for_layout(
+     raise ValueError(f"Unknown scale-factor layout: {sf_layout}")
+ 
+ 
++def _te_ref_fp4_bytes(q_ref: torch.Tensor) -> torch.Tensor:
++    q_abs = torch.abs(q_ref)
++    q_code = torch.zeros_like(q_abs, dtype=torch.uint8)
++    q_code[q_abs == 0.0] = 0
++    q_code[q_abs == 0.5] = 1
++    q_code[q_abs == 1.0] = 2
++    q_code[q_abs == 1.5] = 3
++    q_code[q_abs == 2.0] = 4
++    q_code[q_abs == 3.0] = 5
++    q_code[q_abs == 4.0] = 6
++    q_code[q_abs == 6.0] = 7
++    q_code = q_code | (torch.signbit(q_ref).to(torch.uint8) << 3)
++    q_pair = q_code.reshape(q_ref.shape[0], q_ref.shape[1] // 2, 2)
++    return q_pair.select(-1, 0) | (q_pair.select(-1, 1) << 4)
++
++
+ @pytest.fixture(autouse=True)
+ def set_nvfp4_quant_env():
+     """Set NVFP4 quantization env vars for one test."""
+-    env_names = (
+-        "FLASHINFER_NVFP4_4OVER6",
+-        "TRTLLM_DISABLE_FP4_QUANT_FAST_MATH",
+-        "FLASHINFER_NVFP4_4OVER6_ERR_MODE",
+-        "FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH",
+-        "FLASHINFER_NVFP4_4OVER6_E4M3_USE_256",
+-    )
++    env_names = NVFP4_QUANT_ENV_VARS
+     original_values = {name: os.environ.get(name, None) for name in env_names}
+ 
+     def _set_bool_env(name: str, value: bool | None):
+@@ -769,28 +760,25 @@ def _set_str_env(name: str, value: str | None):
+             os.environ[name] = value
+ 
+     def _set_env(
+-        *,
+-        quant_config: NVFP44Over6TestConfig | None = None,
+-        use_4over6: bool | None = None,
++        nvfp4_4over6_config: NVFP44Over6TestConfig | None = None,
+         disable_quant_fast_math: bool | None = None,
+-        err_mode: str | None = None,
+-        err_use_fast_math: bool | None = None,
+-        use_256: bool | None = None,
+     ):
+-        if quant_config is not None:
+-            if use_4over6 is None:
+-                use_4over6 = True
+-            if err_mode is None:
+-                err_mode = quant_config.err_mode
+-            if err_use_fast_math is None:
+-                err_use_fast_math = quant_config.err_use_fast_math
+-            if use_256 is None:
+-                use_256 = quant_config.use_256
++        use_4over6 = nvfp4_4over6_config is not None
++        nvfp4_4over6_err_mode = None
++        nvfp4_4over6_err_use_fast_math = None
++        e4m3_max_is_256 = None
++        if nvfp4_4over6_config is not None:
++            nvfp4_4over6_err_mode = nvfp4_4over6_config.err_mode_name
++            nvfp4_4over6_err_use_fast_math = nvfp4_4over6_config.err_use_fast_math
++            e4m3_max_is_256 = nvfp4_4over6_config.e4m3_max == 256
++        _set_bool_env("FLASHINFER_DISABLE_FP4_QUANT_FAST_MATH", disable_quant_fast_math)
+         _set_bool_env("FLASHINFER_NVFP4_4OVER6", use_4over6)
+-        _set_bool_env("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH", disable_quant_fast_math)
+-        _set_str_env("FLASHINFER_NVFP4_4OVER6_ERR_MODE", err_mode)
+-        _set_bool_env("FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH", err_use_fast_math)
+-        _set_bool_env("FLASHINFER_NVFP4_4OVER6_E4M3_USE_256", use_256)
++        _set_str_env("FLASHINFER_NVFP4_4OVER6_ERR_MODE", nvfp4_4over6_err_mode)
++        _set_bool_env(
++            "FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH",
++            nvfp4_4over6_err_use_fast_math,
++        )
++        _set_bool_env("FLASHINFER_NVFP4_4OVER6_E4M3_USE_256", e4m3_max_is_256)
+ 
+     _set_env()
+     yield _set_env
+@@ -808,7 +796,9 @@ def _set_env(
+ @pytest.mark.parametrize("init_data", ["random", "boundary", "zeros", "maxes"])
+ @pytest.mark.parametrize("per_token_activation", [False, True])
+ @pytest.mark.parametrize(
+-    "quant_config", NVFP4_TE_REFERENCE_CONFIGS, ids=_nvfp4_quant_config_id
++    "nvfp4_4over6_config",
++    NVFP4_TE_REFERENCE_CONFIGS,
++    ids=lambda config: "nvfp4" if config is None else config.id,
+ )
+ @pytest.mark.parametrize("backend", NVFP4_BACKENDS)
+ @pytest.mark.parametrize("device", CUDA_DEVICES)
+@@ -820,7 +810,7 @@ def test_nvfp4_quantize_te_reference(
+     sf_layout: SfLayout,
+     init_data: str,
+     per_token_activation: bool,
+-    quant_config: NVFP44Over6TestConfig | None,
++    nvfp4_4over6_config: NVFP44Over6TestConfig | None,
+     device: str,
+     set_nvfp4_quant_env,
+ ) -> None:
+@@ -829,15 +819,9 @@ def test_nvfp4_quantize_te_reference(
+         pytest.skip("Nvfp4 Requires compute capability >= 10 and CUDA >= 12.8")
+     if backend == "cute-dsl" and not _is_cute_dsl_available():
+         pytest.skip("CuTe-DSL not available")
+-    if backend == "cute-dsl" and per_token_activation:
+-        pytest.skip("Per-token NVFP4 quantization only supports the CUDA backend")
+-    if backend == "cute-dsl" and quant_config is not None:
+-        pytest.skip("NVFP4 4over6 mode is only supported by the CUDA backend")
+ 
+     torch.set_default_device(device)
+     torch.manual_seed(42)
+-    use_4over6 = quant_config is not None
+-    use_256 = quant_config.use_256 if quant_config is not None else False
+ 
+     m, n = shape
+     if init_data == "random":
+@@ -865,23 +849,17 @@ def test_nvfp4_quantize_te_reference(
+         expected_per_token_scale = torch.where(
+             global_amax == 0,
+             torch.zeros_like(global_amax),
+-            nvfp4_global_decode_scale_te(
+-                global_amax,
+-                use_4over6=use_4over6,
+-                use_256=use_256,
+-            ),
++            nvfp4_global_decode_scale_te(global_amax, nvfp4_4over6_config),
+         )
+         per_token_global_scale_inv = nvfp4_global_decode_scale_te(
+             torch.ones((), dtype=torch.float32, device=x.device),
+-            use_4over6=use_4over6,
+-            use_256=use_256,
++            nvfp4_4over6_config,
+         )
+     else:
+         global_amax = torch.abs(x).max().to(torch.float32)
+         global_scale = nvfp4_global_encode_scale_te(
+             global_amax,
+-            use_4over6=use_4over6,
+-            use_256=use_256,
++            nvfp4_4over6_config,
+         )
+ 
+     def _run_quantize(expected_per_token_scale=None):
+@@ -909,13 +887,12 @@ def _run_quantize(expected_per_token_scale=None):
+             )
+         return q_out, scale_out
+ 
+-    if quant_config is not None:
++    if nvfp4_4over6_config is not None:
+         q_ref, scale_ref, expected_per_token_scale, _ = ref_fp4_quant_4over6_te(
+             x,
+             global_amax,
+             per_token_rowwise=per_token_activation,
+-            err_mode=quant_config.err_mode,
+-            use_256=use_256,
++            nvfp4_4over6_config=nvfp4_4over6_config,
+         )
+         expected_scale = _te_ref_scale_bytes_for_layout(scale_ref, sf_layout)
+     else:
+@@ -926,20 +903,12 @@ def _run_quantize(expected_per_token_scale=None):
+         )
+         expected_scale = _te_ref_scale_bytes_for_layout(scale_ref, sf_layout)
+ 
+-    set_nvfp4_quant_env(quant_config=quant_config, disable_quant_fast_math=True)
++    set_nvfp4_quant_env(
++        nvfp4_4over6_config=nvfp4_4over6_config, disable_quant_fast_math=True
++    )
+     q_out, scale_out = _run_quantize(expected_per_token_scale)
+-    q_out_unpacked = cast_from_fp4(q_out).reshape_as(q_ref)
+-    if quant_config is None or quant_config.exact:
+-        torch.testing.assert_close(q_out_unpacked, q_ref, rtol=0, atol=0)
+-        torch.testing.assert_close(scale_out, expected_scale, rtol=0, atol=0)
+-    else:
+-        torch.testing.assert_close(q_out_unpacked, q_ref, rtol=0, atol=3.0)
+-        torch.testing.assert_close(
+-            scale_out.to(torch.float32),
+-            expected_scale.to(torch.float32),
+-            rtol=0,
+-            atol=6.0,
+-        )
++    torch.testing.assert_close(q_out, _te_ref_fp4_bytes(q_ref), rtol=0, atol=0)
++    torch.testing.assert_close(scale_out, expected_scale, rtol=0, atol=0)
+ 
+ 
+ @pytest.mark.parametrize("backend", NVFP4_BACKENDS)
+@@ -948,7 +917,9 @@ def _run_quantize(expected_per_token_scale=None):
+ @pytest.mark.parametrize("sf_layout", NVFP4_ROUNDTRIP_SF_LAYOUTS)
+ @pytest.mark.parametrize("per_token_activation", [False, True])
+ @pytest.mark.parametrize(
+-    "quant_config", NVFP4_DEFAULT_4OVER6_CONFIGS, ids=_nvfp4_quant_config_id
++    "nvfp4_4over6_config",
++    NVFP4_DEFAULT_4OVER6_CONFIGS,
++    ids=lambda config: "nvfp4" if config is None else config.id,
+ )
+ @pytest.mark.parametrize("device", CUDA_DEVICES)
+ @torch.inference_mode()
+@@ -958,7 +929,7 @@ def test_nvfp4_quantize_roundtrip(
+     shape: tuple[int, int],
+     sf_layout: SfLayout,
+     per_token_activation: bool,
+-    quant_config: NVFP44Over6TestConfig | None,
++    nvfp4_4over6_config: NVFP44Over6TestConfig | None,
+     device: str,
+     set_nvfp4_quant_env,
+ ) -> None:
+@@ -967,14 +938,8 @@ def test_nvfp4_quantize_roundtrip(
+         pytest.skip("Nvfp4 Requires compute capability >= 10 and CUDA >= 12.8")
+     if backend == "cute-dsl" and not _is_cute_dsl_available():
+         pytest.skip("CuTe-DSL not available")
+-    if per_token_activation and backend != "cuda":
+-        pytest.skip("Per-token NVFP4 quantization only supports the CUDA backend")
+-    use_4over6 = quant_config is not None
+-    use_256 = quant_config.use_256 if quant_config is not None else False
+-    if use_4over6 and backend != "cuda":
+-        pytest.skip("NVFP4 4over6 mode is only supported by the CUDA backend")
+ 
+-    set_nvfp4_quant_env(quant_config=quant_config)
++    set_nvfp4_quant_env(nvfp4_4over6_config=nvfp4_4over6_config)
+ 
+     torch.set_default_device(device)
+     torch.manual_seed(42)
+@@ -985,13 +950,11 @@ def test_nvfp4_quantize_roundtrip(
+     tensor_amax = torch.abs(x).max().to(torch.float32)
+     global_scale = nvfp4_global_encode_scale_te(
+         tensor_amax,
+-        use_4over6=use_4over6,
+-        use_256=use_256,
++        nvfp4_4over6_config,
+     )
+     per_token_global_scale_inv = nvfp4_global_decode_scale_te(
+         torch.ones((), dtype=torch.float32, device=device),
+-        use_4over6=use_4over6,
+-        use_256=use_256,
++        nvfp4_4over6_config,
+     )
+ 
+     if per_token_activation:
+@@ -1009,8 +972,7 @@ def test_nvfp4_quantize_roundtrip(
+         )
+         dequant_global_scale = nvfp4_global_decode_scale_te(
+             tensor_amax,
+-            use_4over6=use_4over6,
+-            use_256=use_256,
++            nvfp4_4over6_config,
+         )
+ 
+     # Basic shape checks
+@@ -1444,7 +1406,9 @@ def test_scaled_fp4_grouped_quantize(
+ @pytest.mark.parametrize("batch_shape", BATCH_SHAPES)
+ @pytest.mark.parametrize("seed", SEEDS)
+ @pytest.mark.parametrize(
+-    "quant_config", NVFP4_DEFAULT_4OVER6_CONFIGS, ids=_nvfp4_quant_config_id
++    "nvfp4_4over6_config",
++    NVFP4_DEFAULT_4OVER6_CONFIGS,
++    ids=lambda config: "nvfp4" if config is None else config.id,
+ )
+ @pytest.mark.parametrize("device", CUDA_DEVICES)
+ @torch.inference_mode()
+@@ -1452,18 +1416,16 @@ def test_silu_and_mul_scaled_nvfp4_experts_quantize(
+     dtype: torch.dtype,
+     batch_shape: tuple[int, int, int],
+     seed: int,
+-    quant_config: NVFP44Over6TestConfig | None,
++    nvfp4_4over6_config: NVFP44Over6TestConfig | None,
+     device: str,
+     set_nvfp4_quant_env,
+ ) -> None:
+     """Test silu_and_mul_nvfp4_batched_quantize function."""
+     if not _is_fp4_supported(torch.device(device)):
+         pytest.skip("Nvfp4 Requires compute capability of 10 or above")
+-    set_nvfp4_quant_env(quant_config=quant_config)
++    set_nvfp4_quant_env(nvfp4_4over6_config=nvfp4_4over6_config)
+     torch.set_default_device(device)
+     torch.manual_seed(seed)
+-    use_4over6 = quant_config is not None
+-    use_256 = quant_config.use_256 if quant_config is not None else False
+ 
+     b, m, n = batch_shape
+     x = torch.randn((b, m, n * 2), dtype=dtype)
+@@ -1473,8 +1435,7 @@ def test_silu_and_mul_scaled_nvfp4_experts_quantize(
+     tensor_amax = ref_y.abs().amax(dim=(1, 2)).to(torch.float32)
+     global_scale = nvfp4_global_encode_scale_te(
+         tensor_amax,
+-        use_4over6=use_4over6,
+-        use_256=use_256,
++        nvfp4_4over6_config,
+     )
+ 
+     out, out_scale = silu_and_mul_scaled_nvfp4_experts_quantize(x, mask, global_scale)

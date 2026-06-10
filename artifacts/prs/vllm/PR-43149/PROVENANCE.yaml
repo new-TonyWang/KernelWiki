@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/43149
+upstream_repo: vllm-project/vllm
+upstream_sha: '84371573'
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-43149
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: f6126b8e7be69e318df8a787ff0e4ae79085042b3e0e1fd05cf0572ba55751db
+- local_path: key-files/vllm/models/deepseek_v4/nvidia/ops/attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/models/deepseek_v4/nvidia/ops/attention.py
+  sha256: 99d3d74319fe9dca068e83e31855c3e5abec7c60f8bef5645a329482aef8d55a
+- local_path: key-files/vllm/v1/attention/backends/mla/flashmla_sparse.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/flashmla_sparse.py
+  sha256: f278d65543b2d8bd9cc33fcd3b21c32726e84e546ad49b3cf96e4971139af893
+- local_path: key-files/vllm/v1/attention/backends/mla/sparse_swa.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/sparse_swa.py
+  sha256: 6ed176af88d71ea0b19d9cee72cf669fc88b627540f2809e5426ef9d31fb7998

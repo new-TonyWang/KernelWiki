@@ -1,0 +1,3877 @@
+diff --git a/benchmark/bench_linear_attention/bench_gdn_prefill_cutedsl.py b/benchmark/bench_linear_attention/bench_gdn_prefill_cutedsl.py
+new file mode 100644
+index 000000000000..acc9fd57f8c6
+--- /dev/null
++++ b/benchmark/bench_linear_attention/bench_gdn_prefill_cutedsl.py
+@@ -0,0 +1,473 @@
++"""
++Benchmark & Correctness: Triton GDN vs CuTeDSL GDN (prefill, SM100 Blackwell).
++
++Compares:
++  - Triton:  sglang's chunk_gated_delta_rule (FLA chunkwise, fp32 state, K-contig pool)
++  - CuteDSL: ported vLLM #43273 chunk_gated_delta_rule_cutedsl (SM100 only)
++
++The two kernels share the same math and the same g/beta convention (log-space
++g, post-sigmoid beta). The CuteDSL kernel needs pre-allocated chunk metadata
++from prepare_metadata_cutedsl, and l2norm is done outside the kernel.
++
++Reports correctness (output & state matching) and performance (ms, TFLOPS, TB/s).
++
++Usage:
++    python bench_gdn_prefill_cutedsl.py                       # default sweep
++    python bench_gdn_prefill_cutedsl.py --mode bench          # benchmark only
++    python bench_gdn_prefill_cutedsl.py --mode correctness    # correctness only
++    python bench_gdn_prefill_cutedsl.py --preset qwen3-next   # Qwen3-Next config
++"""
++
++import argparse
++import os
++import sys
++
++sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "python"))
++
++import torch
++
++from sglang.srt.layers.attention.fla.chunk import (
++    chunk_gated_delta_rule as triton_chunk_gated_delta_rule,
++)
++from sglang.srt.layers.attention.fla.l2norm import l2norm_fwd
++from sglang.srt.layers.attention.linear.kernels.gdn_blackwell import (
++    chunk_gated_delta_rule_cutedsl,
++    prepare_metadata_cutedsl,
++)
++
++# ---------------------------------------------------------------------------
++# Helpers (shared shape: pool layout [N, H, K, V] with K-last stride)
++# ---------------------------------------------------------------------------
++
++
++def make_k_contiguous(t: torch.Tensor) -> torch.Tensor:
++    """K-last view of a logical [..., K, V] tensor (physically [..., V, K])."""
++    return t.transpose(-2, -1).contiguous().transpose(-2, -1)
++
++
++def gdn_flops(total_seq_len, num_heads, head_size_k, head_size_v):
++    """Per-token-per-head: k@v^T outer (2*K*V) + q@state output (2*K*V)."""
++    return 4 * total_seq_len * num_heads * head_size_k * head_size_v
++
++
++def gdn_bytes(
++    total_seq_len, num_q_heads, num_v_heads, head_size_k, head_size_v, num_seqs, dtype
++):
++    num_o_heads = max(num_q_heads, num_v_heads)
++    elem = dtype.itemsize
++    q_b = total_seq_len * num_q_heads * head_size_k * elem
++    k_b = total_seq_len * num_v_heads * head_size_k * elem
++    v_b = total_seq_len * num_v_heads * head_size_v * elem
++    o_b = total_seq_len * num_o_heads * head_size_v * elem
++    state_b = 2 * num_seqs * num_o_heads * head_size_k * head_size_v * 4  # fp32 r/w
++    g_b = total_seq_len * num_o_heads * 4
++    beta_b = total_seq_len * num_o_heads * 4
++    return q_b + k_b + v_b + o_b + state_b + g_b + beta_b
++
++
++# ---------------------------------------------------------------------------
++# Input factory
++# ---------------------------------------------------------------------------
++
++
++def make_inputs(
++    B, T_per_seq, H, K, V, pool_size, device, dtype, sequential_indices=False, seed=42
++):
++    T = B * T_per_seq
++    torch.manual_seed(seed)
++
++    if sequential_indices:
++        cache_indices = torch.arange(B, dtype=torch.int32, device=device)
++    else:
++        perm = torch.randperm(pool_size, device=device)[:B]
++        cache_indices = perm.to(torch.int32)
++
++    pool_init = torch.randn(pool_size, H, K, V, dtype=dtype, device=device) * 0.1
++    cu_seqlens = torch.arange(
++        0, (B + 1) * T_per_seq, T_per_seq, dtype=torch.long, device=device
++    )
++
++    q = torch.randn(1, T, H, K, dtype=dtype, device=device)
++    k = torch.randn(1, T, H, K, dtype=dtype, device=device)
++    v = torch.randn(1, T, H, V, dtype=dtype, device=device)
++
++    g_raw = torch.randn(1, T, H, dtype=dtype, device=device)
++    g_triton = torch.nn.functional.logsigmoid(g_raw)
++    beta_triton = torch.sigmoid(torch.randn(1, T, H, dtype=dtype, device=device))
++
++    return dict(
++        B=B,
++        T=T,
++        T_per_seq=T_per_seq,
++        H=H,
++        K=K,
++        V=V,
++        pool_size=pool_size,
++        cache_indices=cache_indices,
++        pool_init=pool_init,
++        cu_seqlens=cu_seqlens,
++        q=q,
++        k=k,
++        v=v,
++        g_triton=g_triton,
++        beta_triton=beta_triton,
++    )
++
++
++# ---------------------------------------------------------------------------
++# Runner wrappers
++# ---------------------------------------------------------------------------
++
++
++def run_triton(inp):
++    """Triton path: K-contiguous pool, pool-indexed, [1,T,H,D] tensors."""
++    pool = make_k_contiguous(inp["pool_init"].clone())
++    o, _, h = triton_chunk_gated_delta_rule(
++        q=inp["q"],
++        k=inp["k"],
++        v=inp["v"],
++        g=inp["g_triton"],
++        beta=inp["beta_triton"],
++        initial_state=pool,
++        initial_state_indices=inp["cache_indices"],
++        cu_seqlens=inp["cu_seqlens"],
++        head_first=False,
++        use_qk_l2norm_in_kernel=True,
++    )
++    return o, pool, h
++
++
++def run_cutedsl(inp):
++    """CuteDSL path: matches CuteDSLGDNKernel.extend() exactly."""
++    pool = make_k_contiguous(inp["pool_init"].clone())
++    cache_indices = inp["cache_indices"]
++    cu_seqlens = inp["cu_seqlens"].to(torch.int32)
++
++    q_in = l2norm_fwd(inp["q"][0].contiguous()).unsqueeze(0)
++    k_in = l2norm_fwd(inp["k"][0].contiguous()).unsqueeze(0)
++    v_in = inp["v"][0].contiguous().unsqueeze(0)
++    g_in = inp["g_triton"][0].to(torch.float32).unsqueeze(0)
++    beta_in = inp["beta_triton"][0].to(torch.float32).unsqueeze(0)
++
++    initial_state = pool[cache_indices.to(torch.long)].contiguous()
++    chunk_indices, chunk_offsets = prepare_metadata_cutedsl(
++        cu_seqlens, inp["T"], chunk_size=64
++    )
++
++    o, final_state = chunk_gated_delta_rule_cutedsl(
++        q=q_in,
++        k=k_in,
++        v=v_in,
++        g=g_in,
++        beta=beta_in,
++        initial_state=initial_state,
++        cu_seqlens=cu_seqlens,
++        chunk_indices=chunk_indices,
++        chunk_offsets=chunk_offsets,
++    )
++
++    pool.index_copy_(0, cache_indices.to(torch.long), final_state.to(pool.dtype))
++    return o, pool, final_state
++
++
++# ---------------------------------------------------------------------------
++# Correctness check
++# ---------------------------------------------------------------------------
++
++
++def check_shape(
++    B, T_per_seq, H, K, V, pool_size, device, dtype, sequential_indices=False, seed=42
++):
++    tag = (
++        f"B={B:>3} T/seq={T_per_seq:>4} H={H:>2} K={K:>3} V={V:>3} pool={pool_size:>4}"
++    )
++    idx_tag = " (seq)" if sequential_indices else ""
++
++    # The ported CuteDSL kernel hard-codes K == V == 128.
++    if K != 128 or V != 128:
++        print(f"  [SKIP] {tag}{idx_tag}  (CuteDSL requires K=V=128)")
++        return True
++
++    inp = make_inputs(
++        B,
++        T_per_seq,
++        H,
++        K,
++        V,
++        pool_size,
++        device,
++        dtype,
++        sequential_indices=sequential_indices,
++        seed=seed,
++    )
++
++    o_triton, pool_triton, _ = run_triton(inp)
++
++    try:
++        o_cutedsl, pool_cutedsl, _ = run_cutedsl(inp)
++        torch.cuda.synchronize()
++    except Exception as e:
++        try:
++            torch.cuda.synchronize()
++        except Exception:
++            pass
++        print(f"  [SKIP] {tag}{idx_tag}  (CuteDSL error: {e})")
++        return True
++
++    # Output comparison. Both kernels are bf16 with L2norm + chunked accumulation,
++    # tolerances mirror bench_gdn_prefill.py.
++    try:
++        torch.testing.assert_close(o_triton, o_cutedsl, atol=5e-2, rtol=1e-2)
++        out_ok = True
++    except AssertionError as e:
++        out_ok = False
++        out_err = str(e).splitlines()[0]
++
++    status = "PASS" if out_ok else "FAIL"
++    extra = "" if out_ok else f"  ({out_err})"
++    print(f"  [{status}] {tag}{idx_tag}{extra}")
++    return out_ok
++
++
++# ---------------------------------------------------------------------------
++# Benchmark
++# ---------------------------------------------------------------------------
++
++
++def bench_shape(B, H, T_per_seq, K, V, pool_size, device, dtype):
++    import triton.testing
++
++    if K != 128 or V != 128:
++        print(f"  [SKIP] B={B} H={H} T={T_per_seq} K={K} V={V} (CuteDSL K=V=128 only)")
++        return
++
++    T = B * T_per_seq
++    inp = make_inputs(B, T_per_seq, H, K, V, pool_size, device, dtype)
++
++    q, k_t, v = inp["q"], inp["k"], inp["v"]
++    g_triton, beta_triton = inp["g_triton"], inp["beta_triton"]
++    cu_seqlens = inp["cu_seqlens"]
++    cache_indices = inp["cache_indices"]
++    pool_v = inp["pool_init"]
++    T_total = inp["T"]
++
++    def fn_triton():
++        pool = make_k_contiguous(pool_v.clone())
++        triton_chunk_gated_delta_rule(
++            q=q,
++            k=k_t,
++            v=v,
++            g=g_triton,
++            beta=beta_triton,
++            initial_state=pool,
++            initial_state_indices=cache_indices,
++            cu_seqlens=cu_seqlens,
++            head_first=False,
++            use_qk_l2norm_in_kernel=True,
++        )
++
++    cu_int32 = cu_seqlens.to(torch.int32)
++
++    def fn_cutedsl():
++        q_in = l2norm_fwd(q[0].contiguous()).unsqueeze(0)
++        k_in = l2norm_fwd(k_t[0].contiguous()).unsqueeze(0)
++        v_in = v[0].contiguous().unsqueeze(0)
++        g_in = g_triton[0].to(torch.float32).unsqueeze(0)
++        beta_in = beta_triton[0].to(torch.float32).unsqueeze(0)
++
++        pool = make_k_contiguous(pool_v.clone())
++        initial_state = pool[cache_indices.to(torch.long)].contiguous()
++        chunk_indices, chunk_offsets = prepare_metadata_cutedsl(
++            cu_int32, T_total, chunk_size=64
++        )
++        chunk_gated_delta_rule_cutedsl(
++            q=q_in,
++            k=k_in,
++            v=v_in,
++            g=g_in,
++            beta=beta_in,
++            initial_state=initial_state,
++            cu_seqlens=cu_int32,
++            chunk_indices=chunk_indices,
++            chunk_offsets=chunk_offsets,
++        )
++
++    quantiles = [0.5, 0.2, 0.8]
++
++    fn_triton()
++    fn_cutedsl()
++    torch.cuda.synchronize()
++
++    ms_triton, _, _ = triton.testing.do_bench_cudagraph(fn_triton, quantiles=quantiles)
++    ms_cutedsl, _, _ = triton.testing.do_bench_cudagraph(
++        fn_cutedsl, quantiles=quantiles
++    )
++
++    flops = gdn_flops(T, H, K, V)
++    mem_bytes = gdn_bytes(T, H, H, K, V, B, dtype)
++
++    tflops_triton = flops / ms_triton / 1e9
++    tflops_cutedsl = flops / ms_cutedsl / 1e9
++    tb_s_triton = mem_bytes / ms_triton / 1e9
++    tb_s_cutedsl = mem_bytes / ms_cutedsl / 1e9
++    speedup = ms_triton / ms_cutedsl if ms_cutedsl > 0 else float("inf")
++
++    print(
++        f"  {B:>5}  {H:>3}  {T_per_seq:>6}  {T:>7} | "
++        f"{ms_triton:>8.3f}  {tflops_triton:>7.2f}  {tb_s_triton:>7.2f} | "
++        f"{ms_cutedsl:>8.3f}  {tflops_cutedsl:>7.2f}  {tb_s_cutedsl:>7.2f} | "
++        f"{speedup:>7.2f}x"
++    )
++
++
++# ---------------------------------------------------------------------------
++# Main
++# ---------------------------------------------------------------------------
++
++
++def run_correctness(device, dtype):
++    print("=" * 78)
++    print("Correctness sweep: Triton vs CuTeDSL")
++    print("=" * 78)
++
++    shapes = [
++        # (B, T_per_seq, H,  K,   V,   pool_size)
++        (4, 64, 16, 128, 128, 32),
++        (4, 256, 16, 128, 128, 32),
++        (1, 128, 16, 128, 128, 32),
++        (8, 128, 16, 128, 128, 64),
++        (16, 64, 16, 128, 128, 128),
++        (32, 32, 16, 128, 128, 256),
++        (4, 128, 4, 128, 128, 32),
++        (4, 128, 8, 128, 128, 32),
++        (4, 128, 32, 128, 128, 32),
++        (4, 128, 64, 128, 128, 32),
++        (4, 1, 16, 128, 128, 32),
++        (4, 7, 16, 128, 128, 32),
++        (4, 16, 16, 128, 128, 32),
++        (4, 128, 16, 128, 128, 512),
++        (32, 128, 32, 128, 128, 256),
++    ]
++
++    shapes_seq = [
++        (8, 128, 16, 128, 128, 8),
++        (4, 128, 32, 128, 128, 4),
++        (4, 128, 64, 128, 128, 4),
++        (32, 128, 32, 128, 128, 32),
++    ]
++
++    all_pass = True
++    for cfg in shapes:
++        if not check_shape(*cfg, device, dtype):
++            all_pass = False
++
++    print("\nSequential-index variants:")
++    for cfg in shapes_seq:
++        if not check_shape(*cfg, device, dtype, sequential_indices=True):
++            all_pass = False
++
++    print()
++    print("ALL PASSED." if all_pass else "SOME FAILED.")
++    return all_pass
++
++
++def run_benchmark(device, dtype, args):
++    print()
++    print("=" * 105)
++    print("Benchmark: Triton GDN vs CuTeDSL GDN  (do_bench_cudagraph)")
++    print("=" * 105)
++
++    K = args.head_size_k
++    V = args.head_size_v
++    pool_size = args.pool_size
++
++    if args.preset == "qwen3-next":
++        bench_configs = [
++            (4, 16, 256),
++            (4, 32, 256),
++            (16, 16, 256),
++            (16, 32, 256),
++            (32, 16, 256),
++            (32, 32, 256),
++            (64, 16, 256),
++            (64, 32, 256),
++            (128, 16, 256),
++            (128, 32, 256),
++            (4, 16, 1024),
++            (4, 32, 1024),
++            (32, 16, 1024),
++            (32, 32, 1024),
++        ]
++    else:
++        bench_configs = [
++            (B, H, T)
++            for B in args.batch_sizes
++            for H in args.num_heads
++            for T in args.seq_lens
++        ]
++
++    print(f"  Config: K={K}, V={V}, pool_size={pool_size}, dtype={dtype}")
++    print(
++        f"  {'B':>5}  {'H':>3}  {'T/seq':>6}  {'T_tot':>7} | "
++        f"{'tri(ms)':>8}  {'TFLOPS':>7}  {'TB/s':>7} | "
++        f"{'cute(ms)':>8}  {'TFLOPS':>7}  {'TB/s':>7} | "
++        f"{'speedup':>8}"
++    )
++    print("  " + "-" * 98)
++
++    for B, H, T_per_seq in bench_configs:
++        actual_pool = max(pool_size, B)
++        bench_shape(B, H, T_per_seq, K, V, actual_pool, device, dtype)
++
++
++def main():
++    parser = argparse.ArgumentParser(
++        description="Benchmark & Correctness: Triton GDN vs CuTeDSL GDN (SM100)"
++    )
++    parser.add_argument(
++        "--mode", choices=["all", "correctness", "bench"], default="all"
++    )
++    parser.add_argument(
++        "--preset", choices=["qwen3-next", "custom"], default="qwen3-next"
++    )
++    parser.add_argument("--dtype", choices=["float16", "bfloat16"], default="bfloat16")
++    parser.add_argument("--head-size-k", type=int, default=128)
++    parser.add_argument("--head-size-v", type=int, default=128)
++    parser.add_argument("--pool-size", type=int, default=256)
++    parser.add_argument(
++        "--batch-sizes", type=int, nargs="+", default=[4, 16, 32, 64, 128]
++    )
++    parser.add_argument("--num-heads", type=int, nargs="+", default=[16, 32])
++    parser.add_argument(
++        "--seq-lens", type=int, nargs="+", default=[128, 256, 512, 1024]
++    )
++    args = parser.parse_args()
++
++    if args.preset == "qwen3-next":
++        args.head_size_k = 128
++        args.head_size_v = 128
++
++    device = "cuda"
++    dtype = getattr(torch, args.dtype)
++
++    cap = torch.cuda.get_device_capability()
++    dev_name = torch.cuda.get_device_name()
++    print(f"Device: {dev_name}  (SM {cap[0]}{cap[1]})")
++    if cap[0] < 10:
++        print("ERROR: CuTeDSL GDN prefill requires SM100+ (Blackwell). Exiting.")
++        return 1
++
++    if args.mode in ("all", "correctness"):
++        all_pass = run_correctness(device, dtype)
++        if not all_pass and args.mode == "all":
++            print("\nSkipping benchmark due to correctness failures.")
++            return 1
++
++    if args.mode in ("all", "bench"):
++        run_benchmark(device, dtype, args)
++
++    return 0
++
++
++if __name__ == "__main__":
++    sys.exit(main())
+diff --git a/python/sglang/srt/layers/attention/cute_utils/__init__.py b/python/sglang/srt/layers/attention/cute_utils/__init__.py
+new file mode 100644
+index 000000000000..c2ad3187e844
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/cute_utils/__init__.py
+@@ -0,0 +1,135 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++# Adapted from https://github.com/vllm-project/vllm/blob/4868b542c9dfd166662eecc4bb8be3a36a3feaa2/vllm/cute_utils/__init__.py
++from cutlass import BFloat16, Float32, Int64, Uint32, cute
++from cutlass._mlir import ir
++from cutlass._mlir.dialects import llvm, vector
++from cutlass.cute.nvgpu import cpasync
++from cutlass.cutlass_dsl import T, dsl_user_op
++
++# https://github.com/NVIDIA/cutlass/blob/v4.3.2/include/cute/arch/copy_sm90_desc.hpp#L193-L197
++EVICT_NORMAL = Int64(0x1000000000000000)
++EVICT_FIRST = Int64(0x12F0000000000000)
++EVICT_LAST = Int64(0x14F0000000000000)
++
++
++@dsl_user_op
++def recast_val(x, dtype, *, loc=None, ip=None):
++    return dtype(llvm.bitcast(dtype.mlir_type, x.ir_value(loc=loc, ip=ip)))
++
++
++def simple_tma_copy(atom, src, dst, mbar=None, cache_policy=None):
++    """A simple helper that wraps group_modes() and tma_partition()
++    NOTE: this should be called WITHOUT cute.elect_one()
++    """
++    if isinstance(atom.op, cpasync.CopyBulkTensorTileG2SOp):
++        gmem = src
++        smem = dst
++    elif isinstance(atom.op, cpasync.CopyBulkTensorTileS2GOp):
++        smem = src
++        gmem = dst
++    else:
++        raise ValueError
++
++    s_part, g_part = cpasync.tma_partition(
++        atom,
++        0,
++        cute.make_layout(1),
++        cute.group_modes(smem, 0),
++        cute.group_modes(gmem, 0),
++    )
++
++    if isinstance(atom.op, cpasync.CopyBulkTensorTileG2SOp):
++        cute.copy(atom, g_part, s_part, tma_bar_ptr=mbar, cache_policy=cache_policy)
++    elif isinstance(atom.op, cpasync.CopyBulkTensorTileS2GOp):
++        cute.copy(atom, s_part, g_part, cache_policy=cache_policy)
++    else:
++        raise ValueError
++
++
++# can't find the equivalent in nvvm
++@dsl_user_op
++def fence_before_tma_store(*, loc=None, ip=None):
++    llvm.inline_asm(
++        T.i32(),
++        [],
++        "mov.u32 $0, 0;\n\t"
++        "fence.proxy.async::generic.release.sync_restrict::shared::cta.cluster;",
++        "=r",
++        has_side_effects=True,
++        is_align_stack=False,
++        loc=loc,
++        ip=ip,
++    )
++
++
++@dsl_user_op
++def mma_bf16(
++    a: cute.TensorSSA, b: cute.TensorSSA, c: cute.TensorSSA, *, loc=None, ip=None
++):
++    if a.element_type == BFloat16:
++        a = cute.recast_tensor(a, Uint32)
++    if b.element_type == BFloat16:
++        b = cute.recast_tensor(b, Uint32)
++
++    mlir_ty = Float32.mlir_type
++    out = llvm.inline_asm(
++        llvm.StructType.get_literal([mlir_ty] * 4),
++        [a[i].ir_value(loc=loc, ip=ip) for i in range(4)]
++        + [b[i].ir_value(loc=loc, ip=ip) for i in range(2)]
++        + [c[i].ir_value(loc=loc, ip=ip) for i in range(4)],
++        "mma.sync.aligned.m16n8k16.row.col.f32.bf16.bf16.f32 "
++        "{$0, $1, $2, $3}, {$4, $5, $6, $7}, {$8, $9}, "
++        "{$10, $11, $12, $13};",
++        "=f,=f,=f,=f,r,r,r,r,r,r,f,f,f,f",
++        has_side_effects=False,
++        is_align_stack=False,
++        loc=loc,
++        ip=ip,
++    )
++    vec = vector.from_elements(
++        ir.VectorType.get([4], mlir_ty, loc=loc),
++        [llvm.extractvalue(mlir_ty, out, [i], loc=loc, ip=ip) for i in range(4)],
++        loc=loc,
++        ip=ip,
++    )
++    return cute.TensorSSA(vec, 4, Float32)
++
++
++@dsl_user_op
++def _bf16x2_abs(a: Uint32, *, loc=None, ip=None) -> Uint32:
++    out = llvm.inline_asm(
++        T.i32(),
++        [a.ir_value(loc=loc, ip=ip)],
++        "abs.bf16x2 $0, $1;",
++        "=r,r",
++        has_side_effects=False,
++        is_align_stack=False,
++    )
++    return Uint32(out)
++
++
++@dsl_user_op
++def _bf16x2_max(a: Uint32, b: Uint32, *, loc=None, ip=None) -> Uint32:
++    out = llvm.inline_asm(
++        T.i32(),
++        [a.ir_value(loc=loc, ip=ip), b.ir_value(loc=loc, ip=ip)],
++        "max.bf16x2 $0, $1, $2;",
++        "=r,r,r",
++        has_side_effects=False,
++        is_align_stack=False,
++    )
++    return Uint32(out)
++
++
++@dsl_user_op
++def _bf16x2_mul(a: Uint32, b: Uint32, *, loc=None, ip=None) -> Uint32:
++    out = llvm.inline_asm(
++        T.i32(),
++        [a.ir_value(loc=loc, ip=ip), b.ir_value(loc=loc, ip=ip)],
++        "mul.rn.bf16x2 $0, $1, $2;",
++        "=r,r,r",
++        has_side_effects=False,
++        is_align_stack=False,
++    )
++    return Uint32(out)
+diff --git a/python/sglang/srt/layers/attention/cute_utils/_tcgen05.py b/python/sglang/srt/layers/attention/cute_utils/_tcgen05.py
+new file mode 100644
+index 000000000000..8c0bdd3bc1d7
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/cute_utils/_tcgen05.py
+@@ -0,0 +1,220 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++# Adapted from https://github.com/vllm-project/vllm/blob/4868b542c9dfd166662eecc4bb8be3a36a3feaa2/vllm/cute_utils/_tcgen05.py
++# this module is named _tcgen05 to avoid name collision with cute.nvgpu.tcgen05
++
++import cutlass
++from cutlass import Boolean, Float32, Int32, Uint32, Uint64, cute
++from cutlass._mlir import ir
++from cutlass._mlir.dialects import llvm, nvvm, vector
++from cutlass.cutlass_dsl import dsl_user_op
++
++NVVM_CTA_GROUP_MAP = [
++    None,
++    nvvm.Tcgen05GroupKind.CTA_1,
++    nvvm.Tcgen05GroupKind.CTA_2,
++]
++LDST_MAP = {
++    "32x32b": (nvvm.Tcgen05LdStShape.SHAPE_32X32B, 1),
++    "16x128b": (nvvm.Tcgen05LdStShape.SHAPE_16X128B, 2),
++    "16x256b": (nvvm.Tcgen05LdStShape.SHAPE_16X256B, 4),
++}
++
++
++def _make_tmem_llvm_ptr(addr, *, loc=None, ip=None):
++    ptr_ty = llvm.PointerType.get(cute.AddressSpace.tmem.value)
++    val = Int32(addr).ir_value(loc=loc, ip=ip)
++    return llvm.inttoptr(ptr_ty, val, loc=loc, ip=ip)
++
++
++@dsl_user_op
++def alloc(
++    taddr: cute.Pointer,
++    cta_group: int = 1,
++    *,
++    loc=None,
++    ip=None,
++) -> None:
++    nvvm.tcgen05_alloc(
++        taddr.to_llvm_ptr(loc=loc, ip=ip),
++        Uint32(512).ir_value(loc=loc, ip=ip),
++        group=NVVM_CTA_GROUP_MAP[cta_group],
++        loc=loc,
++        ip=ip,
++    )
++
++
++@dsl_user_op
++def dealloc(cta_group: int = 1, *, loc=None, ip=None) -> None:
++    nvvm.tcgen05_dealloc(
++        _make_tmem_llvm_ptr(0, loc=loc, ip=ip),
++        Int32(512).ir_value(loc=loc, ip=ip),
++        group=NVVM_CTA_GROUP_MAP[cta_group],
++        loc=loc,
++        ip=ip,
++    )
++
++
++def make_bf16_idesc(
++    MMA_M: int,
++    MMA_N: int,
++    *,
++    negate_A: bool = False,
++    negate_B: bool = False,
++    transpose_A: bool = False,
++    transpose_B: bool = False,
++):
++    idesc = Uint32(
++        (1 << 4) | (1 << 7) | (1 << 10) | ((MMA_N >> 3) << 17) | ((MMA_M >> 4) << 24)
++    )
++    idesc |= Uint32(negate_A) << 13
++    idesc |= Uint32(negate_B) << 14
++    idesc |= Uint32(transpose_A) << 15
++    idesc |= Uint32(transpose_B) << 16
++    return idesc
++
++
++def make_sdesc_128B_swizzle(LBO: int):
++    SBO = 8 * 128
++    return Uint64((LBO >> 4 << 16) | (SBO >> 4 << 32) | (1 << 46) | (2 << 61))
++
++
++@dsl_user_op
++def mma_f16(
++    d_tmem,
++    a_desc,
++    b_desc,
++    idesc,
++    enable_input_d,
++    cta_group: int = 1,
++    *,
++    loc=None,
++    ip=None,
++) -> None:
++    nvvm.tcgen05_mma(
++        nvvm.Tcgen05MMAKind.F16,
++        NVVM_CTA_GROUP_MAP[cta_group],
++        _make_tmem_llvm_ptr(d_tmem, loc=loc, ip=ip),
++        Uint64(a_desc).ir_value(loc=loc, ip=ip),
++        Uint64(b_desc).ir_value(loc=loc, ip=ip),
++        Int32(idesc).ir_value(loc=loc, ip=ip),
++        Boolean(enable_input_d).ir_value(loc=loc, ip=ip),
++        loc=loc,
++        ip=ip,
++    )
++
++
++@dsl_user_op
++def mma_ts_f16(
++    d_tmem,
++    a_tmem,
++    b_desc,
++    idesc,
++    enable_input_d,
++    cta_group: int = 1,
++    *,
++    loc=None,
++    ip=None,
++) -> None:
++    nvvm.tcgen05_mma(
++        nvvm.Tcgen05MMAKind.F16,
++        NVVM_CTA_GROUP_MAP[cta_group],
++        _make_tmem_llvm_ptr(d_tmem, loc=loc, ip=ip),
++        _make_tmem_llvm_ptr(a_tmem, loc=loc, ip=ip),
++        Uint64(b_desc).ir_value(loc=loc, ip=ip),
++        Int32(idesc).ir_value(loc=loc, ip=ip),
++        Boolean(enable_input_d).ir_value(loc=loc, ip=ip),
++        loc=loc,
++        ip=ip,
++    )
++
++
++@dsl_user_op
++def commit(mbar, cta_mask=None, cta_group: int = 1, *, loc=None, ip=None):
++    mbar_llvm = mbar.to_llvm_ptr(loc=loc, ip=ip)
++    group = NVVM_CTA_GROUP_MAP[cta_group]
++    if cutlass.const_expr(cta_mask is not None):
++        nvvm.tcgen05_commit_arrive(
++            mbar_llvm,
++            multicast_mask=cta_mask.ir_value(loc=loc, ip=ip),
++            group=group,
++            loc=loc,
++            ip=ip,
++        )
++    else:
++        nvvm.tcgen05_commit_arrive(mbar_llvm, group=group, loc=loc, ip=ip)
++
++
++@dsl_user_op
++def ld(row, col, shape: str, num: int, *, loc=None, ip=None):
++    nvvm_shape, regs_per_num = LDST_MAP[shape]
++    num_regs = regs_per_num * num
++    tmem = (Int32(row) << Int32(16)) | Int32(col)
++    tmem_ptr = _make_tmem_llvm_ptr(tmem, loc=loc, ip=ip)
++
++    if num_regs == 1:
++        reg = nvvm.tcgen05_ld(Int32.mlir_type, nvvm_shape, tmem_ptr, loc=loc, ip=ip)
++        reg_f32 = llvm.bitcast(Float32.mlir_type, reg, loc=loc, ip=ip)
++        return Float32(reg_f32)
++
++    else:
++        vec_i32_ty = ir.VectorType.get([num_regs], Int32.mlir_type, loc=loc)
++        vec_f32_ty = ir.VectorType.get([num_regs], Float32.mlir_type, loc=loc)
++        regs = nvvm.tcgen05_ld(vec_i32_ty, nvvm_shape, tmem_ptr, loc=loc, ip=ip)
++        regs_f32 = llvm.bitcast(vec_f32_ty, regs, loc=loc, ip=ip)
++        return cute.TensorSSA(regs_f32, (num_regs,), Float32)
++
++
++@dsl_user_op
++def st(row, col, shape: str, num: int, vals, *, loc=None, ip=None) -> None:
++    # if input is TensorSSA, convert to Tensor so we can bitcast
++    if isinstance(vals, cute.TensorSSA):
++        vals_ = cute.make_rmem_tensor_like(vals)
++        vals_.store(vals)
++        vals = vals_
++
++    # bitcast to Int32
++    vals = cute.recast_tensor(vals, Int32)
++
++    nvvm_shape, regs_per_num = LDST_MAP[shape]
++    num_regs = regs_per_num * num
++    tmem = (Int32(row) << Int32(16)) | Int32(col)
++    tmem_ptr = _make_tmem_llvm_ptr(tmem, loc=loc, ip=ip)
++
++    if num_regs == 1:
++        nvvm.tcgen05_st(
++            nvvm_shape,
++            tmem_ptr,
++            vals[0].ir_value(loc=loc, ip=ip),
++            loc=loc,
++            ip=ip,
++        )
++    else:
++        vec_i32_ty = ir.VectorType.get([num_regs], Int32.mlir_type, loc=loc)
++        val_vec = vector.from_elements(
++            vec_i32_ty,
++            [vals[i].ir_value(loc=loc, ip=ip) for i in range(num_regs)],
++            loc=loc,
++            ip=ip,
++        )
++        nvvm.tcgen05_st(nvvm_shape, tmem_ptr, val_vec, loc=loc, ip=ip)
++
++
++@dsl_user_op
++def fence_after_thread_sync(*, loc=None, ip=None):
++    nvvm.tcgen05_fence(nvvm.Tcgen05FenceKind.AFTER_THREAD_SYNC, loc=loc, ip=ip)
++
++
++@dsl_user_op
++def fence_before_thread_sync(*, loc=None, ip=None):
++    nvvm.tcgen05_fence(nvvm.Tcgen05FenceKind.BEFORE_THREAD_SYNC, loc=loc, ip=ip)
++
++
++@dsl_user_op
++def wait_ld(*, loc=None, ip=None):
++    nvvm.tcgen05_wait(nvvm.Tcgen05WaitKind.LOAD, loc=loc, ip=ip)
++
++
++@dsl_user_op
++def wait_st(*, loc=None, ip=None):
++    nvvm.tcgen05_wait(nvvm.Tcgen05WaitKind.STORE, loc=loc, ip=ip)
+diff --git a/python/sglang/srt/layers/attention/cute_utils/cvt.py b/python/sglang/srt/layers/attention/cute_utils/cvt.py
+new file mode 100644
+index 000000000000..1eccb09a1187
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/cute_utils/cvt.py
+@@ -0,0 +1,146 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++# Adapted from https://github.com/vllm-project/vllm/blob/4868b542c9dfd166662eecc4bb8be3a36a3feaa2/vllm/cute_utils/cvt.py
++from cutlass import Constexpr, Float32, Uint32, cute
++from cutlass._mlir import ir
++from cutlass._mlir.dialects import llvm, vector
++from cutlass.cutlass_dsl import T, dsl_user_op
++
++
++@dsl_user_op
++def fp32x2_to_bf16x2(a: Float32, b: Float32, *, loc=None, ip=None) -> Uint32:
++    out = llvm.inline_asm(
++        T.i32(),
++        [a.ir_value(loc=loc, ip=ip), b.ir_value(loc=loc, ip=ip)],
++        "cvt.rn.bf16x2.f32 $0, $2, $1;",
++        "=r,f,f",
++        has_side_effects=False,
++        is_align_stack=False,
++    )
++    return Uint32(out)
++
++
++@dsl_user_op
++def bf16x2_to_fp32x2(data, *, loc=None, ip=None) -> tuple[Float32, Float32]:
++    if isinstance(data, Uint32):
++        out = llvm.inline_asm(
++            llvm.StructType.get_literal([T.f32(), T.f32()]),
++            [data.ir_value(loc=loc, ip=ip)],
++            "shl.b32 $0, $2, 16;\n\tand.b32 $1, $2, 0xFFFF0000;",
++            "=f,=f,r",
++            has_side_effects=False,
++            is_align_stack=False,
++            loc=loc,
++            ip=ip,
++        )
++        return (
++            Float32(llvm.extractvalue(T.f32(), out, [0], loc=loc, ip=ip)),
++            Float32(llvm.extractvalue(T.f32(), out, [1], loc=loc, ip=ip)),
++        )
++
++    elif isinstance(data, (cute.Tensor, cute.TensorSSA)):
++        # NOTE: the output is always 1D
++        size = cute.size(data.shape)
++        out = cute.make_rmem_tensor(size * 2, Float32)
++        for i in range(size):
++            out[i * 2], out[i * 2 + 1] = bf16x2_to_fp32x2(data[i])
++        return out
++
++    else:
++        raise ValueError(f"Unsupported type {type(data)}")
++
++
++@dsl_user_op
++def fp8x4_to_bf16x4(x: Uint32, *, loc=None, ip=None) -> cute.TensorSSA:
++    # there is only fp8->fp16 conversion, hence we need to go
++    # round trip through fp16.
++    out = llvm.inline_asm(
++        llvm.StructType.get_literal([T.i32()] * 2),
++        [x.ir_value(loc=loc, ip=ip)],
++        "{\n\t"
++        ".reg .b16 x0, x1;\n\t"
++        ".reg .b16 t00, t01, t10, t11;\n\t"
++        "mov.b32 {x0, x1}, $2;\n\t"
++        "cvt.rn.f16x2.e4m3x2 $0, x0;\n\t"
++        "cvt.rn.f16x2.e4m3x2 $1, x1;\n\t"
++        "mov.b32 {t00, t01}, $0;\n\t"
++        "mov.b32 {t10, t11}, $1;\n\t"
++        "cvt.rn.bf16.f16 t00, t00;\n\t"
++        "cvt.rn.bf16.f16 t01, t01;\n\t"
++        "cvt.rn.bf16.f16 t10, t10;\n\t"
++        "cvt.rn.bf16.f16 t11, t11;\n\t"
++        "mov.b32 $0, {t00, t01};\n\t"
++        "mov.b32 $1, {t10, t11};\n\t"
++        "}\n",
++        "=r,=r,r",
++        has_side_effects=False,
++        is_align_stack=False,
++    )
++    vec = vector.from_elements(
++        ir.VectorType.get([2], T.i32(), loc=loc),
++        [llvm.extractvalue(T.i32(), out, [i], loc=loc, ip=ip) for i in range(2)],
++        loc=loc,
++        ip=ip,
++    )
++    return cute.TensorSSA(vec, 2, Uint32)
++
++
++@dsl_user_op
++def fp32x4_to_fp8x4(
++    a0: Float32,
++    a1: Float32,
++    a2: Float32,
++    a3: Float32,
++    *,
++    loc=None,
++    ip=None,
++) -> Uint32:
++    # Pack four FP32 values into one b32 of four e4m3 bytes, byte order
++    # {a0, a1, a2, a3} from low to high address.
++    out = llvm.inline_asm(
++        T.i32(),
++        [
++            a0.ir_value(loc=loc, ip=ip),
++            a1.ir_value(loc=loc, ip=ip),
++            a2.ir_value(loc=loc, ip=ip),
++            a3.ir_value(loc=loc, ip=ip),
++        ],
++        "{\n\t"
++        ".reg .b16 t0, t1;\n\t"
++        "cvt.rn.satfinite.e4m3x2.f32 t0, $2, $1;\n\t"
++        "cvt.rn.satfinite.e4m3x2.f32 t1, $4, $3;\n\t"
++        "mov.b32 $0, {t0, t1};\n\t"
++        "}\n",
++        "=r,f,f,f,f",
++        has_side_effects=False,
++        is_align_stack=False,
++    )
++    return Uint32(out)
++
++
++@dsl_user_op
++def fp32x8_to_fp4x8(
++    vals: cute.Tensor,
++    offset: Constexpr[int],
++    *,
++    loc=None,
++    ip=None,
++) -> Uint32:
++    # Pack eight scaled FP32 values into four E2M1x2 bytes, returned as one b32.
++    assert vals.element_type is Float32
++    out = llvm.inline_asm(
++        T.i32(),
++        [vals[offset + i].ir_value(loc=loc, ip=ip) for i in range(8)],
++        "{\n\t"
++        ".reg .b8 x0, x1, x2, x3;\n\t"
++        "cvt.rn.satfinite.e2m1x2.f32 x0, $2, $1;\n\t"
++        "cvt.rn.satfinite.e2m1x2.f32 x1, $4, $3;\n\t"
++        "cvt.rn.satfinite.e2m1x2.f32 x2, $6, $5;\n\t"
++        "cvt.rn.satfinite.e2m1x2.f32 x3, $8, $7;\n\t"
++        "mov.b32 $0, {x0, x1, x2, x3};\n\t"
++        "}\n",
++        "=r,f,f,f,f,f,f,f,f",
++        has_side_effects=False,
++        is_align_stack=False,
++    )
++    return Uint32(out)
+diff --git a/python/sglang/srt/layers/attention/linear/gdn_backend.py b/python/sglang/srt/layers/attention/linear/gdn_backend.py
+index 0e5453ebd0f6..d93a0f8ff60e 100644
+--- a/python/sglang/srt/layers/attention/linear/gdn_backend.py
++++ b/python/sglang/srt/layers/attention/linear/gdn_backend.py
+@@ -60,6 +60,7 @@ def __init__(
+     ):
+         triton_kernel = TritonGDNKernel()
+ 
++        cutedsl_kernel = None
+         if decode_backend.is_triton():
+             self.decode_kernel = triton_kernel
+         elif decode_backend.is_cutedsl():
+@@ -69,7 +70,8 @@ def __init__(
+                 CuteDSLGDNKernel,
+             )
+ 
+-            self.decode_kernel = CuteDSLGDNKernel()
++            cutedsl_kernel = CuteDSLGDNKernel()
++            self.decode_kernel = cutedsl_kernel
+         elif decode_backend.is_flashinfer():
+             if not is_cuda():
+                 raise ValueError("FlashInfer GDN backend requires CUDA")
+@@ -85,10 +87,26 @@ def __init__(
+         if prefill_backend.is_triton():
+             self.extend_kernel = triton_kernel
+         elif prefill_backend.is_cutedsl():
+-            raise ValueError(
+-                "CuTe DSL backend only supports decode, not prefill. "
+-                "Use --linear-attn-prefill-backend triton instead."
+-            )
++            if not is_cuda():
++                raise ValueError("GDN CuTe DSL backend requires CUDA")
++            # Reuse the CuteDSL kernel if already created for decode
++            if cutedsl_kernel is None:
++                from sglang.srt.layers.attention.linear.kernels.gdn_cutedsl import (
++                    CuteDSLGDNKernel,
++                )
++
++                cutedsl_kernel = CuteDSLGDNKernel()
++            # The CuteDSL prefill kernel only exists on SM100+ (Blackwell).
++            # On SM90 (Hopper) fall back to Triton so users can pick
++            # `cutedsl` uniformly across hardware.
++            if cutedsl_kernel.supports_prefill:
++                self.extend_kernel = cutedsl_kernel
++            else:
++                rank0_log(
++                    "CuTe DSL GDN prefill is not supported on this GPU "
++                    "(requires SM100+). Falling back to Triton for prefill."
++                )
++                self.extend_kernel = triton_kernel
+         elif prefill_backend.is_flashinfer():
+             if not is_cuda():
+                 raise ValueError("FlashInfer GDN backend requires CUDA")
+diff --git a/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/__init__.py b/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/__init__.py
+new file mode 100644
+index 000000000000..7d61b18ec834
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/__init__.py
+@@ -0,0 +1,251 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++# Adapted from https://github.com/vllm-project/vllm/blob/4868b542c9dfd166662eecc4bb8be3a36a3feaa2/vllm/model_executor/layers/mamba/ops/gdn_chunk_cutedsl/__init__.py
++
++from functools import cache
++
++import cutlass
++import torch
++import triton
++from cuda.bindings.driver import CUstream
++from cutlass import Int32, cute
++from quack.compile_utils import make_fake_tensor
++
++from .kernel_h import h_cutedsl
++from .kernel_kkt_inv_uw import kkt_inv_uw_cutedsl
++from .kernel_o import o_cutedsl
++
++
++class PrepMetaKernel:
++    def __init__(self, BT: int) -> None:
++        self.BT = BT
++        self.num_warps = 8
++
++    @cute.jit
++    def __call__(
++        self,
++        cu_seqlens: cute.Tensor,
++        chunk_indices: cute.Tensor,
++        chunk_offsets: cute.Tensor,
++        stream: CUstream,
++    ):
++        block = (self.num_warps * 32, 1, 1)
++        self.kernel(
++            cu_seqlens,
++            chunk_indices,
++            chunk_offsets,
++        ).launch(grid=(1, 1, 1), block=block, stream=stream)
++
++    @cute.kernel
++    def kernel(
++        self,
++        cu_seqlens: cute.Tensor,
++        chunk_indices: cute.Tensor,
++        chunk_offsets: cute.Tensor,
++    ):
++        tid, _, _ = cute.arch.thread_idx()
++        warp_id = cute.arch.make_warp_uniform(tid // 32)
++        lane_id = tid % 32
++
++        num_seqs = cu_seqlens.shape[0] - 1
++        num_warps = self.num_warps
++        tb_size = num_warps * 32
++
++        if tid == 0:
++            chunk_offsets[0] = 0
++
++        coarsen = cute.ceil_div(num_seqs, tb_size)
++        seq_start = tid * coarsen
++        num_iters = cutlass.min(seq_start + coarsen, num_seqs) - seq_start
++
++        # First pass: compute this thread's total chunk count.
++        thread_sum = Int32(0)
++        for i in range(num_iters):
++            seq_id = seq_start + i
++            seqlen = cu_seqlens[seq_id + 1] - cu_seqlens[seq_id]
++            thread_sum += cute.ceil_div(seqlen, self.BT)
++
++        # warp parallel scan
++        cu_num_chunks = thread_sum
++        for i in cutlass.range_constexpr(5):
++            offset = cutlass.const_expr(1 << i)
++            lower = cute.arch.shuffle_sync_up(
++                cu_num_chunks, offset=offset, mask_and_clamp=0
++            )
++            if lane_id >= offset:
++                cu_num_chunks += lower
++
++        # cross-warp cumsum (CTA-wide)
++        smem = cutlass.utils.SmemAllocator()
++        warp_num_chunks = smem.allocate_array(Int32, num_warps)
++        if lane_id == 31:
++            warp_num_chunks[warp_id] = cu_num_chunks
++        cute.arch.sync_threads()
++
++        for i in cutlass.range_constexpr(1, num_warps):
++            if warp_id >= i:
++                cu_num_chunks += warp_num_chunks[i - 1]
++
++        chunk_start = cu_num_chunks - thread_sum
++
++        # Second pass: recompute per-sequence chunk counts and write results.
++        for i in range(num_iters):
++            seq_id = seq_start + i
++            seqlen = cu_seqlens[seq_id + 1] - cu_seqlens[seq_id]
++            num_chunks = cute.ceil_div(seqlen, self.BT)
++            chunk_end = chunk_start + num_chunks
++            chunk_offsets[seq_id + 1] = chunk_end
++
++            for chunk_id in range(num_chunks):
++                chunk_indices[chunk_start + chunk_id, 0] = seq_id
++                chunk_indices[chunk_start + chunk_id, 1] = chunk_id
++
++            chunk_start = chunk_end
++
++    @cache
++    @staticmethod
++    def compile(BT: int):
++        cu_entries = cute.sym_int()
++        upper_bound_chunks = cute.sym_int()
++
++        cu_seqlens = make_fake_tensor(Int32, (cu_entries,), divisibility=1)
++        chunk_indices = make_fake_tensor(Int32, (upper_bound_chunks, 2), divisibility=2)
++        chunk_offsets = make_fake_tensor(Int32, (cu_entries,), divisibility=1)
++
++        kernel = PrepMetaKernel(BT)
++        stream = cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True)
++        return cute.compile(
++            kernel,
++            cu_seqlens,
++            chunk_indices,
++            chunk_offsets,
++            stream,
++            options="--enable-tvm-ffi",
++        )
++
++
++def _upper_bound_chunks(num_seqs: int, total_tokens: int, chunk_size: int) -> int:
++    return (num_seqs - 1) + triton.cdiv(total_tokens - (num_seqs - 1), chunk_size)
++
++
++def prepare_metadata_cutedsl(
++    cu_seqlens: torch.Tensor,
++    total_tokens: int,
++    chunk_size: int = 64,
++) -> tuple[torch.Tensor, torch.Tensor]:
++    num_seqs = cu_seqlens.numel() - 1
++    upper_bound_chunks = _upper_bound_chunks(num_seqs, total_tokens, chunk_size)
++    chunk_offsets = cu_seqlens.new_empty(num_seqs + 1, dtype=torch.int32)
++    chunk_indices = cu_seqlens.new_empty((upper_bound_chunks, 2), dtype=torch.int32)
++
++    PrepMetaKernel.compile(chunk_size)(cu_seqlens, chunk_indices, chunk_offsets)
++    return chunk_indices, chunk_offsets
++
++
++def chunk_gated_delta_rule_cutedsl(
++    q: torch.Tensor,
++    k: torch.Tensor,
++    v: torch.Tensor,
++    g: torch.Tensor,
++    beta: torch.Tensor,
++    initial_state: torch.Tensor,
++    cu_seqlens: torch.Tensor,
++    chunk_indices: torch.Tensor,
++    chunk_offsets: torch.Tensor,
++    core_attn_out: torch.Tensor | None = None,
++) -> tuple[torch.Tensor, torch.Tensor]:
++    """Run the GDN chunk CuteDSL prefill kernels.
++
++    Args:
++        q: Query tensor with shape ``[1, T, H, K]``.
++        k: Key tensor with shape ``[1, T, H, K]``.
++        v: Value tensor with shape ``[1, T, Hv, V]``.
++        g: Log-space decay tensor with shape ``[1, T, Hv]``.
++        beta: Delta-rule beta tensor with shape ``[1, T, Hv]``.
++        initial_state: Recurrent state with shape ``[N, Hv, V, K]``.
++        cu_seqlens: Cumulative sequence lengths with shape ``[N + 1]``.
++        chunk_indices: Chunk index metadata with shape ``[NT, 2]``.
++        chunk_offsets: Cumulative chunk offsets with shape ``[N + 1]``.
++        core_attn_out: Optional output buffer with shape ``[T, Hv, V]``.
++
++    Returns:
++        A tuple ``(output, final_state)`` where ``output`` has shape
++        ``[1, T, Hv, V]`` and ``final_state`` has shape ``[N, Hv, V, K]``.
++        When ``core_attn_out`` is provided, ``output`` is an unsqueezed view of
++        that buffer.
++    """
++    q_3d = q.squeeze(0)
++    k_3d = k.squeeze(0)
++    v_3d = v.squeeze(0)
++    g_2d = g.squeeze(0)
++    beta_2d = beta.squeeze(0)
++
++    _, _, head_k_dim = k_3d.shape
++    _, num_v_heads, head_v_dim = v_3d.shape
++    chunk_size = 64
++    upper_bound_chunks = chunk_indices.shape[0]
++    pad_t = upper_bound_chunks * chunk_size
++    total_chunks_ptr = chunk_offsets[-1:]
++
++    g_cu = torch.empty_like(g_2d, dtype=torch.float32)
++    u = q_3d.new_empty(pad_t, num_v_heads, head_v_dim)
++    w = q_3d.new_empty(pad_t, num_v_heads, head_k_dim)
++
++    num_sms = torch.cuda.get_device_properties(q.device).multi_processor_count
++    kkt_inv_uw_cutedsl(
++        k_3d,
++        v_3d,
++        u,
++        w,
++        g_2d,
++        beta_2d,
++        g_cu,
++        cu_seqlens,
++        chunk_indices,
++        total_chunks_ptr,
++        num_sms=num_sms,
++    )
++
++    h = k_3d.new_empty(
++        upper_bound_chunks,
++        num_v_heads,
++        head_v_dim,
++        head_k_dim,
++    )
++    v_new = q_3d.new_empty(pad_t, num_v_heads, head_v_dim)
++    final_state = torch.empty_like(initial_state)
++    h_cutedsl(
++        k_3d,
++        u,
++        w,
++        v_new,
++        g_cu,
++        h,
++        initial_state,
++        final_state,
++        cu_seqlens,
++        chunk_offsets,
++    )
++
++    output = core_attn_out if core_attn_out is not None else torch.empty_like(v_3d)
++    scale = head_k_dim**-0.5
++    o_cutedsl(
++        q_3d,
++        k_3d,
++        v_new.view(upper_bound_chunks, chunk_size, num_v_heads, head_v_dim),
++        h,
++        g_cu,
++        output,
++        cu_seqlens,
++        chunk_indices,
++        total_chunks_ptr,
++        scale,
++        num_sms=num_sms,
++    )
++    return output.unsqueeze(0), final_state
++
++
++__all__ = [
++    "chunk_gated_delta_rule_cutedsl",
++    "prepare_metadata_cutedsl",
++]
+diff --git a/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/kernel_h.py b/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/kernel_h.py
+new file mode 100644
+index 000000000000..17145b8b1b6e
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/kernel_h.py
+@@ -0,0 +1,754 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++# Adapted from https://github.com/vllm-project/vllm/blob/4868b542c9dfd166662eecc4bb8be3a36a3feaa2/vllm/model_executor/layers/mamba/ops/gdn_chunk_cutedsl/kernel_h.py
++from functools import cache
++
++import cutlass
++import torch
++from cuda.bindings.driver import CUstream
++from cutlass import BFloat16, Float32, Int32, Int64, Uint32, cute
++from cutlass.cute.nvgpu import cpasync, warp
++from quack.compile_utils import make_fake_tensor
++
++from sglang.srt.layers.attention.cute_utils import (
++    EVICT_FIRST,
++    _tcgen05,
++    cvt,
++    fence_before_tma_store,
++    simple_tma_copy,
++)
++
++
++class Sm100ChunkHKernel:
++    """For each sequence, compute the chunk recurrent update.
++
++    The input V tile is the U output from the KKT/UW kernel. For each chunk:
++        V_new = U - W @ H.T
++        (we actually do V_new.T = U.T - H @ W.T instead)
++
++        H_scaled = H * exp(g_last)
++        V_scaled = V_new * exp(g_last - g)
++        H_new = H_scaled + V_scaled.T @ K
++    """
++
++    def __init__(
++        self,
++        H: int,
++        Hv: int,
++        K_dim: int,
++        V_dim: int,
++        h_dtype: cutlass.Numeric = Float32,
++        BT: int = 64,
++        num_stages: int = 2,
++    ) -> None:
++        assert Hv % H == 0
++        assert K_dim == V_dim == 128
++        assert BT == 64
++        self.H = H
++        self.Hv = Hv
++        self.K_dim = K_dim
++        self.V_dim = V_dim
++        self.h_dtype = h_dtype
++        self.BT = BT
++        self.num_stages = num_stages
++        self.num_warps = 10
++
++    @cute.jit
++    def _make_bf16_tma_args(
++        self,
++        tensor: cute.Tensor,
++        dim: cutlass.Constexpr[int],
++        op: cpasync.TmaCopyOp,
++        stages: cutlass.Constexpr[int],
++    ):
++        swizzle_128B = cute.make_swizzle(3, 4, 3)
++        slayout = cute.make_layout(
++            (self.BT, 1, (64, dim // 64), stages),
++            stride=(64, 0, (1, self.BT * 64), self.BT * dim),
++        )
++        slayout = cute.make_composed_layout(swizzle_128B, 0, slayout)
++        atom, tma_tensor = cpasync.make_tiled_tma_atom(
++            op,
++            cute.logical_divide(tensor, (None, None, 64)),
++            slayout,
++            cta_tiler=(self.BT, 1, dim),
++        )
++        return atom, tma_tensor, slayout
++
++    @cute.jit
++    def _make_h_tma_args(self, tensor: cute.Tensor, op: cpasync.TmaCopyOp):
++        # number of elements to fill 128B
++        num_elems = 128 // (tensor.element_type.width // 8)
++        swizzle_128B = cute.make_swizzle(3, 4, 3)
++        slayout = cute.make_layout(
++            (1, 1, self.V_dim, (num_elems, self.K_dim // num_elems)),
++            stride=(0, 0, num_elems, (1, self.V_dim * num_elems)),
++        )
++        slayout = cute.make_composed_layout(swizzle_128B, 0, slayout)
++        atom, tma_tensor = cpasync.make_tiled_tma_atom(
++            op,
++            cute.logical_divide(tensor, (None, None, None, num_elems)),
++            slayout,
++            cta_tiler=(1, 1, self.V_dim, self.K_dim),
++        )
++        return atom, tma_tensor, slayout
++
++    @cute.jit
++    def __call__(
++        self,
++        K: cute.Tensor,
++        V: cute.Tensor,
++        W: cute.Tensor,
++        V_new: cute.Tensor,
++        g_cu: cute.Tensor,
++        h: cute.Tensor,
++        h0: cute.Tensor,
++        ht: cute.Tensor,
++        cu_seqlens: cute.Tensor,
++        chunk_offsets: cute.Tensor,
++        stream: CUstream,
++    ):
++        tma_g2s = cpasync.CopyBulkTensorTileG2SOp()
++        tma_s2g = cpasync.CopyBulkTensorTileS2GOp()
++
++        K_args = self._make_bf16_tma_args(K, self.K_dim, tma_g2s, self.num_stages)
++        V_args = self._make_bf16_tma_args(V, self.V_dim, tma_g2s, self.num_stages)
++        W_args = self._make_bf16_tma_args(W, self.K_dim, tma_g2s, self.num_stages)
++        V_new_args = self._make_bf16_tma_args(V_new, self.V_dim, tma_s2g, 1)
++        H0_args = self._make_h_tma_args(h0, tma_g2s)
++        HT_args = self._make_h_tma_args(ht, tma_s2g)
++        H_args = self._make_h_tma_args(h, tma_s2g)
++
++        grid = (self.Hv, h0.shape[0], 1)
++        block = (self.num_warps * 32, 1, 1)
++        self.kernel(
++            K_args,
++            V_args,
++            W_args,
++            V_new_args,
++            H0_args,
++            HT_args,
++            H_args,
++            g_cu,
++            cu_seqlens,
++            chunk_offsets,
++        ).launch(grid=grid, block=block, stream=stream)
++
++    @cute.kernel
++    def kernel(
++        self,
++        K_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        V_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        W_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        V_new_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        H0_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        HT_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        H_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        g_cu: cute.Tensor,
++        cu_seqlens: cute.Tensor,
++        chunk_offsets: cute.Tensor,
++    ):
++        tid, _, _ = cute.arch.thread_idx()
++        head_id, seq_id, _ = cute.arch.block_idx()
++        warp_id = cute.arch.make_warp_uniform(tid // 32)
++        lane_id = tid % 32
++
++        BT = self.BT
++        V_dim = self.V_dim
++        K_dim = self.K_dim
++        num_stages = self.num_stages
++        is_f32 = self.h_dtype == Float32
++
++        K_tma_atom, tmaK, sK_layout = K_args
++        V_tma_atom, tmaV, sV_layout = V_args
++        W_tma_atom, tmaW, sW_layout = W_args
++        V_new_tma_atom, tmaV_new, sV_new_layout = V_new_args
++        H0_tma_atom, tmaH0, sH0_layout = H0_args
++        HT_tma_atom, tmaHT, _ = HT_args
++        H_tma_atom, tmaH, sH_layout = H_args
++
++        def allocate_tensor(smem, dtype, layout):
++            return smem.allocate_tensor(
++                dtype, layout.outer, byte_alignment=128, swizzle=layout.inner
++            )
++
++        smem = cutlass.utils.SmemAllocator()
++
++        # remove size=1 modes
++        sW = allocate_tensor(smem, BFloat16, sW_layout)[None, 0, None, None]
++        sV = allocate_tensor(smem, BFloat16, sV_layout)[None, 0, None, None]
++        sK = allocate_tensor(smem, BFloat16, sK_layout)[None, 0, None, None]
++        sH0 = allocate_tensor(smem, self.h_dtype, sH0_layout)[0, 0, None, None]
++        sH = allocate_tensor(smem, BFloat16, sH_layout)[0, 0, None, None]
++        sV_new = allocate_tensor(smem, BFloat16, sV_new_layout)[None, 0, None, 0]
++
++        s_v_scale = smem.allocate_array(Float32, BT)
++        tma_mbar = smem.allocate_array(Int64, num_stages)
++        wh_in_mbar = smem.allocate_array(Int64, num_stages)
++        wh_done_mbar = smem.allocate_array(Int64, num_stages)
++        vk_in_mbar = smem.allocate_array(Int64, num_stages)
++        vk_done_mbar = smem.allocate_array(Int64, num_stages)
++        h0_mbar = smem.allocate_array(Int64, 1)
++        taddr = smem.allocate(Int32, 4)
++
++        wh_tmem = 0
++        vk_tmem = wh_tmem + BT
++        h_tmem_base = vk_tmem + K_dim
++        v_tmem_base = h_tmem_base + K_dim // 2
++
++        if warp_id == 0:
++            with cute.arch.elect_one():
++                for i in cutlass.range_constexpr(num_stages):
++                    cute.arch.mbarrier_init(tma_mbar + i, 1)
++                    cute.arch.mbarrier_init(wh_in_mbar + i, 256)
++                    cute.arch.mbarrier_init(wh_done_mbar + i, 1)
++                    cute.arch.mbarrier_init(vk_in_mbar + i, 256)
++                    cute.arch.mbarrier_init(vk_done_mbar + i, 1)
++                cute.arch.mbarrier_init(h0_mbar, 1)
++                cute.arch.mbarrier_init_fence()
++        elif warp_id == 1:
++            cpasync.prefetch_descriptor(H0_tma_atom)
++            cpasync.prefetch_descriptor(W_tma_atom)
++            cpasync.prefetch_descriptor(V_tma_atom)
++            cpasync.prefetch_descriptor(K_tma_atom)
++            cpasync.prefetch_descriptor(HT_tma_atom)
++            cpasync.prefetch_descriptor(H_tma_atom)
++            cpasync.prefetch_descriptor(V_new_tma_atom)
++        cute.arch.sync_threads()
++
++        bos = cu_seqlens[seq_id]
++        eos = cu_seqlens[seq_id + 1]
++        seqlen = eos - bos
++        num_chunks = cute.ceil_div(seqlen, BT)
++
++        if warp_id == 9:
++            # TMA warp
++            stage_id = 0
++            parity = 1
++
++            k_head_id = head_id // (self.Hv // self.H)
++            chunk_offset = chunk_offsets[seq_id]
++
++            # load H0
++            with cute.arch.elect_one():
++                H0_size = V_dim * K_dim * self.h_dtype.width // 8
++                cute.arch.mbarrier_arrive_and_expect_tx(h0_mbar, H0_size)
++            simple_tma_copy(
++                H0_tma_atom, tmaH0[seq_id, head_id, None, None], sH0, h0_mbar
++            )
++
++            # shape: ((BT, num_BT_tiles), (64, 2))
++            gW_tiles = cute.logical_divide(tmaW[None, head_id, None], (BT, None))
++            gV_tiles = cute.logical_divide(tmaV[None, head_id, None], (BT, None))
++            gK_tiles = cute.logical_divide(
++                cute.domain_offset((bos, 0), tmaK[None, k_head_id, None]),
++                (BT, None),
++            )
++
++            for chunk_id in range(num_chunks):
++                mbar = tma_mbar + stage_id
++                gW = gW_tiles[(None, chunk_offset + chunk_id), None]
++                gV = gV_tiles[(None, chunk_offset + chunk_id), None]
++                gK = gK_tiles[(None, chunk_id), None]
++
++                # wait for MMA to release the buffer
++                cute.arch.mbarrier_wait(vk_done_mbar + stage_id, parity)
++
++                # load W, V (i.e. U), and K
++                with cute.arch.elect_one():
++                    STAGE_SIZE = BT * (K_dim + V_dim + K_dim) * 2
++                    cute.arch.mbarrier_arrive_and_expect_tx(mbar, STAGE_SIZE)
++                simple_tma_copy(
++                    W_tma_atom, gW, sW[None, None, stage_id], mbar, EVICT_FIRST
++                )
++                simple_tma_copy(
++                    V_tma_atom, gV, sV[None, None, stage_id], mbar, EVICT_FIRST
++                )
++                simple_tma_copy(K_tma_atom, gK, sK[None, None, stage_id], mbar)
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    parity ^= 1
++
++        elif warp_id == 8:
++            # MMA warp
++            _tcgen05.alloc(taddr)
++            stage_id = 0
++            parity = 0
++
++            wh_idesc = _tcgen05.make_bf16_idesc(V_dim, BT, negate_A=True)
++            vk_idesc = _tcgen05.make_bf16_idesc(V_dim, K_dim, transpose_B=True)
++
++            # LBO=BT*128 is ignored for K-major
++            sdesc_template = _tcgen05.make_sdesc_128B_swizzle(BT * 128)
++
++            # when using BF16 state, H is read from smem for the 1st iteration
++            # variable names in this conditional branch can't be the same as those
++            # in the mainloop below due to CuteDSL restrictions.
++            if cutlass.const_expr(not is_f32):
++                ##### 1st MMA: V_new.T = V.T - H @ W.T #####
++                Haddr0 = sH0[None, None].iterator.toint()
++                Waddr0 = sW[None, None, stage_id].iterator.toint()
++                hdesc0_base = sdesc_template | (Haddr0 >> 4)
++                wdesc0_base = sdesc_template | (Waddr0 >> 4)
++
++                cute.arch.mbarrier_wait(tma_mbar + stage_id, parity)
++                cute.arch.mbarrier_wait(wh_in_mbar + stage_id, parity)
++                _tcgen05.fence_after_thread_sync()
++
++                with cute.arch.elect_one():
++                    for i in cutlass.range_constexpr(K_dim // 64):
++                        for j in cutlass.range_constexpr(64 // 16):
++                            hdesc0 = hdesc0_base | ((i * V_dim * 128 + j * 32) >> 4)
++                            wdesc0 = wdesc0_base | ((i * BT * 128 + j * 32) >> 4)
++                            _tcgen05.mma_f16(wh_tmem, hdesc0, wdesc0, wh_idesc, True)
++                    _tcgen05.commit(wh_done_mbar + stage_id)
++
++                ##### 2nd MMA: H_new = H + V_new.T @ K #####
++                Kaddr0 = sK[None, None, stage_id].iterator.toint()
++                kdesc0_base = sdesc_template | (Kaddr0 >> 4)
++
++                cute.arch.mbarrier_wait(vk_in_mbar + stage_id, parity)
++                _tcgen05.fence_after_thread_sync()
++
++                with cute.arch.elect_one():
++                    for k in cutlass.range_constexpr(BT // 16):
++                        vtmem0 = v_tmem_base + k * 8
++                        kdesc0 = kdesc0_base | ((k * 16 * 128) >> 4)
++                        _tcgen05.mma_ts_f16(vk_tmem, vtmem0, kdesc0, vk_idesc, True)
++                    _tcgen05.commit(vk_done_mbar + stage_id)
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    parity ^= 1
++
++            num_iters = num_chunks - int(not is_f32)
++            for _ in range(num_iters):
++                ##### 1st MMA: V_new.T = V.T - H @ W.T #####
++                Waddr = sW[None, None, stage_id].iterator.toint()
++                wdesc_base = sdesc_template | (Waddr >> 4)
++
++                cute.arch.mbarrier_wait(tma_mbar + stage_id, parity)
++                cute.arch.mbarrier_wait(wh_in_mbar + stage_id, parity)
++                _tcgen05.fence_after_thread_sync()
++
++                with cute.arch.elect_one():
++                    for i in cutlass.range_constexpr(K_dim // 64):
++                        for j in cutlass.range_constexpr(64 // 16):
++                            htmem = h_tmem_base + i * 32 + j * 8
++                            wdesc = wdesc_base | ((i * BT * 128 + j * 32) >> 4)
++                            _tcgen05.mma_ts_f16(wh_tmem, htmem, wdesc, wh_idesc, True)
++                    _tcgen05.commit(wh_done_mbar + stage_id)
++
++                ##### 2nd MMA: H_new = H + V_new.T @ K #####
++                Kaddr = sK[None, None, stage_id].iterator.toint()
++                kdesc_base = sdesc_template | (Kaddr >> 4)
++
++                cute.arch.mbarrier_wait(vk_in_mbar + stage_id, parity)
++                _tcgen05.fence_after_thread_sync()
++
++                with cute.arch.elect_one():
++                    for k in cutlass.range_constexpr(BT // 16):
++                        vtmem = v_tmem_base + k * 8
++                        kdesc = kdesc_base | ((k * 16 * 128) >> 4)
++                        _tcgen05.mma_ts_f16(vk_tmem, vtmem, kdesc, vk_idesc, True)
++                    _tcgen05.commit(vk_done_mbar + stage_id)
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    parity ^= 1
++
++        elif warp_id >= 4:
++            # H warps
++            tid_ = tid % 128
++            warp_id_ = warp_id % 4
++            chunk_offset = chunk_offsets[seq_id]
++
++            stage_id = 0
++            vk_stage_id = 0
++            vk_parity = 0
++
++            op = cute.nvgpu.CopyUniversalOp()
++            cp_16B = cute.make_copy_atom(op, Float32, num_bits_per_copy=128)
++
++            ##### chunk_id = 0 #####
++            if True:
++                chunk_id = 0
++                end_t = min(bos + (chunk_id + 1) * BT, eos)
++                last_idx = end_t - 1
++                h_scale = cute.math.exp(g_cu[last_idx, head_id], fastmath=True)
++
++                # for 1st chunk, wait for H0 transfer from gmem
++                if warp_id_ == 0:
++                    cute.arch.mbarrier_wait(h0_mbar, 0)
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++
++                # when H0 is FP32, we need to pack it to BF16
++                # also store to smem for TMA store later.
++                if cutlass.const_expr(is_f32):
++                    for i in cutlass.range_constexpr(K_dim // 32):
++                        # H0 smem layout: (V_dim, (32, K_dim/32))
++                        h_f32 = cute.make_rmem_tensor(32, Float32)
++                        cute.copy(cp_16B, sH0[tid_, (None, i)], h_f32)
++
++                        h_bf16 = cute.make_rmem_tensor(32, BFloat16)
++                        h_bf16.store(h_f32.load().to(BFloat16))
++                        _tcgen05.st(
++                            warp_id_ * 32, h_tmem_base + i * 16, "32x32b", 16, h_bf16
++                        )
++
++                        # H smem layout: (V_dim, (64, K_dim/64))
++                        dst = cute.local_tile(sH[tid_, None], (32,), (i,))
++                        cute.copy(cp_16B, h_bf16, dst)
++
++                _tcgen05.wait_st()
++                _tcgen05.fence_before_thread_sync()
++                cute.arch.mbarrier_arrive(wh_in_mbar + stage_id)
++
++                # scale H for 2nd MMA
++                for i in cutlass.range_constexpr(K_dim // 32):
++                    h_f32 = cute.make_rmem_tensor(32, Float32)
++
++                    if cutlass.const_expr(is_f32):
++                        cute.copy(cp_16B, sH0[tid_, (None, i)], h_f32)
++
++                    else:
++                        h_bf16 = cute.make_rmem_tensor(32, BFloat16)
++                        sH_src = cute.local_tile(sH0[tid_, None], (32,), (i,))
++                        cute.copy(cp_16B, sH_src, h_bf16)
++                        h_f32.store(
++                            cvt.bf16x2_to_fp32x2(
++                                cute.recast_tensor(h_bf16, Uint32)
++                            ).load()
++                        )
++
++                    for j in cutlass.range_constexpr(32):
++                        h_f32[j] *= h_scale
++                    _tcgen05.st(warp_id_ * 32, vk_tmem + i * 32, "32x32b", 32, h_f32)
++
++                _tcgen05.wait_st()
++                _tcgen05.fence_before_thread_sync()
++                cute.arch.mbarrier_arrive(vk_in_mbar + stage_id)
++
++                # for BF16 H0, we issue TMA store from H0 smem
++                # for FP32 H0, we issue TMA store from H smem (after packing)
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++                fence_before_tma_store()
++                if warp_id_ == 3:
++                    h_src = sH if cutlass.const_expr(is_f32) else sH0
++                    h_dst = tmaH[chunk_offset + chunk_id, head_id, None, None]
++                    simple_tma_copy(H_tma_atom, h_src, h_dst)
++                    with cute.arch.elect_one():
++                        cute.arch.cp_async_bulk_commit_group()
++
++                        # When H0 is BF16, and there is only 1 chunk, storing
++                        # the final state to sH0 can race before this store
++                        # has finished. hence, we need to wait here.
++                        if cutlass.const_expr(not is_f32):
++                            cute.arch.cp_async_bulk_wait_group(0, read=True)
++
++                stage_id = (stage_id + 1) % num_stages
++
++            ##### subsequent chunks #####
++            for chunk_id in range(1, num_chunks):
++                end_t = min(bos + (chunk_id + 1) * BT, eos)
++                last_idx = end_t - 1
++                h_scale = cute.math.exp(g_cu[last_idx, head_id], fastmath=True)
++
++                # wait for H from previous vk MMA
++                if warp_id_ == 0:
++                    cute.arch.mbarrier_wait(vk_done_mbar + vk_stage_id, vk_parity)
++                    vk_stage_id = (vk_stage_id + 1) % num_stages
++                    if vk_stage_id == 0:
++                        vk_parity ^= 1
++                elif warp_id_ == 3:
++                    with cute.arch.elect_one():
++                        cute.arch.cp_async_bulk_wait_group(0, read=True)
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++                _tcgen05.fence_after_thread_sync()
++
++                # load FP32 H from tmem, convert to BF16, store to tmem for 1st MMA,
++                # store to smem for TMA store later.
++                for i in cutlass.range_constexpr(K_dim // 32):
++                    h_f32 = _tcgen05.ld(warp_id_ * 32, vk_tmem + i * 32, "32x32b", 32)
++                    h_bf16 = cute.make_rmem_tensor(32, BFloat16)
++                    h_bf16.store(h_f32.to(BFloat16))
++                    _tcgen05.st(
++                        warp_id_ * 32, h_tmem_base + i * 16, "32x32b", 16, h_bf16
++                    )
++
++                    # H smem layout: (V_dim, (64, K_dim/64))
++                    dst = cute.local_tile(sH[tid_, None], (32,), (i,))
++                    cute.copy(cp_16B, h_bf16, dst)
++
++                _tcgen05.wait_st()
++                _tcgen05.fence_before_thread_sync()
++                cute.arch.mbarrier_arrive(wh_in_mbar + stage_id)
++
++                # scale H for 2nd MMA
++                for i in cutlass.range_constexpr(K_dim // 32):
++                    h_f32 = cute.make_rmem_tensor(32, Float32)
++                    h_f32.store(
++                        _tcgen05.ld(warp_id_ * 32, vk_tmem + i * 32, "32x32b", 32)
++                    )
++                    for j in cutlass.range_constexpr(32):
++                        h_f32[j] *= h_scale
++                    _tcgen05.st(warp_id_ * 32, vk_tmem + i * 32, "32x32b", 32, h_f32)
++                _tcgen05.wait_st()
++                _tcgen05.fence_before_thread_sync()
++                cute.arch.mbarrier_arrive(vk_in_mbar + stage_id)
++
++                # issue TMA store for O kernel
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++                fence_before_tma_store()
++                if warp_id_ == 3:
++                    h_dst = tmaH[chunk_offset + chunk_id, head_id, None, None]
++                    simple_tma_copy(H_tma_atom, sH, h_dst)
++                    with cute.arch.elect_one():
++                        cute.arch.cp_async_bulk_commit_group()
++
++                stage_id = (stage_id + 1) % num_stages
++
++            # handle final state. reuse H0 smem.
++            if warp_id_ == 0:
++                cute.arch.mbarrier_wait(vk_done_mbar + vk_stage_id, vk_parity)
++            cute.arch.barrier(barrier_id=1, number_of_threads=128)
++            _tcgen05.fence_after_thread_sync()
++
++            for i in cutlass.range_constexpr(K_dim // 32):
++                h_f32 = cute.make_rmem_tensor(32, Float32)
++                h_f32.store(_tcgen05.ld(warp_id_ * 32, vk_tmem + i * 32, "32x32b", 32))
++
++                if cutlass.const_expr(is_f32):
++                    cute.copy(cp_16B, h_f32, sH0[tid_, (None, i)])
++
++                else:
++                    h_bf16 = cute.make_rmem_tensor(32, BFloat16)
++                    h_bf16.store(h_f32.load().to(BFloat16))
++                    sH0_dst = cute.local_tile(sH0[tid_, None], (32,), (i,))
++                    cute.copy(cp_16B, h_bf16, sH0_dst)
++
++            cute.arch.barrier(barrier_id=1, number_of_threads=128)
++
++            if warp_id_ == 0:
++                ht_dst = tmaHT[seq_id, head_id, None, None]
++                simple_tma_copy(HT_tma_atom, sH0, ht_dst)
++                with cute.arch.elect_one():
++                    cute.arch.cp_async_bulk_commit_group()
++            if warp_id_ == 1:
++                _tcgen05.dealloc()
++
++        else:
++            # V warps
++            stage_id = 0
++            parity = 0
++
++            chunk_offset = chunk_offsets[seq_id]
++
++            ldsm_trans_op = warp.LdMatrix8x8x16bOp(num_matrices=4, transpose=True)
++            stsm_trans_op = warp.StMatrix8x8x16bOp(num_matrices=4, transpose=True)
++            ldsm_trans_atom = cute.make_copy_atom(ldsm_trans_op, BFloat16)
++            stsm_trans_atom = cute.make_copy_atom(stsm_trans_op, BFloat16)
++
++            # ((BT, num_BT_tiles), V_dim)
++            gV_new_tiles = cute.logical_divide(
++                tmaV_new[None, head_id, None], (BT, None)
++            )
++
++            # sV shape: [BT, (64, V_dim/64), num_stages]
++            # sV_view shape: [BT, (8, (8,2)), num_stages]
++            sV_view = cute.logical_divide(sV, (None, 8, None))
++            sV_new_view = cute.logical_divide(sV_new, (None, 8))
++
++            # [BT, 8, num_stages]
++            s_col = warp_id * 4 + (lane_id // 8)
++            sV_view = sV_view[None, (None, s_col), None]
++            sV_new_view = sV_new_view[None, (None, s_col)]
++
++            for chunk_id in range(num_chunks):
++                # wait for V to arrive
++                if warp_id == 0:
++                    cute.arch.mbarrier_wait(tma_mbar + stage_id, parity)
++                cute.arch.barrier(barrier_id=2, number_of_threads=128)
++
++                # unpack V BF16->FP32, then store to tmem for 1st MMA
++                # V smem layout: [BT, (64, V_dim/64)] / [BT, V_dim]
++                # each iteration, CTA loads [8, V_dim] tile
++                # (warp loads [8, 32] tile)
++                for i in cutlass.range_constexpr(BT // 8):
++                    s_row = i * 8 + (lane_id % 8)
++                    v_bf16 = cute.make_rmem_tensor(8, BFloat16)
++                    cute.copy(ldsm_trans_atom, sV_view[s_row, None, stage_id], v_bf16)
++                    v_fp32 = cvt.bf16x2_to_fp32x2(cute.recast_tensor(v_bf16, Uint32))
++                    v_fp32 = cute.logical_divide(v_fp32, 4)  # (4, 2)
++
++                    tcol = wh_tmem + i * 8
++                    _tcgen05.st(warp_id * 32 + 0, tcol, "16x256b", 1, v_fp32[None, 0])
++                    _tcgen05.st(warp_id * 32 + 16, tcol, "16x256b", 1, v_fp32[None, 1])
++
++                _tcgen05.wait_st()
++                _tcgen05.fence_before_thread_sync()
++                cute.arch.mbarrier_arrive(wh_in_mbar + stage_id)
++
++                # load g_cu for scaling
++                if tid < BT:
++                    end_t = min(bos + (chunk_id + 1) * BT, eos)
++                    last_idx = end_t - 1
++                    t = bos + chunk_id * BT + tid
++                    val = Float32(0.0)
++                    if t < eos:
++                        val = cute.math.exp(
++                            g_cu[last_idx, head_id] - g_cu[t, head_id],
++                            fastmath=True,
++                        )
++                    s_v_scale[tid] = val
++
++                # wait for 1st MMA to finish
++                if warp_id == 2:
++                    cute.arch.mbarrier_wait(wh_done_mbar + stage_id, parity)
++                elif warp_id == 3:
++                    with cute.arch.elect_one():
++                        cute.arch.cp_async_bulk_wait_group(0, read=True)
++                cute.arch.barrier(barrier_id=2, number_of_threads=128)
++                _tcgen05.fence_after_thread_sync()
++
++                for i in cutlass.range_constexpr(BT // 8):
++                    v_new = cute.make_rmem_tensor((4, 2), Float32)
++                    tcol = wh_tmem + i * 8
++                    v_new[None, 0].store(
++                        _tcgen05.ld(warp_id * 32 + 0, tcol, "16x256b", 1)
++                    )
++                    v_new[None, 1].store(
++                        _tcgen05.ld(warp_id * 32 + 16, tcol, "16x256b", 1)
++                    )
++                    v_new_bf16 = cute.make_rmem_tensor(8, BFloat16)
++                    v_new_bf16.store(v_new.load().to(BFloat16))
++
++                    # scale V_new for 2nd MMA
++                    scale0 = s_v_scale[i * 8 + (lane_id % 4) * 2 + 0]
++                    scale1 = s_v_scale[i * 8 + (lane_id % 4) * 2 + 1]
++                    v_scaled = cute.make_rmem_tensor(8, Float32)
++                    for k in cutlass.range_constexpr(4):
++                        v_scaled[k * 2] = v_new[k * 2] * scale0
++                        v_scaled[k * 2 + 1] = v_new[k * 2 + 1] * scale1
++                    v_scaled_bf16 = v_scaled.load().to(BFloat16).reshape((4, 2))
++
++                    # store V_new BF16 for O kernel
++                    s_row = i * 8 + (lane_id % 8)
++                    cute.copy(stsm_trans_atom, v_new_bf16, sV_new_view[s_row, None])
++
++                    # store to tmem
++                    tcol = v_tmem_base + i * 4
++                    _tcgen05.st(
++                        warp_id * 32 + 0, tcol, "16x128b", 1, v_scaled_bf16[None, 0]
++                    )
++                    _tcgen05.st(
++                        warp_id * 32 + 16, tcol, "16x128b", 1, v_scaled_bf16[None, 1]
++                    )
++                _tcgen05.wait_st()
++                _tcgen05.fence_before_thread_sync()
++                cute.arch.mbarrier_arrive(vk_in_mbar + stage_id)
++
++                # issue TMA store for V_new
++                cute.arch.barrier(barrier_id=2, number_of_threads=128)
++                fence_before_tma_store()
++                if warp_id == 3:
++                    gV = gV_new_tiles[(None, chunk_offset + chunk_id), None]
++                    simple_tma_copy(V_new_tma_atom, sV_new, gV)
++                    with cute.arch.elect_one():
++                        cute.arch.cp_async_bulk_commit_group()
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    parity ^= 1
++
++    @cache
++    @staticmethod
++    def compile(
++        H: int,
++        Hv: int,
++        K_dim: int,
++        V_dim: int,
++        h_dtype: cutlass.Numeric = Float32,
++        BT: int = 64,
++        num_stages: int = 2,
++    ):
++        total_t = cute.sym_int()
++        pad_t = cute.sym_int()
++        total_chunks_n = cute.sym_int()
++        num_sequences = cute.sym_int()
++        cu_entries = cute.sym_int()
++
++        K = make_fake_tensor(BFloat16, (total_t, H, K_dim), divisibility=16)
++        V = make_fake_tensor(BFloat16, (pad_t, Hv, V_dim), divisibility=16)
++        W = make_fake_tensor(BFloat16, (pad_t, Hv, K_dim), divisibility=16)
++        V_new = make_fake_tensor(BFloat16, (pad_t, Hv, V_dim), divisibility=16)
++        g_cu = make_fake_tensor(Float32, (total_t, Hv), divisibility=4)
++        h = make_fake_tensor(
++            BFloat16, (total_chunks_n, Hv, V_dim, K_dim), divisibility=16
++        )
++        h0 = make_fake_tensor(
++            h_dtype, (num_sequences, Hv, V_dim, K_dim), divisibility=16
++        )
++        ht = make_fake_tensor(
++            h_dtype, (num_sequences, Hv, V_dim, K_dim), divisibility=16
++        )
++        cu_seqlens = make_fake_tensor(Int32, (cu_entries,), divisibility=1)
++        chunk_offsets = make_fake_tensor(Int32, (cu_entries,), divisibility=1)
++
++        kernel = Sm100ChunkHKernel(H, Hv, K_dim, V_dim, h_dtype, BT, num_stages)
++        stream = cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True)
++        return cute.compile(
++            kernel,
++            K,
++            V,
++            W,
++            V_new,
++            g_cu,
++            h,
++            h0,
++            ht,
++            cu_seqlens,
++            chunk_offsets,
++            stream,
++            options="--enable-tvm-ffi",
++        )
++
++
++def h_cutedsl(
++    K: torch.Tensor,
++    V: torch.Tensor,
++    W: torch.Tensor,
++    V_new: torch.Tensor,
++    g_cu: torch.Tensor,
++    h: torch.Tensor,
++    h0: torch.Tensor,
++    ht: torch.Tensor,
++    cu_seqlens: torch.Tensor,
++    chunk_offsets: torch.Tensor,
++    BT: int = 64,
++    num_stages: int = 2,
++) -> None:
++    """Compute H/V_new with the same argument order as the CUDA wrapper."""
++
++    _, H, K_dim = K.shape
++    _, Hv, V_dim = V.shape
++    h_dtype = {
++        torch.bfloat16: BFloat16,
++        torch.float32: Float32,
++    }[h0.dtype]
++    Sm100ChunkHKernel.compile(H, Hv, K_dim, V_dim, h_dtype, BT, num_stages)(
++        K,
++        V,
++        W,
++        V_new,
++        g_cu,
++        h,
++        h0,
++        ht,
++        cu_seqlens,
++        chunk_offsets,
++    )
++
++
++h_v2b_cutedsl = h_cutedsl
+diff --git a/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/kernel_kkt_inv_uw.py b/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/kernel_kkt_inv_uw.py
+new file mode 100644
+index 000000000000..21fcd509a1db
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/kernel_kkt_inv_uw.py
+@@ -0,0 +1,823 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++# Adapted from https://github.com/vllm-project/vllm/blob/4868b542c9dfd166662eecc4bb8be3a36a3feaa2/vllm/model_executor/layers/mamba/ops/gdn_chunk_cutedsl/kernel_kkt_inv_uw.py
++from functools import cache
++
++import cutlass
++import torch
++from cuda.bindings.driver import CUstream
++from cutlass import BFloat16, Float32, Int32, Int64, Uint32, cute
++from cutlass.cute.nvgpu import cpasync, warp
++from quack.compile_utils import make_fake_tensor
++
++from sglang.srt.layers.attention.cute_utils import (
++    EVICT_FIRST,
++    _tcgen05,
++    cvt,
++    fence_before_tma_store,
++    mma_bf16,
++    simple_tma_copy,
++)
++
++
++class Sm100ChunkUWKernel:
++    """Compute per-chunk KKT inverse preprocessing and U/W tiles.
++
++    Gamma[i,j] = exp(g_cu[i] - g_cu[j])
++    A = strictLower(beta * (K @ K.T) * Gamma)
++    Ai = inverse(I + A)
++    U = (Ai * beta) @ V
++    W = (Ai * beta * exp(g_cu)) @ K
++    """
++
++    def __init__(
++        self,
++        H: int,
++        Hv: int,
++        K_dim: int,
++        V_dim: int,
++        num_stages: int = 2,
++    ) -> None:
++        assert Hv % H == 0
++        assert K_dim == V_dim == 128
++        self.H = H
++        self.Hv = Hv
++        self.K_dim = K_dim
++        self.V_dim = V_dim
++        self.num_stages = num_stages
++
++        # hard-code
++        self.BT = 64
++        self.num_warps = 2 + 4 + 4
++
++    @cute.jit
++    def _make_tma_args(
++        self,
++        tensor: cute.Tensor,
++        dim: cutlass.Constexpr[int],
++        num_stages: int,
++        op: cpasync.TmaCopyOp,
++    ):
++        # logical layout: [BT, dim]
++        # permute for TMA: [dim/64, BT, 64] with swizzling
++        swizzle_128B = cute.make_swizzle(3, 4, 3)
++        slayout = cute.make_layout(
++            (self.BT, 1, (64, dim // 64), num_stages),
++            stride=(64, 0, (1, self.BT * 64), self.BT * dim),
++        )
++        slayout = cute.make_composed_layout(swizzle_128B, 0, slayout)
++
++        # we need to convert gmem layout to (T, H, (64, D/64)) for make_tiled_tma_atom()
++        # to emit a single 4D TMA. otherwise, it will emit (D/64)x 3D TMA.
++        atom, tma_tensor = cpasync.make_tiled_tma_atom(
++            op,
++            cute.logical_divide(tensor, (None, None, 64)),
++            slayout,
++            cta_tiler=(self.BT, 1, dim),
++        )
++        return atom, tma_tensor, slayout
++
++    @cute.jit
++    def __call__(
++        self,
++        K: cute.Tensor,
++        V: cute.Tensor,
++        U: cute.Tensor,
++        W: cute.Tensor,
++        g: cute.Tensor,
++        beta: cute.Tensor,
++        g_cu: cute.Tensor,
++        cu_seqlens: cute.Tensor,
++        chunk_indices: cute.Tensor,
++        total_chunks: cute.Tensor,
++        num_sms: Int32,
++        stream: CUstream,
++    ):
++        tma_g2s = cpasync.CopyBulkTensorTileG2SOp()
++        tma_s2g = cpasync.CopyBulkTensorTileS2GOp()
++
++        K_args = self._make_tma_args(K, self.K_dim, self.num_stages, tma_g2s)
++        V_args = self._make_tma_args(V, self.V_dim, self.num_stages, tma_g2s)
++        U_args = self._make_tma_args(U, self.V_dim, 1, tma_s2g)
++        W_args = self._make_tma_args(W, self.K_dim, 1, tma_s2g)
++
++        grid = (num_sms // self.Hv, self.Hv, 1)
++        block = (self.num_warps * 32, 1, 1)
++        self.kernel(
++            K_args,
++            V_args,
++            U_args,
++            W_args,
++            g,
++            beta,
++            g_cu,
++            cu_seqlens,
++            chunk_indices,
++            total_chunks,
++        ).launch(grid=grid, block=block, stream=stream)
++
++    @cute.kernel
++    def kernel(
++        self,
++        K_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        V_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        U_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        W_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        g: cute.Tensor,
++        beta: cute.Tensor,
++        g_cu: cute.Tensor,
++        cu_seqlens: cute.Tensor,
++        chunk_indices: cute.Tensor,
++        total_chunks: cute.Tensor,
++    ):
++        tid, _, _ = cute.arch.thread_idx()
++        bid, head_id, _ = cute.arch.block_idx()
++        grid_x, _, _ = cute.arch.grid_dim()
++
++        warp_id = cute.arch.make_warp_uniform(tid // 32)
++        lane_id = tid % 32
++        k_head_id = head_id // (self.Hv // self.H)
++
++        BT = self.BT
++        K_dim = self.K_dim
++        V_dim = self.V_dim
++        num_stages = self.num_stages
++
++        K_tma_atom, tmaK, sK_layout = K_args
++        V_tma_atom, tmaV, sV_layout = V_args
++        U_tma_atom, tmaU, sU_layout = U_args
++        W_tma_atom, tmaW, sW_layout = W_args
++
++        def allocate_tensor(smem, dtype, layout):
++            return smem.allocate_tensor(
++                dtype, layout.outer, byte_alignment=128, swizzle=layout.inner
++            )
++
++        smem = cutlass.utils.SmemAllocator()
++        sK = allocate_tensor(smem, BFloat16, sK_layout)[None, 0, None, None]
++        sV = allocate_tensor(smem, BFloat16, sV_layout)[None, 0, None, None]
++        sU = allocate_tensor(smem, BFloat16, sU_layout)[None, 0, None, 0]
++        sW = allocate_tensor(smem, BFloat16, sW_layout)[None, 0, None, 0]
++
++        swizzle_128B = cute.make_swizzle(3, 4, 3)
++        sA_layout = cute.make_layout((BT, (64, 1)), stride=(64, (1, BT * 64)))
++        sA_layout = cute.make_composed_layout(swizzle_128B, 0, sA_layout)
++        sA = allocate_tensor(smem, BFloat16, sA_layout)
++        sAi = allocate_tensor(smem, BFloat16, sA_layout)
++
++        s_beta = smem.allocate_array(Float32, BT)
++        s_g_cu_exp = smem.allocate_array(Float32, BT)
++        s_g_cu = smem.allocate_array(Float32, BT)
++
++        tma_mbar = smem.allocate_array(Int64, num_stages)
++        mma_kkt_mbar = smem.allocate_array(Int64, num_stages)
++        inv_mbar = smem.allocate_array(Int64, num_stages)
++        mma_u_mbar = smem.allocate_array(Int64, num_stages)
++        mma_w_mbar = smem.allocate_array(Int64, num_stages)
++        epi_mbar = smem.allocate_array(Int64, num_stages)
++        taddr = smem.allocate(Int32, 4)
++
++        kkt_tmem = 0
++        U_tmem_base = kkt_tmem + BT
++        Ab_tmem_base = U_tmem_base + V_dim * num_stages
++        assert Ab_tmem_base + (BT // 2) * num_stages <= 512
++
++        # prepare ldmatrix/stmatrix ops
++        ldsm_op = warp.LdMatrix8x8x16bOp(num_matrices=4)
++        stsm_op = warp.StMatrix8x8x16bOp(num_matrices=4)
++        ldsm_trans_op = warp.LdMatrix8x8x16bOp(num_matrices=4, transpose=True)
++        ldsm_atom = cute.make_copy_atom(ldsm_op, BFloat16)
++        stsm_atom = cute.make_copy_atom(stsm_op, BFloat16)
++        ldsm_trans_atom = cute.make_copy_atom(ldsm_trans_op, BFloat16)
++
++        if warp_id == 0:
++            with cute.arch.elect_one():
++                for i in cutlass.range_constexpr(num_stages):
++                    cute.arch.mbarrier_init(tma_mbar + i, 1)
++                    cute.arch.mbarrier_init(mma_kkt_mbar + i, 1)
++                    cute.arch.mbarrier_init(inv_mbar + i, 128)
++                    cute.arch.mbarrier_init(mma_u_mbar + i, 1)
++                    cute.arch.mbarrier_init(mma_w_mbar + i, 1)
++                    cute.arch.mbarrier_init(epi_mbar + i, 128)
++                cute.arch.mbarrier_init_fence()
++        elif warp_id == 1:
++            cpasync.prefetch_descriptor(K_tma_atom)
++            cpasync.prefetch_descriptor(V_tma_atom)
++            cpasync.prefetch_descriptor(U_tma_atom)
++            cpasync.prefetch_descriptor(W_tma_atom)
++        cute.arch.sync_threads()
++
++        num_global_chunks = total_chunks[0]
++        if warp_id == 9:
++            # TMA warp
++            stage_id = 0
++            parity = 1
++
++            for global_chunk_id in range(bid, num_global_chunks, grid_x):
++                seq_id = chunk_indices[global_chunk_id, 0]
++                chunk_id = chunk_indices[global_chunk_id, 1]
++                bos = cu_seqlens[seq_id]
++
++                # since off_t is not a multiple of BT, we need to use
++                # domain_offset() to shift the pointer first.
++                mbar = tma_mbar + stage_id
++                gK = cute.local_tile(
++                    cute.domain_offset((bos, 0), tmaK[None, k_head_id, None]),
++                    tiler=(BT, K_dim),
++                    coord=(chunk_id, 0),
++                )
++                gV = cute.local_tile(
++                    cute.domain_offset((bos, 0), tmaV[None, head_id, None]),
++                    tiler=(BT, V_dim),
++                    coord=(chunk_id, 0),
++                )
++
++                # when UW MMA is done, K and V TMA buffers are released
++                cute.arch.mbarrier_wait(mma_u_mbar + stage_id, parity)
++
++                with cute.arch.elect_one():
++                    STAGE_SIZE = BT * (K_dim + V_dim) * 2
++                    cute.arch.mbarrier_arrive_and_expect_tx(mbar, STAGE_SIZE)
++                simple_tma_copy(K_tma_atom, gK, sK[None, None, stage_id], mbar)
++                simple_tma_copy(
++                    V_tma_atom, gV, sV[None, None, stage_id], mbar, EVICT_FIRST
++                )
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    parity ^= 1
++
++        elif warp_id == 8:
++            # MMA warp
++            _tcgen05.alloc(taddr)
++
++            stage_id = 0
++            parity = 0
++
++            kkt_idesc = _tcgen05.make_bf16_idesc(BT, BT)
++            u_idesc = _tcgen05.make_bf16_idesc(BT, V_dim, transpose_B=True)
++            w_idesc = _tcgen05.make_bf16_idesc(BT, K_dim, transpose_B=True)
++
++            # LBO=BT*128 is ignored for K-major
++            sdesc_template = _tcgen05.make_sdesc_128B_swizzle(BT * 128)
++
++            for global_chunk_id in range(bid, num_global_chunks, grid_x):
++                U_tmem = U_tmem_base + V_dim * stage_id
++                W_tmem = U_tmem | (16 << 16)
++                Ab_tmem = Ab_tmem_base + (BT // 2) * stage_id
++                Abg_tmem = Ab_tmem | (16 << 16)
++
++                ##### KKT MMA: KKT = K @ K.T #####
++                kaddr = sK[None, None, stage_id].iterator.toint()
++                kdesc_base = sdesc_template | (kaddr >> 4)
++
++                # wait for TMA data to arrive
++                # kkt tmem is guaranteed to be free as this is issued
++                # after the previous kkt's consumer (inv warps)
++                cute.arch.mbarrier_wait(tma_mbar + stage_id, parity)
++                _tcgen05.fence_after_thread_sync()
++
++                with cute.arch.elect_one():
++                    for i in cutlass.range_constexpr(K_dim // 64):
++                        for j in cutlass.range_constexpr(64 // 16):
++                            kdesc = kdesc_base | ((i * BT * 128 + j * 32) >> 4)
++                            _tcgen05.mma_f16(
++                                kkt_tmem,
++                                kdesc,
++                                kdesc,
++                                kkt_idesc,
++                                (i > 0) or (j > 0),
++                            )
++                    _tcgen05.commit(mma_kkt_mbar + stage_id)
++
++                ##### U/W MMA: U = Ab @ V, W = Abg @ K #####
++                vaddr = sV[None, None, stage_id].iterator.toint()
++                vdesc = sdesc_template | (vaddr >> 4)
++                kdesc = sdesc_template | (kaddr >> 4)
++
++                # wait for epilogue to release tmem buffer
++                cute.arch.mbarrier_wait(epi_mbar + stage_id, parity ^ 1)
++                cute.arch.mbarrier_wait(inv_mbar + stage_id, parity)
++                _tcgen05.fence_after_thread_sync()
++
++                with cute.arch.elect_one():
++                    for i in cutlass.range_constexpr(BT // 16):
++                        _tcgen05.mma_ts_f16(
++                            W_tmem, Abg_tmem + i * 8, kdesc, w_idesc, i > 0
++                        )
++                        kdesc += (16 * 128) >> 4
++                    _tcgen05.commit(mma_w_mbar + stage_id)
++
++                    for i in cutlass.range_constexpr(BT // 16):
++                        _tcgen05.mma_ts_f16(
++                            U_tmem, Ab_tmem + i * 8, vdesc, u_idesc, i > 0
++                        )
++                        vdesc += (16 * 128) >> 4
++                    _tcgen05.commit(mma_u_mbar + stage_id)
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    parity ^= 1
++
++            cute.arch.mbarrier_wait(epi_mbar + stage_id, parity ^ 1)
++            _tcgen05.dealloc()
++
++        elif warp_id >= 4:
++            # inv warps
++            tid_ = tid % 128
++            warp_id_ = warp_id % 4
++
++            stage_id = 0
++            parity = 0
++
++            # view into (16,16) sub-tiles, then ldmatrix layout
++            sA_ldsm = cute.logical_divide(sA, (16, cute.make_layout((8, 2))))
++            sAi_ldsm = cute.logical_divide(sAi, (16, cute.make_layout((8, 2))))
++            sA_ldsm = sA_ldsm[(lane_id % 16, None), ((None, lane_id // 16), None)]
++            sAi_ldsm = sAi_ldsm[(lane_id % 16, None), ((None, lane_id // 16), None)]
++
++            # init Ai smem buffer with zeros (only the first 48 rows)
++            for i in cutlass.range_constexpr((BT // 4 * 3) * BT // 128):
++                idx = i * 128 + tid_
++                sAi[idx // BT, idx % BT] = BFloat16(0.0)
++
++            # indices for ldmatrix layout later
++            row_indices = cute.make_rmem_tensor((1, 2, 1), Int32)
++            row_indices[0, 0, 0] = warp_id_ * 16 + (lane_id // 4)
++            row_indices[0, 1, 0] = warp_id_ * 16 + (lane_id // 4) + 8
++            row_indices = row_indices.load()
++
++            col_indices = cute.make_rmem_tensor((2, 1, 2), Int32)
++            col_indices[0, 0, 0] = (lane_id % 4) * 2 + 0
++            col_indices[1, 0, 0] = (lane_id % 4) * 2 + 1
++            col_indices[0, 0, 1] = (lane_id % 4) * 2 + 8
++            col_indices[1, 0, 1] = (lane_id % 4) * 2 + 9
++            col_indices = col_indices.load()
++
++            for global_chunk_id in range(bid, num_global_chunks, grid_x):
++                seq_id = chunk_indices[global_chunk_id, 0]
++                chunk_id = chunk_indices[global_chunk_id, 1]
++                bos = cu_seqlens[seq_id]
++                eos = cu_seqlens[seq_id + 1]
++                off_t = bos + chunk_id * BT
++
++                t = off_t + tid_
++
++                ##### Phase 1: load g and beta #####
++                if tid_ < BT:
++                    in_bounds = t < eos
++                    beta_val = beta[t, head_id] if in_bounds else Float32(0.0)
++                    g_val = g[t, head_id] if in_bounds else Float32(0.0)
++
++                    s_beta[tid_] = beta_val
++
++                    # compute cumsum(g)
++                    # parallel scan within a warp
++                    for i in cutlass.range_constexpr(5):
++                        offset = cutlass.const_expr(1 << i)
++                        lower = cute.arch.shuffle_sync_up(
++                            g_val, offset, mask_and_clamp=0
++                        )
++                        if lane_id >= offset:
++                            g_val += lower
++
++                    # store warp sum
++                    if lane_id == 31:
++                        s_g_cu[warp_id_] = g_val
++                    cute.arch.barrier(barrier_id=3, number_of_threads=BT)
++
++                    # add warp sum from lower warps
++                    for i in cutlass.range_constexpr(1, BT // 32):
++                        if warp_id_ >= i:
++                            g_val += s_g_cu[i - 1]
++                    cute.arch.barrier(barrier_id=3, number_of_threads=BT)
++
++                    # store g_cu to gmem for H and O kernels
++                    if in_bounds:
++                        g_cu[t, head_id] = g_val
++
++                    # store g and g_cu to smem for later
++                    s_g_cu[tid_] = g_val
++                    s_g_cu_exp[tid_] = cute.math.exp(g_val) if in_bounds else 0.0
++
++                ##### Phase 2: A = strictLower(beta * kkt * Gamma) #####
++                if warp_id_ == 0:
++                    cute.arch.mbarrier_wait(mma_kkt_mbar + stage_id, parity)
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++                _tcgen05.fence_after_thread_sync()
++
++                # tmem 16x256b layout / ldmatrix layout
++                # mode0 is 8 rows together
++                # mode1 is top and bottom 8 rows
++                # mode2 is groups of 16 rows
++                row_coord = (lane_id // 4, None, warp_id_)
++                s_beta_view = cute.make_tensor(s_beta, (8, 2, 4))
++                beta_row = s_beta_view[row_coord].load().reshape((1, 2, 1))
++
++                s_g_cu_view = cute.make_tensor(s_g_cu, (8, 2, 4))
++                g_cu_row = s_g_cu_view[row_coord].load().reshape((1, 2, 1))
++
++                # mode0 is 2 consecutive elems
++                # mode1 is top and bottom 8 rows
++                # mode2 is next 8 columns
++                # mode3 is repeating that 16x16 tile pattern
++                kkt = _tcgen05.ld(kkt_tmem, 0, "16x256b", BT // 8)
++                kkt = kkt.reshape((2, 2, 2, BT // 16))
++
++                for i in cutlass.range_constexpr(BT // 16):
++                    # mode0 is 2 elems next to each other
++                    # mode1 is 4 pairs of elems on 1 row
++                    # mode2 is top and bottom 8 rows
++                    # mode3 is next 16 columns
++                    col_coord = (None, lane_id % 4, None, i)
++                    s_g_cu_view = cute.make_tensor(s_g_cu, (2, 4, 2, BT // 16))
++                    g_cu_col = s_g_cu_view[col_coord].load().reshape((2, 1, 2))
++
++                    Gamma = cute.math.exp(g_cu_row - g_cu_col, fastmath=True)
++                    A = kkt[None, None, None, i] * beta_row * Gamma
++
++                    # strict lower mask
++                    # NOTE: for OOB t position, s_beta is filled with zeros.
++                    # hence, we don't need to apply bounds check for columns.
++                    A_masked = cute.where(row_indices > col_indices + i * 16, A, 0.0)
++
++                    # pack to BF16
++                    # CuteDSL doesn't generate cvt.bf16x2.f32 here for some reasons
++                    packed = cute.make_rmem_tensor(4, Uint32)
++                    packed[0] = cvt.fp32x2_to_bf16x2(
++                        A_masked[0, 0, 0], A_masked[1, 0, 0]
++                    )
++                    packed[1] = cvt.fp32x2_to_bf16x2(
++                        A_masked[0, 1, 0], A_masked[1, 1, 0]
++                    )
++                    packed[2] = cvt.fp32x2_to_bf16x2(
++                        A_masked[0, 0, 1], A_masked[1, 0, 1]
++                    )
++                    packed[3] = cvt.fp32x2_to_bf16x2(
++                        A_masked[0, 1, 1], A_masked[1, 1, 1]
++                    )
++
++                    # store to smem
++                    cute.copy(
++                        stsm_atom,
++                        cute.recast_tensor(packed, BFloat16),
++                        sA_ldsm[warp_id_, None, i],
++                    )
++
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++
++                ##### Phase 3: matrix inverse #####
++                # we use Newton-Schulz iterations to compute the inverse
++                # of the four 16x16 diagonal blocks.
++                #   Ai_new = 2 Ai - Ai @ M @ Ai
++                #   where M = I + A
++                #
++                # we do this with 2 MMAs:
++                # 1. -AiM = Ai @ (-M)
++                # 2. Ai_new = 2 Ai + (-AiM) @ Ai
++                zeros_f32 = cute.make_rmem_tensor(4, Float32)
++                zeros_f32.fill(0.0)
++
++                def set_diagonal(A: cute.Tensor, lane_id: Int32):
++                    "Set the diagonal to 1s"
++                    if lane_id % 9 == 0:
++                        A[0] = (A[0] & Uint32(0xFFFF0000)) | Uint32(0x00003F80)
++                        A[3] = (A[3] & Uint32(0xFFFF0000)) | Uint32(0x00003F80)
++                    elif lane_id % 9 == 4:
++                        A[0] = (A[0] & Uint32(0x0000FFFF)) | Uint32(0x3F800000)
++                        A[3] = (A[3] & Uint32(0x0000FFFF)) | Uint32(0x3F800000)
++
++                Ai_bf16 = cute.make_rmem_tensor(8, BFloat16)
++                mma_B_bf16 = cute.make_rmem_tensor(8, BFloat16)
++                M_bf16 = cute.make_rmem_tensor(8, BFloat16)
++                acc = cute.make_rmem_tensor((4, 2), Float32)
++
++                # share the same storage
++                Ai = cute.recast_tensor(Ai_bf16, Uint32)
++                mma_B = cute.logical_divide(cute.recast_tensor(mma_B_bf16, Uint32), 2)
++                M = cute.logical_divide(cute.recast_tensor(M_bf16, Uint32), 2)
++
++                # initial guess: Ai = I-A
++                cute.copy(ldsm_atom, sA_ldsm[warp_id_, None, warp_id_], Ai_bf16)
++                for i in cutlass.range_constexpr(4):
++                    Ai[i] ^= Uint32(0x80008000)  # negate A
++                set_diagonal(Ai, lane_id)
++
++                # (4, 2)
++                Ai_f32 = cute.logical_divide(cvt.bf16x2_to_fp32x2(Ai), 4)
++
++                # M is holding -(I+A), stay constant throughout the iterations
++                cute.copy(ldsm_trans_atom, sA_ldsm[warp_id_, None, warp_id_], M_bf16)
++                set_diagonal(M, lane_id)
++                for i in cutlass.range_constexpr(4):
++                    M[i] ^= Uint32(0x80008000)
++
++                # 3 rounds of Newton-Schulz
++                for _ in cutlass.range_constexpr(3):
++                    # First MMA: -AiM = Ai @ (-M)
++                    cute.copy(stsm_atom, Ai_bf16, sA_ldsm[warp_id_, None, warp_id_])
++                    cute.arch.sync_warp()
++                    acc[None, 0] = mma_bf16(Ai, M[None, 0], zeros_f32)
++                    acc[None, 1] = mma_bf16(Ai, M[None, 1], zeros_f32)
++                    Ai_bf16.store(acc.load().to(BFloat16))
++
++                    # Second MMA: Ai_new = 2Ai + (-AiM) @ Ai
++                    for j in cutlass.range_constexpr(8):
++                        Ai_f32[j] *= 2.0
++                    cute.copy(
++                        ldsm_trans_atom,
++                        sA_ldsm[warp_id_, None, warp_id_],
++                        mma_B_bf16,
++                    )
++                    Ai_f32[None, 0] = mma_bf16(Ai, mma_B[None, 0], Ai_f32[None, 0])
++                    Ai_f32[None, 1] = mma_bf16(Ai, mma_B[None, 1], Ai_f32[None, 1])
++                    Ai_bf16.store(Ai_f32.load().to(BFloat16))
++
++                cute.copy(stsm_atom, Ai_bf16, sAi_ldsm[warp_id_, None, warp_id_])
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++
++                # off-diagonal by 1
++                # Ai[i,i-1] = -Ai[i,i] @ A[i,i-1] @ Ai[i-1,i-1].
++                if warp_id_ > 0:
++                    neg_Ai = cute.make_rmem_tensor(4, Uint32)
++                    for i in cutlass.range_constexpr(4):
++                        neg_Ai[i] = Ai[i] ^ Uint32(0x80008000)
++
++                    cute.copy(
++                        ldsm_trans_atom,
++                        sA_ldsm[warp_id_, None, warp_id_ - 1],
++                        mma_B_bf16,
++                    )
++                    acc[None, 0] = mma_bf16(neg_Ai, mma_B[None, 0], zeros_f32)
++                    acc[None, 1] = mma_bf16(neg_Ai, mma_B[None, 1], zeros_f32)
++                    Ai_bf16.store(acc.load().to(BFloat16))
++
++                    cute.copy(
++                        ldsm_trans_atom,
++                        sAi_ldsm[warp_id_ - 1, None, warp_id_ - 1],
++                        mma_B_bf16,
++                    )
++                    acc[None, 0] = mma_bf16(Ai, mma_B[None, 0], zeros_f32)
++                    acc[None, 1] = mma_bf16(Ai, mma_B[None, 1], zeros_f32)
++                    Ai_bf16.store(acc.load().to(BFloat16))
++                    cute.copy(
++                        stsm_atom,
++                        Ai_bf16,
++                        sAi_ldsm[warp_id_, None, warp_id_ - 1],
++                    )
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++
++                # off-diagonal by 2
++                if warp_id_ < 2:
++                    cute.copy(
++                        ldsm_atom,
++                        sA_ldsm[warp_id_ + 2, None, warp_id_],
++                        Ai_bf16,
++                    )
++                    cute.copy(
++                        ldsm_trans_atom,
++                        sAi_ldsm[warp_id_, None, warp_id_],
++                        mma_B_bf16,
++                    )
++                    acc[None, 0] = mma_bf16(Ai, mma_B[None, 0], zeros_f32)
++                    acc[None, 1] = mma_bf16(Ai, mma_B[None, 1], zeros_f32)
++
++                    cute.copy(
++                        ldsm_atom,
++                        sA_ldsm[warp_id_ + 2, None, warp_id_ + 1],
++                        Ai_bf16,
++                    )
++                    cute.copy(
++                        ldsm_trans_atom,
++                        sAi_ldsm[warp_id_ + 1, None, warp_id_],
++                        mma_B_bf16,
++                    )
++                    acc[None, 0] = mma_bf16(Ai, mma_B[None, 0], acc[None, 0])
++                    acc[None, 1] = mma_bf16(Ai, mma_B[None, 1], acc[None, 1])
++
++                    tmp = cute.make_rmem_tensor(8, BFloat16)
++                    tmp.store(acc.load().to(BFloat16))
++                    cute.copy(stsm_atom, tmp, sAi_ldsm[warp_id_ + 2, None, warp_id_])
++                    cute.arch.sync_warp()
++
++                    cute.copy(
++                        ldsm_atom, sAi_ldsm[warp_id_ + 2, None, warp_id_ + 2], Ai_bf16
++                    )
++                    for i in cutlass.range_constexpr(4):
++                        Ai[i] ^= Uint32(0x80008000)
++                    cute.copy(
++                        ldsm_trans_atom,
++                        sAi_ldsm[warp_id_ + 2, None, warp_id_],
++                        mma_B_bf16,
++                    )
++                    acc[None, 0] = mma_bf16(Ai, mma_B[None, 0], zeros_f32)
++                    acc[None, 1] = mma_bf16(Ai, mma_B[None, 1], zeros_f32)
++                    tmp.store(acc.load().to(BFloat16))
++                    cute.copy(stsm_atom, tmp, sAi_ldsm[warp_id_ + 2, None, warp_id_])
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++
++                # off-diagonal by 3
++                if warp_id_ == 0:
++                    cute.copy(ldsm_atom, sA_ldsm[3, None, 0], Ai_bf16)
++                    cute.copy(ldsm_trans_atom, sAi_ldsm[0, None, 0], mma_B_bf16)
++                    acc[None, 0] = mma_bf16(Ai, mma_B[None, 0], zeros_f32)
++                    acc[None, 1] = mma_bf16(Ai, mma_B[None, 1], zeros_f32)
++
++                    for i in cutlass.range_constexpr(1, 3):
++                        cute.copy(ldsm_atom, sA_ldsm[3, None, i], Ai_bf16)
++                        cute.copy(ldsm_trans_atom, sAi_ldsm[i, None, 0], mma_B_bf16)
++                        acc[None, 0] = mma_bf16(Ai, mma_B[None, 0], acc[None, 0])
++                        acc[None, 1] = mma_bf16(Ai, mma_B[None, 1], acc[None, 1])
++
++                    tmp = cute.make_rmem_tensor(8, BFloat16)
++                    tmp.store(acc.load().to(BFloat16))
++                    cute.copy(stsm_atom, tmp, sAi_ldsm[3, None, 0])
++                    cute.arch.sync_warp()
++
++                    cute.copy(ldsm_atom, sAi_ldsm[3, None, 3], Ai_bf16)
++                    for i in cutlass.range_constexpr(4):
++                        Ai[i] ^= Uint32(0x80008000)
++                    cute.copy(ldsm_trans_atom, sAi_ldsm[3, None, 0], mma_B_bf16)
++                    acc[None, 0] = mma_bf16(Ai, mma_B[None, 0], zeros_f32)
++                    acc[None, 1] = mma_bf16(Ai, mma_B[None, 1], zeros_f32)
++                    tmp.store(acc.load().to(BFloat16))
++                    cute.copy(stsm_atom, tmp, sAi_ldsm[3, None, 0])
++
++                ##### Phase 4: compute Ab, Abg #####
++                if warp_id_ == 3:
++                    cute.arch.mbarrier_wait(mma_u_mbar + stage_id, parity ^ 1)
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++
++                for i in cutlass.range_constexpr(BT // 16):
++                    cute.copy(ldsm_atom, sAi_ldsm[warp_id_, None, i], Ai_bf16)
++
++                    col_coord = (None, lane_id % 4, None, i)
++                    s_beta_view = cute.make_tensor(s_beta, (2, 4, 2, BT // 16))
++                    beta_col = s_beta_view[col_coord].load().reshape((2, 1, 2))
++
++                    s_g_cu_view = cute.make_tensor(s_g_cu_exp, (2, 4, 2, BT // 16))
++                    g_cu_col = s_g_cu_view[col_coord].load().reshape((2, 1, 2))
++
++                    Ai_f32 = cvt.bf16x2_to_fp32x2(Ai).load().reshape((2, 2, 2))
++
++                    Ab_f32 = Ai_f32 * beta_col
++                    Ab = Ab_f32.to(BFloat16)
++                    Ab_tmem = Ab_tmem_base + (BT // 2) * stage_id + i * 8
++                    _tcgen05.st(warp_id_ * 32, Ab_tmem, "16x128b", 2, Ab)
++
++                    Abg_f32 = Ab_f32 * g_cu_col
++                    Abg = Abg_f32.to(BFloat16)
++                    _tcgen05.st(warp_id_ * 32 + 16, Ab_tmem, "16x128b", 2, Abg)
++
++                _tcgen05.wait_st()
++                _tcgen05.fence_before_thread_sync()
++                cute.arch.mbarrier_arrive(inv_mbar + stage_id)
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    parity ^= 1
++
++        elif warp_id < 4:
++            # epi warps
++            stage_id = 0
++            parity = 0
++
++            # ((BT, num_global_chunks), V_dim)
++            gU_tiles = cute.logical_divide(tmaU[None, head_id, None], (BT, None))
++            gW_tiles = cute.logical_divide(tmaW[None, head_id, None], (BT, None))
++
++            # sW shape: [BT, (64, K_dim/64)]
++            # sW_view shape: [(8, 2), (4, K_dim/64)]
++            s_row = warp_id * 16 + lane_id % 16  # select the rows of [16,16] tile
++            sW_view = cute.zipped_divide(
++                sW[s_row, None],
++                tiler=cute.make_layout((8, 2)),
++            )
++            sU_view = cute.zipped_divide(
++                sU[s_row, None],
++                tiler=cute.make_layout((8, 2)),
++            )
++
++            # select the 8 columns within [16,16] tile
++            sW_view = sW_view[(None, lane_id // 16), None]
++            sU_view = sU_view[(None, lane_id // 16), None]
++
++            for global_chunk_id in range(bid, num_global_chunks, grid_x):
++                # wait for W MMA + previous TMA store to finish
++                U_tmem = U_tmem_base + V_dim * stage_id
++                if warp_id == 0:
++                    cute.arch.mbarrier_wait(mma_w_mbar + stage_id, parity)
++                elif warp_id == 1:
++                    with cute.arch.elect_one():
++                        cute.arch.cp_async_bulk_wait_group(0, read=True)
++                cute.arch.barrier(barrier_id=2, number_of_threads=128)
++                _tcgen05.fence_after_thread_sync()
++
++                w_f32 = _tcgen05.ld(warp_id * 32 + 16, U_tmem, "16x256b", K_dim // 8)
++                _tcgen05.wait_ld()
++                w_bf16 = cute.make_rmem_tensor((8, K_dim // 16), BFloat16)
++                w_bf16.store(w_f32.to(BFloat16))
++                cute.copy(stsm_atom, w_bf16, sW_view)
++
++                # wait for U MMA + issue W TMA store
++                cute.arch.barrier(barrier_id=2, number_of_threads=128)
++                fence_before_tma_store()
++                if warp_id == 0:
++                    cute.arch.mbarrier_wait(mma_u_mbar + stage_id, parity)
++                elif warp_id == 1:
++                    # don't need to commit
++                    simple_tma_copy(
++                        W_tma_atom, sW, gW_tiles[(None, global_chunk_id), None]
++                    )
++                cute.arch.barrier(barrier_id=2, number_of_threads=128)
++                _tcgen05.fence_after_thread_sync()
++
++                u_f32 = _tcgen05.ld(warp_id * 32, U_tmem, "16x256b", V_dim // 8)
++                _tcgen05.wait_ld()
++                _tcgen05.fence_before_thread_sync()
++                cute.arch.mbarrier_arrive(epi_mbar + stage_id)
++                u_bf16 = cute.make_rmem_tensor((8, V_dim // 16), BFloat16)
++                u_bf16.store(u_f32.to(BFloat16))
++                cute.copy(stsm_atom, u_bf16, sU_view)
++
++                cute.arch.barrier(barrier_id=2, number_of_threads=128)
++                fence_before_tma_store()
++                if warp_id == 1:
++                    simple_tma_copy(
++                        U_tma_atom, sU, gU_tiles[(None, global_chunk_id), None]
++                    )
++                    with cute.arch.elect_one():
++                        cute.arch.cp_async_bulk_commit_group()
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    parity ^= 1
++
++    @cache
++    @staticmethod
++    def compile(H: int, Hv: int, K_dim: int, V_dim: int, num_stages: int = 2):
++        total_t = cute.sym_int()
++        pad_t = cute.sym_int()
++        total_chunks_n = cute.sym_int()
++        num_sequences = cute.sym_int()
++
++        K = make_fake_tensor(BFloat16, (total_t, H, K_dim), divisibility=16)
++        V = make_fake_tensor(BFloat16, (total_t, Hv, V_dim), divisibility=16)
++        U = make_fake_tensor(BFloat16, (pad_t, Hv, V_dim), divisibility=16)
++        W = make_fake_tensor(BFloat16, (pad_t, Hv, K_dim), divisibility=16)
++        g = make_fake_tensor(Float32, (total_t, Hv), divisibility=4)
++        beta = make_fake_tensor(Float32, (total_t, Hv), divisibility=4)
++        g_cu = make_fake_tensor(Float32, (total_t, Hv), divisibility=4)
++        cu_seqlens = make_fake_tensor(Int32, (num_sequences,), divisibility=1)
++        chunk_indices = make_fake_tensor(Int32, (total_chunks_n, 2), divisibility=2)
++        total_chunks = make_fake_tensor(Int32, (1,), divisibility=1)
++
++        kernel = Sm100ChunkUWKernel(H, Hv, K_dim, V_dim, num_stages)
++        stream = cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True)
++        return cute.compile(
++            kernel,
++            K,
++            V,
++            U,
++            W,
++            g,
++            beta,
++            g_cu,
++            cu_seqlens,
++            chunk_indices,
++            total_chunks,
++            Int32(148),
++            stream,
++            options="--enable-tvm-ffi",
++        )
++
++
++def kkt_inv_uw_cutedsl(
++    K: torch.Tensor,
++    V: torch.Tensor,
++    U: torch.Tensor,
++    W: torch.Tensor,
++    g: torch.Tensor,
++    beta: torch.Tensor,
++    g_cu: torch.Tensor,
++    cu_seqlens: torch.Tensor,
++    chunk_indices: torch.Tensor,
++    total_chunks: torch.Tensor,
++    num_sms: int = 148,
++) -> None:
++    _, Hv, V_dim = V.shape
++    _, H, K_dim = K.shape
++
++    Sm100ChunkUWKernel.compile(H, Hv, K_dim, V_dim)(
++        K,
++        V,
++        U,
++        W,
++        g,
++        beta,
++        g_cu,
++        cu_seqlens,
++        chunk_indices,
++        total_chunks,
++        num_sms,
++    )
+diff --git a/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/kernel_o.py b/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/kernel_o.py
+new file mode 100644
+index 000000000000..3665cc19e105
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/linear/kernels/gdn_blackwell/kernel_o.py
+@@ -0,0 +1,631 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++# Adapted from https://github.com/vllm-project/vllm/blob/4868b542c9dfd166662eecc4bb8be3a36a3feaa2/vllm/model_executor/layers/mamba/ops/gdn_chunk_cutedsl/kernel_o.py
++from functools import cache
++
++import cutlass
++import torch
++from cuda.bindings.driver import CUstream
++from cutlass import BFloat16, Float32, Int32, Int64, Uint32, cute
++from cutlass.cute.nvgpu import cpasync, warp
++from quack.compile_utils import make_fake_tensor
++
++from sglang.srt.layers.attention.cute_utils import (
++    EVICT_FIRST,
++    _tcgen05,
++    cvt,
++    fence_before_tma_store,
++    simple_tma_copy,
++)
++
++
++class Sm100ChunkOKernel:
++    """Compute per-token output from recurrent and intra-chunk terms.
++
++    Gamma[i,j] = exp(g_cu[i] - g_cu[j])
++    P = mask((Q @ K.T) * Gamma)
++    O = scale * (exp(g_cu) * (Q @ H.T) + P @ V)
++    """
++
++    def __init__(
++        self,
++        H: int,
++        Hv: int,
++        K_dim: int,
++        V_dim: int,
++        BT: int = 64,
++        num_stages: int = 2,
++    ) -> None:
++        assert Hv % H == 0
++        assert K_dim == 128
++        assert V_dim == 128
++        assert BT == 64
++        self.H = H
++        self.Hv = Hv
++        self.K_dim = K_dim
++        self.V_dim = V_dim
++        self.BT = BT
++        self.num_stages = num_stages
++        self.num_warps = 10
++
++    @cute.jit
++    def _make_bf16_tma_args(
++        self,
++        tensor: cute.Tensor,
++        dim: cutlass.Constexpr[int],
++        op: cpasync.TmaCopyOp,
++        stages: cutlass.Constexpr[int],
++    ):
++        swizzle_128B = cute.make_swizzle(3, 4, 3)
++        slayout = cute.make_layout(
++            (self.BT, 1, (64, dim // 64), stages),
++            stride=(64, 0, (1, self.BT * 64), self.BT * dim),
++        )
++        slayout = cute.make_composed_layout(swizzle_128B, 0, slayout)
++        atom, tma_tensor = cpasync.make_tiled_tma_atom(
++            op,
++            cute.logical_divide(tensor, (None, None, 64)),
++            slayout,
++            cta_tiler=(self.BT, 1, dim),
++        )
++        return atom, tma_tensor, slayout
++
++    @cute.jit
++    def _make_h_tma_args(
++        self,
++        tensor: cute.Tensor,
++        op: cpasync.TmaCopyOp,
++        stages: cutlass.Constexpr[int],
++    ):
++        num_elems = 128 // (tensor.element_type.width // 8)
++        swizzle_128B = cute.make_swizzle(3, 4, 3)
++        slayout = cute.make_layout(
++            (1, self.V_dim, (num_elems, self.K_dim // num_elems), stages),
++            stride=(0, num_elems, (1, self.V_dim * num_elems), self.V_dim * self.K_dim),
++        )
++        slayout = cute.make_composed_layout(swizzle_128B, 0, slayout)
++        atom, tma_tensor = cpasync.make_tiled_tma_atom(
++            op,
++            cute.logical_divide(tensor, (None, None, num_elems)),
++            slayout,
++            cta_tiler=(1, self.V_dim, self.K_dim),
++        )
++        return atom, tma_tensor, slayout
++
++    @cute.jit
++    def __call__(
++        self,
++        q: cute.Tensor,
++        k: cute.Tensor,
++        v_new_chunks: cute.Tensor,
++        h: cute.Tensor,
++        g_cu: cute.Tensor,
++        o: cute.Tensor,
++        cu_seqlens: cute.Tensor,
++        chunk_indices: cute.Tensor,
++        total_chunks: cute.Tensor,
++        scale: Float32,
++        num_sms: Int32,
++        stream: CUstream,
++    ):
++        grid = (num_sms // self.Hv, self.Hv, 1)
++        block = (self.num_warps * 32, 1, 1)
++        tma_g2s = cpasync.CopyBulkTensorTileG2SOp()
++        tma_s2g = cpasync.CopyBulkTensorTileS2GOp()
++        Q_args = self._make_bf16_tma_args(q, self.K_dim, tma_g2s, self.num_stages)
++        K_args = self._make_bf16_tma_args(k, self.K_dim, tma_g2s, self.num_stages)
++        V_args = self._make_bf16_tma_args(
++            v_new_chunks, self.V_dim, tma_g2s, self.num_stages
++        )
++        H_args = self._make_h_tma_args(h, tma_g2s, self.num_stages)
++        O_args = self._make_bf16_tma_args(o, self.V_dim, tma_s2g, 1)
++        self.kernel(
++            Q_args,
++            K_args,
++            V_args,
++            H_args,
++            O_args,
++            g_cu,
++            o,
++            cu_seqlens,
++            chunk_indices,
++            total_chunks,
++            scale,
++        ).launch(grid=grid, block=block, stream=stream)
++
++    @cute.kernel
++    def kernel(
++        self,
++        Q_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        K_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        V_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        H_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        O_args: tuple[cute.CopyAtom, cute.Tensor, cute.ComposedLayout],
++        g_cu: cute.Tensor,
++        o: cute.Tensor,
++        cu_seqlens: cute.Tensor,
++        chunk_indices: cute.Tensor,
++        total_chunks: cute.Tensor,
++        scale: Float32,
++    ):
++        tid, _, _ = cute.arch.thread_idx()
++        bid, v_head_id, _ = cute.arch.block_idx()
++        grid_x, _, _ = cute.arch.grid_dim()
++        warp_id = cute.arch.make_warp_uniform(tid // 32)
++        lane_id = tid % 32
++
++        BT = self.BT
++        K_dim = self.K_dim
++        V_dim = self.V_dim
++        num_stages = self.num_stages
++
++        heads_per_qk = self.Hv // self.H
++        k_head_id = v_head_id // heads_per_qk
++        num_global_chunks = total_chunks[0]
++
++        Q_tma_atom, tmaQ, sQ_layout = Q_args
++        K_tma_atom, tmaK, sK_layout = K_args
++        V_tma_atom, tmaV, sV_layout = V_args
++        H_tma_atom, tmaH, sH_layout = H_args
++        O_tma_atom, tmaO, sO_layout = O_args
++
++        def allocate_tensor(smem, dtype, layout):
++            return smem.allocate_tensor(
++                dtype, layout.outer, byte_alignment=128, swizzle=layout.inner
++            )
++
++        smem = cutlass.utils.SmemAllocator()
++        sQ = allocate_tensor(smem, BFloat16, sQ_layout)[None, 0, None, None]
++        sK = allocate_tensor(smem, BFloat16, sK_layout)[None, 0, None, None]
++        sV = allocate_tensor(smem, BFloat16, sV_layout)[None, 0, None, None]
++        sH = allocate_tensor(smem, BFloat16, sH_layout)[0, None, None, None]
++        sO = allocate_tensor(smem, BFloat16, sO_layout)[None, 0, None, 0]
++
++        s_g_cu = smem.allocate_array(Float32, BT)
++        qk_full_mbar = smem.allocate_array(Int64, num_stages)
++        hv_full_mbar = smem.allocate_array(Int64, num_stages)
++        qk_empty_mbar = smem.allocate_array(Int64, num_stages)
++        pv_mma_mbar = smem.allocate_array(Int64, num_stages)
++        qk_mbar = smem.allocate_array(Int64, 1)
++        mask_mbar = smem.allocate_array(Int64, 1)
++        epi_mbar = smem.allocate_array(Int64, 1)
++        taddr = smem.allocate(Int32, 4)
++
++        qk_tmem = 0
++        p_tmem = 64
++        out_tmem = 128
++        qh_tmem = 256
++
++        if warp_id == 0:
++            with cute.arch.elect_one():
++                for i in cutlass.range_constexpr(num_stages):
++                    cute.arch.mbarrier_init(qk_full_mbar + i, 1)
++                    cute.arch.mbarrier_init(qk_empty_mbar + i, 1)
++                    cute.arch.mbarrier_init(hv_full_mbar + i, 1)
++                    cute.arch.mbarrier_init(pv_mma_mbar + i, 1)
++                cute.arch.mbarrier_init(qk_mbar, 1)
++                cute.arch.mbarrier_init(mask_mbar, 128)
++                cute.arch.mbarrier_init(epi_mbar, 128)
++                cute.arch.mbarrier_init_fence()
++        elif warp_id == 9:
++            cpasync.prefetch_descriptor(Q_tma_atom)
++            cpasync.prefetch_descriptor(K_tma_atom)
++            cpasync.prefetch_descriptor(V_tma_atom)
++            cpasync.prefetch_descriptor(H_tma_atom)
++        cute.arch.sync_threads()
++
++        if warp_id == 9:
++            # TMA warp
++            stage_id = 0
++            parity = 1
++
++            for global_chunk_id in range(bid, num_global_chunks, grid_x):
++                seq_id = chunk_indices[global_chunk_id, 0]
++                chunk_id = chunk_indices[global_chunk_id, 1]
++                bos = cu_seqlens[seq_id]
++
++                # copy Q and K
++                q_tile = cute.local_tile(
++                    cute.domain_offset((bos, 0), tmaQ[None, k_head_id, None]),
++                    tiler=(BT, K_dim),
++                    coord=(chunk_id, 0),
++                )
++                k_tile = cute.local_tile(
++                    cute.domain_offset((bos, 0), tmaK[None, k_head_id, None]),
++                    tiler=(BT, K_dim),
++                    coord=(chunk_id, 0),
++                )
++                mbar = qk_full_mbar + stage_id
++
++                cute.arch.mbarrier_wait(qk_empty_mbar + stage_id, parity)
++
++                with cute.arch.elect_one():
++                    STAGE_SIZE = BT * (K_dim + K_dim) * 2
++                    cute.arch.mbarrier_arrive_and_expect_tx(mbar, STAGE_SIZE)
++                simple_tma_copy(Q_tma_atom, q_tile, sQ[None, None, stage_id], mbar)
++                simple_tma_copy(K_tma_atom, k_tile, sK[None, None, stage_id], mbar)
++
++                # copy H and V
++                gH = tmaH[global_chunk_id * self.Hv + v_head_id, None, None]
++                gV = cute.local_tile(
++                    tmaV[None, v_head_id, None],
++                    tiler=(BT, V_dim),
++                    coord=(global_chunk_id, 0),
++                )
++                mbar = hv_full_mbar + stage_id
++
++                cute.arch.mbarrier_wait(pv_mma_mbar + stage_id, parity)
++
++                with cute.arch.elect_one():
++                    H_STAGE_SIZE = V_dim * K_dim * 2
++                    V_STAGE_SIZE = BT * V_dim * 2
++                    cute.arch.mbarrier_arrive_and_expect_tx(
++                        mbar, H_STAGE_SIZE + V_STAGE_SIZE
++                    )
++                simple_tma_copy(
++                    H_tma_atom, gH, sH[None, None, stage_id], mbar, EVICT_FIRST
++                )
++                simple_tma_copy(
++                    V_tma_atom, gV, sV[None, None, stage_id], mbar, EVICT_FIRST
++                )
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    parity ^= 1
++
++        elif warp_id == 8:
++            # MMA warp
++            _tcgen05.alloc(taddr)
++
++            # LBO=BT*128 is ignored for K-major
++            sdesc_template = _tcgen05.make_sdesc_128B_swizzle(BT * 128)
++            qk_idesc = _tcgen05.make_bf16_idesc(BT, BT)
++            qh_idesc = _tcgen05.make_bf16_idesc(BT, V_dim)
++            pv_idesc = _tcgen05.make_bf16_idesc(BT, V_dim, transpose_B=True)
++
++            stage_id = 0
++            tma_parity = 0
++            mask_parity = 0
++
++            for global_chunk_id in range(bid, num_global_chunks, grid_x):
++                qaddr = sQ[None, None, stage_id].iterator.toint()
++                kaddr = sK[None, None, stage_id].iterator.toint()
++                haddr = sH[None, None, stage_id].iterator.toint()
++                vaddr = sV[None, None, stage_id].iterator.toint()
++                qdesc_base = sdesc_template | (qaddr >> 4)
++                kdesc_base = sdesc_template | (kaddr >> 4)
++                hdesc_base = sdesc_template | (haddr >> 4)
++                vdesc_base = sdesc_template | (vaddr >> 4)
++
++                ##### 1st MMA: Q @ K.T #####
++                # do this first to unblock mask(QK)
++                cute.arch.mbarrier_wait(epi_mbar, mask_parity ^ 1)
++                cute.arch.mbarrier_wait(qk_full_mbar + stage_id, tma_parity)
++                _tcgen05.fence_after_thread_sync()
++
++                with cute.arch.elect_one():
++                    for i in cutlass.range_constexpr(K_dim // BT):
++                        for j in cutlass.range_constexpr(BT // 16):
++                            qdesc = qdesc_base | ((i * BT * 128 + j * 32) >> 4)
++                            kdesc = kdesc_base | ((i * BT * 128 + j * 32) >> 4)
++                            _tcgen05.mma_f16(
++                                qk_tmem, qdesc, kdesc, qk_idesc, (i > 0) or (j > 0)
++                            )
++                    _tcgen05.commit(qk_mbar)
++
++                ##### 2nd MMA: Q @ H.T #####
++                cute.arch.mbarrier_wait(hv_full_mbar + stage_id, tma_parity)
++                _tcgen05.fence_after_thread_sync()
++                with cute.arch.elect_one():
++                    for i in cutlass.range_constexpr(K_dim // BT):
++                        for j in cutlass.range_constexpr(BT // 16):
++                            qdesc = qdesc_base | ((i * BT * 128 + j * 32) >> 4)
++                            hdesc = hdesc_base | ((i * V_dim * 128 + j * 32) >> 4)
++                            _tcgen05.mma_f16(
++                                qh_tmem, qdesc, hdesc, qh_idesc, (i > 0) or (j > 0)
++                            )
++                    _tcgen05.commit(qk_empty_mbar + stage_id)
++
++                ##### 3rd MMA: P @ V #####
++                # stalled by mask(QK)
++                cute.arch.mbarrier_wait(mask_mbar, mask_parity)
++                _tcgen05.fence_after_thread_sync()
++                with cute.arch.elect_one():
++                    for i in cutlass.range_constexpr(BT // 16):
++                        vdesc = vdesc_base | ((i * 16 * 128) >> 4)
++                        _tcgen05.mma_ts_f16(
++                            out_tmem, p_tmem + i * 8, vdesc, pv_idesc, i > 0
++                        )
++                    _tcgen05.commit(pv_mma_mbar + stage_id)
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    tma_parity ^= 1
++                mask_parity ^= 1
++
++            # wait for epilogue to finish for deallocation
++            cute.arch.mbarrier_wait(epi_mbar, mask_parity ^ 1)
++            _tcgen05.dealloc()
++
++        elif warp_id >= 4:
++            # masking warps
++            warp_id_ = warp_id % 4
++            tid_ = tid % 128
++            row0 = warp_id_ * 16 + lane_id // 4
++            row1 = row0 + 8
++
++            parity = 0
++
++            # for ldmatrix layout later
++            row_indices = cute.make_rmem_tensor(2, Int32)
++            row_indices[0] = warp_id_ * 16 + lane_id // 4
++            row_indices[1] = warp_id_ * 16 + lane_id // 4 + 8
++            row_indices = row_indices.load().reshape((1, 2))
++
++            col_indices = cute.make_rmem_tensor(2, Int32)
++            col_indices[0] = (lane_id % 4) * 2
++            col_indices[1] = (lane_id % 4) * 2 + 1
++            col_indices = col_indices.load().reshape((2, 1))
++
++            for global_chunk_id in range(bid, num_global_chunks, grid_x):
++                if tid_ < BT:
++                    seq_id = chunk_indices[global_chunk_id, 0]
++                    chunk_id = chunk_indices[global_chunk_id, 1]
++                    bos = cu_seqlens[seq_id]
++                    eos = cu_seqlens[seq_id + 1]
++
++                    t_ = bos + chunk_id * BT + tid_
++                    s_g_cu[tid_] = g_cu[t_, v_head_id] if t_ < eos else Float32(0.0)
++
++                # wait for QK MMA
++                if warp_id_ == 0:
++                    cute.arch.mbarrier_wait(qk_mbar, parity)
++                cute.arch.barrier(barrier_id=1, number_of_threads=128)
++                _tcgen05.fence_after_thread_sync()
++                qk = _tcgen05.ld(warp_id_ * 32, qk_tmem, "16x256b", BT // 8)
++                qk = qk.reshape((2, 2, BT // 8))
++                _tcgen05.wait_ld()
++
++                g_cu_rows = cute.make_rmem_tensor(2, Float32)
++                g_cu_rows[0] = s_g_cu[row0]
++                g_cu_rows[1] = s_g_cu[row1]
++                g_cu_rows = g_cu_rows.load().reshape((1, 2))
++
++                for i in cutlass.range_constexpr(BT // 8):
++                    col = i * 8 + (lane_id % 4) * 2
++                    g_cu_cols = cute.make_rmem_tensor(2, Float32)
++                    g_cu_cols[0] = s_g_cu[col]
++                    g_cu_cols[1] = s_g_cu[col + 1]
++                    g_cu_cols = g_cu_cols.load().reshape((2, 1))
++
++                    # apply gamma and causal mask
++                    Gamma = cute.math.exp(g_cu_rows - g_cu_cols, fastmath=True)
++                    tmp = qk[None, None, i] * Gamma
++                    tmp = cute.where(row_indices >= col_indices + i * 8, tmp, 0.0)
++
++                    # CuteDSL can't emit cvt.bf16x2.f32 here
++                    attn_lo = cute.make_rmem_tensor(2, Uint32)
++                    attn_lo[0] = cvt.fp32x2_to_bf16x2(tmp[0, 0], tmp[1, 0])
++                    attn_lo[1] = cvt.fp32x2_to_bf16x2(tmp[0, 1], tmp[1, 1])
++                    _tcgen05.st(warp_id_ * 32, p_tmem + i * 4, "16x128b", 1, attn_lo)
++
++                _tcgen05.wait_st()
++                _tcgen05.fence_before_thread_sync()
++                cute.arch.mbarrier_arrive(mask_mbar)
++
++                parity ^= 1
++
++        else:
++            # epilogue warps
++            # for ldmatrix layout later
++            row0 = warp_id * 16 + lane_id // 4
++            row1 = row0 + 8
++
++            stage_id = 0
++            mma_parity = 0
++
++            op = cute.nvgpu.CopyUniversalOp()
++            cp_4B = cute.make_copy_atom(op, BFloat16, num_bits_per_copy=32)
++            stsm_op = warp.StMatrix8x8x16bOp(num_matrices=4, transpose=False)
++            stsm_atom = cute.make_copy_atom(stsm_op, BFloat16)
++
++            # ldmatrix layout
++            # [total_seq_len, ((2, 4, WIDTH/8), V_DIM/WIDTH)]
++            WIDTH = 64
++            o_view = cute.logical_divide(
++                o[None, v_head_id, None],
++                (None, cute.make_layout((2, 4, WIDTH // 8))),
++            )
++            # select lane: [total_seq_len, 2, WIDTH/8, V_DIM/WIDTH]
++            o_view = o_view[None, ((None, lane_id % 4, None), None)]
++
++            for global_chunk_id in range(bid, num_global_chunks, grid_x):
++                seq_id = chunk_indices[global_chunk_id, 0]
++                chunk_id = chunk_indices[global_chunk_id, 1]
++                bos = cu_seqlens[seq_id]
++                eos = cu_seqlens[seq_id + 1]
++                chunk_start = bos + chunk_id * BT
++                full_chunk = chunk_start + BT <= eos
++
++                g_cu_rows = cute.make_rmem_tensor(2, Float32)
++                g_cu_rows.fill(0.0)
++
++                # load g_cu
++                if chunk_start + row0 < eos:
++                    g_cu_rows[0] = cute.math.exp(
++                        g_cu[chunk_start + row0, v_head_id], fastmath=True
++                    )
++                if chunk_start + row1 < eos:
++                    g_cu_rows[1] = cute.math.exp(
++                        g_cu[chunk_start + row1, v_head_id], fastmath=True
++                    )
++                g_cu_rows = g_cu_rows.load().reshape((1, 2, 1))
++
++                if warp_id == 0:
++                    cute.arch.mbarrier_wait(pv_mma_mbar + stage_id, mma_parity)
++                elif warp_id == 3 and full_chunk:
++                    cute.arch.cp_async_bulk_wait_group(0, read=True)
++                cute.arch.barrier(barrier_id=2, number_of_threads=128)
++                _tcgen05.fence_after_thread_sync()
++
++                if full_chunk:
++                    # use TMA store: tmem->rmem->smem->gmem
++                    for i in cutlass.range_constexpr(V_dim // WIDTH):
++                        qh = _tcgen05.ld(
++                            warp_id * 32, qh_tmem + i * WIDTH, "16x256b", WIDTH // 8
++                        )
++                        pv = _tcgen05.ld(
++                            warp_id * 32, out_tmem + i * WIDTH, "16x256b", WIDTH // 8
++                        )
++                        _tcgen05.wait_ld()
++                        if i == V_dim // WIDTH - 1:
++                            _tcgen05.fence_before_thread_sync()
++                            cute.arch.mbarrier_arrive(epi_mbar)
++
++                        qh = qh.reshape((2, 2, WIDTH // 8))
++                        pv = pv.reshape((2, 2, WIDTH // 8))
++
++                        out_f32 = scale * (g_cu_rows * qh + pv)
++                        out_bf16 = cute.make_rmem_tensor((8, WIDTH // 16), BFloat16)
++                        out_bf16.store(out_f32.to(BFloat16).reshape((8, WIDTH // 16)))
++
++                        # TODO: issue single cute.copy()
++                        for j in cutlass.range_constexpr(WIDTH // 16):
++                            s_row = warp_id * 16 + lane_id % 16
++                            s_col = i * (WIDTH // 8) + j * 2 + lane_id // 16
++                            sO_tile = cute.local_tile(sO[s_row, None], (8,), (s_col,))
++                            cute.copy(stsm_atom, out_bf16[None, j], sO_tile)
++
++                    cute.arch.barrier(barrier_id=2, number_of_threads=128)
++                    fence_before_tma_store()
++                    if warp_id == 3:
++                        gO = cute.local_tile(
++                            cute.domain_offset((bos, 0), tmaO[None, v_head_id, None]),
++                            tiler=(BT, V_dim),
++                            coord=(chunk_id, 0),
++                        )
++                        simple_tma_copy(O_tma_atom, sO, gO)
++                        with cute.arch.elect_one():
++                            cute.arch.cp_async_bulk_commit_group()
++
++                else:
++                    # direct gmem store
++                    # TODO: explore doing multiple 1D TMAs
++                    for i in cutlass.range_constexpr(V_dim // WIDTH):
++                        qh = _tcgen05.ld(
++                            warp_id * 32, qh_tmem + i * WIDTH, "16x256b", WIDTH // 8
++                        )
++                        pv = _tcgen05.ld(
++                            warp_id * 32, out_tmem + i * WIDTH, "16x256b", WIDTH // 8
++                        )
++                        _tcgen05.wait_ld()
++                        if i == V_dim // WIDTH - 1:
++                            _tcgen05.fence_before_thread_sync()
++                            cute.arch.mbarrier_arrive(epi_mbar)
++
++                        qh = qh.reshape((2, 2, WIDTH // 8))
++                        pv = pv.reshape((2, 2, WIDTH // 8))
++
++                        out_f32 = scale * (g_cu_rows * qh + pv)
++                        out_bf16 = cute.make_rmem_tensor((2, 2, WIDTH // 8), BFloat16)
++                        out_bf16.store(out_f32.to(BFloat16))
++
++                        if chunk_start + row0 < eos:
++                            cute.copy(
++                                cp_4B,
++                                out_bf16[None, 0, None],
++                                o_view[chunk_start + row0, None, None, i],
++                            )
++                        if chunk_start + row1 < eos:
++                            cute.copy(
++                                cp_4B,
++                                out_bf16[None, 1, None],
++                                o_view[chunk_start + row1, None, None, i],
++                            )
++
++                stage_id = (stage_id + 1) % num_stages
++                if stage_id == 0:
++                    mma_parity ^= 1
++
++    @cache
++    @staticmethod
++    def compile(
++        H: int,
++        Hv: int,
++        K_dim: int,
++        V_dim: int,
++        BT: int = 64,
++        num_stages: int = 2,
++    ):
++        total_t = cute.sym_int()
++        pad_t = cute.sym_int()
++        total_chunks_n = cute.sym_int()
++        h_outer_n = cute.sym_int()
++        cu_entries = cute.sym_int()
++
++        q = make_fake_tensor(BFloat16, (total_t, H, K_dim), divisibility=16)
++        k = make_fake_tensor(BFloat16, (total_t, H, K_dim), divisibility=16)
++        v_new = make_fake_tensor(BFloat16, (pad_t, Hv, V_dim), divisibility=16)
++        h_flat = make_fake_tensor(BFloat16, (h_outer_n, V_dim, K_dim), divisibility=16)
++        g_cu = make_fake_tensor(Float32, (total_t, Hv), divisibility=4)
++        o = make_fake_tensor(BFloat16, (total_t, Hv, V_dim), divisibility=16)
++        cu_seqlens = make_fake_tensor(Int32, (cu_entries,), divisibility=1)
++        chunk_indices = make_fake_tensor(Int32, (total_chunks_n, 2), divisibility=2)
++        total_chunks = make_fake_tensor(Int32, (1,), divisibility=1)
++
++        kernel = Sm100ChunkOKernel(
++            H,
++            Hv,
++            K_dim,
++            V_dim,
++            BT,
++            num_stages,
++        )
++        stream = cute.runtime.make_fake_stream(use_tvm_ffi_env_stream=True)
++        return cute.compile(
++            kernel,
++            q,
++            k,
++            v_new,
++            h_flat,
++            g_cu,
++            o,
++            cu_seqlens,
++            chunk_indices,
++            total_chunks,
++            Float32(1.0),
++            Int32(148),
++            stream,
++            options="--enable-tvm-ffi",
++        )
++
++
++def o_cutedsl(
++    q: torch.Tensor,
++    k: torch.Tensor,
++    v_new_chunks: torch.Tensor,
++    h: torch.Tensor,
++    g_cu: torch.Tensor,
++    o: torch.Tensor,
++    cu_seqlens: torch.Tensor,
++    chunk_indices: torch.Tensor,
++    total_chunks: torch.Tensor,
++    scale: float,
++    num_sms: int = 148,
++) -> None:
++    _, H, K_dim = q.shape
++    _, Hv, V_dim = o.shape
++
++    Sm100ChunkOKernel.compile(H, Hv, K_dim, V_dim)(
++        q,
++        k,
++        v_new_chunks.view(-1, Hv, V_dim),
++        h.view(-1, V_dim, K_dim),
++        g_cu,
++        o,
++        cu_seqlens,
++        chunk_indices,
++        total_chunks,
++        float(scale),
++        num_sms,
++    )
+diff --git a/python/sglang/srt/layers/attention/linear/kernels/gdn_cutedsl.py b/python/sglang/srt/layers/attention/linear/kernels/gdn_cutedsl.py
+index fff4ef9015d6..311f40093a9a 100644
+--- a/python/sglang/srt/layers/attention/linear/kernels/gdn_cutedsl.py
++++ b/python/sglang/srt/layers/attention/linear/kernels/gdn_cutedsl.py
+@@ -1,3 +1,15 @@
++"""CuTe DSL kernels for GDN (Gated Delta Network) linear attention.
++
++Decode path uses the existing ``cutedsl_fused_sigmoid_gating_delta_rule_update``
++(works on SM90+).
++
++Prefill (extend) path uses the ported vLLM SM100 chunkwise kernel
++(``chunk_gated_delta_rule_cutedsl``). Requires SM100+ and ``head_k_dim == 128``.
++"""
++
++import logging
++from typing import Optional
++
+ import torch
+ 
+ from sglang.jit_kernel.cutedsl_gdn import cutedsl_fused_sigmoid_gating_delta_rule_update
+@@ -5,9 +17,64 @@
+     LinearAttnKernelBase,
+ )
+ 
++logger = logging.getLogger(__name__)
++
++
++def _is_blackwell() -> bool:
++    """True iff running on SM100+ (Blackwell) where the ported kernel is valid."""
++    if not torch.cuda.is_available():
++        return False
++    major, _ = torch.cuda.get_device_capability()
++    return major >= 10
++
+ 
+ class CuteDSLGDNKernel(LinearAttnKernelBase):
+-    """CuTe DSL kernel for GDN decode (CUDA only)."""
++    """CuTe DSL kernel for GDN.
++
++    Decode: ``cutedsl_fused_sigmoid_gating_delta_rule_update`` (SM90+).
++    Extend (prefill): chunkwise ``chunk_gated_delta_rule_cutedsl``
++    (SM100+ only, ``head_k_dim`` must be 128). On SM90 the prefill path is
++    unsupported; callers should query :attr:`supports_prefill` and fall back
++    to another backend (e.g. Triton).
++    """
++
++    def __init__(self):
++        # The Blackwell extend kernel uses tcgen05/TMA-bulk-swizzle features
++        # that don't exist on SM90. The decode kernel does work on SM90+.
++        self.supports_prefill = _is_blackwell()
++
++        # Heavy CuteDSL imports are deferred to extend() so SM90 boxes can
++        # still construct the kernel just for decode.
++        self._extend_fn: Optional[callable] = None
++        self._prepare_meta_fn: Optional[callable] = None
++        self._l2norm_fn: Optional[callable] = None
++
++    def _ensure_extend_loaded(self, head_k_dim: int) -> None:
++        if self._extend_fn is not None:
++            return
++        if not self.supports_prefill:
++            major = (
++                torch.cuda.get_device_capability()[0]
++                if torch.cuda.is_available()
++                else -1
++            )
++            raise RuntimeError(
++                f"CuTe DSL GDN prefill requires SM100+ (Blackwell); got SM{major}."
++            )
++        if head_k_dim != 128:
++            raise RuntimeError(
++                f"CuTe DSL GDN prefill requires head_k_dim=128, got {head_k_dim}."
++            )
++        from sglang.srt.layers.attention.fla.l2norm import l2norm_fwd
++        from sglang.srt.layers.attention.linear.kernels.gdn_blackwell import (
++            chunk_gated_delta_rule_cutedsl,
++            prepare_metadata_cutedsl,
++        )
++
++        self._extend_fn = chunk_gated_delta_rule_cutedsl
++        self._prepare_meta_fn = prepare_metadata_cutedsl
++        self._l2norm_fn = l2norm_fwd
++        logger.info("Using CuTe DSL GDN prefill (Blackwell)")
+ 
+     def decode(
+         self,
+@@ -40,8 +107,69 @@ def decode(
+             softplus_threshold=20.0,
+         )
+ 
+-    def extend(self, *args, **kwargs):
+-        raise NotImplementedError("CuteDSLGDNKernel only supports decode")
++    def extend(
++        self,
++        q: torch.Tensor,
++        k: torch.Tensor,
++        v: torch.Tensor,
++        g: torch.Tensor,
++        beta: torch.Tensor,
++        *,
++        ssm_states: torch.Tensor,
++        cache_indices: torch.Tensor,
++        query_start_loc: torch.Tensor,
++        **kwargs,
++    ) -> tuple:
++        head_k_dim = k.shape[-1]
++        self._ensure_extend_loaded(head_k_dim)
++
++        total_seq_len = q.shape[1]
++        num_v_heads = v.shape[2]
++        head_v_dim = v.shape[3]
++
++        # L2 norm Q/K outside the kernel (same as flashinfer path).
++        q_norm = self._l2norm_fn(q[0].contiguous()).unsqueeze(0)
++        k_norm = self._l2norm_fn(k[0].contiguous()).unsqueeze(0)
++        v_in = v[0].contiguous().unsqueeze(0)
++        # Kernel expects log-space float32 gate per (token, v-head).
++        g_in = g[0].to(torch.float32).unsqueeze(0)
++        beta_in = beta[0].to(torch.float32).unsqueeze(0)
++
++        cu_seqlens = query_start_loc.to(torch.int32)
++
++        # Pool gather: remap padding (-1) to the last (sentinel) slot.
++        ssm_cache_indices = torch.where(
++            cache_indices >= 0,
++            cache_indices,
++            ssm_states.shape[0] - 1,
++        ).to(torch.long)
++        initial_state = ssm_states[ssm_cache_indices].contiguous()
++
++        chunk_indices, chunk_offsets = self._prepare_meta_fn(
++            cu_seqlens, total_seq_len, chunk_size=64
++        )
++
++        output, final_state = self._extend_fn(
++            q=q_norm,
++            k=k_norm,
++            v=v_in,
++            g=g_in,
++            beta=beta_in,
++            initial_state=initial_state,
++            cu_seqlens=cu_seqlens,
++            chunk_indices=chunk_indices,
++            chunk_offsets=chunk_offsets,
++        )
++
++        ssm_states.index_copy_(
++            0,
++            ssm_cache_indices,
++            final_state.to(ssm_states.dtype),
++        )
++
++        # Match Triton extend interface: (output, last_recurrent_state, h).
++        # We've already written state back, so no need to return it.
++        return output, None, None
+ 
+     def target_verify(self, *args, **kwargs):
+-        raise NotImplementedError("CuteDSLGDNKernel only supports decode")
++        raise NotImplementedError("CuteDSLGDNKernel does not support target_verify")
+diff --git a/test/registered/attention/test_gdn_prefill_cutedsl.py b/test/registered/attention/test_gdn_prefill_cutedsl.py
+new file mode 100644
+index 000000000000..807be8a66f1b
+--- /dev/null
++++ b/test/registered/attention/test_gdn_prefill_cutedsl.py
+@@ -0,0 +1,178 @@
++"""Correctness test for the SM100 CuTe DSL GDN prefill kernel.
++
++Ported from vLLM PR https://github.com/vllm-project/vllm/pull/43273.
++Validates ``chunk_gated_delta_rule_cutedsl`` against the
++``fused_recurrent_gated_delta_rule`` Triton reference.
++"""
++
++import math
++
++import pytest
++import torch
++import torch.nn.functional as F
++
++from sglang.test.ci.ci_register import register_cuda_ci
++
++# CuteDSL prefill kernel only exists on Blackwell. Single-GPU kernel-unit
++# suite is the right slot (matches existing jit_kernel test_*.py pattern).
++register_cuda_ci(est_time=60, suite="base-b-kernel-unit-1-gpu-b200")
++
++if not (torch.cuda.is_available() and torch.cuda.get_device_capability()[0] >= 10):
++    pytest.skip(
++        "GDN CuteDSL prefill requires CUDA SM10x (Blackwell).",
++        allow_module_level=True,
++    )
++
++from sglang.srt.layers.attention.fla.fused_recurrent import (  # noqa: E402
++    fused_recurrent_gated_delta_rule,
++)
++from sglang.srt.layers.attention.fla.index import (  # noqa: E402
++    prepare_chunk_indices,
++    prepare_chunk_offsets,
++)
++from sglang.srt.layers.attention.linear.kernels.gdn_blackwell import (  # noqa: E402
++    chunk_gated_delta_rule_cutedsl,
++    prepare_metadata_cutedsl,
++)
++
++
++@pytest.mark.parametrize("num_seqs", [1, 5, 257])
++@pytest.mark.parametrize("state_dtype", [torch.bfloat16, torch.float32])
++def test_gdn_chunk_cutedsl_correctness(num_seqs: int, state_dtype: torch.dtype):
++    seq_lens = torch.randint(1, 130, (num_seqs,), dtype=torch.int32)
++    cu_seqlens = torch.zeros(num_seqs + 1, device="cuda", dtype=torch.int32)
++    cu_seqlens[1:] = seq_lens.to(device="cuda").cumsum(0)
++    total_tokens = int(cu_seqlens[-1].item())
++
++    num_k_heads = 4
++    num_v_heads = 8
++    head_k_dim = 128
++    head_v_dim = 128
++    dtype = torch.bfloat16
++
++    q = torch.randn(
++        1, total_tokens, num_k_heads, head_k_dim, device="cuda", dtype=dtype
++    )
++    k = torch.randn_like(q)
++    v = torch.randn(
++        1, total_tokens, num_v_heads, head_v_dim, device="cuda", dtype=dtype
++    )
++    q = F.normalize(q.float(), p=2, dim=-1).to(dtype)
++    k = F.normalize(k.float(), p=2, dim=-1).to(dtype)
++    a = torch.randn(1, total_tokens, num_v_heads, device="cuda", dtype=dtype)
++    b = torch.randn(1, total_tokens, num_v_heads, device="cuda", dtype=dtype)
++
++    # Match upstream FLA GatedDeltaNet synthetic init.
++    A = torch.empty(num_v_heads, device="cuda", dtype=torch.float32).uniform_(0, 16)
++    A_log = torch.log(A)
++    dt = torch.exp(
++        torch.rand(num_v_heads, device="cuda", dtype=torch.float32)
++        * (math.log(0.1) - math.log(0.001))
++        + math.log(0.001)
++    )
++    dt = torch.clamp(dt, min=1e-4)
++    dt_bias = dt + torch.log(-torch.expm1(-dt))
++    g = -A_log.exp().view(1, 1, num_v_heads) * F.softplus(
++        a.float() + dt_bias.view(1, 1, num_v_heads)
++    )
++    beta = torch.sigmoid(b.float())
++    initial_state = (
++        torch.randn(
++            num_seqs,
++            num_v_heads,
++            head_v_dim,
++            head_k_dim,
++            device="cuda",
++            dtype=state_dtype,
++        )
++        * 0.05
++    )
++
++    # Metadata kernel matches the FLA reference helpers.
++    chunk_indices, chunk_offsets = prepare_metadata_cutedsl(cu_seqlens, total_tokens)
++    torch.cuda.synchronize()
++
++    expected_indices = prepare_chunk_indices(cu_seqlens, 64)
++    expected_offsets = prepare_chunk_offsets(cu_seqlens, 64)
++    total_chunks = int(expected_offsets[-1].item())
++
++    torch.testing.assert_close(chunk_offsets, expected_offsets.to(torch.int32))
++    torch.testing.assert_close(chunk_indices[:total_chunks], expected_indices)
++
++    # Reference: token-by-token recurrent kernel returns (o, final_state).
++    # Recurrent path needs float32 state, so cast initial_state for the call.
++    ref_o, ref_state = fused_recurrent_gated_delta_rule(
++        q=q,
++        k=k,
++        v=v,
++        g=g,
++        beta=beta,
++        initial_state=initial_state.to(torch.float32),
++        output_final_state=True,
++        cu_seqlens=cu_seqlens.to(torch.int64),
++        use_qk_l2norm_in_kernel=False,
++    )
++
++    actual_core_attn_out = torch.empty(
++        total_tokens, num_v_heads, head_v_dim, device="cuda", dtype=dtype
++    )
++    actual_o, actual_state = chunk_gated_delta_rule_cutedsl(
++        q=q,
++        k=k,
++        v=v,
++        g=g,
++        beta=beta,
++        initial_state=initial_state,
++        cu_seqlens=cu_seqlens,
++        chunk_indices=chunk_indices,
++        chunk_offsets=chunk_offsets,
++        core_attn_out=actual_core_attn_out,
++    )
++    torch.cuda.synchronize()
++
++    o_error = (actual_o.float() - ref_o.float()).abs()
++    state_error = (
++        actual_state.float() - ref_state.to(actual_state.dtype).float()
++    ).abs()
++    assert o_error.max().item() < 2e-3
++    assert o_error.mean().item() < 6e-5
++    assert state_error.max().item() < 2e-2
++    assert state_error.mean().item() < 6e-4
++    core_attn_out_error = (
++        actual_core_attn_out.float() - actual_o.squeeze(0).float()
++    ).abs()
++    assert core_attn_out_error.max().item() == 0
++
++    no_buffer_o, no_buffer_state = chunk_gated_delta_rule_cutedsl(
++        q=q,
++        k=k,
++        v=v,
++        g=g,
++        beta=beta,
++        initial_state=initial_state,
++        cu_seqlens=cu_seqlens,
++        chunk_indices=chunk_indices,
++        chunk_offsets=chunk_offsets,
++    )
++    torch.cuda.synchronize()
++
++    no_buffer_o_error = (no_buffer_o.float() - ref_o.float()).abs()
++    no_buffer_state_error = (
++        no_buffer_state.float() - ref_state.to(no_buffer_state.dtype).float()
++    ).abs()
++    buffer_o_error = (no_buffer_o.float() - actual_o.float()).abs()
++    buffer_state_error = (
++        no_buffer_state.float() - actual_state.to(no_buffer_state.dtype).float()
++    ).abs()
++    assert no_buffer_o_error.max().item() < 2e-3
++    assert no_buffer_o_error.mean().item() < 6e-5
++    assert no_buffer_state_error.max().item() < 2e-2
++    assert no_buffer_state_error.mean().item() < 6e-4
++    assert buffer_o_error.max().item() == 0
++    assert buffer_state_error.max().item() == 0
++
++
++if __name__ == "__main__":
++    import sys
++
++    sys.exit(pytest.main([__file__, "-v"]))

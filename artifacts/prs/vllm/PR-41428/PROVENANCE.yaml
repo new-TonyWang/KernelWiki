@@ -1,0 +1,24 @@
+origin_url: https://github.com/vllm-project/vllm/pull/41428
+upstream_repo: vllm-project/vllm
+upstream_sha: 530d3713
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-41428
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 191b09d26060b17365b20c8b3b6ccd38e87133a1e50c1ee698760f4a86c6c415
+- local_path: key-files/vllm/v1/attention/ops/deepseek_v4_ops/fused_indexer_q.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/deepseek_v4_ops/fused_indexer_q.py
+  sha256: f10374532dd0064e944821001ca22eeb9b0c3469d0dd1013998549c71c6582ae
+- local_path: key-files/vllm/v1/attention/ops/deepseek_v4_ops/fused_indexer_q_cutedsl.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/deepseek_v4_ops/fused_indexer_q_cutedsl.py
+  sha256: 5cea44ae1b4b6a6497cc2c73a82b6a73b577399a82b2fa0c2040d4f28d67f940

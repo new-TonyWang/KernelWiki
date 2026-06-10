@@ -1,0 +1,24 @@
+origin_url: https://github.com/vllm-project/vllm/pull/33529
+upstream_repo: vllm-project/vllm
+upstream_sha: d9408ffb
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-33529
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: a214ef482ac00ff03def2e769756088216bd6d57e9cc5ee3bcf6abf4d7224a3c
+- local_path: key-files/vllm/v1/attention/backends/mla/triton_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/triton_mla.py
+  sha256: 89bd5058e19d777d168a3468fe397110664650c5d4a1969eae09f645ab24bc88
+- local_path: key-files/vllm/v1/attention/ops/triton_decode_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/triton_decode_attention.py
+  sha256: 480528ad3843789816b7e360f33eca6507bb9c6c6cb663c7bfbb012974672b99

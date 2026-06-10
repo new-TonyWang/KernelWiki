@@ -1,0 +1,34 @@
+origin_url: https://github.com/vllm-project/vllm/pull/38065
+upstream_repo: vllm-project/vllm
+upstream_sha: 5d5c7764
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-38065
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 72b81b95a7581d69de73895f20261d2fe8f250c8dd8401b907c1f9e8bb250025
+- local_path: key-files/vllm/kernels/triton/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/kernels/triton/__init__.py
+  sha256: 5c43eda8105846825f75d1a6746a3eb97f619001625cb7bc85b842a5821130ce
+- local_path: key-files/vllm/kernels/triton/qkv_padded_fp8_quant.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/kernels/triton/qkv_padded_fp8_quant.py
+  sha256: 88562481adba9d2c9d7cea7920e4e416f7772fb7607ba1bdf6942f393fe59e08
+- local_path: key-files/vllm/model_executor/layers/attention/mm_encoder_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/attention/mm_encoder_attention.py
+  sha256: e4be35bbc59293682d8e5c432e12ccdce7512d004a8c6cca7a7644fcb4d145a5
+- local_path: key-files/vllm/v1/attention/ops/vit_attn_wrappers.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/vit_attn_wrappers.py
+  sha256: 26109136c6a3781f964b79b2de45b4c876784f2ecfb56696d4535a2cad58ecb3

@@ -1,0 +1,36 @@
+diff --git a/flashinfer/cute_dsl/attention/monolithic/mla_decode_fp16.py b/flashinfer/cute_dsl/attention/monolithic/mla_decode_fp16.py
+index 26285fdbc2..8e33aceeac 100644
+--- a/flashinfer/cute_dsl/attention/monolithic/mla_decode_fp16.py
++++ b/flashinfer/cute_dsl/attention/monolithic/mla_decode_fp16.py
+@@ -945,11 +945,11 @@ def split_kv_kernel(
+ 
+         # Tensor memory dealloc barrier init
+         tmem = utils.TmemAllocator(
+-            storage.tmem_holding_buf,
++            storage.tmem_holding_buf.ptr,
+             barrier_for_retrieve=self.tmem_ptr_sync_bar,
+             allocator_warp_id=self.mma_warp_id,
+             is_two_cta=self.use_2cta_instrs,
+-            two_cta_tmem_dealloc_mbar_ptr=storage.tmem_dealloc_mbar_ptr,
++            two_cta_tmem_dealloc_mbar_ptr=storage.tmem_dealloc_mbar_ptr.ptr,
+         )
+ 
+         load_q_pipeline = self.make_and_init_load_qkv_pipeline(
+diff --git a/flashinfer/cute_dsl/attention/monolithic/mla_decode_fp8.py b/flashinfer/cute_dsl/attention/monolithic/mla_decode_fp8.py
+index eebb6ecd71..f79683bcb5 100644
+--- a/flashinfer/cute_dsl/attention/monolithic/mla_decode_fp8.py
++++ b/flashinfer/cute_dsl/attention/monolithic/mla_decode_fp8.py
+@@ -1061,11 +1061,11 @@ def split_kv_kernel(
+         # allocate + free on W11 avoids the race where W8 frees TMEM while
+         # W11 still has in-flight mma_pv. See OPT#14.
+         tmem = utils.TmemAllocator(
+-            storage.tmem_holding_buf,
++            storage.tmem_holding_buf.ptr,
+             barrier_for_retrieve=self.tmem_ptr_sync_bar,
+             allocator_warp_id=self.mma_pv_warp_id,
+             is_two_cta=self.use_2cta_instrs,
+-            two_cta_tmem_dealloc_mbar_ptr=storage.tmem_dealloc_mbar_ptr,
++            two_cta_tmem_dealloc_mbar_ptr=storage.tmem_dealloc_mbar_ptr.ptr,
+         )
+ 
+         load_q_pipeline = self.make_and_init_load_qkv_pipeline(

@@ -1,5 +1,5 @@
 repo: deepseek-ai/DeepGEMM
-searched_at: '2026-04-27'
+searched_at: '2026-06-10'
 keywords_used:
 - blackwell
 - sm100
@@ -11,15 +11,23 @@ keywords_used:
 - fp8
 - moe
 - block_scale
-total_candidates: 28
-included: 1
+- hopper
+- sm90
+- sm_90
+- h100
+- wgmma
+- tma
+- mbarrier
+- gemm
+total_candidates: 52
+included: 13
 excluded: 5
-deferred: 22
+deferred: 34
 prs:
 - number: 316
   title: Add various optimizations and Mega MoE benchmarks
   date: '2026-04-24'
-  decision: defer
+  decision: include
   reason: Mega MoE benchmark addition; needs investigation for which kernels are kernel-relevant vs pure benchmark.
   files_changed: []
 - number: 314
@@ -181,6 +189,150 @@ prs:
 - number: 233
   title: ''
   date: '2026-04-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 328
+  title: 'Sync nv_dev with upstream #316 (Mega MoE optimizations & benchmarks)'
+  date: '2026-05-08'
+  decision: defer
+  reason: 'deferred: likely docs/CI/build/test/benchmark/dependency adjacent, not direct kernel content'
+  files_changed: []
+- number: 347
+  title: Multiple updates and refactorings
+  date: '2026-06-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 349
+  title: 'Sync nv_dev with upstream #347'
+  date: '2026-06-02'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 270
+  title: 'fix: use SM90ArchSpec instead of SM100ArchSpec in sm90_bf16_k_grouped_gemm'
+  date: '2026-01-06'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 229
+  title: Fix SM90 MQA logits
+  date: '2025-11-19'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 200
+  title: Add DeepSeek V3.2 indexer logit kernels for H800 (SM90)
+  date: '2025-09-29'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 149
+  title: Fix SM90 GEMM
+  date: '2025-08-01'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 94
+  title: Refactor JIT compilation (+NVRTC support)
+  date: '2025-05-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 42
+  title: 'Performance: reducing the percentage of FFMA interleaving yields a sight performance gain, roughly 0.5%'
+  date: '2025-03-05'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44
+  title: 'Performance: Configuration algorithms tuned to minimize the impact of tail effects, now up to 1402 TFLOPS'
+  date: '2025-03-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 90
+  title: Indivisible TMA
+  date: '2025-04-23'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 88
+  title: Support TMA multicast on B with m_grouped_gemm_contiguous.
+  date: '2025-04-21'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 83
+  title: Use 1D TMA store instead of 3D
+  date: '2025-04-11'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 78
+  title: ' Solving bank conflict via padding and TMA 3D store'
+  date: '2025-04-03'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 65
+  title: Fix get_col_major_tma_aligned_tensor to handle 2-dimensional inputs
+  date: '2025-03-14'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 234
+  title: Better error handling, code consistency, compile-time safety
+  date: '2025-12-05'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 217
+  title: Ko3n1g/chore/rename to deepgemm
+  date: '2025-10-15'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 193
+  title: Fix multicast bug and optimize masked GEMM
+  date: '2025-09-12'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 133
+  title: Fix build error "lvalue required as unary '&' operand"
+  date: '2025-07-28'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181
+  title: 'chore: Build and store bdist wheels'
+  date: '2025-10-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 173
+  title: '[Fix] fix B200 cu128 NVCC compilation failed'
+  date: '2025-08-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 168
+  title: Fix performance issue of m-grouped contiguous GEMMs.
+  date: '2025-08-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 134
+  title: 'Fix link error: "cannot find -lcuda: No such file or directory"'
+  date: '2025-07-28'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 36
+  title: fix setup build error when setuptools version is lower
+  date: '2025-03-04'
   decision: defer
   reason: from refresh search; needs-triage
   files_changed: []

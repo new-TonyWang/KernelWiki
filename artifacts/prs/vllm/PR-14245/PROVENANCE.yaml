@@ -1,0 +1,69 @@
+origin_url: https://github.com/vllm-project/vllm/pull/14245
+upstream_repo: vllm-project/vllm
+upstream_sha: a1c8f379
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-14245
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 0ef7c7601ee21d092e0b5112a473b43f54b9101ed14fe9fe07eeb9e43ef39217
+- local_path: key-files/csrc/dispatch_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/dispatch_utils.h
+  sha256: de78e06ff4aaf7385528fe810d67db554972f9cd5d09298d5283184c021df2a4
+- local_path: key-files/csrc/layernorm_quant_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/layernorm_quant_kernels.cu
+  sha256: 4fc7c73ca81aefb5d4fc8543e01754a1bc1e0c27d60aa11ddc04c761fb0b1332
+- local_path: key-files/csrc/quantization/fp8/amd/quant_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp8/amd/quant_utils.cuh
+  sha256: c29cfb9124ca5f9afeac02c79bccb699cd2b59a7ff64552cd52c4edcbd9efdd0
+- local_path: key-files/csrc/quantization/fp8/common.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp8/common.cu
+  sha256: 573d69914d836ac7923affe4bb41f6981659796bacd77408981a5702285ab798
+- local_path: key-files/csrc/quantization/fp8/common.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp8/common.cuh
+  sha256: 81440036bbbf98f638676189991fa72db560a45f39aa10f4bffe2d4b843b5135
+- local_path: key-files/csrc/quantization/fused_kernels/fused_layernorm_dynamic_per_token_quant.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fused_kernels/fused_layernorm_dynamic_per_token_quant.cu
+  sha256: 8afbc4502e73604af43b61abbb8cf09529b8ed53e90368c0aa0af6faa0e74d32
+- local_path: key-files/csrc/quantization/fused_kernels/quant_conversions.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fused_kernels/quant_conversions.cuh
+  sha256: 4a800c2b99727681bb027708de3ccfabdaf81a9b326f8c539726137f144d399d
+- local_path: key-files/csrc/quantization/vectorization.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/vectorization.cuh
+  sha256: 7bcf44837c9dc7695f841df86bdec8fb7b5742723ca7b117c33da3d8d3301a32
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: df72a1626a49bf21b587dcffa209994d7d062eddafb798beacdc1386127e6bd9
+- local_path: key-files/vllm/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/mla/common.py
+  sha256: e88dcba61f2adb3cc042933388508cf9f143579b653ddc58aca93fa875b741c6
+- local_path: key-files/vllm/v1/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/common.py
+  sha256: 974cdacd7bbc1102f0025d47ef7aa9383a86c9fe7ab51e627a4810d4c11512a5

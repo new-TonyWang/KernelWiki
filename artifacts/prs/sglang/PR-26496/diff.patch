@@ -1,0 +1,849 @@
+diff --git a/docs_new/docs/advanced_features/quantization.mdx b/docs_new/docs/advanced_features/quantization.mdx
+index 8fa3afc387b9..47a8f715b4b1 100644
+--- a/docs_new/docs/advanced_features/quantization.mdx
++++ b/docs_new/docs/advanced_features/quantization.mdx
+@@ -258,7 +258,7 @@ Backend selection is supported only for **blockwise FP8** and **NVFP4** GEMM. Wh
+     <tr>
+       <td><code>auto</code></td>
+       <td>SM80+</td>
+-      <td>Auto-selects: <code>flashinfer_cudnn</code> on SM120; <code>flashinfer_cutedsl</code> on SM100; <code>marlin</code> on SM80-SM90; <code>flashinfer_cutlass</code> otherwise</td>
++      <td>Auto-selects: <code>flashinfer_cutedsl</code> on SM100; <code>marlin</code> on SM80-SM90; <code>flashinfer_cutlass</code> otherwise (including SM120)</td>
+     </tr>
+     <tr>
+       <td><code>cutlass</code></td>
+@@ -273,7 +273,7 @@ Backend selection is supported only for **blockwise FP8** and **NVFP4** GEMM. Wh
+     <tr>
+       <td><code>flashinfer_cudnn</code></td>
+       <td>SM100/120 (CUDA 13+, cuDNN 9.15+)</td>
+-      <td>FlashInfer cuDNN backend; used on SM120 for performance</td>
++      <td>FlashInfer cuDNN backend</td>
+     </tr>
+     <tr>
+       <td><code>flashinfer_cutedsl</code></td>
+diff --git a/docs_new/docs/advanced_features/server_arguments.mdx b/docs_new/docs/advanced_features/server_arguments.mdx
+index f63cf7b52939..2466eae44663 100644
+--- a/docs_new/docs/advanced_features/server_arguments.mdx
++++ b/docs_new/docs/advanced_features/server_arguments.mdx
+@@ -1226,7 +1226,7 @@ Please consult the documentation below and [server_args.py](https://github.com/s
+     </tr>
+     <tr>
+       <td style={{padding: "9px 12px", fontWeight: 500, backgroundColor: "rgba(255,255,255,0.02)"}}>`--fp4-gemm-backend`</td>
+-      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Choose the runner backend for NVFP4 GEMM operations. Options: 'auto' (default; selects <code>flashinfer_cudnn</code> on SM120, <code>flashinfer_cutedsl</code> on SM100, <code>marlin</code> on SM80-SM90, <code>flashinfer_cutlass</code> otherwise), 'cutlass' (SGLang CUTLASS kernel), 'flashinfer_cutlass' (FlashInfer CUTLASS backend), 'flashinfer_cudnn' (FlashInfer cuDNN backend, optimal on CUDA 13+ with cuDNN 9.15+), 'flashinfer_cutedsl' (FlashInfer CuTe DSL backend), 'flashinfer_trtllm' (FlashInfer TensorRT-LLM backend, requires different weight preparation with shuffling), 'marlin' (weight-only W4A16 fallback for SM80-SM90). All FlashInfer backends fall back to sgl-kernel CUTLASS when FlashInfer is unavailable.</td>
++      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Choose the runner backend for NVFP4 GEMM operations. Options: 'auto' (default; selects <code>flashinfer_cutedsl</code> on SM100, <code>marlin</code> on SM80-SM90, <code>flashinfer_cutlass</code> otherwise (including SM120)), 'cutlass' (SGLang CUTLASS kernel), 'flashinfer_cutlass' (FlashInfer CUTLASS backend), 'flashinfer_cudnn' (FlashInfer cuDNN backend, optimal on CUDA 13+ with cuDNN 9.15+), 'flashinfer_cutedsl' (FlashInfer CuTe DSL backend), 'flashinfer_trtllm' (FlashInfer TensorRT-LLM backend, requires different weight preparation with shuffling), 'marlin' (weight-only W4A16 fallback for SM80-SM90). All FlashInfer backends fall back to sgl-kernel CUTLASS when FlashInfer is unavailable.</td>
+       <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.02)"}}><code>auto</code></td>
+       <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}><code>auto</code>, <code>cutlass</code>, <code>flashinfer_cudnn</code>, <code>flashinfer_cutedsl</code>, <code>flashinfer_cutlass</code>, <code>flashinfer_trtllm</code>, <code>marlin</code></td>
+     </tr>
+diff --git a/python/sglang/srt/layers/deep_gemm_wrapper/configurer.py b/python/sglang/srt/layers/deep_gemm_wrapper/configurer.py
+index e27e96fff326..09e14f69df83 100644
+--- a/python/sglang/srt/layers/deep_gemm_wrapper/configurer.py
++++ b/python/sglang/srt/layers/deep_gemm_wrapper/configurer.py
+@@ -3,9 +3,9 @@
+ from sglang.srt.environ import envs
+ from sglang.srt.utils import (
+     get_device_sm,
+-    is_blackwell_supported,
+     is_cuda,
+     is_musa,
++    is_sm100_supported,
+ )
+ 
+ logger = logging.getLogger(__name__)
+@@ -34,6 +34,6 @@ def _compute_enable_deep_gemm():
+ 
+ ENABLE_JIT_DEEPGEMM = _compute_enable_deep_gemm()
+ 
+-DEEPGEMM_BLACKWELL = ENABLE_JIT_DEEPGEMM and is_blackwell_supported()
++DEEPGEMM_BLACKWELL = ENABLE_JIT_DEEPGEMM and is_sm100_supported()
+ DEEPGEMM_SCALE_UE8M0 = DEEPGEMM_BLACKWELL
+ DEEPGEMM_NEED_TMA_ALIGNED_SCALES = not (DEEPGEMM_SCALE_UE8M0 or _is_musa)
+diff --git a/python/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=512,device_name=NVIDIA_RTX_PRO_6000_Blackwell_Server_Edition.json b/python/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=512,device_name=NVIDIA_RTX_PRO_6000_Blackwell_Server_Edition.json
+new file mode 100644
+index 000000000000..2679f2d96155
+--- /dev/null
++++ b/python/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=512,device_name=NVIDIA_RTX_PRO_6000_Blackwell_Server_Edition.json
+@@ -0,0 +1,298 @@
++{
++    "1": {
++        "BLOCK_SIZE_M": 32,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 32,
++        "num_warps": 4,
++        "num_stages": 4
++    },
++    "2": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 16,
++        "num_warps": 4,
++        "num_stages": 3
++    },
++    "4": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 4,
++        "num_stages": 2
++    },
++    "8": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 16,
++        "num_warps": 8,
++        "num_stages": 2
++    },
++    "16": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 32,
++        "num_warps": 4,
++        "num_stages": 4
++    },
++    "24": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 32,
++        "num_warps": 4,
++        "num_stages": 2
++    },
++    "32": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3
++    },
++    "48": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 256,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 4,
++        "num_stages": 3
++    },
++    "64": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 4,
++        "num_stages": 5
++    },
++    "96": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 256,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 4,
++        "num_stages": 3
++    },
++    "128": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 256,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 4,
++        "num_stages": 3
++    },
++    "192": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 256,
++        "GROUP_SIZE_M": 16,
++        "num_warps": 4,
++        "num_stages": 3
++    },
++    "256": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 32,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "384": {
++        "BLOCK_SIZE_M": 32,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 16,
++        "num_warps": 4,
++        "num_stages": 3
++    },
++    "512": {
++        "BLOCK_SIZE_M": 32,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 32,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "768": {
++        "BLOCK_SIZE_M": 32,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 32,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "1024": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "1280": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "1536": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "1792": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "2048": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "2560": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "3072": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "3584": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "4096": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3
++    },
++    "5120": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3
++    },
++    "6144": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "7168": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "8192": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "9216": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "10240": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "11264": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "12288": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 16,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "13312": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "14336": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "15360": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3
++    },
++    "16384": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 256,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 8,
++        "num_stages": 3
++    }
++}
+diff --git a/python/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=512,device_name=NVIDIA_RTX_PRO_6000_Blackwell_Server_Edition_down.json b/python/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=512,device_name=NVIDIA_RTX_PRO_6000_Blackwell_Server_Edition_down.json
+new file mode 100644
+index 000000000000..432284954550
+--- /dev/null
++++ b/python/sglang/srt/layers/moe/moe_runner/triton_utils/configs/triton_3_6_0/E=256,N=512,device_name=NVIDIA_RTX_PRO_6000_Blackwell_Server_Edition_down.json
+@@ -0,0 +1,335 @@
++{
++    "1": {
++        "BLOCK_SIZE_M": 32,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 4,
++        "num_stages": 4,
++        "USE_TMA": false
++    },
++    "2": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 4,
++        "num_stages": 2,
++        "USE_TMA": false
++    },
++    "4": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 4,
++        "USE_TMA": false
++    },
++    "8": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 4,
++        "USE_TMA": false
++    },
++    "16": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 32,
++        "num_warps": 4,
++        "num_stages": 2,
++        "USE_TMA": false
++    },
++    "24": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 32,
++        "num_warps": 4,
++        "num_stages": 2,
++        "USE_TMA": false
++    },
++    "32": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 2,
++        "USE_TMA": false
++    },
++    "48": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "64": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 4,
++        "num_stages": 2,
++        "USE_TMA": false
++    },
++    "96": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 16,
++        "num_warps": 4,
++        "num_stages": 2,
++        "USE_TMA": false
++    },
++    "128": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 1,
++        "num_warps": 4,
++        "num_stages": 2,
++        "USE_TMA": false
++    },
++    "192": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 32,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "256": {
++        "BLOCK_SIZE_M": 16,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "384": {
++        "BLOCK_SIZE_M": 32,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 128,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "512": {
++        "BLOCK_SIZE_M": 32,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 4,
++        "USE_TMA": false
++    },
++    "768": {
++        "BLOCK_SIZE_M": 32,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "1024": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 32,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "1280": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "1536": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "1792": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "2048": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "2560": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "3072": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "3584": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 128,
++        "BLOCK_SIZE_K": 64,
++        "GROUP_SIZE_M": 64,
++        "num_warps": 8,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "4096": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "5120": {
++        "BLOCK_SIZE_M": 64,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "6144": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "7168": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "8192": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "9216": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "10240": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "11264": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "12288": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "13312": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "14336": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "15360": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    },
++    "16384": {
++        "BLOCK_SIZE_M": 128,
++        "BLOCK_SIZE_N": 64,
++        "BLOCK_SIZE_K": 32,
++        "GROUP_SIZE_M": 8,
++        "num_warps": 4,
++        "num_stages": 3,
++        "USE_TMA": false
++    }
++}
+diff --git a/python/sglang/srt/layers/moe/moe_runner/triton_utils/fused_moe_triton_config.py b/python/sglang/srt/layers/moe/moe_runner/triton_utils/fused_moe_triton_config.py
+index b1cc298ee0fb..beedad2acd60 100644
+--- a/python/sglang/srt/layers/moe/moe_runner/triton_utils/fused_moe_triton_config.py
++++ b/python/sglang/srt/layers/moe/moe_runner/triton_utils/fused_moe_triton_config.py
+@@ -269,9 +269,20 @@ def try_get_optimal_moe_config(
+                     [cfg["BLOCK_SIZE_M"] for cfg in down_configs.values()]
+                 )
+     if return_down_config:
+-        assert (
+-            down_config is None or config["BLOCK_SIZE_M"] == down_config["BLOCK_SIZE_M"]
+-        )
++        if (
++            down_config is not None
++            and config["BLOCK_SIZE_M"] != down_config["BLOCK_SIZE_M"]
++        ):
++            # Both kernels share one moe_align_block_size sort, so the down
++            # config must use the up config's BLOCK_SIZE_M.
++            logger.warning_once(
++                "down_moe config BLOCK_SIZE_M=%d does not match up config "
++                "BLOCK_SIZE_M=%d at M=%d; overriding down BLOCK_SIZE_M to match.",
++                down_config["BLOCK_SIZE_M"],
++                config["BLOCK_SIZE_M"],
++                M,
++            )
++            down_config["BLOCK_SIZE_M"] = config["BLOCK_SIZE_M"]
+         return config, (down_config, max_block_m)
+     return config
+ 
+diff --git a/python/sglang/srt/layers/quantization/awq/awq.py b/python/sglang/srt/layers/quantization/awq/awq.py
+index 4d238d9a351d..0b63dcb5865d 100644
+--- a/python/sglang/srt/layers/quantization/awq/awq.py
++++ b/python/sglang/srt/layers/quantization/awq/awq.py
+@@ -145,6 +145,8 @@ def get_quant_method(
+                 layer.scheme = self.get_linear_scheme(layer)
+                 return AWQLinearMethod(self)
+             elif isinstance(layer, FusedMoE):
++                if is_layer_skipped_awq(prefix, self.modules_to_not_convert):
++                    return None
+                 layer.scheme = self.get_moe_scheme(layer)
+                 return AWQMoEMethod(self)
+             return None
+@@ -343,6 +345,8 @@ def get_quant_method(
+             layer.scheme = self.get_linear_scheme(layer)
+             return AWQLinearMethod(self)
+         elif isinstance(layer, FusedMoE):
++            if is_layer_skipped_awq(prefix, self.modules_to_not_convert):
++                return None
+             from sglang.srt.layers.quantization.moe_wna16 import MoeWNA16Config
+ 
+             if not check_moe_marlin_supports_layer(layer, self.group_size):
+diff --git a/python/sglang/srt/layers/quantization/fp4_utils.py b/python/sglang/srt/layers/quantization/fp4_utils.py
+index ad8ee905873c..39ffbb935bdd 100644
+--- a/python/sglang/srt/layers/quantization/fp4_utils.py
++++ b/python/sglang/srt/layers/quantization/fp4_utils.py
+@@ -10,7 +10,6 @@
+     get_device_capability,
+     is_cuda,
+     is_sm100_supported,
+-    is_sm120_supported,
+ )
+ from sglang.srt.utils.custom_op import register_custom_op_from_extern
+ 
+@@ -153,12 +152,7 @@ def initialize_fp4_gemm_config(server_args: ServerArgs) -> None:
+ 
+     backend = server_args.fp4_gemm_runner_backend
+     if backend == "auto":
+-        if is_sm120_supported():
+-            # flashinfer_cutlass produces NaN in dense MLP layers with
+-            # heterogeneous batches on SM120 (Blackwell).  cudnn is stable.
+-            # See: https://github.com/sgl-project/sglang/issues/20043
+-            backend = "flashinfer_cudnn"
+-        elif is_sm100_supported():
++        if is_sm100_supported():
+             backend = "flashinfer_cutedsl"
+         elif is_cuda() and (10, 0) > get_device_capability() >= (8, 0):
+             backend = "marlin"
+diff --git a/python/sglang/srt/model_executor/model_runner.py b/python/sglang/srt/model_executor/model_runner.py
+index ce056571c969..541827e16da0 100644
+--- a/python/sglang/srt/model_executor/model_runner.py
++++ b/python/sglang/srt/model_executor/model_runner.py
+@@ -2410,15 +2410,28 @@ def _should_run_flashinfer_autotune(self) -> bool:
+ 
+         # TODO smor- support other cases for flashinfer autotune, such as, mamba backend
+ 
+-        if backend_str not in [
++        moe_needs_autotune = backend_str in [
+             "flashinfer_trtllm",
+-            # TODO: Enable for flashinfer_trtllm_routed once https://github.com/flashinfer-ai/flashinfer/issues/2749 is fixed.
+-            # "flashinfer_trtllm_routed",
++            "flashinfer_trtllm_routed",
+             "flashinfer_mxfp4",
+             "flashinfer_cutedsl",
+-            # TODO: flashinfer_cutlass will cause some flashinfer compilation errors. To be fixed.
+-            # "flashinfer_cutlass",
+-        ]:
++            "flashinfer_cutlass",
++        ]
++
++        from sglang.srt.layers.quantization.fp4_utils import (
++            get_fp4_gemm_runner_backend,
++        )
++
++        model_uses_fp4 = self.model_config.quantization in (
++            "modelopt_fp4",
++            "modelopt_mixed",
++        )
++        fp4_gemm_needs_autotune = model_uses_fp4 and (
++            get_fp4_gemm_runner_backend().is_flashinfer_cutlass()
++            or get_fp4_gemm_runner_backend().is_flashinfer_cutedsl()
++        )
++
++        if not (moe_needs_autotune or fp4_gemm_needs_autotune):
+             return False
+ 
+         major, _ = torch.cuda.get_device_capability()
+diff --git a/python/sglang/srt/server_args.py b/python/sglang/srt/server_args.py
+index 010a4792e268..037349d75009 100644
+--- a/python/sglang/srt/server_args.py
++++ b/python/sglang/srt/server_args.py
+@@ -3300,6 +3300,17 @@ def _handle_moe_kernel_config(self):
+                 )
+                 self.moe_runner_backend = "flashinfer_trtllm"
+ 
++        if (
++            self.moe_runner_backend == "auto"
++            and self.quantization == "modelopt_fp4"
++            and is_sm120_supported()
++        ):
++            self.moe_runner_backend = "flashinfer_cutlass"
++            logger.info(
++                "Use flashinfer_cutlass as MoE runner backend on SM120 for "
++                "modelopt_fp4 (trtllm-gen MoE kernels are SM100-only)"
++            )
++
+         if self.moe_runner_backend == "flashinfer_cutlass":
+             assert self.quantization in [
+                 "modelopt_fp4",
+@@ -5738,7 +5749,7 @@ def add_cli_args(parser: argparse.ArgumentParser):
+             default=ServerArgs.fp4_gemm_runner_backend,
+             dest="fp4_gemm_runner_backend",
+             help="Choose the runner backend for NVFP4 GEMM operations. "
+-            "Options: 'auto' (default; selects flashinfer_cudnn on SM120, flashinfer_cutedsl on SM100, marlin on SM80-SM90, flashinfer_cutlass otherwise), "
++            "Options: 'auto' (default; selects flashinfer_cutedsl on SM100, marlin on SM80-SM90, flashinfer_cutlass otherwise (including SM120)), "
+             "'cutlass' (SGLang CUTLASS kernel), "
+             "'flashinfer_cutlass' (FlashInfer CUTLASS backend), "
+             "'flashinfer_cudnn' (FlashInfer cuDNN backend, optimal on CUDA 13+ with cuDNN 9.15+), "

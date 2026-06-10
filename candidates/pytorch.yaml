@@ -1,5 +1,5 @@
 repo: pytorch/pytorch
-searched_at: '2026-04-27'
+searched_at: '2026-06-10'
 keywords_used:
 - blackwell
 - sm100
@@ -25,10 +25,17 @@ keywords_used:
 - gemm
 - triton+blackwell
 - fp8+kernel
-total_candidates: 194
-included: 80
+- hopper
+- sm90
+- sm_90
+- h100
+- mbarrier
+- tensor_memory_accelerator
+- warp_specialization
+total_candidates: 231
+included: 89
 excluded: 29
-deferred: 85
+deferred: 113
 prs:
 - number: 180470
   title: '[release 2.12] Apply Release only changes to 2.12 branch'
@@ -249,8 +256,8 @@ prs:
 - number: 171140
   title: '[ROCm] Make grouped GEMM CK opt‑in via env and default to fallback path'
   date: '2025-12-22'
-  decision: defer
-  reason: 'borderline: config only'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
   files_changed: []
 - number: 170888
   title: '[dynamo] do not include source hashes in pickle'
@@ -309,8 +316,8 @@ prs:
 - number: 170190
   title: '[ROCm] Enable shared memory based pruning for Triton configs'
   date: '2025-12-11'
-  decision: defer
-  reason: 'borderline: config only'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
   files_changed: []
 - number: 170112
   title: '[RELEASE 2.10] Release only changes'
@@ -351,8 +358,8 @@ prs:
 - number: 167020
   title: '[Minor][Inductor] move some combo kernel log from warning to debug'
   date: '2025-11-04'
-  decision: defer
-  reason: 'borderline: logging'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
   files_changed: []
 - number: 166922
   title: '[Inductor] No longer throw error in bmm out_dtype lowering due to tem…'
@@ -429,8 +436,8 @@ prs:
 - number: 164236
   title: '[AARCH64][CD][CUDA13][Triton][PTXAS] Turn on BUILD_BUNDLE_PTXAS=1  '
   date: '2025-09-30'
-  decision: defer
-  reason: 'borderline: CI/CD adjacent'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
   files_changed: []
 - number: 164172
   title: Use linux.g4dn.4xlarge.nvidia.gpu for cuda 12.4 legacy driver tests
@@ -555,8 +562,8 @@ prs:
 - number: 158646
   title: '[cherry-pick][inductor][triton] Update HAS_WARP_SPEC to check triton.Config params. Update Triton Hash to top of release/3.4.x stack'
   date: '2025-07-18'
-  decision: defer
-  reason: 'borderline: config only'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
   files_changed: []
 - number: 158478
   title: Add warning about removed sm50 and sm60 arches
@@ -856,7 +863,7 @@ prs:
   title: '[inductor] Fix profiler tests with latest Triton'
   date: '2025-03-12'
   decision: defer
-  reason: 'borderline: benchmark/test-adjacent'
+  reason: 'deferred: likely docs/CI/build/test/benchmark/dependency adjacent, not direct kernel content'
   files_changed: []
 - number: 145614
   title: '[CD] Fix slim-wheel cuda_nvrtc import problem'
@@ -1191,6 +1198,228 @@ prs:
 - number: 181298
   title: ''
   date: '2026-04-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 186654
+  title: '[CD] Drop CPython 3.13t from binary build matrix (#182951)'
+  date: '2026-06-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 165144
+  title: Build libgomp (gcc-13) from src on AArch64
+  date: '2025-10-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 166578
+  title: Bump uv from 0.9.5 to 0.9.6 in /.ci/lumen_cli
+  date: '2025-10-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 182369
+  title: 'Fix stale PYTORCH_RELEASES_CODE_CC dict (fixes #182250)'
+  date: '2026-05-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181577
+  title: '[CD] Remove cu132->cu130 wheel install fallback in Dockerfile '
+  date: '2026-04-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 183346
+  title: '[release] Dockerfile: skip torchaudio install when CUDA_PATH=cu132'
+  date: '2026-05-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 186015
+  title: Revive CUDA 12.9 nightly binary builds
+  date: '2026-06-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181137
+  title: Add TLS stack_bounds so we dont pay expensive reads
+  date: '2026-04-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 182178
+  title: Avoid raw stream name collisions in Inductor
+  date: '2026-05-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 180809
+  title: '[NCCL][Symmetric Memory] Fix groupName in IntraNodeComm'
+  date: '2026-04-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181940
+  title: '[dynamo] warn instead of error on fullgraph=True fallback to eager'
+  date: '2026-04-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181019
+  title: '[dynamo] Fix cuda_stream pointer extraction for generic torch.Stream'
+  date: '2026-04-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 184599
+  title: '[Dependabot] Update(deps): Bump transformers from 5.7.0 to 5.9.0 in /.ci/docker/ci_commit_pins'
+  date: '2026-05-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181548
+  title: '[Inductor] Call latest c_shim version for versioned fallback ops'
+  date: '2026-05-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 182184
+  title: Revert "[Inductor] Improve materialization heuristic for a chain of computaions (#176994)"
+  date: '2026-05-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181441
+  title: '[Inductor] Improve materialization heuristic for a chain of computaions (#176994)'
+  date: '2026-04-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181658
+  title: Revert "Adding stamp out using native api for bmm outer product (#179082)
+  date: '2026-04-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181871
+  title: '[Dependabot] Update(deps): Bump transformers from 5.6.1 to 5.7.0 in /.ci/docker/ci_commit_pins'
+  date: '2026-04-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 186171
+  title: '[Dependabot] Update(deps): Bump transformers from 5.9.0 to 5.10.1 in /.ci/docker/ci_commit_pins'
+  date: '2026-06-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 181550
+  title: Add enable_gqa parameter to SDPA MPS meta registration
+  date: '2026-05-04'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 182311
+  title: '[MPS] Fix bool mask handling in 1-pass SDPA decode kernel (#182285)'
+  date: '2026-05-04'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 181886
+  title: '[MPS] Fix SDPA wrong output for permuted q/k/v with B > 1'
+  date: '2026-05-04'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 6331
+  title: Fix the c2-onnx exporter bug on Gemm
+  date: '2018-04-07'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 6243
+  title: fix broadcast export to onnx
+  date: '2018-04-05'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3509
+  title: 'Optimizer: optimize transposes in variety of circumstances'
+  date: '2017-11-28'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3325
+  title: Big batch of JIT and ONNX fixes
+  date: '2017-10-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 6699
+  title: '[feature request] [Caffe2] Enable MKLDNN support for inference'
+  date: '2018-04-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 154416
+  title: Bump pillow from 10.0.1 to 10.3.0 in /.github/requirements
+  date: '2025-06-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 163375
+  title: '[SymmMem] Fix memory allocation hold-up'
+  date: '2025-09-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 172179
+  title: Bump fbgemm and torchrec pinned commit
+  date: '2026-01-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 164949
+  title: '[MPS] Update OS version in error message'
+  date: '2025-10-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 164151
+  title: Add operator benchmarking run to CI nightly
+  date: '2025-09-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 158801
+  title: Cherry pick PR 158746
+  date: '2025-07-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 158880
+  title: Move out super large one off foreach_copy test
+  date: '2025-07-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 158867
+  title: '[MPS] Reimplement `tri[ul]` as Metal shaders'
+  date: '2025-07-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 158655
+  title: '[cherry-pick] Unify torch.tensor and torch.ops.aten.scalar_tensor behavior (#158537)'
+  date: '2025-07-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 158677
+  title: Revert "[Dynamo] Allow inlining into AO quantization modules (#152934)"
+  date: '2025-07-22'
   decision: defer
   reason: from refresh search; needs-triage
   files_changed: []

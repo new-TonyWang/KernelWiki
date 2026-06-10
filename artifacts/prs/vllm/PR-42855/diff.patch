@@ -1,0 +1,103 @@
+diff --git a/vllm/model_executor/layers/fused_moe/experts/flashinfer_cutlass_moe.py b/vllm/model_executor/layers/fused_moe/experts/flashinfer_cutlass_moe.py
+index ea1b48b4b25e..b891583e3ef4 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/flashinfer_cutlass_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/flashinfer_cutlass_moe.py
+@@ -97,6 +97,13 @@ def __init__(
+         self.max_capture_size = (
+             get_current_vllm_config().compilation_config.max_cudagraph_capture_size
+         )
++        self.gemm1_clamp_limit: torch.Tensor | None = None
++        if quant_config.gemm1_clamp_limit is not None:
++            self.gemm1_clamp_limit = torch.tensor(
++                [quant_config.gemm1_clamp_limit] * self.num_experts,
++                dtype=torch.float32,
++                device=self.device,
++            )
+ 
+         if quant_config.weight_quant_dtype == "mxfp4":
+             # This value is used specifically for gpt-oss,
+@@ -107,9 +114,12 @@ def __init__(
+             self.gemm1_beta = torch.tensor(
+                 [1.0] * self.num_experts, dtype=torch.float32, device=self.device
+             )
+-            self.gemm1_clamp_limit = torch.tensor(
+-                [7.0] * self.num_experts, dtype=torch.float32, device=self.device
+-            )
++            if self.gemm1_clamp_limit is None:
++                self.gemm1_clamp_limit = torch.tensor(
++                    [7.0] * self.num_experts,
++                    dtype=torch.float32,
++                    device=self.device,
++                )
+             if quant_config.quant_dtype == "mxfp8":
+                 self.fake_input_scale = torch.ones(
+                     self.num_experts,
+@@ -277,7 +287,9 @@ def apply(
+         fc2_expert_biases = None
+         swiglu_alpha = None
+         swiglu_beta = None
+-        swiglu_limit = None
++        swiglu_limit = (
++            self.gemm1_clamp_limit if activation == MoEActivation.SILU else None
++        )
+         use_mxfp8_act_scaling = False
+         use_w4_group_scaling = False
+         # Select quantization metadata based on FP8 format/path
+diff --git a/vllm/model_executor/layers/fused_moe/experts/fused_batched_moe.py b/vllm/model_executor/layers/fused_moe/experts/fused_batched_moe.py
+index 8638a11466c0..0e31331e7262 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/fused_batched_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/fused_batched_moe.py
+@@ -19,6 +19,7 @@
+     _resize_cache,
+     moe_kernel_quantize_input,
+     normalize_batched_scales_shape,
++    swiglu_limit_func,
+ )
+ from vllm.model_executor.layers.quantization.utils.quant_utils import (
+     QuantKey,
+@@ -805,6 +806,16 @@ def finalize_weight_and_reduce_impl(self) -> mk.TopKWeightAndReduce:
+         # Let PrepareAndFinalize::finalize() decide the impl.
+         return TopKWeightAndReduceDelegate()
+ 
++    def activation(
++        self, activation: MoEActivation, output: torch.Tensor, input: torch.Tensor
++    ) -> None:
++        gemm1_clamp_limit = self.quant_config.gemm1_clamp_limit
++        if activation == MoEActivation.SILU and gemm1_clamp_limit is not None:
++            swiglu_limit_func(output, input, float(gemm1_clamp_limit))
++            return
++
++        super().activation(activation, output, input)
++
+     def workspace_shapes(
+         self,
+         M: int,
+diff --git a/vllm/model_executor/layers/fused_moe/experts/triton_moe.py b/vllm/model_executor/layers/fused_moe/experts/triton_moe.py
+index 77eb483e9f21..1ba39b35fd4e 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/triton_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/triton_moe.py
+@@ -30,6 +30,7 @@
+ from vllm.model_executor.layers.fused_moe.utils import (
+     _resize_cache,
+     moe_kernel_quantize_input,
++    swiglu_limit_func,
+ )
+ from vllm.model_executor.layers.quantization.utils.fp8_utils import (
+     is_deep_gemm_e8m0_used,
+@@ -129,6 +130,16 @@ def supports_expert_map(self) -> bool:
+     def finalize_weight_and_reduce_impl(self) -> mk.TopKWeightAndReduce:
+         return TopKWeightAndReduceNoOP()
+ 
++    def activation(
++        self, activation: MoEActivation, output: torch.Tensor, input: torch.Tensor
++    ) -> None:
++        gemm1_clamp_limit = self.quant_config.gemm1_clamp_limit
++        if activation == MoEActivation.SILU and gemm1_clamp_limit is not None:
++            swiglu_limit_func(output, input, float(gemm1_clamp_limit))
++            return
++
++        super().activation(activation, output, input)
++
+     def workspace_shapes(
+         self,
+         M: int,

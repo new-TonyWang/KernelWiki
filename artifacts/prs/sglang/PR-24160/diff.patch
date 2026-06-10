@@ -1,0 +1,516 @@
+diff --git a/python/sglang/srt/lora/backend/ascend_backend.py b/python/sglang/srt/lora/backend/ascend_backend.py
+index 5ca406ec35b9..0b5b1d07403f 100644
+--- a/python/sglang/srt/lora/backend/ascend_backend.py
++++ b/python/sglang/srt/lora/backend/ascend_backend.py
+@@ -300,4 +300,6 @@ def prepare_lora_batch(
+             scalings_tensor, non_blocking=True
+         )
+         batch_info.weight_indices[:bs].copy_(weight_indices_tensor, non_blocking=True)
++
++        batch_info = self._add_moe_lora_info(forward_batch, batch_info)
+         self.batch_info = batch_info
+diff --git a/python/sglang/srt/lora/backend/base_backend.py b/python/sglang/srt/lora/backend/base_backend.py
+index 17b7bef1bf7e..4e76700edd3e 100644
+--- a/python/sglang/srt/lora/backend/base_backend.py
++++ b/python/sglang/srt/lora/backend/base_backend.py
+@@ -1,8 +1,11 @@
+ from typing import Tuple, Union
+ 
+ import torch
++import triton
++import triton.language as tl
+ 
+ from sglang.srt.lora.backend.lmhead_mixing import LoRABackendLmHeadMixing
++from sglang.srt.lora.utils import LoRABatchInfo, MoELoRABatchInfo
+ from sglang.srt.model_executor.forward_batch_info import ForwardBatch
+ 
+ 
+@@ -20,6 +23,7 @@ def __init__(self, max_loras_per_batch: int, device: torch.device):
+         self.max_loras_per_batch = max_loras_per_batch
+         self.device = device
+         self.init_lm_head_config()
++        self._is_moe_lora = False
+ 
+     def run_lora_a_embedding(
+         self,
+@@ -157,6 +161,14 @@ def init_cuda_graph_batch_info(
+         """
+         pass
+ 
++    @property
++    def is_moe_lora(self) -> bool:
++        return self._is_moe_lora
++
++    @is_moe_lora.setter
++    def is_moe_lora(self, value: bool):
++        self._is_moe_lora = value
++
+     def init_cuda_graph_moe_buffers(
+         self,
+         max_bs: int,
+@@ -236,8 +248,68 @@ def init_cuda_graph_moe_buffers(
+             ),
+             "max_num_tokens_padded": max_num_tokens_padded,
+             "max_num_m_blocks": max_num_m_blocks,
++            "token_lora_mapping": torch.full(
++                (max_bs,), -1, dtype=torch.int32, device=device
++            ),
+         }
+ 
++    def _add_moe_lora_info(
++        self, forward_batch: ForwardBatch, batch_info: LoRABatchInfo
++    ) -> LoRABatchInfo:
++        if not self.is_moe_lora:
++            return batch_info
++
++        if batch_info.use_cuda_graph:
++            adapter_enabled = self.moe_cg_buffers["adapter_enabled"]
++            token_lora_mapping = self.moe_cg_buffers["token_lora_mapping"]
++        else:
++            adapter_enabled = None
++            token_lora_mapping = None
++
++        num_tokens = (
++            sum(forward_batch.extend_seq_lens_cpu)
++            if forward_batch.forward_mode.is_extend()
++            else forward_batch.batch_size
++        )
++        max_len = (
++            max(forward_batch.extend_seq_lens_cpu)
++            if forward_batch.forward_mode.is_extend()
++            else 1
++        )
++
++        if (
++            batch_info.req_seg_indptr is not None
++            or batch_info.req_weight_indices is not None
++        ):
++            assert batch_info.req_seg_indptr is not None
++            assert batch_info.req_weight_indices is not None
++            num_moe_segments = batch_info.bs
++            seg_indptr = batch_info.req_seg_indptr[: num_moe_segments + 1]
++            req_to_lora = batch_info.req_weight_indices[:num_moe_segments]
++        else:
++            num_moe_segments = batch_info.num_segments
++            seg_indptr = batch_info.seg_indptr[: num_moe_segments + 1]
++            req_to_lora = batch_info.weight_indices[:num_moe_segments]
++
++        adapter_enabled, token_lora_mapping = _compute_moe_lora_info(
++            num_tokens,
++            seg_indptr,
++            batch_info.lora_ranks,
++            req_to_lora,
++            adapter_enabled,
++            token_lora_mapping,
++            max_len=max_len,
++        )
++
++        batch_info.moe_lora_info = MoELoRABatchInfo(
++            seg_indptr=seg_indptr,
++            req_to_lora=req_to_lora,
++            adapter_enabled=adapter_enabled,
++            token_lora_mapping=token_lora_mapping,
++        )
++
++        return batch_info
++
+     def prepare_lora_batch(
+         self,
+         forward_batch: ForwardBatch,
+@@ -259,3 +331,117 @@ def prepare_lora_batch(
+             use_cuda_graph: whether to use CUDA Graph for this batch
+         """
+         pass
++
++
++@triton.jit
++def _compute_moe_lora_info_kernel(
++    seg_indptr_ptr,
++    lora_ranks_ptr,
++    weight_indices_ptr,
++    adapter_enabled_ptr,
++    token_lora_mapping_ptr,
++    num_segments,
++    max_len,
++    BLOCK_SIZE: tl.constexpr,
++):
++    pid = tl.program_id(0)
++    num_pid_m = tl.cdiv(max_len, BLOCK_SIZE)
++
++    pid_seg = pid // num_pid_m
++    pid_m = pid % num_pid_m
++    seg_start = tl.load(seg_indptr_ptr + pid_seg)
++    seg_end = tl.load(seg_indptr_ptr + pid_seg + 1)
++    seg_len = seg_end - seg_start
++
++    offs = pid_m * BLOCK_SIZE + tl.arange(0, BLOCK_SIZE)
++    valid = offs < seg_len
++    lora_id = tl.load(weight_indices_ptr + pid_seg)
++    lora_rank = tl.load(lora_ranks_ptr + lora_id)
++    tl.store(
++        adapter_enabled_ptr + lora_id,
++        (lora_rank > 0).to(tl.int32),
++        mask=pid_m == 0,
++    )
++    tl.store(token_lora_mapping_ptr + seg_start + offs, lora_id, mask=valid)
++
++
++def _compute_moe_lora_info(
++    num_tokens: int,
++    seg_indptr: torch.Tensor,
++    lora_ranks: torch.Tensor,
++    weight_indices: torch.Tensor,
++    adapter_enabled: torch.Tensor | None,
++    token_lora_mapping: torch.Tensor | None,
++    max_len: int,
++) -> tuple[torch.Tensor, torch.Tensor]:
++    if token_lora_mapping is not None:
++        assert (
++            num_tokens <= token_lora_mapping.shape[0]
++        ), "num_tokens must be less than or equal to the shape of token_lora_mapping"
++        token_lora_mapping = token_lora_mapping[:num_tokens]
++    else:
++        token_lora_mapping = torch.empty(
++            (num_tokens,), dtype=torch.int32, device=seg_indptr.device
++        )
++
++    if adapter_enabled is not None:
++        assert (
++            len(lora_ranks) <= adapter_enabled.shape[0]
++        ), "lora_ranks must be less than or equal to the shape of adapter_enabled"
++    else:
++        adapter_enabled = torch.empty(
++            len(lora_ranks), dtype=torch.int32, device=lora_ranks.device
++        )
++
++    adapter_enabled.zero_()
++
++    has_segments = weight_indices.numel() != 0
++    use_cuda_kernel = (
++        num_tokens != 0 and has_segments and seg_indptr.device.type == "cuda"
++    )
++    if use_cuda_kernel:
++        block_size = 256
++        tiles_per_segment = triton.cdiv(max_len, block_size)
++        grid_size = tiles_per_segment * weight_indices.numel()
++        assert grid_size * block_size >= num_tokens, (
++            f"MoE LoRA token-mapping launch under-covers tokens: "
++            f"{grid_size=} {block_size=} {num_tokens=}"
++        )
++        _compute_moe_lora_info_kernel[(grid_size,)](
++            seg_indptr,
++            lora_ranks,
++            weight_indices,
++            adapter_enabled,
++            token_lora_mapping,
++            weight_indices.numel(),
++            max_len,
++            BLOCK_SIZE=block_size,
++        )
++        return adapter_enabled, token_lora_mapping
++
++    if has_segments:
++        active_ranks = lora_ranks[weight_indices.long()]
++        adapter_enabled.scatter_(
++            0, weight_indices.long(), (active_ranks > 0).to(torch.int32)
++        )
++    if num_tokens == 0:
++        return adapter_enabled, token_lora_mapping
++    if not has_segments:
++        token_lora_mapping.fill_(-1)
++        return adapter_enabled, token_lora_mapping
++
++    token_positions = torch.arange(
++        num_tokens, device=seg_indptr.device, dtype=torch.int32
++    )
++    # There is a torch.compile bug so we can't use seg_indptr[1:] here.
++    # Instead we pass seg_indptr and then subtract 1 from the result.
++    # This works because seg_indptr[0] == 0.
++    req_indices = (
++        torch.searchsorted(seg_indptr.to(torch.int32), token_positions, right=True) - 1
++    )
++
++    token_lora_mapping = torch.index_select(
++        weight_indices.to(torch.int32), 0, req_indices, out=token_lora_mapping
++    )
++
++    return adapter_enabled, token_lora_mapping
+diff --git a/python/sglang/srt/lora/backend/chunked_backend.py b/python/sglang/srt/lora/backend/chunked_backend.py
+index 20298b0ba06a..91b160c476f4 100644
+--- a/python/sglang/srt/lora/backend/chunked_backend.py
++++ b/python/sglang/srt/lora/backend/chunked_backend.py
+@@ -324,6 +324,8 @@ def prepare_lora_batch(
+         batch_info.req_seg_indptr[: bs + 1].copy_(req_seg_indptr_cpu, non_blocking=True)
+         batch_info.req_weight_indices[:bs].copy_(req_wi_tensor, non_blocking=True)
+ 
++        batch_info = self._add_moe_lora_info(forward_batch, batch_info)
++
+         self.batch_info = batch_info
+         self.lm_head_batch_info, self.lm_head_pass_batch_infos = (
+             self._prepare_lm_head_batch_info(forward_batch, weight_indices, batch_info)
+diff --git a/python/sglang/srt/lora/backend/torch_backend.py b/python/sglang/srt/lora/backend/torch_backend.py
+index f9f938e873d0..0f05a3f12f7f 100644
+--- a/python/sglang/srt/lora/backend/torch_backend.py
++++ b/python/sglang/srt/lora/backend/torch_backend.py
+@@ -298,4 +298,5 @@ def prepare_lora_batch(
+         batch_info.weight_indices_cpu = weight_indices_tensor
+         batch_info.scalings_cpu = scalings_tensor
+ 
++        batch_info = self._add_moe_lora_info(forward_batch, batch_info)
+         self.batch_info = batch_info
+diff --git a/python/sglang/srt/lora/backend/triton_backend.py b/python/sglang/srt/lora/backend/triton_backend.py
+index 4c4a8b618e09..47bca9c6d7ae 100644
+--- a/python/sglang/srt/lora/backend/triton_backend.py
++++ b/python/sglang/srt/lora/backend/triton_backend.py
+@@ -297,6 +297,7 @@ def prepare_lora_batch(
+         )
+         batch_info.weight_indices[:bs].copy_(weight_indices_tensor, non_blocking=True)
+ 
++        batch_info = self._add_moe_lora_info(forward_batch, batch_info)
+         self.batch_info = batch_info
+ 
+         # Biggest win is in decode.
+diff --git a/python/sglang/srt/lora/layers.py b/python/sglang/srt/lora/layers.py
+index 5faab4186522..062a81b44636 100644
+--- a/python/sglang/srt/lora/layers.py
++++ b/python/sglang/srt/lora/layers.py
+@@ -876,6 +876,8 @@ def __init__(
+         # initializes FusedMoE with its own moe_runner for base path
+         super().__init__(base_layer, lora_backend)
+ 
++        lora_backend.is_moe_lora = True
++
+         self.experts_shared_outer_loras: bool = False
+         self.lora_use_virtual_experts: bool = False
+         self.quant_method = base_layer.quant_method
+@@ -951,34 +953,12 @@ def _get_lora_info(self):
+         from sglang.srt.lora.lora_moe_runners import LoRAInfo
+ 
+         batch_info = self.lora_backend.batch_info
+-        lora_ranks = batch_info.lora_ranks
+ 
++        lora_ranks = batch_info.lora_ranks
+         max_lora_rank = self.down_lora_a_weights.shape[2]
+-
+         cg_buffers = getattr(self.lora_backend, "moe_cg_buffers", None)
+-        wi = (
+-            batch_info.req_weight_indices
+-            if batch_info.req_weight_indices is not None
+-            else batch_info.weight_indices
+-        )
+-        if cg_buffers is not None and batch_info.use_cuda_graph:
+-            adapter_enabled = cg_buffers["adapter_enabled"]
+-            adapter_enabled.zero_()
+-            idx_buf = cg_buffers["weight_indices_long"]
+-            idx_buf[: batch_info.bs] = wi[: batch_info.bs]
+-            adapter_enabled.index_fill_(0, idx_buf[: batch_info.bs], 1)
+-        else:
+-            adapter_enabled = torch.zeros(
+-                len(lora_ranks), dtype=torch.int32, device=lora_ranks.device
+-            )
+-            adapter_enabled.index_fill_(0, wi.long(), 1)
+-
+-        seg_indptr = (
+-            batch_info.req_seg_indptr
+-            if batch_info.req_seg_indptr is not None
+-            else batch_info.seg_indptr
+-        )
+-        req_to_lora = wi
++        moe_lora_info = batch_info.moe_lora_info
++        assert moe_lora_info is not None
+ 
+         # Single source of truth: lora_manager precomputes this per-batch from
+         # the Python weight_indices list, no GPU sync needed.
+@@ -989,13 +969,14 @@ def _get_lora_info(self):
+             gate_up_lora_b_weights=self.gate_up_lora_b_weights,
+             down_lora_a_weights=self.down_lora_a_weights,
+             down_lora_b_weights=self.down_lora_b_weights,
+-            seg_indptr=seg_indptr,
+-            req_to_lora=req_to_lora,
++            seg_indptr=moe_lora_info.seg_indptr,
++            req_to_lora=moe_lora_info.req_to_lora,
+             lora_ranks=lora_ranks,
+-            adapter_enabled=adapter_enabled,
+-            has_active_lora=has_active_lora,
++            adapter_enabled=moe_lora_info.adapter_enabled,
++            token_lora_mapping=moe_lora_info.token_lora_mapping,
+             max_lora_rank=max_lora_rank,
+             num_experts=self.base_layer.num_experts,
++            has_active_lora=has_active_lora,
+             experts_shared_outer_loras=self.experts_shared_outer_loras,
+             cg_buffers=cg_buffers,
+             tp_size=self.tp_size,
+diff --git a/python/sglang/srt/lora/lora_moe_runners.py b/python/sglang/srt/lora/lora_moe_runners.py
+index b252cb19c6b8..9e9e1b3f203d 100644
+--- a/python/sglang/srt/lora/lora_moe_runners.py
++++ b/python/sglang/srt/lora/lora_moe_runners.py
+@@ -176,6 +176,7 @@ class LoRAInfo:
+     # LoRA config per adapter
+     lora_ranks: torch.Tensor  # [num_loras]
+     adapter_enabled: torch.Tensor  # [num_loras] - which adapters are enabled
++    token_lora_mapping: torch.Tensor  # [num_tokens] - adapter used by each token
+     max_lora_rank: int  # Maximum LoRA rank across all adapters
+ 
+     num_experts: int
+@@ -202,22 +203,6 @@ class LoRAHooks:
+     ) = None
+ 
+ 
+-def _compute_token_lora_mapping(
+-    hidden_states: torch.Tensor,
+-    lora_info: LoRAInfo,
+-) -> torch.Tensor:
+-    """Map each token to its LoRA adapter index (-1 for no LoRA)."""
+-    token_positions = torch.arange(
+-        hidden_states.shape[0], device=hidden_states.device, dtype=torch.int32
+-    )
+-    req_indices = torch.searchsorted(
+-        lora_info.seg_indptr[1:].to(torch.int32),
+-        token_positions,
+-        right=True,
+-    )
+-    return lora_info.req_to_lora.to(torch.int32)[req_indices]
+-
+-
+ def _compute_lora_alignment(
+     topk_ids: torch.Tensor,
+     lora_info: LoRAInfo,
+@@ -520,7 +505,7 @@ def build_lora_hooks(
+     lora_ids: torch.Tensor | None = None
+ 
+     if lora_info.lora_use_virtual_experts:
+-        token_lora_mapping = _compute_token_lora_mapping(hidden_states, lora_info)
++        token_lora_mapping = lora_info.token_lora_mapping
+     else:
+         (
+             sorted_token_ids_reshaped,
+diff --git a/python/sglang/srt/lora/utils.py b/python/sglang/srt/lora/utils.py
+index b987a4ba06d6..b6183f9917f8 100644
+--- a/python/sglang/srt/lora/utils.py
++++ b/python/sglang/srt/lora/utils.py
+@@ -8,6 +8,22 @@
+ from sglang.srt.utils.hf_transformers_utils import AutoConfig
+ 
+ 
++@dataclass
++class MoELoRABatchInfo:
++    # Per-request segment indptrs used by MoE LoRA routing, shape (bs + 1,).
++    seg_indptr: torch.Tensor
++
++    # Per-request adapter index used by MoE LoRA routing, shape (bs,).
++    req_to_lora: torch.Tensor
++
++    # A mask indicating if lora adapter is enabled. Shape (num_loras,)
++    adapter_enabled: torch.Tensor
++
++    # A mapping of which lora adapter is used for each token. Shape (num_tokens,)
++    # If a token has no lora adapter, the value is -1.
++    token_lora_mapping: torch.Tensor
++
++
+ @dataclass
+ class LoRABatchInfo:
+     # The forward mode is using CUDA Graph.
+@@ -58,6 +74,9 @@ class LoRABatchInfo:
+     # Per-request adapter index, shape (bs,).
+     req_weight_indices: Optional[torch.Tensor] = None
+ 
++    # MoE LoRA batch info
++    moe_lora_info: Optional[MoELoRABatchInfo] = None
++
+ 
+ class LoRAType(Enum):
+     LORA_A = 0
+diff --git a/test/registered/lora/test_moe_lora_info.py b/test/registered/lora/test_moe_lora_info.py
+new file mode 100644
+index 000000000000..44dd871c27f4
+--- /dev/null
++++ b/test/registered/lora/test_moe_lora_info.py
+@@ -0,0 +1,87 @@
++import sys
++
++import pytest
++import torch
++
++from sglang.srt.lora.backend.base_backend import _compute_moe_lora_info
++from sglang.test.ci.ci_register import register_cuda_ci
++
++register_cuda_ci(est_time=5, stage="base-b", runner_config="1-gpu-small")
++
++
++def _expected_adapter_enabled(
++    lora_ranks: torch.Tensor,
++    weight_indices: torch.Tensor,
++) -> torch.Tensor:
++    expected = torch.zeros_like(lora_ranks)
++    expected.scatter_(
++        0,
++        weight_indices.long(),
++        (lora_ranks[weight_indices.long()] > 0).to(torch.int32),
++    )
++    return expected
++
++
++@pytest.mark.parametrize("use_preallocated_buffers", [False, True])
++def test_compute_moe_lora_info_expands_segments(use_preallocated_buffers: bool):
++    device = "cuda"
++    seg_lens = torch.tensor([5, 1, 7, 3, 9, 2], dtype=torch.int32, device=device)
++    seg_indptr = torch.zeros((seg_lens.numel() + 1,), dtype=torch.int32, device=device)
++    seg_indptr[1:] = torch.cumsum(seg_lens, dim=0)
++
++    weight_indices = torch.tensor([2, 0, 5, 2, 3, 7], dtype=torch.int32, device=device)
++    lora_ranks = torch.tensor(
++        [0, 12, 16, 32, 24, 8, 0, 4], dtype=torch.int32, device=device
++    )
++    num_tokens = int(seg_indptr[-1].item())
++
++    if use_preallocated_buffers:
++        adapter_enabled = torch.full_like(lora_ranks, 123)
++        token_lora_mapping = torch.full(
++            (num_tokens + 11,), 456, dtype=torch.int32, device=device
++        )
++    else:
++        adapter_enabled = None
++        token_lora_mapping = None
++
++    actual_enabled, actual_mapping = _compute_moe_lora_info(
++        num_tokens,
++        seg_indptr,
++        lora_ranks,
++        weight_indices,
++        adapter_enabled,
++        token_lora_mapping,
++        max_len=int(seg_lens.max().item()),
++    )
++    torch.cuda.synchronize()
++
++    expected_mapping = torch.repeat_interleave(weight_indices, seg_lens)
++    expected_enabled = _expected_adapter_enabled(lora_ranks, weight_indices)
++
++    torch.testing.assert_close(actual_mapping, expected_mapping)
++    torch.testing.assert_close(actual_enabled, expected_enabled)
++
++    if use_preallocated_buffers:
++        assert actual_mapping.data_ptr() == token_lora_mapping.data_ptr()
++
++
++def test_compute_moe_lora_info_rejects_undercovered_launch():
++    device = "cuda"
++    seg_indptr = torch.tensor([0, 300], dtype=torch.int32, device=device)
++    weight_indices = torch.tensor([0], dtype=torch.int32, device=device)
++    lora_ranks = torch.tensor([16], dtype=torch.int32, device=device)
++
++    with pytest.raises(AssertionError, match="under-covers tokens"):
++        _compute_moe_lora_info(
++            300,
++            seg_indptr,
++            lora_ranks,
++            weight_indices,
++            None,
++            None,
++            max_len=1,
++        )
++
++
++if __name__ == "__main__":
++    sys.exit(pytest.main([__file__]))

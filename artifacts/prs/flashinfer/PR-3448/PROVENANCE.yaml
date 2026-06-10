@@ -1,0 +1,54 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/3448
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: d9b175ac
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-3448
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 583a747e5fa32f0c2ba98fdca89943328200edb9609ed45f3425d318310edc8d
+- local_path: key-files/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+  sha256: 0e9cd51ac57d8ad0b6f69c1ab42c76e5aab78c29de20f2b0056a123a2c174062
+- local_path: key-files/csrc/nv_internal/cpp/common/envUtils.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/cpp/common/envUtils.cpp
+  sha256: 6346054f1c640821c62b6437593897676f8909d39237f6b399da6b887d0cb235
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+  sha256: c74872d3ae50b6ea9b2bb7ec1db9b3d01bc42cc3fd1846f13623edc826861172
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
+  sha256: 42dbbc12195c09279bf4f1bd3e170c8664138f2f7e7c59fd38b6618ae8253656
+- local_path: key-files/flashinfer/cute_dsl/fp4_common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/cute_dsl/fp4_common.py
+  sha256: 8988298463eb70ff57c93ac889e2e0835a7cd09838ed6f2abac961f7fd16e9b0
+- local_path: key-files/flashinfer/quantization/kernels/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/quantization/kernels/__init__.py
+  sha256: 19b6285acb78e77bba7b44e2db8be93d83ad1ca23a86824457598b5c329226c6
+- local_path: key-files/flashinfer/quantization/kernels/nvfp4_quantize.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/quantization/kernels/nvfp4_quantize.py
+  sha256: feb87d4e17606f36a7121ff191d1cf8447f7e417d3053387b3fe960363eefe5b
+- local_path: key-files/flashinfer/quantization/quantization_cute_dsl_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/quantization/quantization_cute_dsl_utils.py
+  sha256: 53b648d0eff02b4dbb247dcbda9fc4dd1240749c0cfba99532f1098b1efdd63f
