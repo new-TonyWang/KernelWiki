@@ -9,11 +9,17 @@ vendors:
     compute_stack: [cuda, ptx, cute-dsl, triton, cutlass]
     status: active
 
-  - id: huawei
+  - id: ascend
     display_name: Huawei Ascend
-    architectures: [ascend910b, ascend910c, ascend310p]
-    compute_stack: [cann, mindspore, ascendc]
-    status: planned
+    architectures: [ascend910b, ascend910b1, ascend910b2, ascend910b2c, ascend910b3, ascend910b4, ascend910c, ascend310p]
+    compute_stack: [cann, mindspore, ascendc, triton-ascend, tilelang]
+    status: active
+
+  - id: generic
+    display_name: Cross-Vendor
+    architectures: []
+    compute_stack: [triton]
+    status: active
 
   - id: biren
     display_name: Biren

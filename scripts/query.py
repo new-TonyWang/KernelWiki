@@ -357,22 +357,104 @@ def format_result(page, compact=False):
     return "\n".join(lines)
 
 
+_VENDOR_REGISTRY = None
+
+
+def _load_vendor_registry():
+    """Load vendor->architecture mapping from data/vendors.yaml for auto-inference."""
+    global _VENDOR_REGISTRY
+    if _VENDOR_REGISTRY is not None:
+        return _VENDOR_REGISTRY
+    vpath = WIKI_ROOT / "data" / "vendors.yaml"
+    try:
+        raw = yaml.safe_load(vpath.read_text(encoding="utf-8")) or {}
+    except Exception:
+        _VENDOR_REGISTRY = {}
+        return _VENDOR_REGISTRY
+    reg = {}
+    for v in raw.get("vendors", []):
+        vid = v.get("id", "")
+        for arch in v.get("architectures", []):
+            reg[arch.lower()] = vid
+        for cs in v.get("compute_stack", []):
+            reg[cs.lower()] = vid
+    _VENDOR_REGISTRY = reg
+    return reg
+
+
+def infer_vendor(args):
+    """Auto-infer --vendor from --architecture, --language, --tag, or keywords.
+
+    Returns the inferred vendor string or None if ambiguous/unknown.
+    """
+    reg = _load_vendor_registry()
+    aliases = load_alias_expansions()
+
+    candidates = set()
+
+    # From --architecture
+    if args.architecture:
+        for variant in expand_keyword(args.architecture):
+            v = reg.get(variant.lower())
+            if v:
+                candidates.add(v)
+
+    # From --language
+    if args.language:
+        v = reg.get(args.language.lower())
+        if v:
+            candidates.add(v)
+
+    # From --tag
+    if args.tag:
+        for variant in expand_keyword(args.tag):
+            v = reg.get(variant.lower())
+            if v:
+                candidates.add(v)
+
+    # From keywords
+    for q in (args.query or []):
+        for tok in re.split(r"\s+", q.strip()):
+            tok_l = tok.lower()
+            v = reg.get(tok_l)
+            if v:
+                candidates.add(v)
+            canonical = aliases.get(tok_l)
+            if canonical:
+                v = reg.get(canonical.lower())
+                if v:
+                    candidates.add(v)
+
+    if len(candidates) == 1:
+        return candidates.pop()
+    return None
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Query the Blackwell kernel wiki")
+    parser = argparse.ArgumentParser(description="Query the GPU/NPU kernel wiki")
     parser.add_argument("query", nargs="*", help="Free-text keywords")
     parser.add_argument("--type", help="Filter by page type (kernel, technique, hardware, pattern, language, migration, pr, blog, doc, contest)")
     parser.add_argument("--tag", help="Filter by tag (must appear in tags/techniques/hardware_features/kernel_types/languages)")
     parser.add_argument("--repo", help="Filter by source repo (partial match, e.g. 'cutlass')")
-    parser.add_argument("--language", help="Filter by language/DSL (cute-dsl, cuda-cpp, ptx, triton, etc.)")
-    parser.add_argument("--architecture", help="Filter by architecture (sm100, sm100a, sm90, sm90a)")
+    parser.add_argument("--language", help="Filter by language/DSL (cute-dsl, cuda-cpp, ptx, triton, ascendc, triton-ascend, etc.)")
+    parser.add_argument("--architecture", help="Filter by architecture (sm100, sm90, ascend910b, etc.)")
     parser.add_argument("--symptom", help="Filter by pattern symptom (memory-bound, register-pressure, etc.)")
     parser.add_argument("--confidence", help="Filter by confidence (verified, source-reported, inferred, experimental)")
-    parser.add_argument("--vendor", help="Filter by vendor (nvidia, huawei, biren, all)")
+    parser.add_argument("--vendor", help="Filter by vendor (nvidia, ascend, biren, all). Auto-inferred from --architecture/--language/keywords when omitted.")
     parser.add_argument("--has-code", action="store_true", help="Only return pages whose artifact_dir contains at least one source file")
     parser.add_argument("--limit", type=int, default=10, help="Max results (default 10)")
     parser.add_argument("--compact", action="store_true", help="Compact one-line-per-result output")
     parser.add_argument("--paths-only", action="store_true", help="Output only file paths, one per line")
     args = parser.parse_args()
+
+    # Auto-infer vendor when not explicitly specified
+    if not args.vendor:
+        inferred = infer_vendor(args)
+        if inferred:
+            args.vendor = inferred
+            if not args.paths_only:
+                print(f"# Auto-detected vendor: {inferred}")
+                print()
 
     pages = load_all_pages()
     pages = filter_pages(pages, args)
