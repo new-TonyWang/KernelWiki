@@ -14,6 +14,7 @@ import os
 import re
 import sys
 import time
+import urllib.parse
 import urllib.request
 import yaml
 from datetime import date
@@ -39,6 +40,8 @@ KW_TO_TAGS = {
     "nvfp4": "nvfp4", "fp8": "fp8", "fp4": "fp4", "block_scale": "block-scale",
     "block-scale": "block-scale", "mbarrier": "mbarrier", "wgmma": "wgmma",
     "2sm": "2sm-cooperative", "2cta": "2sm-cooperative", "cta_group": "2sm-cooperative",
+    "ascend": "ai-core", "npu": "ai-core", "cube": "cube-unit", "vector": "vector-unit",
+    "ub": "ub", "l0a": "l0a", "l0b": "l0b", "l0c": "l0c",
 }
 KW_TO_KT = {
     "gemm": "gemm", "attention": "attention", "moe": "moe", "fmha": "flash-attention",
@@ -60,6 +63,8 @@ KW_TO_LANG = {
     "cute_dsl": "cute-dsl", "cute-dsl": "cute-dsl", "cutedsl": "cute-dsl",
     "triton": "triton", ".ptx": "ptx", "ptx": "ptx",
     "python": "python", "tilelang": "tilelang",
+    "ascendc": "ascendc", "ascend c": "ascendc", "triton-ascend": "triton-ascend",
+    "triton_ascend": "triton-ascend", "torch_npu": "python", "torch-npu": "python",
 }
 
 EXCLUDE_TITLE_PATTERNS = [
@@ -99,6 +104,50 @@ def fetch_pr_files(repo, number):
     return []
 
 
+def gitcode_api(repo, endpoint):
+    """Call GitCode v5 API for repo-relative endpoints."""
+    owner, name = repo.split("/", 1)
+    url = (
+        "https://api.gitcode.com/api/v5/repos/"
+        f"{urllib.parse.quote(owner)}/{urllib.parse.quote(name)}/{endpoint.lstrip('/')}"
+    )
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception:
+        return None
+
+
+def fetch_gitcode_pr(repo, number):
+    """Fetch PR details from GitCode and normalize the shape used by generate_page."""
+    data = gitcode_api(repo, f"pulls/{number}")
+    if not isinstance(data, dict):
+        return None
+    user = data.get("user") if isinstance(data.get("user"), dict) else {}
+    base = data.get("base") if isinstance(data.get("base"), dict) else {}
+    return {
+        "number": data.get("number", number),
+        "title": data.get("title", ""),
+        "user": {"login": user.get("login") or user.get("name") or "unknown"},
+        "created_at": data.get("created_at") or data.get("closed_at") or "",
+        "closed_at": data.get("closed_at") or data.get("updated_at") or "",
+        "html_url": data.get("html_url") or data.get("url") or "",
+        "merge_commit_sha": "",
+        "body": data.get("body") or "",
+        "_status": "closed" if data.get("state") == "closed" else str(data.get("state") or "open"),
+        "_base_sha": base.get("sha", ""),
+    }
+
+
+def fetch_gitcode_pr_files(repo, number):
+    """Fetch changed file paths from GitCode."""
+    data = gitcode_api(repo, f"pulls/{number}/files")
+    if isinstance(data, list):
+        return [f.get("filename", "") for f in data if isinstance(f, dict) and f.get("filename")]
+    return []
+
+
 def is_kernel_related(title, files):
     """Check if PR is kernel-related based on title + changed files."""
     title_lower = title.lower()
@@ -112,7 +161,9 @@ def is_kernel_related(title, files):
     kernel_exts = {".cu", ".cuh", ".ptx"}
     kernel_dirs = {"cutlass/", "csrc/", "kernel", "triton/", "cute/", "gemm",
                    "attention", "moe", "inductor/", "tensor_core", "mma",
-                   "scaled_mm", "quantiz", "flash_attention", "sdpa"}
+                   "scaled_mm", "quantiz", "flash_attention", "sdpa",
+                   "npu", "ascend", "ascendc", "torch_npu", "cann", "acl",
+                   "triton_kernels", "tiling", "rope", "rmsnorm", "layernorm"}
 
     has_kernel_file = False
     for f in files:
@@ -130,7 +181,10 @@ def is_kernel_related(title, files):
                      "fp8", "fp4", "gemm", "attention", "moe", "mla", "cutlass",
                      "flashinfer", "deepgemm", "flashmla", "triton", "fmha",
                      "inductor", "sdpa", "flash_attention", "scaled_mm",
-                     "block_scale", "quantiz", "tma", "b200", "cuda 13"]
+                     "block_scale", "quantiz", "tma", "b200", "cuda 13",
+                     "npu", "ascend", "ascendc", "cann", "torch_npu", "torch-npu",
+                     "acl", "tiling", "cube", "vector", "rope", "rmsnorm", "layernorm",
+                     "atomic", "gather_load", "gather-load", "multibuffer", "multi_buffer"]
     has_semantic = any(kw in title_lower for kw in semantic_kws)
 
     if has_kernel_file:
@@ -191,6 +245,16 @@ def auto_tag(title, files):
     return sorted(tags), sorted(hw_features), sorted(kernel_types), sorted(techniques), sorted(languages)
 
 
+def _is_ascend_repo_or_text(repo, text):
+    repo_l = repo.lower()
+    text_l = text.lower()
+    return (
+        "sgl-kernel-npu" in repo_l
+        or "triton-ascend" in repo_l
+        or any(k in text_l for k in ["ascend", " npu", "torch_npu", "torch-npu", "cann", "ascendc"])
+    )
+
+
 def generate_page(repo, pr_data, files, inclusion_reason, captured_at):
     """Generate markdown page content for a PR."""
     repo_slug = repo.split("/")[1]
@@ -199,16 +263,31 @@ def generate_page(repo, pr_data, files, inclusion_reason, captured_at):
     author = pr_data["user"]["login"]
     date = pr_data["created_at"][:10]
     url = pr_data["html_url"]
-    merge_sha = (pr_data.get("merge_commit_sha") or "unknown")[:8]
+    merge_sha = (pr_data.get("merge_commit_sha") or pr_data.get("_base_sha") or "")[:8]
     body = pr_data.get("body") or ""
+    status = pr_data.get("_status") or "merged"
 
     # Determine architectures
-    archs = ["sm100"]
     text = (title + " " + body).lower()
-    if "sm90" in text or "hopper" in text:
-        archs.append("sm90")
+    if _is_ascend_repo_or_text(repo, text + " " + " ".join(files)):
+        archs = ["ascend910b"]
+        if "910c" in text:
+            archs.append("ascend910c")
+    else:
+        archs = ["sm100"]
+        if "sm90" in text or "hopper" in text:
+            archs.append("sm90")
 
     tags, hw_features, kernel_types, techniques, languages = auto_tag(title, files)
+    if _is_ascend_repo_or_text(repo, text + " " + " ".join(files)):
+        tags = set(tags) | {"ai-core"}
+        if any("triton" in f.lower() for f in files) or "triton" in text:
+            languages = set(languages) | {"triton-ascend"}
+        if "ascendc" in text or any("ascendc" in f.lower() for f in files):
+            languages = set(languages) | {"ascendc"}
+        if not languages:
+            languages = {"python"}
+        hw_features = set(hw_features) | {"ai-core"}
 
     # Ensure tags include all kernel_types and hw_features
     all_tags = set(tags)
@@ -238,15 +317,16 @@ def generate_page(repo, pr_data, files, inclusion_reason, captured_at):
         "architectures": archs,
         "tags": tags if tags else ["gemm"],
         "techniques": techniques if techniques else [],
-        "hardware_features": hw_features if hw_features else [],
+        "hardware_features": sorted(hw_features) if isinstance(hw_features, set) else (hw_features if hw_features else []),
         "kernel_types": kernel_types if kernel_types else [],
-        "languages": languages if languages else ["cuda-cpp"],
+        "languages": sorted(languages) if languages else ["cuda-cpp"],
         "captured_at": captured_at,
-        "status": "merged",
-        "merge_sha": merge_sha,
+        "status": status,
         "inclusion_reason": inclusion_reason,
         "changed_paths": kernel_paths if kernel_paths else [],
     }
+    if merge_sha:
+        fm["merge_sha"] = merge_sha
 
     # Build body summary from PR description
     summary = body[:500].strip() if body else "No description provided."
@@ -318,10 +398,12 @@ def process_ledger(ledger_path, max_pages=None, captured_at=None, audit_map=None
         slug = Path(ledger_path).stem
         repo_map = {
             "cutlass": "NVIDIA/cutlass", "sglang": "sgl-project/sglang",
+            "sgl-kernel-npu": "sgl-project/sgl-kernel-npu",
             "vllm": "vllm-project/vllm", "flashinfer": "flashinfer-ai/flashinfer",
-            "pytorch": "pytorch/pytorch",
+            "pytorch": "pytorch/pytorch", "triton-ascend": "Ascend/triton-ascend",
         }
         repo = repo_map.get(slug, f"unknown/{slug}")
+    provider = ledger.get("provider", "github")
     repo_slug = repo.split("/")[1]
     outdir = REPO_ROOT / "sources" / "prs" / repo_slug
     outdir.mkdir(parents=True, exist_ok=True)
@@ -367,16 +449,19 @@ def process_ledger(ledger_path, max_pages=None, captured_at=None, audit_map=None
         number = candidate["number"]
         title = candidate.get("title", "")
 
-        # Fetch PR details (gh CLI with auth = 5000/hour limit)
-        pr_data = fetch_pr(repo, number)
+        # Fetch PR details (gh CLI with auth = 5000/hour limit, or GitCode API)
+        if provider == "gitcode":
+            pr_data = fetch_gitcode_pr(repo, number)
+            files = fetch_gitcode_pr_files(repo, number) if pr_data else []
+        else:
+            pr_data = fetch_pr(repo, number)
+            files = fetch_pr_files(repo, number) if pr_data else []
         if not pr_data:
             skipped += 1
             if audit_map is not None:
                 record_skip(audit_map, repo, number, "pre-fetch",
                             "gh pr fetch returned no data", captured_at)
             continue
-        files = fetch_pr_files(repo, number)
-
         # Re-triage with file data
         is_kernel, reason = is_kernel_related(title, files)
         if is_kernel is False:

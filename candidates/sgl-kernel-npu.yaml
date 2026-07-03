@@ -1,0 +1,2614 @@
+repo: sgl-project/sgl-kernel-npu
+searched_at: '2026-06-10'
+keywords_used:
+- npu
+- ascend
+- cann
+- torch_npu
+- torch-npu
+- acl
+- ascendc
+- triton
+- kernel
+- rope
+- fused
+- gemm
+- matmul
+- attention
+- moe
+- quant
+- dequant
+- bf16
+- fp16
+- fp8
+- tiling
+total_candidates: 193
+included: 133
+excluded: 35
+deferred: 25
+prs:
+- number: 541
+  title: workflow optimization
+  date: '2026-06-05'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/daily-build-test.yml
+  - .github/workflows/pr-test-npu.yml
+- number: 503
+  title: Add interleave mode for split qkv norm rope
+  date: '2026-05-27'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+- number: 506
+  title: '[CI] Add wheelnext variant wheel build and release workflow for deep_ep'
+  date: '2026-06-02'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/release_deep_ep_wheel.yml
+  - .github/workflows/scripts/wheel/config.json
+  - .github/workflows/scripts/wheel/make_variant.py
+  - .github/workflows/scripts/wheel/pyproject.toml
+- number: 508
+  title: '[NPU][Feat] Add alltoall mode on deepep'
+  date: '2026-05-28'
+  decision: defer
+  reason: DeepEP host/API/docs change without direct op_kernel diff; keep for manual review
+  files_changed:
+  - python/deep_ep/deep_ep/alltoall.py
+  - python/deep_ep/deep_ep/buffer.py
+- number: 463
+  title: 'feat(torch_memory_saver): support ''preload'' hook_mode'
+  date: '2026-05-28'
+  decision: exclude
+  reason: host memory-saver/runtime utility only; outside kernel KB scope
+  files_changed:
+  - contrib/torch_memory_saver/csrc/core.cpp
+  - contrib/torch_memory_saver/csrc/entrypoint.cpp
+  - contrib/torch_memory_saver/csrc/utils.h
+  - contrib/torch_memory_saver/python/torch_memory_saver/entrypoint.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/hooks/mode_preload.py
+  - contrib/torch_memory_saver/test/cuda_graph.py
+  - contrib/torch_memory_saver/test/multi_device.py
+  - contrib/torch_memory_saver/test/rl_example.py
+  - contrib/torch_memory_saver/test/simple.py
+  - contrib/torch_memory_saver/test/training_engine.py
+- number: 483
+  title: 'ci: restore build cache for PR CI, with A2 wheel fix'
+  date: '2026-05-30'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - .github/workflows/push_build_cache.yml
+- number: 465
+  title: '[CI] Introduce uv to accelerate pip install'
+  date: '2026-05-11'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/daily-build-test.yml
+  - .github/workflows/internode.yml
+  - .github/workflows/lint.yml
+  - .github/workflows/pr-test-npu.yml
+  - scripts/npu_ci_install_dependency.sh
+- number: 469
+  title: 'ci: add runs-on/cache to skip C++ rebuild on PR CI'
+  date: '2026-05-14'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - .github/workflows/push_build_cache.yml
+- number: 537
+  title: 'fix: only build deepep if deepep=ON'
+  date: '2026-06-03'
+  decision: exclude
+  reason: build/config/dependency maintenance only; not direct kernel content
+  files_changed:
+  - .gitignore
+  - build.sh
+- number: 419
+  title: 'feat: route PyTorch deps through internal cache service in CI'
+  date: '2026-04-02'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/daily-build-test.yml
+  - .github/workflows/pr-test-npu.yml
+  - scripts/npu_ci_install_dependency.sh
+- number: 476
+  title: cann9.0.0 Adapt
+  date: '2026-05-15'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/build_and_release.yml
+  - .github/workflows/daily-build-test.yml
+  - .github/workflows/pr-test-npu.yml
+  - scripts/npu_ci_install_dependency.sh
+- number: 517
+  title: 'feat: pto mega-gdn support dynamic num heads'
+  date: '2026-05-28'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (gdn, fla)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/mega_chunk_gdn/op_host/mega_chunk_gdn.cpp
+  - csrc/mega_chunk_gdn/op_kernel/chunk_cumsum.cpp
+  - csrc/mega_chunk_gdn/op_kernel/chunk_h.cpp
+  - csrc/mega_chunk_gdn/op_kernel/chunk_o.cpp
+  - csrc/mega_chunk_gdn/op_kernel/mega_kernel.cpp
+  - csrc/mega_chunk_gdn/op_kernel/scaled_dot_kkt.cpp
+  - csrc/mega_chunk_gdn/op_kernel/wy_fast.cpp
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/mega_chunk_gdn.py
+  - tests/python/sgl_kernel_npu/test_mega_chunk_gdn.py
+- number: 439
+  title: Fix the security issues, such as division by zero.
+  date: '2026-04-14'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/fused_split_qk_norm.py
+- number: 462
+  title: 'feat: pto-isa gdn mega kernel'
+  date: '2026-05-20'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (deepep, gdn, fla)'
+  files_changed:
+  - .gitmodules
+  - build.sh
+  - csrc/CMakeLists.txt
+  - csrc/mega_chunk_gdn/op_host/mega_chunk_gdn.cpp
+  - csrc/mega_chunk_gdn/op_kernel/chunk_cumsum.cpp
+  - csrc/mega_chunk_gdn/op_kernel/chunk_h.cpp
+  - csrc/mega_chunk_gdn/op_kernel/chunk_o.cpp
+  - csrc/mega_chunk_gdn/op_kernel/mega_kernel.cpp
+  - csrc/mega_chunk_gdn/op_kernel/scaled_dot_kkt.cpp
+  - csrc/mega_chunk_gdn/op_kernel/tri_inverse_impl.cpp
+  - csrc/mega_chunk_gdn/op_kernel/wy_fast.cpp
+  - csrc/pytorch_extensions.cpp
+  - include/sgl_kenel_npu_ops.h
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/mega_chunk_gdn.py
+  - scripts/prepare_deepep_in_container.sh
+  - tests/python/sgl_kernel_npu/test_mega_chunk_gdn.py
+  - third-party/pto-isa
+- number: 456
+  title: update readme for free environment
+  date: '2026-04-30'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - README.md
+- number: 449
+  title: 'bugfix: Add activation  setting to torch_causal_conv1d_update_npu'
+  date: '2026-04-28'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (conv1d, mamba)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+- number: 404
+  title: add split_qkv_rmsnorm_rope_pos_cache_half_npu test case and fix graph capture bug
+  date: '2026-03-30'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope, cache)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+  - tests/python/sgl_kernel_npu/test_split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+- number: 421
+  title: '[deepep] fix notify use ub exceeds the limit'
+  date: '2026-04-07'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep, dispatch)'
+  files_changed:
+  - csrc/deepep/ops/op_kernel/notify_dispatch.h
+- number: 430
+  title: 'Revert "LoRA: Implementing kernels using CUBE computation unit"'
+  date: '2026-04-08'
+  decision: exclude
+  reason: revert/removal of earlier kernel change; not a durable knowledge source
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/lora/op_host/sgemmc_expand.cpp
+  - csrc/lora/op_host/sgemmc_shrink.cpp
+  - csrc/lora/op_host/tiling/sgemmc_tiling.cpp
+  - csrc/lora/op_host/tiling/sgemmc_tiling.h
+  - csrc/lora/op_host/tiling/sgemmc_tiling_data.h
+  - csrc/lora/op_kernel/lora_common_kernel.h
+  - csrc/lora/op_kernel/sgemmc_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgemmc_shrink_kernel.cpp
+  - csrc/lora/op_kernel/sgemmv_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgemmv_shrink_kernel.cpp
+  - csrc/lora/op_kernel/sgmv_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgmv_shrink_kernel.cpp
+  - csrc/pytorch_extensions.cpp
+  - csrc/utils/common_tiling.h
+  - csrc/utils/kernel/common_tiling_kernel.h
+  - csrc/utils/torch_helper.h
+  - include/sgl_kenel_npu_ops.h
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+  - tests/python/sgl_kernel_npu/test_mamba_state_update.py
+- number: 434
+  title: Enhance the generality of kernels merge_16x16_to_64x64_inverse_kernel_reorder_all_masked and _layer_norm_fwd_1pass_kernel_npu
+  date: '2026-04-09'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+- number: 532
+  title: add a5 mxfp8 for dispatch normal
+  date: '2026-06-09'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, quant)'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - build.sh
+  - csrc/deepep/CMakeLists.txt
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - csrc/deepep/ops/common.h
+  - csrc/deepep/ops/op_host/CMakeLists.txt
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_a5.h
+  - csrc/deepep/ops/op_kernel/common.h
+  - csrc/deepep/ops/op_kernel/quantize_functions.h
+  - csrc/deepep/ops/quantize_functions.h
+  - csrc/deepep/pytorch_npu_helper.hpp
+  - python/deep_ep/deep_ep/strategies/normal_strategy.py
+  - tests/python/deepep/test_intranode.py
+  - tests/python/deepep/utils.py
+- number: 373
+  title: GLM
+  date: '2026-02-11'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rope)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/fused_rope_qk_mqa.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/fused_split_qk_norm.py
+- number: 442
+  title: 'feat: add apply_token_bitmask operator'
+  date: '2026-04-29'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (bitmask)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/apply_token_bitmask/op_host/apply_token_bitmask.cpp
+  - csrc/apply_token_bitmask/op_kernel/apply_token_bitmask.cpp
+  - csrc/pytorch_extensions.cpp
+  - include/sgl_kenel_npu_ops.h
+  - tests/python/sgl_kernel_npu/test_apply_token_bitmask.py
+- number: 467
+  title: Adaptation of the Deepep A5 normal and low-latency operators.
+  date: '2026-05-14'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - .gitignore
+  - CMakeLists.txt
+  - build.sh
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/ops/CMakeLists.txt
+  - csrc/deepep/ops/CMakePresets.json
+  - csrc/deepep/ops/build.sh
+  - csrc/deepep/ops/func.cmake
+  - csrc/deepep/ops/op_host/CMakeLists.txt
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops/op_host/dispatch_layout.cpp
+  - csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+  - csrc/deepep/ops/op_host/mc2_hcom_topo_info.h
+  - csrc/deepep/ops/op_host/mc2_tiling_utils.h
+  - csrc/deepep/ops/op_host/moe_distribute_combine_v2_def.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+  - csrc/deepep/ops/op_host/notify_dispatch.cpp
+  - csrc/deepep/ops/op_host/notify_dispatch_tiling.cc
+  - csrc/deepep/ops/op_host/op_api/aclnn_dispatch_ffn_combine.cpp
+  - csrc/deepep/ops/op_kernel/CMakeLists.txt
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal_a5.h
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_a5.h
+  - csrc/deepep/ops/op_kernel/common.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_fullload_dynamic_quant.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_fullload_quant.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_fullload_quant_base.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_gather_dynamic_quant.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_gather_quant.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_init_routing_fullload.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_mrgsort_out.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_sort_multi_core.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_sort_one_core.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_src_to_dst_and_gather.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_src_to_dst_op.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_base.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2_a5.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.cpp
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_v2_base.h
+  - csrc/deepep/ops/op_kernel/notify_dispatch.cpp
+- number: 445
+  title: Add conv1d update mtp triton kernel. Adapt speculative decoding for update
+  date: '2026-04-22'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (conv1d, mamba, triton)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+  - tests/python/sgl_kernel_npu/test_mamba_conv.py
+- number: 428
+  title: Fix conv1d update state shift
+  date: '2026-04-09'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (conv1d)'
+  files_changed:
+  - csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+  - csrc/pytorch_extensions.cpp
+  - tests/python/sgl_kernel_npu/test_conv1d_update.py
+- number: 400
+  title: add fused_deep_moe test for dispatch_ffn_combine
+  date: '2026-05-14'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - tests/python/deepep/test_dispatch_ffn_combine.py
+  - tests/python/deepep/test_fused_deep_moe.py
+- number: 436
+  title: Fix low_latency dispatch&combine checks with bs condition
+  date: '2026-04-28'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.h
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+  - csrc/deepep/ops2/op_host/moe_distribute_dispatch_v2_tiling.cc
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_single.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_single.h
+- number: 417
+  title: Init SGLang Ascend Agent structure
+  date: '2026-06-02'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - .opencode/ARCHITECTURE.md
+  - .opencode/docs/knowledge_base/README.md
+  - .opencode/docs/longterm/README.md
+  - .opencode/docs/sessions/README.md
+  - .opencode/skills/planning-with-files/SKILL.md
+  - .opencode/skills/planning-with-files/examples.md
+  - .opencode/skills/planning-with-files/reference.md
+  - .opencode/skills/planning-with-files/templates/findings.md
+  - .opencode/skills/planning-with-files/templates/progress.md
+  - .opencode/skills/planning-with-files/templates/task_plan.md
+  - .opencode/templates/findings.md
+  - .opencode/templates/progress.md
+  - .opencode/templates/task_plan.md
+- number: 422
+  title: adpat move_intermediate_cache for sglang prefix + mtp
+  date: '2026-04-03'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (mamba, cache, triton)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+  - tests/python/sgl_kernel_npu/test_mamba_state_update.py
+- number: 407
+  title: add kernel conv1d_update
+  date: '2026-03-31'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (conv1d)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/causal_conv1d_update/CMakeLists.txt
+  - csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+  - csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+  - csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h
+  - csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h
+  - csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+  - csrc/pytorch_extensions.cpp
+  - tests/python/sgl_kernel_npu/test_conv1d_update.py
+- number: 389
+  title: Supports batched causal_conv1d
+  date: '2026-03-11'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (conv1d, mamba)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+- number: 415
+  title: Add and update kernel for Wan
+  date: '2026-04-29'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/rmsnorm_split.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/scale_shift.py
+  - tests/python/sgl_kernel_npu/test_rmsnorm_split.py
+  - tests/python/sgl_kernel_npu/test_scale_shift.py
+- number: 372
+  title: Add scripts for building CMake files
+  date: '2026-04-29'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep)'
+  files_changed:
+  - build.sh
+  - csrc/deepep/AddCustom.json
+  - csrc/deepep/build.sh
+  - csrc/deepep/compile_ascend_proj.sh
+  - csrc/deepep/ops/CMakeLists.txt
+  - csrc/deepep/ops/cmake/config.cmake
+  - csrc/deepep/ops/cmake/device_task.cmake
+  - csrc/deepep/ops/cmake/intf.cmake
+  - csrc/deepep/ops/cmake/makeself.cmake
+  - csrc/deepep/ops/cmake/util/__init__.py
+  - csrc/deepep/ops/cmake/util/ascendc_bin_param_build.py
+  - csrc/deepep/ops/cmake/util/ascendc_compile_kernel.py
+  - csrc/deepep/ops/cmake/util/ascendc_gen_options.py
+  - csrc/deepep/ops/cmake/util/ascendc_get_op_name.py
+  - csrc/deepep/ops/cmake/util/ascendc_impl_build.py
+  - csrc/deepep/ops/cmake/util/ascendc_op_info.py
+  - csrc/deepep/ops/cmake/util/ascendc_ops_config.py
+  - csrc/deepep/ops/cmake/util/ascendc_pack_kernel.py
+  - csrc/deepep/ops/cmake/util/ascendc_pack_opregistry.py
+  - csrc/deepep/ops/cmake/util/ascendc_replay_build.py
+  - csrc/deepep/ops/cmake/util/batch_replay_impl.temp
+  - csrc/deepep/ops/cmake/util/code_channel_infer.py
+  - csrc/deepep/ops/cmake/util/const_var.py
+  - csrc/deepep/ops/cmake/util/gen_impl_and_mrege_json.sh
+  - csrc/deepep/ops/cmake/util/gen_ops_filter.sh
+  - csrc/deepep/ops/cmake/util/gen_version_info.sh
+  - csrc/deepep/ops/cmake/util/insert_op_info.py
+  - csrc/deepep/ops/cmake/util/insert_simplified_keys.py
+  - csrc/deepep/ops/cmake/util/kernel_entry.py
+  - csrc/deepep/ops/cmake/util/kernel_impl.temp
+  - csrc/deepep/ops/cmake/util/makeself/COPYING
+  - csrc/deepep/ops/cmake/util/makeself/README.md
+  - csrc/deepep/ops/cmake/util/makeself/VERSION
+  - csrc/deepep/ops/cmake/util/makeself/make-release.sh
+  - csrc/deepep/ops/cmake/util/makeself/makeself-header.sh
+  - csrc/deepep/ops/cmake/util/makeself/makeself.1
+  - csrc/deepep/ops/cmake/util/makeself/makeself.lsm
+  - csrc/deepep/ops/cmake/util/makeself/makeself.sh
+  - csrc/deepep/ops/cmake/util/makeself/run-tests.sh
+  - csrc/deepep/ops/cmake/util/merge_aicpu_info_json.sh
+  - csrc/deepep/ops/cmake/util/opdesc_parser.py
+  - csrc/deepep/ops/cmake/util/parse_ini_to_json.py
+  - csrc/deepep/ops/cmake/util/preset_parse.py
+  - csrc/deepep/ops/cmake/util/replay_codegen.py
+  - csrc/deepep/ops/cmake/util/replay_impl.temp
+  - csrc/deepep/ops/cmake/util/tiling_data_def_build.py
+  - csrc/deepep/ops/func.cmake
+  - csrc/deepep/ops2/CMakeLists.txt
+  - csrc/deepep/ops2/cmake/config.cmake
+  - csrc/deepep/ops2/cmake/device_task.cmake
+- number: 390
+  title: '[feat] add Split qkv rms norm half rope op'
+  date: '2026-03-11'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope, cache)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+- number: 358
+  title: add multi node test ci on a2
+  date: '2026-03-05'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/internode.yml
+  - .github/workflows/pr-test-npu.yml
+  - tests/python/deepep/k8s_multi.yaml.jinja2
+  - tests/python/deepep/run_ascend_ci.py
+  - tests/python/deepep/run_ascend_testcase.sh
+  - tests/python/deepep/test_internode_a2.py
+  - tests/python/deepep/test_internode_a2_set_env.py
+- number: 344
+  title: Add scripts for building CMake files
+  date: '2026-01-29'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep)'
+  files_changed:
+  - build.sh
+  - csrc/deepep/AddCustom.json
+  - csrc/deepep/build.sh
+  - csrc/deepep/compile_ascend_proj.sh
+  - csrc/deepep/ops/CMakeLists.txt
+  - csrc/deepep/ops/cmake/config.cmake
+  - csrc/deepep/ops/cmake/device_task.cmake
+  - csrc/deepep/ops/cmake/intf.cmake
+  - csrc/deepep/ops/cmake/makeself.cmake
+  - csrc/deepep/ops/cmake/util/__init__.py
+  - csrc/deepep/ops/cmake/util/ascendc_bin_param_build.py
+  - csrc/deepep/ops/cmake/util/ascendc_compile_kernel.py
+  - csrc/deepep/ops/cmake/util/ascendc_gen_options.py
+  - csrc/deepep/ops/cmake/util/ascendc_get_op_name.py
+  - csrc/deepep/ops/cmake/util/ascendc_impl_build.py
+  - csrc/deepep/ops/cmake/util/ascendc_op_info.py
+  - csrc/deepep/ops/cmake/util/ascendc_ops_config.py
+  - csrc/deepep/ops/cmake/util/ascendc_pack_kernel.py
+  - csrc/deepep/ops/cmake/util/ascendc_pack_opregistry.py
+  - csrc/deepep/ops/cmake/util/ascendc_replay_build.py
+  - csrc/deepep/ops/cmake/util/batch_replay_impl.temp
+  - csrc/deepep/ops/cmake/util/code_channel_infer.py
+  - csrc/deepep/ops/cmake/util/const_var.py
+  - csrc/deepep/ops/cmake/util/gen_impl_and_mrege_json.sh
+  - csrc/deepep/ops/cmake/util/gen_ops_filter.sh
+  - csrc/deepep/ops/cmake/util/gen_version_info.sh
+  - csrc/deepep/ops/cmake/util/insert_op_info.py
+  - csrc/deepep/ops/cmake/util/insert_simplified_keys.py
+  - csrc/deepep/ops/cmake/util/kernel_entry.py
+  - csrc/deepep/ops/cmake/util/kernel_impl.temp
+  - csrc/deepep/ops/cmake/util/makeself/COPYING
+  - csrc/deepep/ops/cmake/util/makeself/README.md
+  - csrc/deepep/ops/cmake/util/makeself/VERSION
+  - csrc/deepep/ops/cmake/util/makeself/make-release.sh
+  - csrc/deepep/ops/cmake/util/makeself/makeself-header.sh
+  - csrc/deepep/ops/cmake/util/makeself/makeself.1
+  - csrc/deepep/ops/cmake/util/makeself/makeself.lsm
+  - csrc/deepep/ops/cmake/util/makeself/makeself.sh
+  - csrc/deepep/ops/cmake/util/makeself/run-tests.sh
+  - csrc/deepep/ops/cmake/util/merge_aicpu_info_json.sh
+  - csrc/deepep/ops/cmake/util/opdesc_parser.py
+  - csrc/deepep/ops/cmake/util/parse_ini_to_json.py
+  - csrc/deepep/ops/cmake/util/preset_parse.py
+  - csrc/deepep/ops/cmake/util/replay_codegen.py
+  - csrc/deepep/ops/cmake/util/replay_impl.temp
+  - csrc/deepep/ops/cmake/util/tiling_data_def_build.py
+  - csrc/deepep/ops/func.cmake
+  - csrc/deepep/ops2/CMakeLists.txt
+  - csrc/deepep/ops2/cmake/config.cmake
+  - csrc/deepep/ops2/cmake/device_task.cmake
+- number: 327
+  title: Deepep adapt custom cann installation path
+  date: '2026-01-19'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep)'
+  files_changed:
+  - CMakeLists.txt
+  - csrc/deepep/ops/CMakeLists.txt
+  - csrc/deepep/ops/CMakePresets.json
+  - csrc/deepep/ops/cmake/func.cmake
+  - csrc/deepep/ops2/CMakeLists.txt
+  - csrc/deepep/ops2/CMakePresets.json
+  - csrc/deepep/ops2/cmake/func.cmake
+- number: 326
+  title: '[Chore] CANN version bump to 8.5.0'
+  date: '2026-01-19'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/build_and_release.yml
+  - scripts/npu_ci_install_dependency.sh
+- number: 311
+  title: feat:add performance compare
+  date: '2026-01-12'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - tests/python/deepep/test_performance_compare.py
+- number: 284
+  title: 'LoRA: Optimization LoRA kernels and refactoring'
+  date: '2026-01-01'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (lora, gemm)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/lora/op_host/bgmv_expand.cpp
+  - csrc/lora/op_host/bgmv_shrink.cpp
+  - csrc/lora/op_host/sgemmv_expand.cpp
+  - csrc/lora/op_host/sgemmv_shrink.cpp
+  - csrc/lora/op_host/sgmv_expand.cpp
+  - csrc/lora/op_host/sgmv_shrink.cpp
+  - csrc/lora/op_kernel/sgemmv_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgemmv_shrink_kernel.cpp
+  - csrc/pytorch_extensions.cpp
+  - include/sgl_kenel_npu_ops.h
+  - tests/python/sgl_kernel_npu/test_lora_kernels.py
+  - tests/python/sgl_kernel_npu/utils.py
+- number: 315
+  title: Modify contribution guide
+  date: '2026-01-14'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - csrc/helloworld/README.md
+  - docs/developer_guide/contribution_guide.md
+- number: 396
+  title: add dispatch_ffn_combine kernel for deepep
+  date: '2026-03-12'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine, swiglu)'
+  files_changed:
+  - csrc/deepep/ops/build.sh
+  - csrc/deepep/ops/op_host/dispatch_ffn_combine_def.cpp
+  - csrc/deepep/ops/op_host/dispatch_ffn_combine_infer.cpp
+  - csrc/deepep/ops/op_host/dispatch_ffn_combine_tiling.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_dispatch_ffn_combine.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_dispatch_ffn_combine.h
+  - csrc/deepep/ops/op_kernel/CMakeLists.txt
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine.cpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_quant_v2.cpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_quant_v2_tiling.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_v2_tiling.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_common.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_expert_token_out.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_fullload_dynamic_quant.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_fullload_quant.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_fullload_quant_base.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_gather_dynamic_quant.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_gather_out.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_gather_quant.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_init_routing_fullload.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_mrgsort.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_mrgsort_out.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_sort_base.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_sort_multi_core.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_sort_one_core.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_src_to_dst_and_gather.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_src_to_dst_op.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_v2_src_to_dst_with_capacity.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/tiling_base.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/unpermute/moe_token_unpermute.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/unpermute/moe_token_unpermute_tiling.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/block_epilogue_pertoken_row.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/block_epilogue_pertoken_swiglu.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/block_epilogue_pertoken_v2.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/block_mmad_preload_async_fixpipe_quant.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/const_args.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/copy_gm_to_l1_custom.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/copy_l0c_to_gm_custom.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/dispatch_policy_custom.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/get_tensor_addr.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/hccl_shmem.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/layout3d.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/moe_distribute_base.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/utils/select_helper.hpp
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_tiling.h
+- number: 339
+  title: (test) add solve_tril from upstream
+  date: '2026-01-22'
+  decision: defer
+  reason: test-only SGL kernel coverage; useful context but no implementation diff
+  files_changed:
+  - tests/python/sgl_kernel_npu/test_solve_tril.py
+- number: 345
+  title: '[Doc] Improved README.md content and English grammar and integrated the DeepWiki badge for Ask AI'
+  date: '2026-01-26'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - README.md
+- number: 196
+  title: Add alloc_extend_kernel
+  date: '2025-11-27'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (cache)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/mem_cache/allocator.py
+- number: 353
+  title: Revert "Add scripts for building CMake files"
+  date: '2026-01-29'
+  decision: exclude
+  reason: revert/removal of earlier kernel change; not a durable knowledge source
+  files_changed:
+  - build.sh
+  - csrc/deepep/AddCustom.json
+  - csrc/deepep/build.sh
+  - csrc/deepep/compile_ascend_proj.sh
+  - csrc/deepep/ops/CMakeLists.txt
+  - csrc/deepep/ops/cmake/config.cmake
+  - csrc/deepep/ops/cmake/device_task.cmake
+  - csrc/deepep/ops/cmake/func.cmake
+  - csrc/deepep/ops/cmake/intf.cmake
+  - csrc/deepep/ops/cmake/makeself.cmake
+  - csrc/deepep/ops/cmake/util/__init__.py
+  - csrc/deepep/ops/cmake/util/ascendc_bin_param_build.py
+  - csrc/deepep/ops/cmake/util/ascendc_compile_kernel.py
+  - csrc/deepep/ops/cmake/util/ascendc_gen_options.py
+  - csrc/deepep/ops/cmake/util/ascendc_get_op_name.py
+  - csrc/deepep/ops/cmake/util/ascendc_impl_build.py
+  - csrc/deepep/ops/cmake/util/ascendc_op_info.py
+  - csrc/deepep/ops/cmake/util/ascendc_ops_config.py
+  - csrc/deepep/ops/cmake/util/ascendc_pack_kernel.py
+  - csrc/deepep/ops/cmake/util/ascendc_pack_opregistry.py
+  - csrc/deepep/ops/cmake/util/ascendc_replay_build.py
+  - csrc/deepep/ops/cmake/util/batch_replay_impl.temp
+  - csrc/deepep/ops/cmake/util/code_channel_infer.py
+  - csrc/deepep/ops/cmake/util/const_var.py
+  - csrc/deepep/ops/cmake/util/gen_impl_and_mrege_json.sh
+  - csrc/deepep/ops/cmake/util/gen_ops_filter.sh
+  - csrc/deepep/ops/cmake/util/gen_version_info.sh
+  - csrc/deepep/ops/cmake/util/insert_op_info.py
+  - csrc/deepep/ops/cmake/util/insert_simplified_keys.py
+  - csrc/deepep/ops/cmake/util/kernel_entry.py
+  - csrc/deepep/ops/cmake/util/kernel_impl.temp
+  - csrc/deepep/ops/cmake/util/makeself/COPYING
+  - csrc/deepep/ops/cmake/util/makeself/README.md
+  - csrc/deepep/ops/cmake/util/makeself/VERSION
+  - csrc/deepep/ops/cmake/util/makeself/make-release.sh
+  - csrc/deepep/ops/cmake/util/makeself/makeself-header.sh
+  - csrc/deepep/ops/cmake/util/makeself/makeself.1
+  - csrc/deepep/ops/cmake/util/makeself/makeself.lsm
+  - csrc/deepep/ops/cmake/util/makeself/makeself.sh
+  - csrc/deepep/ops/cmake/util/makeself/run-tests.sh
+  - csrc/deepep/ops/cmake/util/merge_aicpu_info_json.sh
+  - csrc/deepep/ops/cmake/util/opdesc_parser.py
+  - csrc/deepep/ops/cmake/util/parse_ini_to_json.py
+  - csrc/deepep/ops/cmake/util/preset_parse.py
+  - csrc/deepep/ops/cmake/util/replay_codegen.py
+  - csrc/deepep/ops/cmake/util/replay_impl.temp
+  - csrc/deepep/ops/cmake/util/tiling_data_def_build.py
+  - csrc/deepep/ops2/CMakeLists.txt
+  - csrc/deepep/ops2/cmake/config.cmake
+  - csrc/deepep/ops2/cmake/device_task.cmake
+- number: 274
+  title: ' Build the deepep package with the chip model included.'
+  date: '2026-02-03'
+  decision: defer
+  reason: DeepEP host/API/docs change without direct op_kernel diff; keep for manual review
+  files_changed:
+  - python/deep_ep/setup.py
+- number: 332
+  title: Add AscendC triangular inverse
+  date: '2026-01-22'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (fla)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/pytorch_extensions.cpp
+  - csrc/tri_inv/README.md
+  - csrc/tri_inv/op_host/tiling_tri_inv.h
+  - csrc/tri_inv/op_host/tri_inv.cpp
+  - csrc/tri_inv/op_kernel/kernel_tri_inv.h
+  - csrc/tri_inv/op_kernel/tri_inv_kernel.cpp
+  - include/sgl_kenel_npu_ops.h
+  - python/sgl_kernel_npu/setup.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+  - tests/python/sgl_kernel_npu/test_gated_delta_ascendc_tri_inv.py
+  - tests/python/sgl_kernel_npu/test_triangular_inverse.py
+- number: 187
+  title: Modify deepep README_CN.md
+  date: '2025-11-27'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - python/deep_ep/README.md
+  - python/deep_ep/README_CN.md
+- number: 540
+  title: '[DeepEP] refactors Buffer to use strategy abstraction'
+  date: '2026-06-09'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - python/deep_ep/deep_ep/__init__.py
+  - python/deep_ep/deep_ep/alltoall.py
+  - python/deep_ep/deep_ep/buffer.py
+  - python/deep_ep/deep_ep/ep_strategy.py
+  - python/deep_ep/deep_ep/strategies/__init__.py
+  - python/deep_ep/deep_ep/strategies/low_latency_strategy.py
+  - python/deep_ep/deep_ep/strategies/normal_strategy.py
+  - tests/python/deepep/test_low_latency.py
+  - tests/python/deepep/test_normal_and_low_latency.py
+- number: 479
+  title: rollback build cache and cann 9.0.0
+  date: '2026-05-18'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/build_and_release.yml
+  - .github/workflows/daily-build-test.yml
+  - .github/workflows/pr-test-npu.yml
+- number: 471
+  title: '[CI] Remove CANN 8.3.rc2 from build matrix'
+  date: '2026-05-12'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/build_and_release.yml
+  - .github/workflows/pr-test-npu.yml
+- number: 473
+  title: revise interface for ta3.21
+  date: '2026-05-14'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope, conv1d, mamba)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/rmsnorm_bias.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/sample/verify_tree_greedy.py
+- number: 426
+  title: Fix license from CANN
+  date: '2026-04-07'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes'
+  files_changed:
+  - csrc/utils/common.h
+  - csrc/utils/defines.h
+  - csrc/utils/torch_helper.h
+  - csrc/utils/version.h
+- number: 519
+  title: 【DeepEP】Modification of the text description in the readme
+  date: '2026-06-08'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep)'
+  files_changed:
+  - build.sh
+  - csrc/deepep/ops/op_host/CMakeLists.txt
+  - python/deep_ep/A2_DEEPEP_CN.md
+  - python/deep_ep/README.md
+  - python/deep_ep/README_CN.md
+- number: 514
+  title: added new commands to README.md and README_CN.md
+  date: '2026-05-28'
+  decision: defer
+  reason: DeepEP host/API/docs change without direct op_kernel diff; keep for manual review
+  files_changed:
+  - build.sh
+  - python/deep_ep/README.md
+  - python/deep_ep/README_CN.md
+- number: 354
+  title: '[Bugfix] Fix build script working with cann 8.5.0'
+  date: '2026-01-30'
+  decision: exclude
+  reason: build/config/dependency maintenance only; not direct kernel content
+  files_changed:
+  - .github/workflows/build_and_release.yml
+  - build.sh
+  - scripts/npu_ci_install_dependency.sh
+- number: 316
+  title: fix bmm transpose in cann 8.5
+  date: '2026-01-14'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (matmul)'
+  files_changed:
+  - csrc/batch_matmul_transpose/op_kernel/batch_matmul_transpose_kernel.cpp
+- number: 283
+  title: Support build with cann 8.5
+  date: '2026-01-05'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep)'
+  files_changed:
+  - build.sh
+  - csrc/deepep/ops/op_host/error_log.h
+  - csrc/deepep/ops/utils/op_host/error_log.h
+  - csrc/deepep/ops2/op_host/error_log.h
+  - csrc/deepep/ops2/utils/op_host/error_log.h
+- number: 188
+  title: fix cann version check
+  date: '2025-11-17'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+  - csrc/deepep/ops2/op_host/moe_distribute_dispatch_v2_tiling.cc
+  - csrc/deepep/ops2/op_host/notify_dispatch_tiling_a2.cc
+- number: 294
+  title: Supplement A2 doc, software and hardware compatibility info
+  date: '2026-01-07'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - python/deep_ep/A2_DEEPEP_CN.md
+- number: 225
+  title: Add cann path to LD_LIBRARY_PATH
+  date: '2025-12-02'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - scripts/release_ci_dependency.sh
+- number: 195
+  title: '[Chore] Upgrade CANN to 8.3.RC1'
+  date: '2025-11-19'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+- number: 171
+  title: add layout to ops2 directory
+  date: '2025-11-07'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep, dispatch)'
+  files_changed:
+  - csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+  - csrc/deepep/ops/op_kernel/dispatch_layout_a2.h
+  - csrc/deepep/ops2/cmake/func.cmake
+  - csrc/deepep/ops2/op_host/CMakeLists.txt
+  - csrc/deepep/ops2/op_host/dispatch_layout.cpp
+  - csrc/deepep/ops2/op_host/dispatch_layout_tiling.cc
+  - csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.h
+  - csrc/deepep/ops2/op_kernel/dispatch_layout.cpp
+  - csrc/deepep/ops2/op_kernel/dispatch_layout.h
+  - csrc/deepep/ops2/op_kernel/dispatch_layout_a2.h
+  - csrc/deepep/ops2/op_kernel/dispatch_layout_tiling.h
+- number: 178
+  title: optimize deepep setup, package name with cann version
+  date: '2025-11-13'
+  decision: defer
+  reason: DeepEP host/API/docs change without direct op_kernel diff; keep for manual review
+  files_changed:
+  - python/deep_ep/setup.py
+- number: 200
+  title: add catlass ops demo
+  date: '2025-12-01'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (matmul)'
+  files_changed:
+  - CMakeLists.txt
+  - csrc/CMakeLists.txt
+  - csrc/catlass/README.md
+  - csrc/catlass/op_host/catlass_matmul_basic.cpp
+  - csrc/catlass/op_host/catlass_matmul_tiling.h
+  - csrc/catlass/op_kernel/catlass_matmul_basic_kernel.cpp
+  - csrc/pytorch_extensions.cpp
+  - include/sgl_kenel_npu_ops.h
+  - tests/python/sgl_kernel_npu/test_catlass_matmul_basic.py
+- number: 228
+  title: try Fixing missing.so files
+  date: '2025-12-02'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/release.yml
+  - scripts/release_ci_dependency.sh
+- number: 163
+  title: support kvcacheio
+  date: '2025-11-05'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (cache)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/kvcacheio.py
+  - tests/python/sgl_kernel_npu/test_transfer_kv_dim_exchange.py
+- number: 273
+  title: prepare build and release for a2
+  date: '2025-12-24'
+  decision: exclude
+  reason: build/config/dependency maintenance only; not direct kernel content
+  files_changed:
+  - .github/workflows/build_and_release.yml
+  - config.ini
+  - scripts/build_and_release.sh
+  - scripts/npu_ci_install_dependency.sh
+- number: 215
+  title: Add release package dependencies
+  date: '2025-12-01'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/release.yml
+  - scripts/release_ci_dependency.sh
+- number: 231
+  title: debug deepep build
+  date: '2025-12-05'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/release.yml
+  - scripts/release_ci_dependency.sh
+- number: 13
+  title: set ABI to adapt to different torch_npu versions
+  date: '2025-07-31'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - csrc/CMakeLists.txt
+- number: 86
+  title: Compilation warnings pending cleanup
+  date: '2025-09-16'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (deepep)'
+  files_changed:
+  - csrc/deepep/pytorch_npu_helper.hpp
+  - csrc/mla_preprocess/op_host/mla_preprocess.cpp
+- number: 399
+  title: add recurrent_gated_delta_rule kernel
+  date: '2026-03-30'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/pytorch_extensions.cpp
+  - csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+  - csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+  - csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+  - include/sgl_kenel_npu_ops.h
+  - tests/python/sgl_kernel_npu/test_recurrent_gated_delta_rule.py
+- number: 406
+  title: 'fix(mamba): clamp negative gather indices in causal_conv1d final_states'
+  date: '2026-03-26'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (conv1d, mamba)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+- number: 370
+  title: 'revise causal_conv1d: bugfix and enhance accuracy for model kimilinear'
+  date: '2026-02-28'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (conv1d, mamba)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+- number: 384
+  title: 'LoRA: Implementing kernels using CUBE computation unit'
+  date: '2026-04-08'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (mamba, lora, gemm, triton, cube)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/lora/op_host/sgemmc_expand.cpp
+  - csrc/lora/op_host/sgemmc_shrink.cpp
+  - csrc/lora/op_host/tiling/sgemmc_tiling.cpp
+  - csrc/lora/op_host/tiling/sgemmc_tiling.h
+  - csrc/lora/op_host/tiling/sgemmc_tiling_data.h
+  - csrc/lora/op_kernel/lora_common_kernel.h
+  - csrc/lora/op_kernel/sgemmc_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgemmc_shrink_kernel.cpp
+  - csrc/lora/op_kernel/sgemmv_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgemmv_shrink_kernel.cpp
+  - csrc/lora/op_kernel/sgmv_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgmv_shrink_kernel.cpp
+  - csrc/pytorch_extensions.cpp
+  - csrc/utils/common_tiling.h
+  - csrc/utils/kernel/common_tiling_kernel.h
+  - csrc/utils/torch_helper.h
+  - include/sgl_kenel_npu_ops.h
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+  - tests/python/sgl_kernel_npu/test_mamba_state_update.py
+- number: 393
+  title: add fused scale shift kernel
+  date: '2026-03-12'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope, cache)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/scale_shift.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+  - tests/python/sgl_kernel_npu/test_scale_shift.py
+- number: 376
+  title: update mix test and low lantency test for dynamic-tokens.
+  date: '2026-03-04'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - tests/python/deepep/test_low_latency.py
+  - tests/python/deepep/test_normal_and_low_latency.py
+- number: 336
+  title: add deepep normal api doc
+  date: '2026-01-21'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - python/deep_ep/doc/NORMAL_API.md
+- number: 306
+  title: optimize gdn gating and fused_qkvzba_split_reshape_cat
+  date: '2026-01-07'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (gdn, fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/fused_gdn_gating.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/utils.py
+- number: 310
+  title: support add_gemma_rms_norm
+  date: '2026-01-09'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, gemm)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
+  - tests/python/sgl_kernel_npu/test_add_rmsnorm_bias.py
+- number: 148
+  title: add op transfer_kv_dim_exchange
+  date: '2025-10-29'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/pytorch_extensions.cpp
+  - csrc/transfer_kv_dim_exchange/op_host/transfer_kv_dim_exchange.cpp
+  - include/sgl_kenel_npu_ops.h
+  - tests/python/sgl_kernel_npu/test_transfer_kv_dim_exchange.py
+- number: 298
+  title: ZBCCL code skeleton part3
+  date: '2026-01-04'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - contrib/zbccl/src/csrc/sma/zbccl_sma.h
+  - contrib/zbccl/src/csrc/sma/zbccl_sma_config.cpp
+  - contrib/zbccl/src/csrc/sma/zbccl_sma_config.h
+  - contrib/zbccl/src/csrc/sma/zbccl_sma_device.cpp
+  - contrib/zbccl/src/csrc/sma/zbccl_sma_device.h
+  - contrib/zbccl/src/csrc/sma/zbccl_sma_device_block_pool.cpp
+  - contrib/zbccl/src/csrc/sma/zbccl_sma_device_block_pool.h
+  - contrib/zbccl/src/csrc/sma/zbccl_sma_multi_device.cpp
+  - contrib/zbccl/src/csrc/sma/zbccl_sma_multi_device.h
+- number: 68
+  title: Solve the mlapo operator's precision anomaly in acl graph
+  date: '2025-09-03'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes'
+  files_changed:
+  - csrc/mla_preprocess/op_host/mla_preprocess.cpp
+- number: 74
+  title: torch memory saver for npu.
+  date: '2025-09-08'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - build.sh
+  - contrib/torch_memory_saver/README.md
+  - contrib/torch_memory_saver/csrc/api_forwarder.cpp
+  - contrib/torch_memory_saver/csrc/api_forwarder.h
+  - contrib/torch_memory_saver/csrc/core.cpp
+  - contrib/torch_memory_saver/csrc/core.h
+  - contrib/torch_memory_saver/csrc/entrypoint.cpp
+  - contrib/torch_memory_saver/csrc/utils.h
+  - contrib/torch_memory_saver/python/setup.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/__init__.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/binary_wrapper.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/entrypoint.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/hooks/__init__.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/hooks/base.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/hooks/mode_preload.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/hooks/mode_torch.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/testing_utils.py
+  - contrib/torch_memory_saver/python/torch_memory_saver/utils.py
+  - contrib/torch_memory_saver/test/cpu_backup.py
+  - contrib/torch_memory_saver/test/multi_device.py
+  - contrib/torch_memory_saver/test/rl_example.py
+  - contrib/torch_memory_saver/test/simple.py
+- number: 420
+  title: add Conv1d prefill ops
+  date: '2026-04-02'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (conv1d)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/causal_conv1d/op_host/causal_conv1d.cpp
+  - csrc/causal_conv1d/op_host/causal_conv1d.h
+  - csrc/causal_conv1d/op_host/stub/aclrtlaunch_causal_conv1d_bfloat16_t.h
+  - csrc/causal_conv1d/op_host/stub/aclrtlaunch_causal_conv1d_half.h
+  - csrc/causal_conv1d/op_host/tiling/causal_conv1d_tiling.h
+  - csrc/causal_conv1d/op_kernel/causal_conv1d.cpp
+  - csrc/causal_conv1d/op_kernel/causal_conv1d.h
+  - csrc/causal_conv1d/op_kernel/causal_conv1d_common.h
+  - csrc/causal_conv1d/op_kernel/causal_conv1d_tiling_data.h
+  - csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+  - csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+  - csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+  - csrc/pytorch_extensions.cpp
+  - tests/python/sgl_kernel_npu/test_conv1d_prefill.py
+- number: 318
+  title: Integrate ccache for faster compilation
+  date: '2026-01-16'
+  decision: exclude
+  reason: build/config/dependency maintenance only; not direct kernel content
+  files_changed:
+  - CMakeLists.txt
+  - build.sh
+- number: 291
+  title: fix notify magic auto-increment bug
+  date: '2025-12-31'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep, dispatch)'
+  files_changed:
+  - csrc/deepep/ops2/op_kernel/notify_dispatch_a2.h
+- number: 362
+  title: adapt ant moving to A2 single machine
+  date: '2026-02-05'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops2/op_host/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops2/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops2/op_host/dispatch_layout_tiling.cc
+  - csrc/deepep/ops2/op_host/mc2_tiling_utils.h
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+  - csrc/deepep/ops2/op_host/moe_distribute_dispatch_v2_tiling.cc
+  - csrc/deepep/ops2/op_host/notify_dispatch_tiling.cc
+  - csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.h
+  - csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.h
+  - csrc/deepep/ops2/op_host/tiling_args.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal_multi_round.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal_tiling.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.h
+  - csrc/deepep/ops2/op_kernel/check_winsize.h
+  - csrc/deepep/ops2/op_kernel/comm_args.h
+  - csrc/deepep/ops2/op_kernel/dispatch_layout.h
+  - csrc/deepep/ops2/op_kernel/notify_dispatch.cpp
+  - csrc/deepep/ops2/op_kernel/notify_dispatch.h
+  - csrc/deepep/ops2/op_kernel/notify_dispatch_tiling.h
+- number: 329
+  title: The environment variable DEEPEP_HCCL_BUFFSIZE is added
+  date: '2026-01-22'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+  - csrc/deepep/ops/op_host/mc2_tiling_utils.h
+  - csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops2/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
+  - csrc/deepep/ops2/op_host/mc2_tiling_utils.h
+  - csrc/deepep/ops2/op_host/notify_dispatch_tiling.cc
+  - csrc/deepep/ops2/op_host/notify_dispatch_tiling_a2.cc
+- number: 82
+  title: mlapo fit different hidden state dim
+  date: '2025-10-14'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes'
+  files_changed:
+  - csrc/mla_preprocess/op_host/mla_preprocess.cpp
+  - csrc/mla_preprocess/op_host/tiling/mla_preprocess_tiling.h
+  - csrc/mla_preprocess/op_kernel/mla_preprocess.h
+  - csrc/mla_preprocess/op_kernel/mla_preprocess_mix_bf16.hpp
+  - csrc/mla_preprocess/op_kernel/mla_preprocess_mix_fp16.hpp
+- number: 287
+  title: Fix the performance degradation issue of the single-wheel operation in Ant Moving.
+  date: '2025-12-27'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops/op_host/tiling_args.h
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+  - csrc/deepep/ops/op_kernel/notify_dispatch.h
+- number: 182
+  title: support long cat on a3
+  date: '2025-11-26'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops/op_host/mc2_tiling_utils.h
+  - csrc/deepep/ops/op_host/moe_distribute_combine_v2_def.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+  - csrc/deepep/ops/op_host/notify_dispatch_tiling.cc
+  - csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_combine_v2.h
+  - csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_dispatch_v2.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_dispatch_v2.h
+  - csrc/deepep/ops/op_kernel/check_winsize.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_tiling.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2_tiling.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_tiling.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.cpp
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_tiling.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_v2_base.h
+  - tests/python/deepep/test_low_latency.py
+- number: 180
+  title: Support device with different counts of AICore (FusedDeepMoe operator)
+  date: '2025-11-14'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine, swiglu)'
+  files_changed:
+  - csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+  - csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  - csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+  - csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
+  - csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+- number: 29
+  title: '[feat] Add assign cache op'
+  date: '2025-08-25'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (cache)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/assign_cache_op/op_host/assign_cache.cpp
+  - csrc/assign_cache_op/op_host/tiling_data.h
+  - csrc/assign_cache_op/op_kernel/assign_cache_op.cpp
+  - csrc/pytorch_extensions.cpp
+  - include/sgl_kenel_npu_ops.h
+  - tests/python/sgl_kernel_npu/test_inplace_assign_cache.py
+- number: 116
+  title: EPLB for fused_deep_moe
+  date: '2025-10-14'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, swiglu, quant, gemm)'
+  files_changed:
+  - csrc/deepep/ops/op_host/fused_deep_moe.cpp
+  - csrc/deepep/ops/op_host/fused_deep_moe_infer.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_fused_deep_moe.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_fused_deep_moe.h
+  - csrc/deepep/ops/op_kernel/fused_deep_moe.cpp
+  - csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  - csrc/deepep/ops/utils/op_kernel/operator/catlass/act/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_multistage_workspace.hpp
+  - csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+- number: 43
+  title: alloc_extend for tokens slots alloc
+  date: '2025-08-27'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/alloc_extend/op_host/alloc_extend_tiling.cpp
+  - csrc/alloc_extend/op_host/alloc_extend_tiling.h
+  - csrc/alloc_extend/op_kernel/alloc_extend_kernel.cpp
+  - csrc/pytorch_extensions.cpp
+  - include/sgl_kenel_npu_ops.h
+  - tests/python/sgl_kernel_npu/test_alloc_extend_slot.py
+- number: 95
+  title: '[Feature] Add diagnostic modules to dispatch and combine'
+  date: '2025-09-19'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
+  - csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_dispatch_normal.h
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal_tiling.h
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_tiling.h
+  - python/deep_ep/deep_ep/buffer.py
+  - tests/python/deepep/test_intranode.py
+  - tests/python/deepep/utils.py
+- number: 77
+  title: '[feat] add batch_matmul_transpose op'
+  date: '2025-09-24'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (matmul, cache)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/batch_matmul_transpose/op_host/batch_matmul_transpose.cpp
+  - csrc/batch_matmul_transpose/op_host/tiling/tiling_data.cpp
+  - csrc/batch_matmul_transpose/op_host/tiling/tiling_data.h
+  - csrc/batch_matmul_transpose/op_kernel/batch_matmul_transpose_kernel.cpp
+  - csrc/cache_location_assign/op_host/cache_loc_assign.cpp
+  - csrc/pytorch_extensions.cpp
+  - csrc/utils/common.h
+  - csrc/utils/common_tiling.h
+  - csrc/utils/kernel/math_utils.h
+  - include/sgl_kenel_npu_ops.h
+  - tests/python/sgl_kernel_npu/test_batch_matmul_transpose.py
+- number: 51
+  title: Fusion operator for MLA Preprocess
+  date: '2025-08-27'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/mla_preprocess/op_host/mla_preprocess.cpp
+  - csrc/mla_preprocess/op_host/tiling/mla_preprocess_tiling.h
+  - csrc/mla_preprocess/op_kernel/kernel/common.h
+  - csrc/mla_preprocess/op_kernel/kernel/common_func.h
+  - csrc/mla_preprocess/op_kernel/kernel/hardware.h
+  - csrc/mla_preprocess/op_kernel/kernel/iterator.h
+  - csrc/mla_preprocess/op_kernel/kernel/iterators/gm_to_l1_iterator.inc
+  - csrc/mla_preprocess/op_kernel/kernel/iterators/gm_to_ub_iterator.inc
+  - csrc/mla_preprocess/op_kernel/kernel/iterators/l0c_to_gm_iterator.inc
+  - csrc/mla_preprocess/op_kernel/kernel/iterators/l0c_to_l1_iterator.inc
+  - csrc/mla_preprocess/op_kernel/kernel/iterators/l0c_to_ub_iterator.inc
+  - csrc/mla_preprocess/op_kernel/kernel/iterators/l1_to_bt_iterator.inc
+  - csrc/mla_preprocess/op_kernel/kernel/iterators/l1_to_fb_iterator.inc
+  - csrc/mla_preprocess/op_kernel/kernel/iterators/l1_to_l0_iterator.inc
+  - csrc/mla_preprocess/op_kernel/kernel/iterators/l1_to_ub_iterator.inc
+  - csrc/mla_preprocess/op_kernel/kernel/kernel_utils.h
+  - csrc/mla_preprocess/op_kernel/kernel/layout.h
+  - csrc/mla_preprocess/op_kernel/kernel/mem.h
+  - csrc/mla_preprocess/op_kernel/kernel/mma.h
+  - csrc/mla_preprocess/op_kernel/kernel/set_fpc.h
+  - csrc/mla_preprocess/op_kernel/kernel/simd.h
+  - csrc/mla_preprocess/op_kernel/kernel/utils.h
+  - csrc/mla_preprocess/op_kernel/mla_preprocess.h
+  - csrc/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp
+  - csrc/mla_preprocess/op_kernel/mla_preprocess_mix_bf16.hpp
+  - csrc/mla_preprocess/op_kernel/mla_preprocess_mix_fp16.hpp
+  - csrc/pytorch_extensions.cpp
+  - csrc/utils/torch_helper.h
+  - include/sgl_kenel_npu_ops.h
+- number: 176
+  title: deepep low_latency d&c support a2 single server
+  date: '2025-11-13'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+  - csrc/deepep/ops2/op_host/moe_distribute_dispatch_v2_tiling.cc
+  - csrc/deepep/ops2/op_kernel/CMakeLists.txt
+  - csrc/deepep/ops2/op_kernel/check_winsize.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_single.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_tiling.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2.cpp
+  - csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_single.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_tiling.h
+- number: 37
+  title: add notify dispatch kernel for prefill stage
+  date: '2025-08-20'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep, dispatch)'
+  files_changed:
+  - csrc/deepep/ops/op_host/notify_dispatch.cpp
+  - csrc/deepep/ops/op_host/notify_dispatch_tiling.cc
+  - csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.h
+  - csrc/deepep/ops/op_kernel/comm_args.h
+  - csrc/deepep/ops/op_kernel/data_copy.h
+  - csrc/deepep/ops/op_kernel/notify_dispatch.cpp
+  - csrc/deepep/ops/op_kernel/notify_dispatch.h
+  - csrc/deepep/ops/op_kernel/notify_dispatch_tiling.h
+  - csrc/deepep/ops/op_kernel/sync_collectives.h
+- number: 34
+  title: add dispatch normal kernel for prefill moe stage
+  date: '2025-08-20'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch)'
+  files_changed:
+  - csrc/deepep/CMakeLists.txt
+  - csrc/deepep/ops/CMakeLists.txt
+  - csrc/deepep/ops/CMakePresets.json
+  - csrc/deepep/ops/README.md
+  - csrc/deepep/ops/build.sh
+  - csrc/deepep/ops/cmake/config.cmake
+  - csrc/deepep/ops/cmake/device_task.cmake
+  - csrc/deepep/ops/cmake/func.cmake
+  - csrc/deepep/ops/cmake/intf.cmake
+  - csrc/deepep/ops/cmake/makeself.cmake
+  - csrc/deepep/ops/cmake/util/__init__.py
+  - csrc/deepep/ops/cmake/util/ascendc_bin_param_build.py
+  - csrc/deepep/ops/cmake/util/ascendc_compile_kernel.py
+  - csrc/deepep/ops/cmake/util/ascendc_gen_options.py
+  - csrc/deepep/ops/cmake/util/ascendc_get_op_name.py
+  - csrc/deepep/ops/cmake/util/ascendc_impl_build.py
+  - csrc/deepep/ops/cmake/util/ascendc_op_info.py
+  - csrc/deepep/ops/cmake/util/ascendc_ops_config.py
+  - csrc/deepep/ops/cmake/util/ascendc_pack_kernel.py
+  - csrc/deepep/ops/cmake/util/ascendc_pack_opregistry.py
+  - csrc/deepep/ops/cmake/util/ascendc_replay_build.py
+  - csrc/deepep/ops/cmake/util/batch_replay_impl.temp
+  - csrc/deepep/ops/cmake/util/code_channel_infer.py
+  - csrc/deepep/ops/cmake/util/const_var.py
+  - csrc/deepep/ops/cmake/util/gen_impl_and_mrege_json.sh
+  - csrc/deepep/ops/cmake/util/gen_ops_filter.sh
+  - csrc/deepep/ops/cmake/util/gen_version_info.sh
+  - csrc/deepep/ops/cmake/util/insert_op_info.py
+  - csrc/deepep/ops/cmake/util/insert_simplified_keys.py
+  - csrc/deepep/ops/cmake/util/kernel_entry.py
+  - csrc/deepep/ops/cmake/util/kernel_impl.temp
+  - csrc/deepep/ops/cmake/util/makeself/COPYING
+  - csrc/deepep/ops/cmake/util/makeself/README.md
+  - csrc/deepep/ops/cmake/util/makeself/VERSION
+  - csrc/deepep/ops/cmake/util/makeself/make-release.sh
+  - csrc/deepep/ops/cmake/util/makeself/makeself-header.sh
+  - csrc/deepep/ops/cmake/util/makeself/makeself.1
+  - csrc/deepep/ops/cmake/util/makeself/makeself.lsm
+  - csrc/deepep/ops/cmake/util/makeself/makeself.sh
+  - csrc/deepep/ops/cmake/util/makeself/run-tests.sh
+  - csrc/deepep/ops/cmake/util/merge_aicpu_info_json.sh
+  - csrc/deepep/ops/cmake/util/opdesc_parser.py
+  - csrc/deepep/ops/cmake/util/parse_ini_to_json.py
+  - csrc/deepep/ops/cmake/util/preset_parse.py
+  - csrc/deepep/ops/cmake/util/replay_codegen.py
+  - csrc/deepep/ops/cmake/util/replay_impl.temp
+  - csrc/deepep/ops/cmake/util/tiling_data_def_build.py
+  - csrc/deepep/ops/op_host/CMakeLists.txt
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+- number: 507
+  title: Add triton and native swiglu-silu-clamp-mul
+  date: '2026-06-09'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (swiglu, quant, triton)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+  - tests/python/sgl_kernel_npu/test_swiglu_quant.py
+- number: 431
+  title: add rmsnorm_without_weight kernel
+  date: '2026-04-29'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/rmsnorm_without_weight.py
+  - tests/python/sgl_kernel_npu/test_rmsnorm_without_weight.py
+- number: 447
+  title: add fused_qkvzba_split_reshape_cat_contiguous_kernel
+  date: '2026-05-07'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/utils.py
+  - tests/python/sgl_kernel_npu/test_qkvzba_split_reshape_cat.py
+- number: 403
+  title: 'feat: add mamba cache state update'
+  date: '2026-04-01'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (conv1d, mamba, cache, triton)'
+  files_changed:
+  - csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+  - csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+  - csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h
+  - csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h
+  - csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+  - csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+  - csrc/pytorch_extensions.cpp
+  - csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+  - csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+  - csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+  - include/sgl_kenel_npu_ops.h
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+  - tests/python/sgl_kernel_npu/test_conv1d_update.py
+  - tests/python/sgl_kernel_npu/test_mamba_state_update.py
+  - tests/python/sgl_kernel_npu/test_recurrent_gated_delta_rule.py
+- number: 405
+  title: for qwen3-next:add kernel fused split qkvgate gemma rmsnorm rope
+  date: '2026-04-07'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope, gemm)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+  - tests/python/sgl_kernel_npu/test_split_qkv_rmsnorm_rope.py
+- number: 394
+  title: add kernel fused qkvzba split reshape cat
+  date: '2026-03-18'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/utils.py
+  - tests/python/sgl_kernel_npu/test_qkvzba_split_reshape_cat.py
+- number: 270
+  title: Add swiglu_oai_triton for GPTOSS
+  date: '2026-01-12'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (swiglu, triton)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_oai.py
+- number: 413
+  title: add split_qkv_tp_rmsnorm_rope ops
+  date: '2026-03-31'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_tp_rmsnorm_rope.py
+  - tests/python/sgl_kernel_npu/test_split_qkv_tp_rmsnorm_rope.py
+- number: 382
+  title: GLM5 optimize
+  date: '2026-02-26'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rope)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/fused_rope_qk_mqa.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/fused_split_qk_norm.py
+- number: 357
+  title: '[fix] Handle transposed w13_weight'
+  date: '2026-02-26'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (swiglu)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_oai.py
+- number: 232
+  title: '[Feat] add chunk_gated_delta_rule triton support'
+  date: '2025-12-04'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, fla, triton)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk_delta_h.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk_o.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk_scaled_dot_kkt.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/cumsum.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/l2norm.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/utils.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/wy_fast.py
+  - tests/python/sgl_kernel_npu/test_gated_delta.py
+- number: 184
+  title: Add triton decode attention kernels
+  date: '2025-11-17'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (attention, triton)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/attention/decode_attention.py
+  - tests/python/sgl_kernel_npu/test_decode_attention.py
+- number: 233
+  title: Add swiglu_oai for GPT-OSS
+  date: '2025-12-04'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (swiglu)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_oai.py
+- number: 378
+  title: Update layernorm_gated.py
+  date: '2026-02-15'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py
+- number: 542
+  title: use common fla in default
+  date: '2026-06-05'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+- number: 533
+  title: 'feat: PTO chunk gdn support H=12, 8'
+  date: '2026-06-03'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (gdn, fla)'
+  files_changed:
+  - csrc/mega_chunk_gdn/op_host/mega_chunk_gdn.cpp
+  - csrc/mega_chunk_gdn/op_kernel/mega_kernel.cpp
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/mega_chunk_gdn.py
+  - tests/python/sgl_kernel_npu/test_chunk_gdn_pto.py
+- number: 443
+  title: Add new attention and normalization kernels
+  date: '2026-05-06'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (attention, norm, matmul, cube)'
+  files_changed:
+  - build.sh
+  - csrc/attentions/build/build.sh
+  - csrc/attentions/build/build_ascendc_ops.sh
+  - csrc/attentions/build/build_ops.sh
+  - csrc/attentions/build/build_plugin.sh
+  - csrc/attentions/csrc/CMakeLists.txt
+  - csrc/attentions/csrc/ops/CMakeLists.txt
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/CMakeLists.txt
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/block_sparse_attention_def.cpp
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/block_sparse_attention_proto.cpp
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/block_sparse_attention_tiling.cpp
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/block_sparse_attention_tiling.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/block_sparse_attention_tiling_compile_info.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/block_sparse_attention_tiling_const.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/block_sparse_attention_tiling_context.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/block_sparse_attention_tiling_struct.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/block_sparse_attention_tiling_v2.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/data_copy_transpose_tiling.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/data_copy_transpose_tiling_def.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/error_manager.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_host/ops_error.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_kernel/block_sparse_attention.cpp
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_kernel/block_sparse_attention_base.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_kernel/block_sparse_attention_empty_tensor.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_kernel/block_sparse_attention_s1s2_bns1_x910.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_kernel/block_sparse_attention_s1s2_bns1_x910_base.h
+  - csrc/attentions/csrc/ops/block_sparse_attention/op_kernel/kernel_data_copy_transpose.h
+  - csrc/attentions/csrc/ops/cmake/config.cmake
+  - csrc/attentions/csrc/ops/cmake/func.cmake
+  - csrc/attentions/csrc/ops/cmake/intf.cmake
+  - csrc/attentions/csrc/ops/cmake/intf_pub.cmake
+  - csrc/attentions/csrc/ops/cmake/modules/Findalog.cmake
+  - csrc/attentions/csrc/ops/cmake/scripts/prepare.sh
+  - csrc/attentions/csrc/ops/laser_attention/op_host/CMakeLists.txt
+  - csrc/attentions/csrc/ops/laser_attention/op_host/laser_attention_def.cpp
+  - csrc/attentions/csrc/ops/laser_attention/op_host/laser_attention_proto.cpp
+  - csrc/attentions/csrc/ops/laser_attention/op_host/laser_attention_tiling.cpp
+  - csrc/attentions/csrc/ops/laser_attention/op_host/laser_attention_tiling.h
+  - csrc/attentions/csrc/ops/laser_attention/op_kernel/AddressMappingForwardOnline.h
+  - csrc/attentions/csrc/ops/laser_attention/op_kernel/AddressMappingVectorForwardOnline.h
+  - csrc/attentions/csrc/ops/laser_attention/op_kernel/CubeForward.h
+  - csrc/attentions/csrc/ops/laser_attention/op_kernel/VectorForward.h
+  - csrc/attentions/csrc/ops/laser_attention/op_kernel/address_const.h
+  - csrc/attentions/csrc/ops/laser_attention/op_kernel/laser_attention.cpp
+  - csrc/attentions/csrc/ops/laser_attention/op_kernel/matmul_const.h
+  - csrc/attentions/csrc/ops/sparse_block_estimate/op_host/CMakeLists.txt
+  - csrc/attentions/csrc/ops/sparse_block_estimate/op_host/sparse_block_estimate_def.cpp
+  - csrc/attentions/csrc/ops/sparse_block_estimate/op_host/sparse_block_estimate_proto.cpp
+  - csrc/attentions/csrc/ops/sparse_block_estimate/op_host/sparse_block_estimate_tiling.cpp
+  - csrc/attentions/csrc/ops/sparse_block_estimate/op_host/sparse_block_estimate_tiling.h
+- number: 432
+  title: 'LoRA: Implementing kernels using CUBE computation unit'
+  date: '2026-05-06'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (lora, gemm, cube)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/lora/op_host/sgemmc_expand.cpp
+  - csrc/lora/op_host/sgemmc_shrink.cpp
+  - csrc/lora/op_host/tiling/sgemmc_tiling.cpp
+  - csrc/lora/op_host/tiling/sgemmc_tiling.h
+  - csrc/lora/op_host/tiling/sgemmc_tiling_data.h
+  - csrc/lora/op_kernel/lora_common_kernel.h
+  - csrc/lora/op_kernel/sgemmc_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgemmc_shrink_kernel.cpp
+  - csrc/lora/op_kernel/sgemmv_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgemmv_shrink_kernel.cpp
+  - csrc/lora/op_kernel/sgmv_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgmv_shrink_kernel.cpp
+  - csrc/pytorch_extensions.cpp
+  - csrc/utils/common_tiling.h
+  - csrc/utils/kernel/common_tiling_kernel.h
+  - csrc/utils/torch_helper.h
+  - include/sgl_kenel_npu_ops.h
+- number: 535
+  title: bugfix:precision ok
+  date: '2026-06-02'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+- number: 538
+  title: 'bugfix: swiglu_quant precision ok'
+  date: '2026-06-03'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (swiglu, quant)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+- number: 511
+  title: fix insert slice
+  date: '2026-05-21'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+- number: 466
+  title: imporove perfmance for fused gdn gating
+  date: '2026-05-15'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, gdn, fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/fused_gdn_gating.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/l2norm.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+- number: 516
+  title: 'refactor: separate submodule init and build, remove cuda deps from CI'
+  date: '2026-05-27'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/build_and_release.yml
+  - .github/workflows/daily-build-test.yml
+  - .github/workflows/internode.yml
+  - .github/workflows/pr-test-npu.yml
+  - .github/workflows/push_build_cache.yml
+  - README.md
+  - build.sh
+  - scripts/prepare_deepep_in_container.sh
+  - tests/python/deepep/run_ascend_testcase.sh
+- number: 290
+  title: split_qkv_rmsnorm_rope bugfix
+  date: '2025-12-30'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+  - tests/python/sgl_kernel_npu/test_split_qkv_rmsnorm_rope.py
+- number: 282
+  title: modify split_qkv_rmsnorm_rope
+  date: '2025-12-26'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+  - tests/python/sgl_kernel_npu/test_add_rmsnorm_bias.py
+- number: 157
+  title: add_norm_bias and split_qkv_norm_rope for qwen3
+  date: '2025-11-19'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope, swiglu, quant)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/__init__.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/l1_norm.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+  - tests/python/sgl_kernel_npu/test_add_rmsnorm_bias.py
+  - tests/python/sgl_kernel_npu/test_l1_norm.py
+  - tests/python/sgl_kernel_npu/test_split_qkv_rmsnorm_rope.py
+  - tests/python/sgl_kernel_npu/test_swiglu_quant.py
+- number: 153
+  title: add mla_preprocess test script
+  date: '2025-11-03'
+  decision: defer
+  reason: test-only SGL kernel coverage; useful context but no implementation diff
+  files_changed:
+  - tests/python/sgl_kernel_npu/test_mla_preprocess.py
+- number: 429
+  title: move fused_gdn_gating_kernel_without_sigmoid from sglang to sgl-kerne…
+  date: '2026-04-13'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (gdn, fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/fused_gdn_gating.py
+  - tests/python/sgl_kernel_npu/test_fused_gdn_gating_without_sigmoid.py
+- number: 397
+  title: deepep support different fuse_mode for dispatch_ffn_combine
+  date: '2026-03-16'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (norm, rmsnorm, rope, deepep, dispatch)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - csrc/deepep/exception.hpp
+  - csrc/deepep/pybind_extension.cpp
+  - python/deep_ep/deep_ep/buffer.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+  - tests/python/deepep/test_dispatch_ffn_combine.py
+- number: 335
+  title: 【Doc】add fused deep moe doc
+  date: '2026-01-21'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - python/deep_ep/FUSED_DEEP_MOE_CN.md
+  - python/deep_ep/doc/FUSED_DEEP_MOE_CN.md
+  - python/deep_ep/doc/FUSED_DEEP_MOE_EN.md
+- number: 371
+  title: feat:[fused_sigmoid_gating_delta_rule_update_npu_kernel] support kda feature--to be aligned with sgl-kernel, for model kimi-linear
+  date: '2026-02-28'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/fused_sigmoid_gating_recurrent.py
+- number: 321
+  title: Cover the workflows cases on a3
+  date: '2026-02-02'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - tests/python/deepep/test_internode.py
+  - tests/python/deepep/test_intranode.py
+  - tests/python/deepep/test_low_latency.py
+  - tests/python/deepep/test_normal_and_low_latency.py
+- number: 229
+  title: '[DFX] Adaptable to multiple model validations for fused moe'
+  date: '2025-12-04'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - tests/python/deepep/test_fused_deep_moe.py
+- number: 167
+  title: '[Test] Testing the generalization of fused moe '
+  date: '2025-11-24'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - tests/python/deepep/test_fused_deep_moe.py
+- number: 160
+  title: support shallow fused topk=-1
+  date: '2025-11-05'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  - csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
+- number: 198
+  title: Add performance testing section to the moe script
+  date: '2025-12-03'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - tests/python/deepep/test_fused_deep_moe.py
+- number: 206
+  title: 'Add two mixed-race tests: normal and low latency, normal and fused deep moe.'
+  date: '2025-12-05'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - tests/python/deepep/test_common.py
+  - tests/python/deepep/test_normal_and_fused_deep_moe.py
+  - tests/python/deepep/test_normal_and_low_latency.py
+- number: 317
+  title: add dfx for operator FusedDeepMoe
+  date: '2026-01-17'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep)'
+  files_changed:
+  - csrc/deepep/ops/op_host/dfx_base.h
+  - csrc/deepep/ops/op_host/fused_deep_moe_infer.cpp
+  - csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+  - csrc/deepep/ops/op_host/ops_error.h
+  - csrc/deepep/ops/op_host/ops_log.h
+- number: 131
+  title: add a script for generalize test
+  date: '2025-12-09'
+  decision: exclude
+  reason: CI/workflow/dependency maintenance only; not kernel-related
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - scripts/generalization_test_fused_deep_moe.sh
+- number: 109
+  title: Modify test_low_latency to support int8 quantization testing.
+  date: '2025-09-25'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - tests/python/deepep/test_low_latency.py
+- number: 129
+  title: Delete left useless code [FusedDeepMoe Operator]
+  date: '2025-10-18'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, swiglu, quant, gemm)'
+  files_changed:
+  - csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+- number: 123
+  title: Support different token hidden sizes and gmm hidden sizes [FusedDeepMoe Operator]
+  date: '2025-10-18'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, combine, swiglu, quant)'
+  files_changed:
+  - csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+  - csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  - csrc/deepep/ops/op_kernel/fused_deep_moe_tiling.h
+  - csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+  - csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+- number: 104
+  title: Add README files for mlapo and batch_transpose_matmul
+  date: '2025-11-14'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - csrc/batch_matmul_transpose/README.md
+  - csrc/mla_preprocess/README.md
+- number: 132
+  title: support topk=-1
+  date: '2025-10-28'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine, swiglu)'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+  - csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
+  - csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  - tests/python/deepep/test_fused_deep_moe.py
+- number: 260
+  title: Optimize sinks attention for prefix cache
+  date: '2026-01-12'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (attention, cache)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/attention/sinks_attention.py
+- number: 154
+  title: '[Kernel] add Flash-Linear-Attention/layernorm_gated Triton op'
+  date: '2025-10-30'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (attention, norm, fla, triton)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/utils/triton_utils.py
+- number: 216
+  title: add sinks_attenton for GPT-OSS
+  date: '2025-12-02'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (attention)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/attention/sinks_attention.py
+- number: 87
+  title: '[Feature] add fla and mamba kernels'
+  date: '2025-09-12'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (conv1d, mamba, fla)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/__init__.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/fused_sigmoid_gating_recurrent.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/fla/utils.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/__init__.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+- number: 16
+  title: support shared expert
+  date: '2025-08-04'
+  decision: include
+  reason: 'matched: NPU C++/header changes touching kernel extension surface'
+  files_changed:
+  - csrc/deepep/config.cpp
+  - csrc/deepep/config.hpp
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+- number: 35
+  title: MTP build tree op and verify tree op
+  date: '2025-08-20'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/speculative.py
+  - tests/python/sgl_kernel_npu/test_build_tree.py
+  - tests/python/sgl_kernel_npu/test_verify_tree.py
+- number: 515
+  title: 'DeepEP: expand moe specifications'
+  date: '2026-05-28'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+  - csrc/deepep/ops/op_kernel/notify_dispatch.h
+- number: 478
+  title: The deep ep low-latency mode supports the CCU offload function.
+  date: '2026-05-19'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine, quant)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/ops/op_host/mc2_tiling_utils.h
+  - csrc/deepep/ops/op_host/moe_distribute_combine_tiling_helper.h
+  - csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.h
+  - csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_tiling_helper.h
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.h
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_dispatch_v2.cpp
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2_ccu.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.cpp
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_ccu.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_tiling.h
+  - csrc/deepep/ops/op_kernel/quantize_functions.h
+- number: 435
+  title: The A3 normal operator is modified to support a maximum of 128K long sequences.
+  date: '2026-04-14'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+- number: 441
+  title: fix remain safety problems
+  date: '2026-04-13'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/utils/op_kernel/operator/catlass/act/gemv_coord.hpp
+- number: 221
+  title: normal_dispatch num_recv_tokens_per_expert_list support prefixSum
+  date: '2025-12-03'
+  decision: include
+  reason: 'matched: NPU C++/header changes touching kernel extension surface'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - tests/python/deepep/test_internode.py
+  - tests/python/deepep/test_intranode.py
+- number: 385
+  title: '[WIP] Fix bs zero for deepep'
+  date: '2026-03-02'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_combine_v2_def.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+  - csrc/deepep/ops/op_host/notify_dispatch_tiling.cc
+  - csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_combine_v2.h
+  - csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops2/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_a2.cpp
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_a2_tiling.cpp
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+  - csrc/deepep/ops2/op_host/moe_distribute_dispatch_v2_tiling.cc
+  - csrc/deepep/ops2/op_host/notify_dispatch_tiling.cc
+  - csrc/deepep/ops2/op_host/notify_dispatch_tiling_a2.cc
+  - csrc/deepep/ops2/op_host/op_api/aclnn_moe_distribute_combine_a2.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_moe_distribute_combine_a2.h
+  - csrc/deepep/ops2/op_host/op_api/aclnn_moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_moe_distribute_combine_v2.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2.cpp
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2.cpp
+- number: 355
+  title: fix the hanging bug
+  date: '2026-01-31'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+- number: 263
+  title: Add Shmem Implementations for MoE Decode Operators with Buffer
+  date: '2025-12-20'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine_v2.h
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch_v2.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch_v2.h
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_combine_tiling.cpp
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_combine_v2_tiling.cpp
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch.cpp
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_tiling.cpp
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_v2.cpp
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_v2_tiling.cpp
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine.cpp
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_tiling.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_v2.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_v2_tiling.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch.cpp
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_v2.cpp
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_v2.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_v2_tiling.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_v2_base.h
+  - tests/python/deepep/test_low_latency.py
+  - tests/python/deepep/test_shmem_low_latency.py
+- number: 364
+  title: Fix the bug that total expert num greater than 256 or local expert num is less than 8
+  date: '2026-02-05'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_kernel/notify_dispatch.h
+- number: 302
+  title: fix little batchsize and int8 quant on ci
+  date: '2026-01-13'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - tests/python/deepep/test_low_latency.py
+- number: 162
+  title: '[bugfix] swiglu quant'
+  date: '2025-11-05'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (swiglu, quant)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+- number: 155
+  title: impl fused_swiglu_quant with group_list for deepep-low-latency
+  date: '2025-10-30'
+  decision: include
+  reason: 'matched: Python-facing Ascend NPU kernel/operator implementation (deepep, swiglu, quant)'
+  files_changed:
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/__init__.py
+  - python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+  - tests/python/sgl_kernel_npu/test_swiglu_quant.py
+- number: 112
+  title: feat:add env var to switch quant
+  date: '2025-09-26'
+  decision: defer
+  reason: DeepEP host/API/docs change without direct op_kernel diff; keep for manual review
+  files_changed:
+  - python/deep_ep/deep_ep/buffer.py
+- number: 66
+  title: normal_dispatch enable quant
+  date: '2025-09-03'
+  decision: include
+  reason: 'matched: NPU C++/header changes touching kernel extension surface'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - python/deep_ep/deep_ep/buffer.py
+  - tests/python/deepep/test_intranode.py
+- number: 118
+  title: '[FusedDeepMoe] Support EPLB'
+  date: '2025-10-16'
+  decision: include
+  reason: 'matched: NPU C++/header changes touching kernel extension surface'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - python/deep_ep/FUSED_DEEP_MOE_CN.md
+  - python/deep_ep/deep_ep/buffer.py
+  - tests/python/deepep/test_fused_deep_moe.py
+- number: 135
+  title: support cachemode int8_nzcache with bf16 in mla_preprocess
+  date: '2025-10-29'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (cache)'
+  files_changed:
+  - csrc/mla_preprocess/op_host/mla_preprocess.cpp
+  - csrc/mla_preprocess/op_kernel/mla_preprocess.h
+  - csrc/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp
+- number: 117
+  title: Fix the severe performance degradation issue of the top9 dispatch in normal mode compared to top8.
+  date: '2025-10-09'
+  decision: include
+  reason: 'matched: NPU C++/header changes touching kernel extension surface'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - tests/python/deepep/test_intranode.py
+- number: 79
+  title: mlapo support bf16 KV Cache NZ format
+  date: '2025-09-09'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (cache)'
+  files_changed:
+  - csrc/mla_preprocess/op_kernel/mla_preprocess.h
+  - csrc/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp
+- number: 383
+  title: Fix the bug that the layout kernel crashed when the num of experts is no less than 384
+  date: '2026-02-27'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep, dispatch)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/ops2/op_kernel/dispatch_layout_a2.h
+  - csrc/deepep/ops2/op_kernel/notify_dispatch_a2.h
+  - tests/python/deepep/test_internode.py
+- number: 387
+  title: Change hccl Init and SetCcTiling interface to V2 version to avoid compile warnings
+  date: '2026-03-02'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops2/op_kernel/a2/cam_moe_distribute_dispatch_a2_layered.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal_multi_round.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2.cpp
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2_layered.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2.cpp
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_layered.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_layered_custom.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_single.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_layered.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_layered_custom.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_single.h
+  - csrc/deepep/ops2/op_kernel/notify_dispatch.h
+  - csrc/deepep/ops2/op_kernel/notify_dispatch_a2.h
+- number: 313
+  title: support the situation that topk maybe -1 on machine A3
+  date: '2026-01-22'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/dispatch_layout.cpp
+  - csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+  - csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
+  - csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+  - csrc/deepep/ops/op_kernel/dispatch_layout.h
+  - csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h
+  - csrc/deepep/ops2/op_host/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops2/op_host/dispatch_layout.cpp
+  - csrc/deepep/ops2/op_host/dispatch_layout_tiling.cc
+  - csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.h
+  - csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.h
+  - csrc/deepep/ops2/op_kernel/dispatch_layout.h
+  - csrc/deepep/ops2/op_kernel/dispatch_layout_a2.h
+  - csrc/deepep/ops2/op_kernel/dispatch_layout_tiling.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2_layered.h
+  - tests/python/deepep/test_internode.py
+  - tests/python/deepep/test_intranode.py
+- number: 267
+  title: Add the long-sequence ant migration feature for the prefill combine operator.
+  date: '2025-12-24'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_host/error_log.h
+  - csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
+  - csrc/deepep/ops/op_host/tiling_args.h
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal_tiling.h
+  - csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+  - csrc/deepep/ops/op_kernel/comm_args.h
+  - csrc/deepep/ops/op_kernel/dispatch_layout.h
+  - csrc/deepep/ops/op_kernel/notify_dispatch.h
+  - tests/python/deepep/test_intranode.py
+  - tests/python/deepep/test_normal_and_low_latency.py
+- number: 177
+  title: calculate dispatch normal input parameters using npu instead of cpu
+  date: '2025-11-27'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - csrc/deepep/ops/op_host/dispatch_layout.cpp
+  - csrc/deepep/ops/op_host/notify_dispatch.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h
+  - csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.h
+  - csrc/deepep/ops/op_kernel/dispatch_layout.cpp
+  - csrc/deepep/ops/op_kernel/dispatch_layout.h
+  - csrc/deepep/ops/op_kernel/dispatch_layout_a2.h
+  - csrc/deepep/ops/op_kernel/notify_dispatch.cpp
+  - csrc/deepep/ops/op_kernel/notify_dispatch.h
+  - csrc/deepep/ops2/op_host/dispatch_layout.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.h
+  - csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_normal_a2.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_moe_distribute_combine_a2.cpp
+  - csrc/deepep/ops2/op_kernel/CMakeLists.txt
+  - csrc/deepep/ops2/op_kernel/a2/cam_moe_distribute_dispatch_a2_layered.h
+  - csrc/deepep/ops2/op_kernel/dispatch_layout.cpp
+  - csrc/deepep/ops2/op_kernel/dispatch_layout.h
+  - csrc/deepep/ops2/op_kernel/dispatch_layout_a2.h
+  - csrc/deepep/ops2/op_kernel/dispatch_normal_a2.cpp
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2.cpp
+  - csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2_layered.h
+  - csrc/deepep/ops2/op_kernel/notify_dispatch_a2.h
+- number: 193
+  title: add test internode for deepep
+  date: '2025-11-20'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - python/deep_ep/README.md
+  - python/deep_ep/README_CN.md
+  - python/deep_ep/setup.py
+  - tests/python/deepep/run_test_internode.sh
+  - tests/python/deepep/test_internode.py
+- number: 65
+  title: Add test low latency
+  date: '2025-09-02'
+  decision: defer
+  reason: 'needs manual review: refresh hit but no direct kernel implementation pattern detected'
+  files_changed:
+  - .github/workflows/pr-test-npu.yml
+  - tests/python/deepep/run_test.sh
+  - tests/python/deepep/test_low_latency.py
+  - tests/python/deepep/utils.py
+- number: 145
+  title: Synchronize code
+  date: '2025-10-23'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (conv1d, mamba, deepep, lora)'
+  files_changed:
+  - csrc/CMakeLists.txt
+  - csrc/deepep/deep_ep.cpp
+  - csrc/lora/op_host/bgmv_expand.cpp
+  - csrc/lora/op_host/bgmv_shrink.cpp
+  - csrc/lora/op_host/sgmv_expand.cpp
+  - csrc/lora/op_host/sgmv_shrink.cpp
+  - csrc/lora/op_kernel/bgmv_expand_kernel.cpp
+  - csrc/lora/op_kernel/bgmv_shrink_kernel.cpp
+  - csrc/lora/op_kernel/sgmv_expand_kernel.cpp
+  - csrc/lora/op_kernel/sgmv_shrink_kernel.cpp
+  - csrc/pytorch_extensions.cpp
+  - include/sgl_kenel_npu_ops.h
+  - python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+- number: 168
+  title: Modified the deep_ep README and add A2 operator performance data.
+  date: '2025-11-07'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - README.md
+  - python/deep_ep/README.md
+- number: 348
+  title: Modify the description of DeepEP in the README file.
+  date: '2026-01-30'
+  decision: exclude
+  reason: documentation/README only; not kernel-related
+  files_changed:
+  - README.md
+- number: 110
+  title: update fused moe readme
+  date: '2025-09-25'
+  decision: defer
+  reason: DeepEP host/API/docs change without direct op_kernel diff; keep for manual review
+  files_changed:
+  - python/deep_ep/FUSED_DEEP_MOE_CN.md
+  - python/deep_ep/deep_ep/buffer.py
+- number: 33
+  title: support normal dispatch and combine
+  date: '2025-08-21'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - build.sh
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+  - csrc/deepep/pybind_extension.cpp
+  - python/deep_ep/deep_ep/__init__.py
+  - python/deep_ep/deep_ep/buffer.py
+  - python/deep_ep/deep_ep/utils.py
+- number: 440
+  title: Fix overflowing risk
+  date: '2026-04-13'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (indexer)'
+  files_changed:
+  - csrc/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp
+- number: 437
+  title: fix some safty problem
+  date: '2026-04-12'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine, swiglu)'
+  files_changed:
+  - csrc/deepep/ops/op_host/dispatch_ffn_combine_tiling.cpp
+  - csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+  - csrc/deepep/ops/op_kernel/check_winsize.h
+  - csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_v2_tiling.h
+  - csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+  - csrc/deepep/ops2/op_kernel/check_winsize.h
+- number: 438
+  title: Fix security issues
+  date: '2026-04-12'
+  decision: include
+  reason: 'matched: AscendC/C++ NPU op kernel or tiling changes (cache, indexer)'
+  files_changed:
+  - csrc/assign_cache_op/op_host/assign_cache.cpp
+  - csrc/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp
+  - csrc/lightning_indexer/op_kernel/lightning_indexer_vector.h
+- number: 323
+  title: remove the limit that A2 internode only support topk 8
+  date: '2026-01-20'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
+  - csrc/deepep/ops2/op_host/moe_distribute_combine_a2_tiling.cpp
+- number: 149
+  title: add a2 dispatch layout and update its test
+  date: '2025-10-27'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (deepep, dispatch)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - csrc/deepep/ops/op_host/dispatch_layout.cpp
+  - csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+  - csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h
+  - csrc/deepep/ops/op_kernel/dispatch_layout.cpp
+  - csrc/deepep/ops/op_kernel/dispatch_layout.h
+  - csrc/deepep/ops/op_kernel/dispatch_layout_a2.h
+  - csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h
+  - csrc/deepep/pybind_extension.cpp
+  - python/deep_ep/deep_ep/buffer.py
+  - tests/python/deepep/test_intranode.py
+- number: 250
+  title: add shmem implementation for low_latency moe
+  date: '2025-12-16'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/deep_ep.cpp
+  - csrc/deepep/deep_ep.hpp
+  - csrc/deepep/ops/op_host/CMakeLists.txt
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine.h
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch.cpp
+  - csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch.h
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_combine.cpp
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_combine_tiling.cpp
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch.cpp
+  - csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_tiling.cpp
+  - csrc/deepep/ops/op_kernel/moe_distribute_base.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine.cpp
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_tiling.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch.cpp
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch.h
+  - csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_tiling.h
+  - csrc/deepep/ops2/op_kernel/moe_distribute_base.h
+  - python/deep_ep/deep_ep/buffer.py
+  - tests/python/deepep/run_test_low_latency.sh
+  - tests/python/deepep/test_low_latency.py
+  - tests/python/deepep/test_shmem_low_latency.py
+- number: 280
+  title: Fix the issue of HCCL buffer tiling verification failure during one round of testing.
+  date: '2025-12-25'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+- number: 201
+  title: Support run normal mode deepep on a single A2 machine
+  date: '2025-11-21'
+  decision: include
+  reason: 'matched: DeepEP/MoE Ascend NPU op kernel or tiling changes (norm, moe, deepep, dispatch, combine)'
+  files_changed:
+  - csrc/deepep/ops/op_kernel/cam_moe_combine_normal_tiling.h
+  - csrc/deepep/ops2/op_host/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
+  - csrc/deepep/ops2/op_host/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops2/op_host/cam_moe_dispatch_normal_tiling.cc
+  - csrc/deepep/ops2/op_host/dispatch_layout_tiling.cc
+  - csrc/deepep/ops2/op_host/notify_dispatch.cpp
+  - csrc/deepep/ops2/op_host/notify_dispatch_tiling.cc
+  - csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.h
+  - csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_dispatch_normal.h
+  - csrc/deepep/ops2/op_host/op_api/aclnn_notify_dispatch.cpp
+  - csrc/deepep/ops2/op_host/op_api/aclnn_notify_dispatch.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.cpp
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_combine_normal_tiling.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.cpp
+  - csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.h
+  - csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal_tiling.h
+  - csrc/deepep/ops2/op_kernel/comm_args.h
+  - csrc/deepep/ops2/op_kernel/notify_dispatch.cpp
+  - csrc/deepep/ops2/op_kernel/notify_dispatch.h
+  - csrc/deepep/ops2/op_kernel/notify_dispatch_tiling.h
+  - tests/python/deepep/test_intranode.py

@@ -76,3 +76,7 @@ aliases: []
   - L1/UB 双缓冲技术: 一块计算，一块加载
   - MTE 后台搬运与 CUBE/VEC 计算重叠
 - **并行**: 24 个 AI Core 按需并行分配任务，CUBE 与 VEC 可同时执行不同任务
+
+## Local bandwidth probe
+
+A local AscendC Cube memory-path benchmark for 910B2C is recorded in [`exp-ascend910b2c-cube-bandwidth`](../probes/910b2c-cube-bandwidth.md). Key measured reference points include ~1540 GB/s aggregate `GM -> A1/B1` MTE2 bandwidth across 24 AICs, ~9806 GB/s aggregate `A1/L1 -> A2/L0A` MTE1 bandwidth, and ~5197 GB/s aggregate `B1/L1 -> B2/L0B` MTE1 bandwidth under the recorded host-timed protocol.

@@ -1,0 +1,78 @@
+diff --git a/ascend/test/Conversion/TritonToLinalg/cumsum.mlir b/ascend/test/Conversion/TritonToLinalg/cumsum.mlir
+@@ -1,5 +1,4 @@
+ // RUN: triton-adapter-opt --triton-to-linalg %s | FileCheck %s
+-// XFAIL: *
+ // @triton.jit
+ // def test_cumsum_op(
+ //     input_ptr, output_ptr, n_columns
+@@ -54,7 +53,7 @@ module {
+ // CHECK-DAG:       [[RES_:%.+]] = memref.alloc() : memref<4096xf32>
+ // CHECK:           memref.copy [[VAR_reinterpret_cast_]], [[RES_]] : memref<4096xf32, strided<[1], offset: ?>> to memref<4096xf32>
+ // CHECK-DAG:       [[VAR_2_:%.+]] = bufferization.to_tensor [[RES_]] restrict writable : memref<4096xf32>
+-// CHECK-DAG:       [[VAR_4_:%.+]] = call @triton_cumsum([[VAR_2_]], [[C0_i32]], %false) : (tensor<4096xf32>, i32, i1) -> tensor<4096xf32>
++// CHECK-DAG:       [[VAR_4_:%.+]] = call @triton_cumsum_0([[VAR_2_]], [[C0_i32]], %false) : (tensor<4096xf32>, i32, i1) -> tensor<4096xf32>
+ // CHECK-DAG:       [[VAR_reinterpret_cast_0_:%.+]] = memref.reinterpret_cast [[PARAM_1_]] to offset: {{.}}[[VAR_1_]]{{.}}, sizes: [4096], strides: [1] : memref<?xi32> to memref<4096xi32, strided<[1], offset: ?>>
+ // CHECK-DAG:       [[VAR_6_:%.+]] = tensor.empty() : tensor<4096xi32>
+ // CHECK:           [[VAR_7_:%.+]] = linalg.generic {indexing_maps = [#map, #map], iterator_types = ["parallel"]} ins([[VAR_4_]] : tensor<4096xf32>) outs([[VAR_6_]] : tensor<4096xi32>) {
+
+diff --git a/triton_patch/python/triton_patch/language/math.py b/triton_patch/python/triton_patch/language/math.py
+@@ -1,7 +1,7 @@
+ from functools import wraps
+ from typing import List
+ from triton.language import core
+-from triton.language.math import _add_math_1arg_docstr, _add_math_2arg_docstr
++from triton.language.math import _add_math_1arg_docstr, _add_math_2arg_docstr, _add_math_3arg_docstr
+ from triton.language import semantic
+ 
+ T = core.TypeVar('T')
+@@ -159,3 +159,16 @@ def ceil(x, _builder=None):
+     x = semantic.to_tensor(x, _builder)
+     return core.tensor(_builder.create_ceil(x.handle), x.type)
+ 
++
++@core.builtin
++@_check_dtype(dtypes=["bf16", "fp16", "fp32"])
++@_add_math_3arg_docstr("fused multiply-add")
++def fma(x, y, z, _builder=None):
++    x = semantic.to_tensor(x, _builder)
++    y = semantic.to_tensor(y, _builder)
++    z = semantic.to_tensor(z, _builder)
++    x, y = core.binary_op_type_legalization(x, y, _builder)
++    z, x = core.binary_op_type_legalization(z, x, _builder)
++    z, y = core.binary_op_type_legalization(z, y, _builder)
++    return core.tensor(_builder.create_fma(x.handle, y.handle, z.handle), x.type)
++
+
+diff --git a/triton_patch/python/triton_patch/language/standard.py b/triton_patch/python/triton_patch/language/standard.py
+@@ -98,3 +98,4 @@ def atan2(y, x):
+     add_pi = core.where((x < 0) & (y >= 0), pi, 0.0)
+     sub_pi = core.where((x < 0) & (y < 0), -pi, 0.0)
+     return (base + add_pi + sub_pi).to(x.dtype)
++    
+\ No newline at end of file
+
+diff --git a/triton_patch/python/triton_patch/testing.py b/triton_patch/python/triton_patch/testing.py
+@@ -657,6 +657,7 @@ from .triton_patch.language.math import (
+     floor,
+     ceil,
+     _check_dtype,
++    fma,
+ )
+ from .triton_patch.language.semantic import (
+     arange,
+@@ -747,6 +748,7 @@ language.erf = erf
+ language.tanh = tanh
+ language.floor = floor
+ language.ceil = ceil
++language.fma = fma
+ language.core.dtype.to_ir = dtype_to_ir
+ language.math.umulhi = umulhi
+ language.math.exp = exp
+@@ -763,6 +765,7 @@ language.math.erf = erf
+ language.math.tanh = tanh
+ language.math.floor = floor
+ language.math.ceil = ceil
++language.math.fma = fma
+ language.math._check_dtype = _check_dtype
+ language.math.isnan = language.extra.ascend.libdevice.isnan
+ language.math.isinf = language.extra.ascend.libdevice.isinf

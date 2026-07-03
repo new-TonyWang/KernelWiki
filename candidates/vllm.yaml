@@ -19,10 +19,18 @@ keywords_used:
 - tma
 - flash_attention
 - sdpa
-total_candidates: 1847
+- npu
+- ascend
+- cann
+- torch_npu
+- torch-npu
+- acl
+- aclgraph
+- huawei
+total_candidates: 1921
 included: 1400
 excluded: 141
-deferred: 306
+deferred: 380
 prs:
 - number: 40057
   title: '[Bugfix] Temporarily disable B200 fp4 MoE layer tests'
@@ -11105,4 +11113,448 @@ prs:
   date: '2025-12-15'
   decision: include
   reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 45037
+  title: '[Bugfix] Fix nemotron accuracy drop introduced by #41184'
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44217
+  title: '[Perf] Fix dsv3_router_gemm heuristic'
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45011
+  title: '[Refactor] Rename rocm_moe.py to rocm_moe_rdna.py'
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44821
+  title: 'fix: prefix DeepSeek V4 MTP projections'
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 40860
+  title: '[Feat] DeepSeek V4 Rebased '
+  date: '2026-04-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45169
+  title: '[Bugfix] [DSV4] [ROCm] Pin apache-tvm-ffi version to `0.1.10`'
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44687
+  title: '[CI/Build] Skip test_use_trtllm_attention on non-CUDA platforms'
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43550
+  title: '[Doc] Add Ascend NPU tab to the quickstart installation guide'
+  date: '2026-05-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43770
+  title: '[Bugfix] fix wrong partial_rotary_factor calculation for bailing_moe model.'
+  date: '2026-06-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 42313
+  title: 'platforms: add uses_cpu_device() hook to Platform for DeviceConfig'
+  date: '2026-05-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 37694
+  title: Add get_device_uuid for rocm
+  date: '2026-03-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 37735
+  title: '[Feature]: IndexCache support for DSA models'
+  date: '2026-04-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 36144
+  title: replace `with torch.cuda.device` with `with torch.accelerator.device_index`
+  date: '2026-03-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 36321
+  title: '[Bugfix] Support other quantization methods in glm41v'
+  date: '2026-03-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 36665
+  title: 'platforms: Fix Ray DP startup crash'
+  date: '2026-03-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 34501
+  title: '[Bugfix] Add quant_config in ViT of Kimi-K2.5'
+  date: '2026-02-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 35042
+  title: '[Platform] Add current_platform.num_compute_units interface'
+  date: '2026-02-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 37505
+  title: '[KVCache] Support Pluggable KVCacheSpec'
+  date: '2026-06-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 35011
+  title: remove cuda check in `top_k_top_p_triton` kernel
+  date: '2026-02-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 37031
+  title: '[Hardware] Replace memory related torch.cuda APIs '
+  date: '2026-03-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 33320
+  title: '[Backport] [Kimi-K2.5] Replace torch.cuda with current_platform for d…'
+  date: '2026-01-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 42288
+  title: Adjust design around encoder_cudagraph_forward
+  date: '2026-05-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 38191
+  title: '[Bugfix] Fix k_norm weight sharding in MiniMaxM2Attention when total_num_kv_heads < tp_size'
+  date: '2026-04-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 37975
+  title: '[Model] Extract GatedDeltaNetAttention into shared layer for Qwen3Next and Qwen3.5'
+  date: '2026-03-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 14411
+  title: '[Misc] Refactor platform to get device specific stream and event'
+  date: '2025-04-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 36145
+  title: '[Hardware] Replace torch.cuda.device_count/current_device/set_device API'
+  date: '2026-03-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 30015
+  title: '[Misc] Add docker build env for Ascend NPU'
+  date: '2025-12-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 29952
+  title: '[PCP&DCP] move CUDAGraph check for PCP&DCP to the check func of platforms'
+  date: '2025-12-05'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 30133
+  title: '[P/D] Mooncake connector support more protocols'
+  date: '2025-12-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 30050
+  title: '[Misc][PCP&DCP] relocate PCP feature check'
+  date: '2025-12-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 29873
+  title: '[CustomOp] Extract ApplyRotaryEmb as CustomOp and unify the dispatch logic'
+  date: '2025-12-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 27556
+  title: '[Bugfix] Limit the default value of `max_model_len` when it is not specified by users'
+  date: '2025-10-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 25794
+  title: Add filtering for chat template kwargs
+  date: '2025-09-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43281
+  title: '[KV Connector] Handle Mooncake finish after preemption'
+  date: '2026-05-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 42396
+  title: '[Feature] Add structured output and effort support to Anthropic Messages API'
+  date: '2026-05-28'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 38763
+  title: only patch runtime_env for torch >= 2.10
+  date: '2026-04-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 42752
+  title: '[Bugfix] Honor tool_choice="none" in Chat Completions streaming'
+  date: '2026-06-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 37989
+  title: '[OOT] Add OOT support for linear kernel.'
+  date: '2026-03-31'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 36605
+  title: '[MM][OOT] Support CPU `seq_lens` for OOT MMEncoderAttention kernels'
+  date: '2026-03-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 35981
+  title: '[Misc] Support OOT linear method registering'
+  date: '2026-03-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 35178
+  title: '[MoE] Make MoERunnerInterface a PluggableLayer for OOT support'
+  date: '2026-04-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 36027
+  title: '[torch.compile] Rename `compile_ranges_split_points` to `compile_ranges_endpoints`'
+  date: '2026-03-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 38468
+  title: Add platform manual_seed_all API
+  date: '2026-04-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 32844
+  title: '[Bugfix] ModelScope is supported when downloading LORA models.'
+  date: '2026-01-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 32523
+  title: '[Model] Remove the unnecessary dtype conversion in MiniCPM'
+  date: '2026-01-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 33674
+  title: '[MM] Pass `prefix` parameter to MMEncoderAttention'
+  date: '2026-02-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 25090
+  title: '[Bugfix] Remove VLLM_TEST_DYNAMO_FULLGRAPH_CAPTURE #2969'
+  date: '2025-09-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 28935
+  title: '[Ascend]: Fixed the issue where OOT Platform vllm-ascend could not enable SP in Eager mode'
+  date: '2025-12-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 27338
+  title: 'Fix pooling adapters for Transformers backend '
+  date: '2025-10-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 30042
+  title: '[MP executor] fix get device count for multi node of mp executor feature'
+  date: '2025-12-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 26414
+  title: '[Frontend][1/N] Improve all pooling task | Support FP16 Embedding Base64 (Still uses fp32 by default).'
+  date: '2025-10-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 24801
+  title: '[docs] governance documents'
+  date: '2025-12-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 26696
+  title: '[DCP] Support dcp kv_cache interleave size > 1'
+  date: '2025-11-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 21591
+  title: '[Bugfix][Logprobs] Fix logprobs op to support more backend'
+  date: '2025-07-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 14668
+  title: '[Misc]Replace `cuda` hard code with `current_platform` in Ray'
+  date: '2025-05-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 17435
+  title: Make the _apply_rotary_emb compatible with dynamo
+  date: '2025-04-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 18763
+  title: '[Platform][Dist] Make torch distributed process group extendable'
+  date: '2025-05-28'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 32869
+  title: '[CPU][Feat] Update PyTorch to v2.10 for CPU Backend'
+  date: '2026-01-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 30339
+  title: '[CMake][Build]: Remove unused ACL CMake env variables'
+  date: '2025-12-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 32032
+  title: '[CI/Build] add directions for CPU image upload to Docker Hub'
+  date: '2026-02-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 28059
+  title: '[build][cmake]: Bundle static ACL and torch libgomp for CPU extension builds'
+  date: '2025-11-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 27183
+  title: '[cpu] Dispatch un-quantized linear to oneDNN/ACL by default for AArch64'
+  date: '2025-10-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 28535
+  title: '[Hardware][PowerPC] Fix fp16 compilation error for Power in cpu attention backend and bump oneDNN version'
+  date: '2025-11-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 25948
+  title: '[cpu][perf] Accelerate unquantized-linear for AArch64 through oneDNN/ACL and weight prepack'
+  date: '2025-10-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 27244
+  title: '[CPU]Improve cpu fused moe perf'
+  date: '2025-11-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 24200
+  title: '[Hardware][Apple-CPU] Disable OneDNN build for Apple Silicon'
+  date: '2025-09-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 29241
+  title: '[CI/Build]: make it possible to build with a free-threaded interpreter'
+  date: '2025-11-28'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 14129
+  title: '[Hardware][CPU] Vllm int8 quantization enablement for ARM CPU'
+  date: '2025-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 27382
+  title: 'Refactor: Move CUDA graph dispatch logic earlier'
+  date: '2025-11-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 24396
+  title: '[Docs] Remove Neuron install doc as backend no longer exists'
+  date: '2025-09-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 20452
+  title: '[Core] Shared memory based object store for Multimodal data caching and IPC'
+  date: '2025-09-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 21024
+  title: '[Bugfix] weight loading use correct tp_group with patch_tensor_parallel_group'
+  date: '2025-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 24486
+  title: '[Hybrid]: Decouple Kernel Block Size from KV Page Size'
+  date: '2025-10-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 19164
+  title: '[custom_op][vllm-plugin] update custom_op class to use op_registry'
+  date: '2025-06-20'
+  decision: defer
+  reason: from refresh search; needs-triage
   files_changed: []

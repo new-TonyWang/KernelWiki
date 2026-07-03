@@ -1,0 +1,281 @@
+diff --git a/ascend/examples/generalization_cases/test_argmax.py b/ascend/examples/generalization_cases/test_argmax.py
+@@ -32,6 +32,17 @@ def test_argmax_1d(dtype, shape):
+     torch_res = torch_argmax(x0, dim=0, keepdim=True)
+     test_common.validate_cmp("int32", triton_res, torch_res)
+ 
++invalid_dtypes = [
++    'uint32',
++    'bool',
++]
++@pytest.mark.parametrize("dtype", invalid_dtypes)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_argmax_invalid_dtype_case(dtype):
++    x0 = test_common.generate_tensor((1,), dtype).npu()
++    triton_res = torch.empty(1, dtype=torch.int32).npu()
++    triton_argmax_1d[1, 1, 1](x0, triton_res, 1, 1)
++
+ # >>>>>>> test_argmax_1d
+ 
+ # <<<<<<< test_argmax_2d
+
+diff --git a/ascend/examples/generalization_cases/test_argmin.py b/ascend/examples/generalization_cases/test_argmin.py
+@@ -31,6 +31,17 @@ def test_argmin_1d(dtype, shape):
+     torch_res = torch_argmin(x0, dim=0, keepdim=True)
+     test_common.validate_cmp("int32", triton_res, torch_res)
+ 
++invalid_dtypes = [
++    'uint32',
++    'bool',
++]
++@pytest.mark.parametrize("dtype", invalid_dtypes)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_argmin_invalid_dtype_case(dtype):
++    x0 = test_common.generate_tensor((1,), dtype).npu()
++    triton_res = torch.empty(1, dtype=torch.int32).npu()
++    triton_argmin_1d[1, 1, 1](x0, triton_res, 1, 1)
++
+ # >>>>>>> test_argmin_1d
+ 
+ # <<<<<<< test_argmin_2d
+
+diff --git a/ascend/examples/generalization_cases/test_max.py b/ascend/examples/generalization_cases/test_max.py
+@@ -32,6 +32,17 @@ def test_max_1d(dtype, shape):
+     torch_res = torch_max(x0, dim=0, keepdim=True)
+     test_common.validate_cmp(dtype, triton_res, torch_res)
+ 
++invalid_dtypes = [
++    'uint32',
++    'bool',
++]
++@pytest.mark.parametrize("dtype", invalid_dtypes)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_max_invalid_dtype_case(dtype):
++    x0 = test_common.generate_tensor((1,), dtype).npu()
++    triton_res = torch.empty(1, dtype=torch.int32).npu()
++    triton_max_1d[1, 1, 1](x0, triton_res, 1, 1)
++
+ # >>>>>>> test_max_1d
+ 
+ # <<<<<<< test_max_2d
+
+diff --git a/ascend/examples/generalization_cases/test_min.py b/ascend/examples/generalization_cases/test_min.py
+@@ -32,6 +32,17 @@ def test_min_1d(dtype, shape):
+     torch_res = torch_min(x0, dim=0, keepdim=True)
+     test_common.validate_cmp(dtype, triton_res, torch_res)
+ 
++invalid_dtypes = [
++    'uint32',
++    'bool',
++]
++@pytest.mark.parametrize("dtype", invalid_dtypes)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_min_invalid_dtype_case(dtype):
++    x0 = test_common.generate_tensor((1,), dtype).npu()
++    triton_res = torch.empty(1, dtype=torch.int32).npu()
++    triton_min_1d[1, 1, 1](x0, triton_res, 1, 1)
++
+ # >>>>>>> test_min_1d
+ 
+ # <<<<<<< test_min_2d
+
+diff --git a/ascend/examples/generalization_cases/test_reduce.py b/ascend/examples/generalization_cases/test_reduce.py
+@@ -178,3 +178,15 @@ def test_reduce(dtype, shape, dims):
+ 
+     tt_kernel[grid](x, y_cal, xnumel, ynumel, znumel, XB, YB, ZB, dims[0])
+     test_common.validate_cmp(dtype, y_cal, y_ref)
++
++invalid_dtypes = [
++    'uint32',
++    'bool',
++]
++@pytest.mark.parametrize("dtype", invalid_dtypes)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_reduce_invalid_dtype_case(dtype):
++    x0 = test_common.generate_tensor((10, ), dtype).npu()
++
++    y_cal = torch.zeros((1,), dtype=eval('torch.' + dtype)).npu()
++    tt_reduce_1d[1, 1, 1](x0, y_cal, 0, 0, 0, 10, 0, 0, 0)
+
+diff --git a/ascend/examples/generalization_cases/test_sum.py b/ascend/examples/generalization_cases/test_sum.py
+@@ -172,3 +172,15 @@ def test_sum(dtype, shape, dims):
+ 
+     tt_kernel[grid](x, y_cal, xnumel, ynumel, znumel, XB, YB, ZB, dims[0])
+     test_common.validate_cmp(dtype, y_cal, y_ref)
++
++invalid_types = [
++    'uint32',
++    'bool',
++]
++@pytest.mark.parametrize("dtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_sum_invalid_dtype_case(dtype):
++    x0 = test_common.generate_tensor((10, ), dtype).npu()
++
++    y_cal = torch.zeros((1,), dtype=eval('torch.' + dtype)).npu()
++    tt_sum_1d[1, 1, 1](x0, y_cal, 0, 0, 0, 10, 0, 0, 0)
+
+diff --git a/ascend/examples/generalization_cases/test_xorsum.py b/ascend/examples/generalization_cases/test_xorsum.py
+@@ -44,6 +44,20 @@ def test_xorsum_1d(dtype, shape):
+     torch_res = torch_xorsum(x0, dim=0, keepdim=True)
+     test_common.validate_cmp(dtype, triton_res, torch_res)
+ 
++invalid_dtypes = [
++    'uint32',
++    'float16',
++    'bfloat16',
++    'float32',
++    'bool',
++]
++@pytest.mark.parametrize("dtype", invalid_dtypes)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, r"xor_sum only supported for integers|Unexpected dtype")
++def test_xor_sum_invalid_dtype_case(dtype):
++    x0 = test_common.generate_tensor((10,), dtype).npu()
++    triton_res = torch.empty(1, dtype=eval("torch." + dtype)).npu()
++    triton_xorsum_1d[1, 1, 1](x0, triton_res, 10, 10)
++
+ # >>>>>>> test_xorsum_1d
+ 
+ # <<<<<<< test_xorsum_2d
+
+diff --git a/setup.py b/setup.py
+@@ -583,7 +583,7 @@ sys.modules['triton.testing'] = ascend_testing
+ 
+     content_to_append = f"""
+ from .triton_patch.language.core import dot, gather, insert, subview
+-from .triton_patch.language.standard import flip, sigmoid, softmax
++from .triton_patch.language.standard import flip, sigmoid, softmax, max, min
+ from .triton_patch.language.math import umulhi, exp, exp2, log, log2, cos, sin, sqrt, sqrt_rn, rsqrt, div_rn, erf, tanh, floor, ceil
+ from . import language
+ 
+@@ -594,6 +594,8 @@ language.softmax = softmax
+ language.gather = gather
+ language.insert = insert
+ language.subview = subview
++language.max = max
++language.min = min
+ 
+ # from .triton_patch.language.core import dtype, pointer_type, block_type, function_type
+ # language.core.dtype = dtype
+@@ -602,7 +604,7 @@ language.subview = subview
+ # language.core.function_type = function_type
+ 
+ from .triton_patch.language.semantic import arange, floordiv, atom_red_typechecking_impl, \
+-        atomic_max, atomic_min, maximum, minimum
++        atomic_max, atomic_min, maximum, minimum, reduction
+ language.semantic.arange = arange
+ language.semantic.floordiv = floordiv
+ language.semantic.atom_red_typechecking_impl = atom_red_typechecking_impl
+@@ -610,6 +612,7 @@ language.semantic.atomic_max = atomic_max
+ language.semantic.atomic_min = atomic_min
+ language.semantic.maximum = maximum
+ language.semantic.minimum = minimum
++language.semantic.reduction = reduction
+ 
+ language.umulhi = umulhi
+ language.exp = exp
+
+diff --git a/triton_patch/python/triton_patch/language/semantic.py b/triton_patch/python/triton_patch/language/semantic.py
+@@ -1,9 +1,9 @@
+-from typing import List, Optional, Union, Tuple
++from typing import List, Optional, Union, Tuple, Sequence
+ import numbers
+ import triton.language as tl
+ from triton._C.libtriton import ir
+ from triton.language.semantic import wrap_tensor, _str_to_rounding_mode, not_equal, _str_to_dot_input_precision, \
+-    binary_op_type_checking_impl, integer_promote_impl, broadcast_impl_shape, _str_to_sem, _str_to_scope
++    binary_op_type_checking_impl, integer_promote_impl, broadcast_impl_shape, _str_to_sem, _str_to_scope, reshape
+ 
+ 
+ def arange(start: int, end: int, builder: ir.builder) -> tl.tensor:
+@@ -359,4 +359,24 @@ def atomic_min(ptr: tl.tensor, val: tl.tensor, mask: tl.tensor, sem: str, scope:
+ 
+     # Design for NPU
+     return tl.tensor(
+-        builder.create_atomic_rmw(ir.ATOMIC_OP.MIN, ptr.handle, val.handle, mask.handle, sem, scope), val.type)
+\ No newline at end of file
++        builder.create_atomic_rmw(ir.ATOMIC_OP.MIN, ptr.handle, val.handle, mask.handle, sem, scope), val.type)
++
++def reduction(inputs: Sequence[tl.tensor], axis: int, region_builder_fn, builder: ir.builder) -> Tuple[tl.tensor, ...]:
++    for t in inputs:
++        if t.dtype.is_bool() or t.dtype.is_uint32():
++            raise TypeError(f"Unexpected dtype {t.dtype}")
++    if axis is None:
++        inputs = tuple(reshape(t, [t.numel.value], can_reorder=True, builder=builder) for t in inputs)
++        axis = 0
++    # get result shape
++    shape = inputs[0].type.shape
++    rank = len(shape)
++    assert axis < rank, f"reduction axis must be < inputs rank ({rank})"
++    ret_shape = [s for i, s in enumerate(shape) if i != axis]
++    assert all(t.type.shape == shape for t in inputs), "all reduction inputs must have the same shape"
++
++    reduce_op = builder.create_reduce([t.handle for t in inputs], axis)
++    region_builder_fn(reduce_op)
++    reduce_op.verify()
++
++    return tuple(wrap_tensor(reduce_op.get_result(i), inputs[i].type.scalar, ret_shape) for i in range(len(inputs)))
+
+diff --git a/triton_patch/python/triton_patch/language/standard.py b/triton_patch/python/triton_patch/language/standard.py
+@@ -1,6 +1,14 @@
+ from triton.language import core, math
+ from triton.language.standard import max, sum
+ from triton.runtime.jit import jit
++from triton.language.standard import (
++    _argmax_combine_tie_break_left,
++    _argmax_combine_tie_break_fast,
++    _elementwise_max,
++    _argmin_combine_tie_break_left,
++    _argmin_combine_tie_break_fast,
++    _elementwise_min,
++)
+ 
+ @core._tensor_member_fn
+ @jit
+@@ -33,3 +41,47 @@ def softmax(x, ieee_rounding=False):
+     num = math.exp(z)
+     den = sum(num, 0)
+     return math.fdiv(num, den, ieee_rounding)
++
++@core._tensor_member_fn
++@jit
++@core._add_reduction_docstr("maximum", return_indices_arg="return_indices",
++                            tie_break_arg="return_indices_tie_break_left")
++def max(input, axis=None, return_indices=False, return_indices_tie_break_left=True, keep_dims=False):
++    if core.constexpr(input.dtype.is_bool()) or core.constexpr(input.dtype.is_uint32()):
++        raise TypeError(f"Unexpected dtype {input.dtype}")
++    input = core._promote_bfloat16_to_float32(input)
++    if return_indices:
++        if return_indices_tie_break_left:
++            return core._reduce_with_indices(input, axis, _argmax_combine_tie_break_left, keep_dims=keep_dims)
++        else:
++            return core._reduce_with_indices(input, axis, _argmax_combine_tie_break_fast, keep_dims=keep_dims)
++    else:
++        if core.constexpr(input.dtype.primitive_bitwidth) < core.constexpr(32):
++            if core.constexpr(input.dtype.is_floating()):
++                input = input.to(core.float32)
++            else:
++                assert input.dtype.is_int(), "Expecting input to be integer type"
++                input = input.to(core.int32)
++        return core.reduce(input, axis, _elementwise_max, keep_dims=keep_dims)
++
++@core._tensor_member_fn
++@jit
++@core._add_reduction_docstr("minimum", return_indices_arg="return_indices",
++                            tie_break_arg="return_indices_tie_break_left")
++def min(input, axis=None, return_indices=False, return_indices_tie_break_left=True, keep_dims=False):
++    if core.constexpr(input.dtype.is_bool()) or core.constexpr(input.dtype.is_uint32()):
++        raise TypeError(f"Unexpected dtype {input.dtype}")
++    input = core._promote_bfloat16_to_float32(input)
++    if return_indices:
++        if return_indices_tie_break_left:
++            return core._reduce_with_indices(input, axis, _argmin_combine_tie_break_left, keep_dims=keep_dims)
++        else:
++            return core._reduce_with_indices(input, axis, _argmin_combine_tie_break_fast, keep_dims=keep_dims)
++    else:
++        if core.constexpr(input.dtype.primitive_bitwidth) < 32:
++            if core.constexpr(input.dtype.is_floating()):
++                input = input.to(core.float32)
++            else:
++                assert input.dtype.is_int(), "Expecting input to be integer type"
++                input = input.to(core.int32)
++        return core.reduce(input, axis, _elementwise_min, keep_dims=keep_dims)

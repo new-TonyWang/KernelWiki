@@ -1,0 +1,1395 @@
+diff --git a/.gitignore b/.gitignore
+@@ -22,3 +22,5 @@ docs/sources/python-api/generated/
+ # others
+ .vscode/
+ .cache/
++.clangd
++.idea/
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+@@ -17,6 +17,7 @@ include(CTest)
+ 
+ set(TRITON_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/triton")
+ set(PATCHED_TRITON_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/triton_patch")
++set(EXTENSION_TRITON_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/triton_extension")
+ set(PATCHED_TRITON_LIBRARIES
+   "TritonIR"
+ )
+@@ -154,6 +155,16 @@ include_directories(${PROJECT_BINARY_DIR}/third_party/triton/include) # Tablegen
+ include_directories(${TRITON_ROOT_DIR}/third_party)
+ include_directories(${PROJECT_BINARY_DIR}/third_party) # Tablegen'd files
+ 
++# Triton Adaptor and Triton Extension is dependent on AscendNPU IR
++set(ASCENDNPU_IR_SRC_DIR ${PROJECT_SOURCE_DIR}/third_party/ascendnpu-ir)
++set(ASCENDNPU_IR_BINARY_DIR ${PROJECT_BINARY_DIR}/third_party/ascendnpu-ir)
++set(BISHENGIR_BUILD_STANDALONE_IR_ONLY ON)
++set(BISHENGIR_ENABLE_A5_UNPUBLISHED_FEATURES ON)
++
++add_subdirectory(${ASCENDNPU_IR_SRC_DIR} ${ASCENDNPU_IR_BINARY_DIR})
++include_directories(${ASCENDNPU_IR_SRC_DIR}/bishengir/include)
++include_directories(${ASCENDNPU_IR_BINARY_DIR}/bishengir/include) # Tablegen'd files
++
+ # link_directories(${LLVM_LIBRARY_DIR})
+ add_subdirectory(${TRITON_ROOT_DIR}/include)
+ add_subdirectory(${TRITON_ROOT_DIR}/lib)
+@@ -180,7 +191,9 @@ if(TRITON_BUILD_PYTHON_MODULE)
+   message(STATUS "Adding Python module")
+   set(PYTHON_SRC_PATH ${TRITON_ROOT_DIR}/python/src)
+   set(PATCHED_PYTHON_SRC_PATH ${PATCHED_TRITON_ROOT_DIR}/python/src)
++  set(EXTENSION_PYTHON_SRC_PATH ${EXTENSION_TRITON_ROOT_DIR}/python/src)
+   include_directories(${PYTHON_SRC_PATH})
++  include_directories(${PATCHED_PYTHON_SRC_PATH})
+ 
+   if(PYTHON_INCLUDE_DIRS)
+     # We have PYTHON_INCLUDE_DIRS set--this is what we expect when building
+@@ -290,13 +303,19 @@ if(TRITON_BUILD_PYTHON_MODULE)
+   set(TRITON_BACKENDS_TUPLE "(${TRITON_BACKENDS_TUPLE})")
+ 
+   add_compile_definitions(TRITON_BACKENDS_TUPLE=${TRITON_BACKENDS_TUPLE})
+-  add_library(triton SHARED ${PYTHON_SRC_PATH}/main.cc
++  add_library(triton SHARED ${PATCHED_PYTHON_SRC_PATH}/main.cc
+                             ${PATCHED_PYTHON_SRC_PATH}/ir.cc
+                             ${PYTHON_SRC_PATH}/passes.cc
+                             ${PYTHON_SRC_PATH}/interpreter.cc
+-                            ${PYTHON_SRC_PATH}/llvm.cc)
++                            ${PYTHON_SRC_PATH}/llvm.cc
++                            ${EXTENSION_PYTHON_SRC_PATH}/ascend_ir.cc)
+   # Link triton with its dependencies
+   target_link_libraries(triton PUBLIC ${TRITON_LIBRARIES})
++  # Link BiShengIR dialects
++  target_link_libraries(triton PUBLIC BiShengIRHFusionDialect)
++  target_link_libraries(triton PUBLIC BiShengIRScopeDialect)
++  target_link_libraries(triton PUBLIC BiShengIRHIVMDialect)
++  target_link_libraries(triton PUBLIC BiShengIRHIVMUtils)
+   if(WIN32)
+     target_link_libraries(triton PRIVATE ${CMAKE_DL_LIBS})
+   else()
+
+diff --git a/ascend/examples/extension_cases/test_common.py b/ascend/examples/extension_cases/test_common.py
+@@ -0,0 +1,213 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++from typing import Optional
++import torch
++import torch_npu
++import pytest
++import functools
++import re
++import numpy as np
++
++_float_dtypes = [
++    'float32', 'float16', 'bfloat16'
++]
++_int_dtypes = [
++    'int32', 'int64', 'int16', 'int8'
++]
++_uint_dtypes = [
++    'uint8', 'uint16', 'uint32', 'uint64'
++]
++_all_dtypes_no_bool = _float_dtypes + _int_dtypes
++_all_dtypes = _all_dtypes_no_bool + ['bool']
++_32bit_dtypes = ['float32', 'int32']
++_16bit_dtypes = ['float16', 'bfloat16', 'int16']
++
++
++def generate_numpy(shape, dtype, low=None, high=None):
++    if dtype in _int_dtypes + _uint_dtypes:
++        iinfo = np.iinfo(getattr(np, dtype))
++        low = iinfo.min if low is None else max(low, iinfo.min)
++        high = iinfo.max if high is None else min(high, iinfo.max)
++        dty = getattr(np, dtype)
++        return np.random.randint(low, high, shape, dtype=dty)
++    elif dtype == 'float16' or dtype == 'float32':
++        return np.random.normal(0, 1, shape).astype(dtype)
++    elif dtype == 'bfloat16':
++        return (np.random.normal(0, 1, shape).astype('float32').view('uint32') & np.uint32(0xffff0000)).view('float32')
++    elif dtype == 'bool':
++        return np.random.randint(low=0, high=2, size=shape).astype(bool)
++    else:
++        raise ValueError('Invalid parameter \"dtype\" is found : {}'.format(dtype))
++
++
++def generate_tensor(shape, dtype):
++    if dtype == 'float32' or dtype == 'float16' or dtype == 'bfloat16':
++        return torch.randn(size=shape, dtype=eval('torch.' + dtype))
++    elif dtype == 'int32' or dtype == 'int64' or dtype == 'int16':
++        return torch.randint(low=0, high=2000, size=shape, dtype=eval('torch.' + dtype))
++    elif dtype == 'int8':
++        return torch.randint(low=0, high=127, size=shape, dtype=eval('torch.' + dtype))
++    elif dtype == 'bool':
++        return torch.randint(low=0, high=2, size=shape).bool()
++    elif dtype == 'uint8':
++        return torch.randint(low=0, high=255, size=shape, dtype=torch.uint8)
++    else:
++        raise ValueError('Invalid parameter \"dtype\" is found : {}'.format(dtype))
++
++
++def get_triton_sig_typename(dtype):
++    if dtype == 'float32':
++        tyname = "*fp32"
++    elif dtype == 'int32':
++        tyname = "*i32"
++    elif dtype == 'int64':
++        tyname = "*i64"
++    elif dtype == 'float16':
++        tyname = "*fp16"
++    elif dtype == 'int16':
++        tyname = "*i16"
++    elif dtype == 'int8':
++        tyname = "*i8"
++    elif dtype == 'bool':
++        tyname = "*i1"
++    else:
++        raise ValueError('Invalid parameter \"dtype\" is found : {}'.format(dtype))
++    return tyname
++
++# Relative error: abs(x_ref - x_cal) / abs(x_ref)
++# Absolute error: abs(x_ref - x_cal)
++
++# calculation type operators require different error range
++# It is a stricter verification and not satisfied now, save it here
++def validate_cal(dtype, y_cal, y_ref):
++    if dtype == 'float16':
++        if torch.mean(y_ref) < 0.001:
++            assert torch.abs(y_cal - y_ref) < 0.001, "|y_cal - y_ref| < 0.001 is required !"
++        else:
++            diff = torch.div(torch.abs(y_cal - y_ref), torch.abs(y_cal)) < 0.001
++            # all true
++            assert diff.all(), "Relative error is less than 0.001 !"
++    if dtype == 'float32':
++        if torch.mean(y_ref) < 0.0001:
++            assert torch.abs(y_cal - y_ref) < 0.0001, "|y_cal - y_ref| < 0.0001 is required !"
++        else:
++            diff = torch.div(torch.abs(y_cal - y_ref), torch.abs(y_cal)) < 0.0001
++            assert diff.all(), "Relative error is less than 0.001 !"
++    elif dtype == 'bfloat16':
++        diff = torch.div(torch.abs(y_cal - y_ref), torch.abs(y_cal)) < 0.001
++        assert diff.all(), "Relative error is less than 0.001 !"
++    elif dtype == 'int32' or dtype == 'int64' or dtype == 'int16' or dtype == 'int8':
++        assert torch.equal(y_cal, y_ref)
++    elif dtype == 'uint8' or dtype == 'uint16' or dtype == 'uint32' or dtype == 'uint64':
++        assert torch.equal(y_cal, y_ref)
++    elif dtype == 'bool':
++        assert torch.equal(y_cal, y_ref)
++    else:
++        raise ValueError('Invalid parameter \"dtype\" is found : {}'.format(dtype))
++
++# moving and comparison ops require no precision error
++def validate_cmp(dtype, y_cal, y_ref, overflow_mode: Optional[str] = None):
++    y_cal=y_cal.npu()
++    y_ref=y_ref.npu()
++    if overflow_mode == "saturate":
++        if dtype in ['float32', 'float16']:
++            min_value = -torch.finfo(dtype).min
++            max_value = torch.finfo(dtype).max
++        elif dtype in ['int32', 'int16', 'int8']:
++            min_value = torch.iinfo(dtype).min
++            max_value = torch.iinfo(dtype).max
++        elif dtype == 'bool':
++            min_value = 0
++            max_value = 1
++        else:
++            raise ValueError('Invalid parameter "dtype" is found : {}'.format(dtype))
++        y_ref = torch.clamp(y_ref, min=min_value, max=max_value)
++    if dtype == 'float16':
++        torch.testing.assert_close(y_ref, y_cal,  rtol=1e-03, atol=1e-03, equal_nan=True)
++    elif dtype == 'bfloat16':
++        torch.testing.assert_close(y_ref.to(torch.float32), y_cal.to(torch.float32),  rtol=1e-03, atol=1e-03, equal_nan=True)
++    elif dtype == 'float32':
++        torch.testing.assert_close(y_ref, y_cal,  rtol=1e-04, atol=1e-04, equal_nan=True)
++    elif dtype == 'int32' or dtype == 'int64' or dtype == 'int16' or dtype == 'int8':
++        assert torch.equal(y_cal, y_ref)
++    elif dtype == 'uint8' or dtype == 'uint16' or dtype == 'uint32' or dtype == 'uint64':
++        assert torch.equal(y_cal, y_ref)
++    elif dtype == 'bool':
++        assert torch.equal(y_cal, y_ref)
++    else:
++        raise ValueError('Invalid parameter \"dtype\" is found : {}'.format(dtype))
++
++def validate_cmp_with_expection(dtype, y_cal, y_ref, expect):
++    if dtype == 'float32' or dtype == 'float16' or dtype == 'bfloat16':
++        if expect:
++            assert torch.allclose(y_ref, y_cal,  rtol=1e-03, atol=1e-03, equal_nan=True)
++        else:
++            assert not torch.allclose(y_ref, y_cal, rtol=1e-03, atol=1e-03, equal_nan=True)
++    elif dtype == 'int32' or dtype == 'int64' or dtype == 'int16' or dtype == 'int8' \
++        or dtype == 'uint8' or dtype == 'uint16' or dtype == 'uint32' or dtype == 'uint64':
++        if expect:
++            assert torch.equal(y_cal, y_ref)
++        else:
++            assert not torch.equal(y_cal, y_ref)
++    else:
++        raise ValueError('Invalid parameter \"dtype\" is found : {}'.format(dtype))
++
++# Use the following pytest fixture to run one test case by only single worker.
++# Refer to https://pytest-xdist.readthedocs.io/en/stable/how-to.html#making-session-scoped-fixtures-execute-only-once
++@pytest.fixture(scope="function")
++def pytest_runonce(worker_id, request, cache):
++    if (cache.get(request.node.nodeid, "none")) == "none":
++        cache.set(request.node.nodeid, worker_id)
++    else:
++        file_name = f"pytest_{worker_id}.txt"
++        with open(file_name, 'a') as file:
++            file.write(f"{request.node.nodeid} is already processed by {worker_id}")
++        return True
++    yield True
++    cache.set(request.node.nodeid, "none")
++
++def raises_with_match(expected_exception, match_pattern):
++    def decorator(test_func):
++        @functools.wraps(test_func)
++        def wrapper(*args, **kwargs):
++            with pytest.raises(expected_exception, match=match_pattern):
++                return test_func(*args, **kwargs)
++        return wrapper
++    return decorator
++
++def capture_output(expected_output):
++    def decorator(test_func):
++        @functools.wraps(test_func)
++        def wrapper(*args, **kwargs):
++            capsys = kwargs.pop('capsys', None)
++            if capsys is None:
++                try:
++                    capsys = pytest.fixture(capsys)()
++                except:
++                    raise RuntimeError("This decorator requires pytest's capsys fixture")
++            test_func(capsys, *args, **kwargs)
++            captured = capsys.readouterr()
++            # pybind11::scoped_ostream_redirect captures std::cout with \x00 inserted
++            # for now, no idea how to eliminate \x00 from C++ side.
++            cleaned = re.sub(r"\x00", "", captured.out)
++            assert expected_output in cleaned
++        return wrapper
++    return decorator
+
+diff --git a/ascend/examples/extension_cases/test_scope.py b/ascend/examples/extension_cases/test_scope.py
+@@ -0,0 +1,63 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++import triton
++import triton.language as tl
++import triton.extension.ascend.language as al
++import torch
++import pytest
++import test_common
++
++
++def torch_pointwise(x0, x1):
++    res = x0 + x1
++    return res
++
++
++@triton.jit
++def triton_add(in_ptr0, in_ptr1, out_ptr0, XBLOCK: tl.constexpr, XBLOCK_SUB: tl.constexpr):
++    with al.scope(core_mode="vector", no_inline=False):
++        offset = tl.program_id(0) * XBLOCK
++        base1 = tl.arange(0, XBLOCK_SUB)
++        loops1: tl.constexpr = (XBLOCK + XBLOCK_SUB - 1) // XBLOCK_SUB
++        for loop1 in range(loops1):
++            x0 = offset + (loop1 * XBLOCK_SUB) + base1
++            tmp0 = tl.load(in_ptr0 + (x0), None)
++            tmp1 = tl.load(in_ptr1 + (x0), None)
++            tmp2 = tmp0 + tmp1
++            tl.store(out_ptr0 + (x0), tmp2, None)
++
++
++@pytest.mark.parametrize('param_list',
++                         [
++                             ['float32', (2, 4096, 8), 2, 32768, 1024],
++                             ['float16', (2, 4096, 8), 2, 32768, 1024],
++                             ['int8', (2, 4096, 8), 2, 32768, 1024],
++                             ['uint8', (2, 4096, 8), 2, 32768, 1024],
++                         ]
++                         )
++def test_case(param_list):
++    dtype, shape, ncore, xblock, xblock_sub = param_list
++    x0 = test_common.generate_tensor(shape, dtype).npu()
++    x1 = test_common.generate_tensor(shape, dtype).npu()
++    y_ref = torch_pointwise(x0, x1)
++    y_cal = torch.zeros(shape, dtype=eval('torch.' + dtype)).npu()
++    triton_add[ncore, 1, 1](x0, x1, y_cal, xblock, xblock_sub)
++    test_common.validate_cmp(dtype, y_cal, y_ref)
+
+diff --git a/ascend/triton-adapter/CMakeLists.txt b/ascend/triton-adapter/CMakeLists.txt
+@@ -9,15 +9,6 @@ set(TRITON_ADAPTER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+ include_directories(./include)
+ include_directories(${CMAKE_CURRENT_BINARY_DIR}/include) # Tablegen'd files
+ 
+-# Triton Adaptor is dependent on AscendNPU IR
+-set(ASCENDNPU_IR_SRC_DIR ${PROJECT_SOURCE_DIR}/third_party/ascendnpu-ir)
+-set(ASCENDNPU_IR_BINARY_DIR ${PROJECT_BINARY_DIR}/third_party/ascendnpu-ir)
+-set(BISHENGIR_BUILD_STANDALONE_IR_ONLY ON)
+-
+-add_subdirectory(${ASCENDNPU_IR_SRC_DIR} ${ASCENDNPU_IR_BINARY_DIR})
+-include_directories(${ASCENDNPU_IR_SRC_DIR}/bishengir/include)
+-include_directories(${ASCENDNPU_IR_BINARY_DIR}/bishengir/include) # Tablegen'd files
+-
+ add_subdirectory(include)
+ add_subdirectory(lib)
+ add_subdirectory(tools)
+
+diff --git a/ascend/triton-adapter/lib/DiscreteMaskAccessConversion/DiscreteMaskAccessConversionPass.cpp b/ascend/triton-adapter/lib/DiscreteMaskAccessConversion/DiscreteMaskAccessConversionPass.cpp
+@@ -116,10 +116,10 @@ struct DiscreteMaskLoadConversion : OpRewritePattern<triton::LoadOp> {
+   }
+ };
+ 
+-struct DiscreteMaskAtomicConversion : OpRewritePattern<AtomicRMWOp> {
+-  using OpRewritePattern<AtomicRMWOp>::OpRewritePattern;
++struct DiscreteMaskAtomicConversion : OpRewritePattern<triton::AtomicRMWOp> {
++  using OpRewritePattern<triton::AtomicRMWOp>::OpRewritePattern;
+ 
+-  LogicalResult matchAndRewrite(AtomicRMWOp op,
++  LogicalResult matchAndRewrite(triton::AtomicRMWOp op,
+                                 PatternRewriter &rewriter) const final {
+     auto loc = op.getLoc();
+     auto ptr = op.getPtr();
+@@ -157,7 +157,7 @@ struct DiscreteMaskAtomicConversion : OpRewritePattern<AtomicRMWOp> {
+       op->emitError("Unsupported atomic operation.");
+ 
+     auto maskedValue = rewriter.create<arith::SelectOp>(loc, mask, src, *fill);
+-    auto newAtomicOp = rewriter.create<AtomicRMWOp>(
++    auto newAtomicOp = rewriter.create<triton::AtomicRMWOp>(
+         loc, src.getType(), rmwOp, ptr, maskedValue, mlir::Value(), op.getSem(),
+         op.getScope());
+     rewriter.replaceOp(op, newAtomicOp);
+
+diff --git a/setup.py b/setup.py
+@@ -39,7 +39,7 @@ from io import BytesIO
+ from pathlib import Path
+ from typing import List, NamedTuple, Optional
+ from dataclasses import dataclass
+-from setuptools import Extension, setup
++from setuptools import Extension, setup, find_packages
+ from setuptools.command.build_ext import build_ext
+ from setuptools.command.install import install
+ from distutils.command.clean import clean
+@@ -578,13 +578,23 @@ def get_packages(backends):
+         "triton/triton_patch/compiler",
+         "triton/triton_patch/runtime",
+     ]
+-
++    # Add extension packages
++    packages += find_packages(include=[
++        "triton.extension",
++        "triton.extension.buffer",
++        "triton.extension.buffer.language",
++        "triton.extension.ascend",
++        "triton.extension.ascend.language",
++    ])
+     return packages
+ 
+ 
+ def get_package_dir(backends):
+     triton_prefix_dir = os.path.join(triton_dir, "python/triton")
+-    triton_patch_prefix_dir = os.path.join(root_dir, "triton_patch/python/triton_patch")
++    triton_patch_prefix_dir = os.path.join(
++        root_dir, "triton_patch/python/triton_patch")
++    triton_extension_prefix_dir = os.path.join(
++        root_dir, "triton_extension/python/triton/extension")
+ 
+     # upstream triton
+     package_dir = {
+@@ -631,6 +641,12 @@ def get_package_dir(backends):
+     for path in patch_paths:
+         package_dir[f"triton/{path}"] = f"{triton_patch_prefix_dir}/{path}"
+ 
++    # triton extension
++    package_dir["triton/extension"] = triton_extension_prefix_dir
++    for full_path in Path(triton_extension_prefix_dir).rglob("*"):
++        relative_path = str(full_path).replace(triton_extension_prefix_dir, "")
++        package_dir[f"triton/extension/{relative_path}"] = full_path
++
+     return package_dir
+
+diff --git a/third_party/ascendnpu-ir b/third_party/ascendnpu-ir
+@@ -1 +1 @@
+-Subproject commit af5499b3b9f3dbab50b2834bcfff5da5c2a1d920
++Subproject commit 911a3a6deb47adce02abbe82ac4bf6476bae02aa
+
+diff --git a/triton_extension/python/src/.clang-format b/triton_extension/python/src/.clang-format
+@@ -0,0 +1 @@
++BasedOnStyle: LLVM
+
+diff --git a/triton_extension/python/src/ascend_ir.cc b/triton_extension/python/src/ascend_ir.cc
+@@ -0,0 +1,89 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ * Copyright 2018-2020 Philippe Tillet
++ * Copyright 2020-2022 OpenAI
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++#include "bishengir/Dialect/HIVM/IR/HIVM.h"
++#include "ir.h"
++#include "pybind11/pybind11.h"
++#include <pybind11/stl.h>
++
++#include "bishengir/Dialect/HIVM/IR/HIVM.h"
++#include "bishengir/Dialect/Scope/IR/Scope.h"
++
++#include "mlir/AsmParser/AsmParser.h"
++#include "mlir/IR/BuiltinTypes.h"
++#include "mlir/IR/Types.h"
++#include "mlir/Support/LLVM.h"
++#include "llvm/IR/Instructions.h"
++
++using namespace mlir;
++namespace py = pybind11;
++
++struct AscendNPUIROpBuilder : public TritonOpBuilder {};
++
++void init_ascend_ir(py::module &&m) {
++  m.def("load_dialects", [](MLIRContext &context) {
++    // Allow unregistered dialects so we can parse HACC attributes without
++    // registering the dialect
++    context.allowUnregisteredDialects();
++
++    DialectRegistry registry;
++    registry.insert<mlir::hivm::HIVMDialect, scope::ScopeDialect>();
++    context.appendDialectRegistry(registry);
++    context.loadAllAvailableDialects();
++  });
++
++  py::class_<AscendNPUIROpBuilder, TritonOpBuilder>(
++      m, "ascendnpu_ir_builder", py::module_local(), py::dynamic_attr())
++      .def(py::init<MLIRContext *>())
++      .def("get_t_core_type_cube_attr",
++           [](AscendNPUIROpBuilder &self) -> Attribute {
++             return hivm::TCoreTypeAttr::get(self.getBuilder().getContext(),
++                                             hivm::TCoreType::CUBE);
++           })
++      .def("get_t_core_type_vector_attr",
++           [](AscendNPUIROpBuilder &self) -> Attribute {
++             return hivm::TCoreTypeAttr::get(self.getBuilder().getContext(),
++                                             hivm::TCoreType::VECTOR);
++           })
++      .def("create_scope_op",
++           [](AscendNPUIROpBuilder &self, py::dict &scopeAttrs) -> OpState {
++             llvm::SmallVector<NamedAttribute> attrs;
++             for (auto item : scopeAttrs) {
++               std::string key = py::cast<std::string>(item.first);
++               Attribute value = py::cast<Attribute>(item.second);
++               attrs.push_back(
++                   NamedAttribute(self.getBuilder().getStringAttr(key), value));
++             }
++             auto scopeOp = self.create<scope::ScopeOp>();
++             for (const auto &attr : attrs) {
++               scopeOp->setAttr(attr.getName(), attr.getValue());
++             }
++             Block *entryBlock =
++                 self.getBuilder().createBlock(&scopeOp.getRegion());
++             return OpState(scopeOp);
++           })
++      .def("scope_return", [](AscendNPUIROpBuilder &self) -> OpState {
++        return self.create<scope::ReturnOp>();
++      });
++}
+
+diff --git a/triton_extension/python/triton/extension/__init__.py b/triton_extension/python/triton/extension/__init__.py
+@@ -0,0 +1,21 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
+\ No newline at end of file
+
+diff --git a/triton_extension/python/triton/extension/ascend/__init__.py b/triton_extension/python/triton/extension/ascend/__init__.py
+@@ -0,0 +1,21 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
+\ No newline at end of file
+
+diff --git a/triton_extension/python/triton/extension/ascend/language/__init__.py b/triton_extension/python/triton/extension/ascend/language/__init__.py
+@@ -0,0 +1,28 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++from .core import *  # NOQA: F403
++from .semantic import *  # NOQA: F403
++from .core import __all__ as __core_all
++from .scope import __all__ as __scope_all
++
++__all__ = [*__core_all, *__scope_all]
+\ No newline at end of file
+
+diff --git a/triton_extension/python/triton/extension/ascend/language/core.py b/triton_extension/python/triton/extension/ascend/language/core.py
+@@ -0,0 +1,54 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++from typing import TypeVar
++from functools import wraps
++
++__all__ = []
++
++T = TypeVar("T")
++
++TRITON_BUILTIN = "__triton_builtin__"
++ASCEND_BUILTIN = "__ascend_builtin__"
++
++
++def builtin(fn: T) -> T:
++    """Mark a function as a buffer language builtin."""
++    assert callable(fn)
++
++    @wraps(fn)
++    def wrapper(*args, **kwargs):
++        if "_builder" not in kwargs or kwargs["_builder"] is None:
++            raise ValueError("Did you forget to add @triton.jit ? "
++                             "(`_builder` argument must be provided outside of JIT functions.)")
++        return fn(*args, **kwargs)
++
++    # also set triton_builtin to true so that CodeGenerator will recognize this function
++    setattr(wrapper, TRITON_BUILTIN, True)
++    setattr(wrapper, ASCEND_BUILTIN, True)
++
++    return wrapper
++
++
++def is_builtin(fn) -> bool:
++    """Is this a registered ascend language builtin function?"""
++    return getattr(fn, ASCEND_BUILTIN, False)
+
+diff --git a/triton_extension/python/triton/extension/ascend/language/scope.py b/triton_extension/python/triton/extension/ascend/language/scope.py
+@@ -0,0 +1,71 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++__all__ = ["scope"]
++
++from triton.language.core import _constexpr_to_value
++
++class scope:
++    """
++    Context manager for entering and exiting a scope, where operations within a scope shares some common characteristics.
++
++    Example:
++    ```python
++        import triton.extension.ascend.language as al
++
++        @triton.jit
++        def kernel(x_ptr, y_ptr, N):
++            # specify annotation
++            with al.scope(feature_a=True):
++                a = tl.load(x_ptr)
++                b = tl.load(y_ptr)
++                result = tl.dot(a, b)
++    ```
++
++    Reserved keywords:
++        - `core_mode`: Allows explicitly specify which core type should be used for operations within a code block, helping the compiler generate appropriate code for cube or vector cores.
++        - `no_inline`: Controls whether the scope should be inlined into the outer region.
++    """
++    def __init__(self, core_mode: str, _builder=None, _semantic=None, **kwargs):
++        """
++        :param core_mode: Either "cube" or "vector" to specify the core type
++        :param _builder: Internal builder object (set by code_generator)
++        :param _semantic: Internal semantic object (set by code_generator)
++        :param kwargs: Additional internal parameters
++        """
++        # Convert constexpr to value if not being called from code generator
++        self.core_mode = _constexpr_to_value(core_mode) if _builder is None else core_mode
++        self._builder = _builder
++        self._semantic = _semantic
++
++        # Validate core_mode
++        if self.core_mode not in ("cube", "vector"):
++            raise ValueError(f'core_mode must be "cube" or "vector", got {self.core_mode}')
++
++    def __enter__(self):
++        if self._builder is None:
++            raise RuntimeError("scope can only be used inside a Triton kernel")
++        return self
++
++    def __exit__(self, exc_type, exc_val, exc_tb):
++        return False
++
+
+diff --git a/triton_extension/python/triton/extension/ascend/language/semantic.py b/triton_extension/python/triton/extension/ascend/language/semantic.py
+@@ -0,0 +1,21 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
+
+diff --git a/triton_patch/python/src/ir.cc b/triton_patch/python/src/ir.cc
+@@ -22,6 +22,8 @@
+  * THE SOFTWARE.
+  */
+ 
++#include "ir.h"
++
+ #include <optional>
+ #include <pybind11/functional.h>
+ #include <pybind11/pybind11.h>
+@@ -33,6 +35,7 @@
+ #include "mlir/Dialect/Index/IR/IndexDialect.h"
+ #include "mlir/Dialect/LLVMIR/LLVMDialect.h"
+ #include "mlir/Dialect/LLVMIR/Transforms/InlinerInterfaceImpl.h"
++#include "mlir/Dialect/MemRef/IR/MemRef.h"
+ #include "mlir/Dialect/UB/IR/UBOps.h"
+ #include "mlir/IR/Builders.h"
+ #include "mlir/IR/BuiltinOps.h"
+@@ -41,6 +44,7 @@
+ #include "mlir/IR/ValueRange.h"
+ #include "mlir/IR/Verifier.h"
+ #include "mlir/Parser/Parser.h"
++#include "mlir/AsmParser/AsmParser.h"
+ #include "mlir/Pass/Pass.h"
+ #include "mlir/Pass/PassManager.h"
+ #include "mlir/Support/FileUtilities.h"
+@@ -62,93 +66,6 @@ namespace py = pybind11;
+ using namespace mlir;
+ using namespace triton;
+ 
+-// A custom op builder that keeps track of the last location
+-class TritonOpBuilder {
+-public:
+-  TritonOpBuilder(MLIRContext *context, const std::string &compile_mode = "simd") {
+-    builder = std::make_unique<OpBuilder>(context);
+-    lastLoc = std::make_unique<Location>(builder->getUnknownLoc());
+-    this->compile_mode = compile_mode;
+-  }
+-
+-  OpBuilder &getBuilder() { return *builder; }
+-
+-  bool isLineInfoEnabled() { return lineInfoEnabled; }
+-
+-  bool isSimtMode() const { return compile_mode == "simt"; }
+-
+-  void setLastLoc(Location loc) {
+-    if (lineInfoEnabled)
+-      lastLoc = std::make_unique<Location>(loc);
+-  }
+-
+-  void setLastLoc(const std::string &fileName, int line, int column) {
+-    auto context = builder->getContext();
+-    setLastLoc(FileLineColLoc::get(context, fileName, line, column));
+-  }
+-
+-  Location getLastLoc() {
+-    assert(lastLoc);
+-    return *lastLoc;
+-  }
+-
+-  void setInsertionPointToStart(Block &block) {
+-    if (!block.empty())
+-      setLastLoc(block.begin()->getLoc());
+-    else
+-      setLastLoc(builder->getUnknownLoc());
+-    builder->setInsertionPointToStart(&block);
+-  }
+-
+-  void setInsertionPointToEnd(Block &block) {
+-    if (!block.empty())
+-      setLastLoc(block.back().getLoc());
+-    else
+-      setLastLoc(builder->getUnknownLoc());
+-    builder->setInsertionPointToEnd(&block);
+-  }
+-
+-  void setInsertionPointAfter(Operation &op) {
+-    setLastLoc(op.getLoc());
+-    builder->setInsertionPointAfter(&op);
+-  }
+-
+-  void restoreInsertionPoint(OpBuilder::InsertPoint pt) {
+-    if (pt.isSet() && pt.getPoint() != pt.getBlock()->end())
+-      setLastLoc(pt.getPoint()->getLoc());
+-    else
+-      setLastLoc(builder->getUnknownLoc());
+-    builder->restoreInsertionPoint(pt);
+-  }
+-
+-  template <typename OpTy, typename... Args> OpTy create(Args &&...args) {
+-    auto loc = getLastLoc();
+-    return builder->create<OpTy>(loc, std::forward<Args>(args)...);
+-  }
+-
+-  // Overload to create or fold a single result operation.
+-  template <typename OpTy, typename... Args>
+-  std::enable_if_t<OpTy::template hasTrait<OpTrait::OneResult>(), Value>
+-  createOrFold(Args &&...args) {
+-    auto loc = getLastLoc();
+-    return builder->createOrFold<OpTy>(loc, std::forward<Args>(args)...);
+-  }
+-
+-  // Overload to create or fold a zero result operation.
+-  template <typename OpTy, typename... Args>
+-  std::enable_if_t<OpTy::template hasTrait<OpTrait::ZeroResults>(), OpTy>
+-  createOrFold(Args &&...args) {
+-    auto loc = getLastLoc();
+-    return builder->createOrFold<OpTy>(loc, std::forward<Args>(args)...);
+-  }
+-
+-private:
+-  std::unique_ptr<OpBuilder> builder;
+-  std::unique_ptr<Location> lastLoc;
+-  bool lineInfoEnabled = !triton::tools::getBoolEnv("TRITON_DISABLE_LINE_INFO");
+-  std::string compile_mode;
+-};
+-
+ std::string locationToString(Location loc) {
+   std::string str;
+   llvm::raw_string_ostream os(str);
+@@ -262,6 +179,10 @@ void init_triton_ir(py::module &&m) {
+ 
+   m.def("load_dialects", [](MLIRContext &context) {
+     DialectRegistry registry;
++
++    // Allow unregistered dialects so we can parse HACC attributes without registering the dialect
++    context.allowUnregisteredDialects();
++
+     registry.insert<TritonDialect, ::mlir::triton::gpu::TritonGPUDialect,
+                     math::MathDialect, arith::ArithDialect, index::IndexDialect,
+                     scf::SCFDialect, ::mlir::gpu::GPUDialect,
+@@ -336,6 +257,11 @@ void init_triton_ir(py::module &&m) {
+       .def("get_parent_region", &Region::getParentRegion, ret::reference)
+       .def("size", [](Region &self) { return self.getBlocks().size(); })
+       .def("empty", &Region::empty)
++      .def("front", [](Region &self) -> Block * {
++        if (self.empty())
++          throw std::runtime_error("Region is empty, cannot get front block");
++        return &self.front();
++      }, ret::reference)
+       .def("id", [](Region &self) { return (uint64_t)&self; });
+ 
+   py::class_<Block>(m, "block", py::module_local())
+@@ -669,14 +595,20 @@ void init_triton_ir(py::module &&m) {
+            [](TritonOpBuilder &self, std::string value) {
+              return self.getBuilder().getStringAttr(value);
+            })
+-      .def("get_unit_attr",
+-          [](TritonOpBuilder &self) {
+-            return self.getBuilder().getUnitAttr();
+-          })
++      .def(
++          "get_unit_attr",
++          [](TritonOpBuilder &self) { return self.getBuilder().getUnitAttr(); })
++      .def("get_null_attr", [](TritonOpBuilder &self) { return Attribute(); })
+       .def("get_i64_array_attr",
+-          [](TritonOpBuilder &self, const std::vector<int64_t>& array) {
+-            return self.getBuilder().getI64ArrayAttr(array);
+-          })
++           [](TritonOpBuilder &self, const std::vector<int64_t> &array) {
++             return self.getBuilder().getI64ArrayAttr(array);
++           })
++      .def("parse_attr",
++           [](TritonOpBuilder &self, std::string value) -> Attribute {
++             auto *ctx = self.getBuilder().getContext();
++             return mlir::parseAttribute(value, ctx);
++           })
++
+       // Use arith.ConstantOp to create constants
+       // Constants
+       .def("get_int1",
+
+diff --git a/triton_patch/python/src/ir.h b/triton_patch/python/src/ir.h
+@@ -0,0 +1,119 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ * Copyright 2018-2020 Philippe Tillet
++ * Copyright 2020-2022 OpenAI
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++#pragma once
++
++#include <memory>
++
++#include "mlir/IR/Builders.h"
++#include "triton/Tools/Sys/GetEnv.hpp"
++
++using namespace mlir;
++
++// A custom op builder that keeps track of the last location
++class TritonOpBuilder {
++public:
++  TritonOpBuilder(MLIRContext *context, const std::string &compile_mode = "simd") {
++    builder = std::make_unique<OpBuilder>(context);
++    lastLoc = std::make_unique<Location>(builder->getUnknownLoc());
++    this->compile_mode = compile_mode;
++  }
++
++  OpBuilder &getBuilder() { return *builder; }
++
++  bool isLineInfoEnabled() { return lineInfoEnabled; }
++
++  bool isSimtMode() const { return compile_mode == "simt"; }
++
++  void setLastLoc(Location loc) {
++    if (lineInfoEnabled)
++      lastLoc = std::make_unique<Location>(loc);
++  }
++
++  void setLastLoc(const std::string &fileName, int line, int column) {
++    auto context = builder->getContext();
++    setLastLoc(FileLineColLoc::get(context, fileName, line, column));
++  }
++
++  Location getLastLoc() {
++    assert(lastLoc);
++    return *lastLoc;
++  }
++
++  void setInsertionPointToStart(Block &block) {
++    if (!block.empty())
++      setLastLoc(block.begin()->getLoc());
++    else
++      setLastLoc(builder->getUnknownLoc());
++    builder->setInsertionPointToStart(&block);
++  }
++
++  void setInsertionPointToEnd(Block &block) {
++    if (!block.empty())
++      setLastLoc(block.back().getLoc());
++    else
++      setLastLoc(builder->getUnknownLoc());
++    builder->setInsertionPointToEnd(&block);
++  }
++
++  void setInsertionPointAfter(Operation &op) {
++    setLastLoc(op.getLoc());
++    builder->setInsertionPointAfter(&op);
++  }
++
++  void restoreInsertionPoint(OpBuilder::InsertPoint pt) {
++    if (pt.isSet() && pt.getPoint() != pt.getBlock()->end())
++      setLastLoc(pt.getPoint()->getLoc());
++    else
++      setLastLoc(builder->getUnknownLoc());
++    builder->restoreInsertionPoint(pt);
++  }
++
++  template <typename OpTy, typename... Args> OpTy create(Args &&...args) {
++    auto loc = getLastLoc();
++    return builder->create<OpTy>(loc, std::forward<Args>(args)...);
++  }
++
++  // Overload to create or fold a single result operation.
++  template <typename OpTy, typename... Args>
++  std::enable_if_t<OpTy::template hasTrait<OpTrait::OneResult>(), Value>
++  createOrFold(Args &&...args) {
++    auto loc = getLastLoc();
++    return builder->createOrFold<OpTy>(loc, std::forward<Args>(args)...);
++  }
++
++  // Overload to create or fold a zero result operation.
++  template <typename OpTy, typename... Args>
++  std::enable_if_t<OpTy::template hasTrait<OpTrait::ZeroResults>(), OpTy>
++  createOrFold(Args &&...args) {
++    auto loc = getLastLoc();
++    return builder->createOrFold<OpTy>(loc, std::forward<Args>(args)...);
++  }
++
++private:
++  std::unique_ptr<OpBuilder> builder;
++  std::unique_ptr<Location> lastLoc;
++  bool lineInfoEnabled = !triton::tools::getBoolEnv("TRITON_DISABLE_LINE_INFO");
++  std::string compile_mode;
++};
+
+diff --git a/triton_patch/python/src/main.cc b/triton_patch/python/src/main.cc
+@@ -0,0 +1,81 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ * Copyright 2018-2020 Philippe Tillet
++ * Copyright 2020-2022 OpenAI
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++#include "llvm/ADT/StringRef.h"
++#include "llvm/Support/Signals.h"
++#include <pybind11/pybind11.h>
++
++namespace py = pybind11;
++
++#define FOR_EACH_1(MACRO, X) MACRO(X)
++#define FOR_EACH_2(MACRO, X, ...) MACRO(X) FOR_EACH_1(MACRO, __VA_ARGS__)
++#define FOR_EACH_3(MACRO, X, ...) MACRO(X) FOR_EACH_2(MACRO, __VA_ARGS__)
++#define FOR_EACH_4(MACRO, X, ...) MACRO(X) FOR_EACH_3(MACRO, __VA_ARGS__)
++
++#define FOR_EACH_NARG(...) FOR_EACH_NARG_(__VA_ARGS__, FOR_EACH_RSEQ_N())
++#define FOR_EACH_NARG_(...) FOR_EACH_ARG_N(__VA_ARGS__)
++#define FOR_EACH_ARG_N(_1, _2, _3, _4, N, ...) N
++#define FOR_EACH_RSEQ_N() 4, 3, 2, 1, 0
++
++#define CONCATENATE(x, y) CONCATENATE1(x, y)
++#define CONCATENATE1(x, y) x##y
++
++#define FOR_EACH(MACRO, ...)                                                   \
++  CONCATENATE(FOR_EACH_, FOR_EACH_NARG_HELPER(__VA_ARGS__))(MACRO, __VA_ARGS__)
++#define FOR_EACH_NARG_HELPER(...) FOR_EACH_NARG(__VA_ARGS__)
++
++// New macro to remove parentheses
++#define REMOVE_PARENS(...) __VA_ARGS__
++
++// Intermediate macro to ensure correct expansion
++#define FOR_EACH_P_INTERMEDIATE(MACRO, ...) FOR_EACH(MACRO, __VA_ARGS__)
++
++// Modified FOR_EACH to handle parentheses
++#define FOR_EACH_P(MACRO, ARGS_WITH_PARENS)                                    \
++  FOR_EACH_P_INTERMEDIATE(MACRO, REMOVE_PARENS ARGS_WITH_PARENS)
++
++#define DECLARE_BACKEND(name) void init_triton_##name(pybind11::module &&m);
++
++#define INIT_BACKEND(name) init_triton_##name(m.def_submodule(#name));
++
++void init_triton_env_vars(pybind11::module &m);
++void init_triton_ir(pybind11::module &&m);
++void init_ascend_ir(pybind11::module &&m);
++void init_triton_llvm(pybind11::module &&m);
++void init_triton_interpreter(pybind11::module &&m);
++void init_triton_passes(pybind11::module &&m);
++void init_triton_stacktrace_hook(pybind11::module &m);
++FOR_EACH_P(DECLARE_BACKEND, TRITON_BACKENDS_TUPLE)
++
++PYBIND11_MODULE(libtriton, m) {
++  m.doc() = "Python bindings to the C++ Triton API";
++  init_triton_stacktrace_hook(m);
++  init_triton_env_vars(m);
++  init_triton_ir(m.def_submodule("ir"));
++  init_ascend_ir(m.def_submodule("ascend_ir"));
++  init_triton_passes(m.def_submodule("passes"));
++  init_triton_interpreter(m.def_submodule("interpreter"));
++  init_triton_llvm(m.def_submodule("llvm"));
++  FOR_EACH_P(INIT_BACKEND, TRITON_BACKENDS_TUPLE)
++}
+
+diff --git a/triton_patch/python/triton_patch/compiler/code_generator.py b/triton_patch/python/triton_patch/compiler/code_generator.py
+@@ -29,7 +29,7 @@ import os
+ import textwrap
+ from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
+ from .. import language
+-from .._C.libtriton import ir
++from .._C.libtriton import ir, ascend_ir
+ from ..language import constexpr, tensor, str_to_ty
+ from ..language.core import _unwrap_if_constexpr, nv_tma_desc_type, _value
+ from ..runtime.jit import _normalize_ty, get_jit_fn_file_line
+@@ -37,6 +37,7 @@ from ..runtime.jit import _normalize_ty, get_jit_fn_file_line
+ from ..runtime import JITFunction
+ from .errors import (CompilationError, CompileTimeAssertionFailure, UnsupportedLanguageConstruct)
+ from types import ModuleType
++import triton.extension.ascend.language as al
+ 
+ 
+ def mangle_ty(ty):
+@@ -201,6 +202,81 @@ class ContainsReturnChecker(ast.NodeVisitor):
+     def visit_Call(self, node: ast.Call) -> bool:
+         return self.visit(node.func)
+ 
++def create_builder_method_wrapper(main_builder, delegate_builder, method_name):
++    """
++    Create a wrapper that delegates a method call to another builder while
++    synchronizing insertion points and locations.
++
++    Args:
++        main_builder: The main builder object (e.g., ir.builder)
++        delegate_builder: The builder that actually implements the method
++        method_name: Name of the method to wrap
++
++    Returns:
++        A wrapper function that can be attached to the main builder
++    """
++    delegate_method = getattr(delegate_builder, method_name)
++
++    def wrapper(*args, **kwargs):
++        # Synchronize delegate builder to main builder's position and location
++        saved_ip = main_builder.get_insertion_point()
++        saved_loc = main_builder.get_loc()
++        delegate_builder.restore_insertion_point(saved_ip)
++        if saved_loc:
++            delegate_builder.set_loc(saved_loc)
++
++        # Call the delegate method
++        result = delegate_method(*args, **kwargs)
++
++        # Restore main builder to same position and location
++        main_builder.restore_insertion_point(saved_ip)
++        if saved_loc:
++            main_builder.set_loc(saved_loc)
++
++        return result
++
++    wrapper.__name__ = method_name
++    wrapper.__doc__ = getattr(delegate_method, '__doc__', None)
++
++    return wrapper
++
++
++def attach_builder_methods(main_builder, delegate_builder, method_names):
++    """
++    Attach multiple methods from a delegate builder to the main builder.
++
++    Args:
++        main_builder: The main builder to attach methods to
++        delegate_builder: The builder that implements the methods
++        method_names: List of method names to wrap and attach
++    """
++    for method_name in method_names:
++        wrapper = create_builder_method_wrapper(main_builder, delegate_builder, method_name)
++        setattr(main_builder, method_name, wrapper)
++
++
++def setup_unified_builder(main_builder, ascend_builder):
++    """
++    Set up a unified builder interface by attaching methods from specialized builders.
++
++    This allows code to use only main_builder while having access to methods from
++    ascend_builder and buffer_builder.
++
++    Args:
++        main_builder: The main ir.builder instance
++        ascend_builder: The ascend_ir.ascendnpu_ir_builder instance
++    """
++    # Store references to specialized builders
++    main_builder._ascend_builder = ascend_builder
++
++    ascend_methods = [
++        'create_scope_op',
++        'scope_return',
++        'get_t_core_type_cube_attr',
++        'get_t_core_type_vector_attr',
++    ]
++    attach_builder_methods(main_builder, ascend_builder, ascend_methods)
++
+ 
+ class CodeGenerator(ast.NodeVisitor):
+ 
+@@ -212,12 +288,18 @@ class CodeGenerator(ast.NodeVisitor):
+             self.builder = ir.builder(context, compile_mode="simt")
+         else:
+             self.builder = ir.builder(context, compile_mode="simd")
++        self.ascend_builder = ascend_ir.ascendnpu_ir_builder(context)
+         self.file_name = file_name
+         # node.lineno starts from 1, so we need to subtract 1
+         self.begin_line = begin_line - 1
+         self.builder.set_loc(file_name, begin_line, 0)
++        self.ascend_builder.set_loc(file_name, begin_line, 0)
+         self.builder.options = options
+         self.builder.codegen_fns = codegen_fns
++
++        # Set up unified builder interface with methods from specialized builders
++        setup_unified_builder(self.builder, self.ascend_builder)
++
+         self.builder.module_map = {} if module_map is None else module_map
+         self.module = self.builder.create_module() if module is None else module
+         self.function_ret_types = {} if function_types is None else function_types
+@@ -776,6 +858,100 @@ class CodeGenerator(ast.NodeVisitor):
+     def visit_Pass(self, node):
+         pass
+ 
++    def _is_scope_context(self, context_expr):
++        """Check if the context expression is an al.scope call."""
++        if not isinstance(context_expr, ast.Call):
++            return False
++        func = context_expr.func
++        if isinstance(func, ast.Attribute) and func.attr == 'scope':
++            if isinstance(func.value, ast.Name) and func.value.id == 'al':
++                return True
++        return False
++
++    def _extract_scope_attributes(self, context_expr):
++        """Extract attributes from al.scope(...) call."""
++        scope_attrs = {}
++        for keyword in context_expr.keywords:
++            if isinstance(keyword.value, ast.Constant):
++                scope_attrs[keyword.arg] = keyword.value.value
++        return scope_attrs
++
++    def visit_With(self, node):
++        """Handle 'with' statements, including al.scope context managers."""
++
++        if len(node.items) != 1:
++            for stmt in node.body:
++                self.visit(stmt)
++            return
++
++        context_expr = node.items[0].context_expr
++
++        if self._is_scope_context(context_expr):
++            scope_attrs = self._extract_scope_attributes(context_expr)
++            self.create_scope_function(scope_attrs, node.body)
++            return
++
++        # Only al.scope context managers are supported
++        raise self._unsupported(
++            node, "This context manager is not supported in 'with' statements")
++
++    def _py_value_to_mlir_attr(self, value):
++        """Convert Python value to MLIR attribute."""
++        attr_creators = {
++            str: lambda v: self.builder.get_str_attr(v),
++            bool: lambda v: self.builder.get_bool_attr(v),
++            int: lambda v: self.builder.get_int32_attr(v),
++            list: lambda v: self.builder.get_i64_array_attr(v),
++        }
++        creator = attr_creators.get(type(value))
++        return creator(value) if creator else value
++
++    def _handle_core_mode_attr(self, core_mode):
++        if core_mode not in ("cube", "vector"):
++            return {}
++
++        return {
++            "hivm.t_core_type": (
++                self.builder.get_t_core_type_cube_attr() if core_mode == "cube"
++                else self.builder.get_t_core_type_vector_attr()
++            )
++        }
++
++    def create_scope_function(self, scope_attrs, body_stmts):
++        """
++        Create a scope.scope operation with a region for an al.scope block.
++
++        Args:
++            scope_attrs: Dict of scope attributes (e.g., {'core_mode': 'vector'})
++            body_stmts: List of AST statements in the scope body
++        """
++        scope_node = self.cur_node
++        current_block = self.builder.get_insertion_block()
++
++        # Convert Python primitives to MLIR attributes
++        mlir_attrs = {"no_inline": self.builder.get_unit_attr()}
++        for k, v in scope_attrs.items():
++            if k == "core_mode":
++                mlir_attrs.update(self._handle_core_mode_attr(v))
++            elif k == "no_inline":
++                if not v:
++                    mlir_attrs.pop("no_inline")
++            else:
++                mlir_attrs[k] = self._py_value_to_mlir_attr(v)
++
++        scope_op = self.builder.create_scope_op(mlir_attrs)
++        old_lscope = self.lscope.copy()
++        region = scope_op.get_region(0)
++        entry_block = region.front()
++        self.builder.set_insertion_point_to_end(entry_block)
++        for i, stmt in enumerate(body_stmts):
++            self.visit(stmt)
++        
++        self.builder.scope_return()
++        self.builder.set_insertion_point_to_end(current_block)
++        self.lscope = old_lscope
++        return None
++
+     def visit_Compare(self, node):
+         if not (len(node.comparators) == 1 and len(node.ops) == 1):
+             raise self._unsupported(node, "simultaneous multiple comparison is not supported")
+
+diff --git a/triton_patch/python/triton_patch/compiler/compiler.py b/triton_patch/python/triton_patch/compiler/compiler.py
+@@ -23,7 +23,7 @@
+ from __future__ import annotations
+ import hashlib
+ import json
+-from .._C.libtriton import get_cache_invalidating_env_vars, ir
++from .._C.libtriton import get_cache_invalidating_env_vars, ir, ascend_ir
+ from ..backends import backends
+ from ..backends.compiler import GPUTarget, AttrsDescriptor
+ from ..backends.ascend.compiler import AscendAttrsDescriptor
+@@ -296,6 +296,7 @@ def compile(src, target=None, options=None):
+         first_stage += 1
+     context = ir.context()
+     ir.load_dialects(context)
++    ascend_ir.load_dialects(context)
+     backend.load_dialects(context)
+     codegen_fns = backend.get_codegen_implementation()
+     module_map = backend.get_module_map()

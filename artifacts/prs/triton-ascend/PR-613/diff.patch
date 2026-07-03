@@ -1,0 +1,8 @@
+diff --git a/triton_patch/python/triton_patch/language/core.py b/triton_patch/python/triton_patch/language/core.py
+@@ -350,7 +350,7 @@ def multibuffer(src: tensor, size, _builder=None):
+     :size: number of copies
+     """
+     buffer_size = _constexpr_to_value(size)
+-    assert isinstance(buffer_size, int) and buffer_size == 2, f"only support bufferize equals 2"
++    assert isinstance(buffer_size, int) and (buffer_size == 2 or buffer_size == 4), f"only support bufferize equals 2 or 4"
+     semantic.compile_hint(src, "multi_buffer", buffer_size, _builder)

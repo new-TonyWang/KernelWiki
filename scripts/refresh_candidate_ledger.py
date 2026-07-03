@@ -45,6 +45,7 @@ REFRESH_RESULTS_PATH = DATA_DIR / "refresh-search-results.yaml"
 REPO_SLUG_TO_FULL = {
     "cutlass": "NVIDIA/cutlass",
     "sglang": "sgl-project/sglang",
+    "sgl-kernel-npu": "sgl-project/sgl-kernel-npu",
     "vllm": "vllm-project/vllm",
     "flashinfer": "flashinfer-ai/flashinfer",
     "pytorch": "pytorch/pytorch",

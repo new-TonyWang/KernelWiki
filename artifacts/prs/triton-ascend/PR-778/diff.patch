@@ -1,0 +1,2306 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+@@ -17,6 +17,7 @@ include(CTest)
+ 
+ set(TRITON_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party/triton")
+ set(PATCHED_TRITON_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/triton_patch")
++set(EXTENSION_TRITON_ROOT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/triton_extension")
+ set(PATCHED_TRITON_LIBRARIES
+   "TritonIR"
+ )
+@@ -154,6 +155,15 @@ include_directories(${PROJECT_BINARY_DIR}/third_party/triton/include) # Tablegen
+ include_directories(${TRITON_ROOT_DIR}/third_party)
+ include_directories(${PROJECT_BINARY_DIR}/third_party) # Tablegen'd files
+ 
++# Triton Adaptor and Triton Extension is dependent on AscendNPU IR
++set(ASCENDNPU_IR_SRC_DIR ${PROJECT_SOURCE_DIR}/third_party/ascendnpu-ir)
++set(ASCENDNPU_IR_BINARY_DIR ${PROJECT_BINARY_DIR}/third_party/ascendnpu-ir)
++set(BISHENGIR_BUILD_STANDALONE_IR_ONLY ON)
++
++add_subdirectory(${ASCENDNPU_IR_SRC_DIR} ${ASCENDNPU_IR_BINARY_DIR})
++include_directories(${ASCENDNPU_IR_SRC_DIR}/bishengir/include)
++include_directories(${ASCENDNPU_IR_BINARY_DIR}/bishengir/include) # Tablegen'd files
++
+ # link_directories(${LLVM_LIBRARY_DIR})
+ add_subdirectory(${TRITON_ROOT_DIR}/include)
+ add_subdirectory(${TRITON_ROOT_DIR}/lib)
+@@ -180,7 +190,9 @@ if(TRITON_BUILD_PYTHON_MODULE)
+   message(STATUS "Adding Python module")
+   set(PYTHON_SRC_PATH ${TRITON_ROOT_DIR}/python/src)
+   set(PATCHED_PYTHON_SRC_PATH ${PATCHED_TRITON_ROOT_DIR}/python/src)
++  set(EXTENSION_PYTHON_SRC_PATH ${EXTENSION_TRITON_ROOT_DIR}/python/src)
+   include_directories(${PYTHON_SRC_PATH})
++  include_directories(${PATCHED_PYTHON_SRC_PATH})
+ 
+   if(PYTHON_INCLUDE_DIRS)
+     # We have PYTHON_INCLUDE_DIRS set--this is what we expect when building
+@@ -290,11 +302,13 @@ if(TRITON_BUILD_PYTHON_MODULE)
+   set(TRITON_BACKENDS_TUPLE "(${TRITON_BACKENDS_TUPLE})")
+ 
+   add_compile_definitions(TRITON_BACKENDS_TUPLE=${TRITON_BACKENDS_TUPLE})
+-  add_library(triton SHARED ${PYTHON_SRC_PATH}/main.cc
++  add_library(triton SHARED ${PATCHED_PYTHON_SRC_PATH}/main.cc
+                             ${PATCHED_PYTHON_SRC_PATH}/ir.cc
+                             ${PYTHON_SRC_PATH}/passes.cc
+                             ${PYTHON_SRC_PATH}/interpreter.cc
+-                            ${PYTHON_SRC_PATH}/llvm.cc)
++                            ${PYTHON_SRC_PATH}/llvm.cc
++                            ${EXTENSION_PYTHON_SRC_PATH}/buffer_ir.cc
++                            ${EXTENSION_PYTHON_SRC_PATH}/ascend_ir.cc)
+   # Link triton with its dependencies
+   target_link_libraries(triton PUBLIC ${TRITON_LIBRARIES})
+   if(WIN32)
+
+diff --git a/ascend/examples/extension_cases/test_allocate_local_buffer.py b/ascend/examples/extension_cases/test_allocate_local_buffer.py
+@@ -0,0 +1,43 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++import torch
++
++import triton
++import triton.language as tl
++from triton.compiler import ASTSource
++import triton.extension.buffer.language as bl
++
++target = triton.runtime.driver.active.get_current_target()
++
++
++@triton.jit
++def allocate_local_buffer(XBLOCK: tl.constexpr):
++    # this statement has no effect, just to test the builder
++    bl.allocate_local_buffer(tl.float32, [XBLOCK])
++
++
++def test_allocate_local_buffer():
++    src = ASTSource(
++        fn=allocate_local_buffer,
++        constants={'XBLOCK': 32},
++        signature={},
++    )
++    triton.compile(src=src, target=target)
+\ No newline at end of file
+
+diff --git a/ascend/language/ascend/__init__.py b/ascend/language/ascend/__init__.py
+@@ -19,5 +19,6 @@
+ # THE SOFTWARE.
+ 
+ from . import libdevice
++from .scope import Scope
+ 
+-__all__ = ["libdevice"]
++__all__ = ["libdevice", "Scope"]
+
+diff --git a/ascend/language/ascend/scope.py b/ascend/language/ascend/scope.py
+@@ -0,0 +1,16 @@
++from triton.language.core import _constexpr_to_value
++from triton._C.libtriton import ir
++
++class Scope:
++    def __init__(self, core_mode: str, builder=None):
++        self.core_mode = constexpr_to_value(core_mode) if _builder is None else core_mode
++        self._builder = builder
++        if(self.core_mode not in ['cube', 'vector']):
++            raise ValueError("Not supported core_mode")
++
++    def __enter__(self):
++        self._builder.core_mode_stack.append(self.core_mode)
++        return self
++    
++    def __exit__(self, exc_type, exc_val, exc_tb):
++        self._builder.core_mode_stack.pop()
+
+diff --git a/ascend/triton-adapter/CMakeLists.txt b/ascend/triton-adapter/CMakeLists.txt
+@@ -9,15 +9,6 @@ set(TRITON_ADAPTER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}")
+ include_directories(./include)
+ include_directories(${CMAKE_CURRENT_BINARY_DIR}/include) # Tablegen'd files
+ 
+-# Triton Adaptor is dependent on AscendNPU IR
+-set(ASCENDNPU_IR_SRC_DIR ${PROJECT_SOURCE_DIR}/third_party/ascendnpu-ir)
+-set(ASCENDNPU_IR_BINARY_DIR ${PROJECT_BINARY_DIR}/third_party/ascendnpu-ir)
+-set(BISHENGIR_BUILD_STANDALONE_IR_ONLY ON)
+-
+-add_subdirectory(${ASCENDNPU_IR_SRC_DIR} ${ASCENDNPU_IR_BINARY_DIR})
+-include_directories(${ASCENDNPU_IR_SRC_DIR}/bishengir/include)
+-include_directories(${ASCENDNPU_IR_BINARY_DIR}/bishengir/include) # Tablegen'd files
+-
+ add_subdirectory(include)
+ add_subdirectory(lib)
+ add_subdirectory(tools)
+
+diff --git a/setup.py b/setup.py
+@@ -39,7 +39,7 @@ from io import BytesIO
+ from pathlib import Path
+ from typing import List, NamedTuple, Optional
+ from dataclasses import dataclass
+-from setuptools import Extension, setup
++from setuptools import Extension, setup, find_packages
+ from setuptools.command.build_ext import build_ext
+ from setuptools.command.install import install
+ from distutils.command.clean import clean
+@@ -105,7 +105,8 @@ class BackendInstaller:
+ 
+             try:
+                 subprocess.run(
+-                    ["git", "submodule", "update", "--init", f"{backend_name}"],
++                    ["git", "submodule", "update",
++                        "--init", f"{backend_name}"],
+                     check=True,
+                     stdout=subprocess.DEVNULL,
+                     cwd=root_dir,
+@@ -117,10 +118,12 @@ class BackendInstaller:
+ 
+             backend_src_dir = os.path.join(root_dir, backend_name)
+ 
+-        backend_path = os.path.abspath(os.path.join(backend_src_dir, "backend"))
++        backend_path = os.path.abspath(
++            os.path.join(backend_src_dir, "backend"))
+         assert os.path.exists(backend_path), f"{backend_path} does not exist!"
+ 
+-        language_dir = os.path.abspath(os.path.join(backend_src_dir, "language"))
++        language_dir = os.path.abspath(
++            os.path.join(backend_src_dir, "language"))
+         if not os.path.exists(language_dir):
+             language_dir = None
+ 
+@@ -318,7 +321,8 @@ def get_thirdparty_packages(packages: list):
+ 
+         input_defined = p.syspath_var_name in os.environ
+         input_exists = os.path.exists(version_file_path)
+-        input_compatible = input_exists and Path(version_file_path).read_text() == p.url
++        input_compatible = input_exists and Path(
++            version_file_path).read_text() == p.url
+ 
+         if is_offline_build() and not input_defined:
+             raise RuntimeError(
+@@ -341,7 +345,8 @@ def get_thirdparty_packages(packages: list):
+             with open(os.path.join(package_dir, "version.txt"), "w") as f:
+                 f.write(p.url)
+         if p.include_flag:
+-            thirdparty_cmake_args.append(f"-D{p.include_flag}={package_dir}/include")
++            thirdparty_cmake_args.append(
++                f"-D{p.include_flag}={package_dir}/include")
+         if p.lib_flag:
+             thirdparty_cmake_args.append(f"-D{p.lib_flag}={package_dir}/lib")
+     return thirdparty_cmake_args
+@@ -385,7 +390,8 @@ class BuildExt(build_ext):
+         match = re.search(
+             r"version\s*(?P<major>\d+)\.(?P<minor>\d+)([\d.]+)?", out.decode()
+         )
+-        cmake_major, cmake_minor = int(match.group("major")), int(match.group("minor"))
++        cmake_major, cmake_minor = int(
++            match.group("major")), int(match.group("minor"))
+         if (cmake_major, cmake_minor) < (3, 18):
+             raise RuntimeError("CMake >= 3.18.0 is required")
+ 
+@@ -425,7 +431,8 @@ class BuildExt(build_ext):
+         lit_dir = shutil.which("lit")
+         ninja_dir = shutil.which("ninja")
+ 
+-        thirdparty_cmake_args = get_thirdparty_packages([get_llvm_package_info()])
++        thirdparty_cmake_args = get_thirdparty_packages(
++            [get_llvm_package_info()])
+         thirdparty_cmake_args += self.get_pybind11_cmake_args()
+ 
+         # python directories
+@@ -483,7 +490,8 @@ class BuildExt(build_ext):
+         build_args = ["--config", cfg]
+         max_jobs = os.getenv("MAX_JOBS", str(2 * os.cpu_count()))
+         build_args += ["-j" + max_jobs]
+-        subprocess.check_call(["cmake", "--build", "."] + build_args, cwd=cmake_dir)
++        subprocess.check_call(
++            ["cmake", "--build", "."] + build_args, cwd=cmake_dir)
+ 
+         self.install_extension()
+ 
+@@ -516,7 +524,8 @@ class BuildWheel(bdist_wheel):
+             ]
+ 
+             try:
+-                subprocess.run(auditwheel_cmd, check=True, stdout=subprocess.PIPE)
++                subprocess.run(auditwheel_cmd, check=True,
++                               stdout=subprocess.PIPE)
+             finally:
+                 os.remove(file)
+         remove_directory(os.path.join(root_dir, "triton"))
+@@ -530,7 +539,8 @@ class BuildClean(clean):
+         remove_directory(os.path.join(root_dir, "build"))
+ 
+     def clean_egginfo(self):
+-        egginfo_dir = os.path.join(root_dir, f"{get_package_name()}" + ".egg-info")
++        egginfo_dir = os.path.join(
++            root_dir, f"{get_package_name()}" + ".egg-info")
+ 
+         remove_directory(egginfo_dir)
+ 
+@@ -578,13 +588,23 @@ def get_packages(backends):
+         "triton/triton_patch/compiler",
+         "triton/triton_patch/runtime",
+     ]
+-
++    # Add extension packages
++    packages += find_packages(include=[
++        "triton.extension",
++        "triton.extension.buffer",
++        "triton.extension.buffer.language",
++        "triton.extension.ascend",
++        "triton.extension.ascend.language",
++    ])
+     return packages
+ 
+ 
+ def get_package_dir(backends):
+     triton_prefix_dir = os.path.join(triton_dir, "python/triton")
+-    triton_patch_prefix_dir = os.path.join(root_dir, "triton_patch/python/triton_patch")
++    triton_patch_prefix_dir = os.path.join(
++        root_dir, "triton_patch/python/triton_patch")
++    triton_extension_prefix_dir = os.path.join(
++        root_dir, "triton_extension/python/triton/extension")
+ 
+     # upstream triton
+     package_dir = {
+@@ -630,6 +650,12 @@ def get_package_dir(backends):
+     for path in patch_paths:
+         package_dir[f"triton/{path}"] = f"{triton_patch_prefix_dir}/{path}"
+ 
++    # triton extension
++    package_dir["triton/extension"] = triton_extension_prefix_dir
++    for full_path in Path(triton_extension_prefix_dir).rglob("*"):
++        relative_path = str(full_path).replace(triton_extension_prefix_dir, "")
++        package_dir[f"triton/extension/{relative_path}"] = full_path
++
+     return package_dir
+ 
+ 
+@@ -689,7 +715,8 @@ def create_symlink_for_backend(backends):
+             # Link the contents of each backend's `language` directory into
+             # `triton.language.extra`.
+             extra_dir = os.path.abspath(
+-                os.path.join(triton_dir, "python", "triton", "language", "extra")
++                os.path.join(triton_dir, "python",
++                             "triton", "language", "extra")
+             )
+             for x in os.listdir(backend.language_dir):
+                 src_dir = os.path.join(backend.language_dir, x)
+
+diff --git a/triton_extension/python/src/.clang-format b/triton_extension/python/src/.clang-format
+@@ -0,0 +1 @@
++BasedOnStyle: LLVM
+
+diff --git a/triton_extension/python/src/ascend_ir.cc b/triton_extension/python/src/ascend_ir.cc
+@@ -0,0 +1,41 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ * Copyright 2018-2020 Philippe Tillet
++ * Copyright 2020-2022 OpenAI
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++#include "ir.h"
++#include "pybind11/pybind11.h"
++#include <pybind11/stl.h>
++
++#include "mlir/IR/BuiltinTypes.h"
++#include "mlir/IR/Types.h"
++
++using namespace mlir;
++namespace py = pybind11;
++
++struct AscendNPUIROpBuilder : public TritonOpBuilder {};
++
++void init_ascend_ir(py::module &&m) {
++  py::class_<AscendNPUIROpBuilder, TritonOpBuilder>(
++      m, "ascendnpu_ir_builder", py::module_local(), py::dynamic_attr())
++      .def(py::init<MLIRContext *>());
++}
+\ No newline at end of file
+
+diff --git a/triton_extension/python/src/buffer_ir.cc b/triton_extension/python/src/buffer_ir.cc
+@@ -0,0 +1,56 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ * Copyright 2018-2020 Philippe Tillet
++ * Copyright 2020-2022 OpenAI
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++#include "ir.h"
++#include "pybind11/pybind11.h"
++#include <pybind11/stl.h>
++
++#include "mlir/Dialect/MemRef/IR/MemRef.h"
++#include "mlir/IR/BuiltinTypes.h"
++#include "mlir/IR/Types.h"
++
++using namespace mlir;
++namespace py = pybind11;
++
++struct BufferOpBuilder : public TritonOpBuilder {};
++
++void init_buffer_ir(py::module &&m) {
++  m.def("load_dialects", [](MLIRContext &context) {
++    DialectRegistry registry;
++    registry.insert<memref::MemRefDialect>();
++    context.appendDialectRegistry(registry);
++    context.loadAllAvailableDialects();
++  });
++
++  py::class_<BufferOpBuilder, TritonOpBuilder>(
++      m, "buffer_builder", py::module_local(), py::dynamic_attr())
++      .def(py::init<MLIRContext *>())
++      .def("allocate_local_buffer",
++           [](BufferOpBuilder &self, Type type, std::vector<int64_t> &shape,
++              const Attribute &addressSpace) -> Value {
++             auto memrefType = MemRefType::get(
++                 shape, type, MemRefLayoutAttrInterface{}, addressSpace);
++             return self.create<memref::AllocOp>(memrefType);
++           });
++}
+\ No newline at end of file
+
+diff --git a/triton_extension/python/triton/extension/__init__.py b/triton_extension/python/triton/extension/__init__.py
+@@ -0,0 +1,21 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
+\ No newline at end of file
+
+diff --git a/triton_extension/python/triton/extension/ascend/__init__.py b/triton_extension/python/triton/extension/ascend/__init__.py
+@@ -0,0 +1,21 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
+\ No newline at end of file
+
+diff --git a/triton_extension/python/triton/extension/ascend/language/__init__.py b/triton_extension/python/triton/extension/ascend/language/__init__.py
+@@ -0,0 +1,26 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++from .core import *  # NOQA: F403
++from .core import __all__ as __core_all
++
++__all__ = [*__core_all]
+\ No newline at end of file
+
+diff --git a/triton_extension/python/triton/extension/ascend/language/core.py b/triton_extension/python/triton/extension/ascend/language/core.py
+@@ -0,0 +1,59 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++from typing import TypeVar, List
++from functools import wraps
++
++from triton._C.libtriton import ir
++import triton.language.core as tl
++
++__all__ = [
++]
++
++T = TypeVar("T")
++
++TRITON_BUILTIN = "__triton_builtin__"
++ASCEND_BUILTIN = "__ascend_builtin__"
++
++
++def builtin(fn: T) -> T:
++    """Mark a function as a buffer language builtin."""
++    assert callable(fn)
++
++    @wraps(fn)
++    def wrapper(*args, **kwargs):
++        if "_builder" not in kwargs or kwargs["_builder"] is None:
++            raise ValueError("Did you forget to add @triton.jit ? "
++                             "(`_builder` argument must be provided outside of JIT functions.)")
++        return fn(*args, **kwargs)
++
++    # also set triton_builtin to true so that CodeGenerator will recognize this function
++    setattr(wrapper, TRITON_BUILTIN, True)
++    setattr(wrapper, ASCEND_BUILTIN, True)
++
++    return wrapper
++
++
++def is_builtin(fn) -> bool:
++    """Is this a registered ascend language builtin function?"""
++    return getattr(fn, ASCEND_BUILTIN, False)
++
+
+diff --git a/triton_extension/python/triton/extension/buffer/__init__.py b/triton_extension/python/triton/extension/buffer/__init__.py
+@@ -0,0 +1,21 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
+\ No newline at end of file
+
+diff --git a/triton_extension/python/triton/extension/buffer/language/__init__.py b/triton_extension/python/triton/extension/buffer/language/__init__.py
+@@ -0,0 +1,26 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++from .core import *  # NOQA: F403
++from .core import __all__ as __core_all
++
++__all__ = [*__core_all]
+\ No newline at end of file
+
+diff --git a/triton_extension/python/triton/extension/buffer/language/core.py b/triton_extension/python/triton/extension/buffer/language/core.py
+@@ -0,0 +1,145 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++from typing import TypeVar, List
++from functools import wraps
++
++from triton._C.libtriton import ir
++import triton.language.core as tl
++
++__all__ = [
++    "address_space",
++    "allocate_local_buffer",
++    "buffer"
++]
++
++T = TypeVar("T")
++
++TRITON_BUILTIN = "__triton_builtin__"
++BUFFER_BUILTIN = "__buffer_builtin__"
++
++
++def builtin(fn: T) -> T:
++    """Mark a function as a buffer language builtin."""
++    assert callable(fn)
++
++    @wraps(fn)
++    def wrapper(*args, **kwargs):
++        if "_builder" not in kwargs or kwargs["_builder"] is None:
++            raise ValueError("Did you forget to add @triton.jit ? "
++                             "(`_builder` argument must be provided outside of JIT functions.)")
++        return fn(*args, **kwargs)
++
++    # also set triton_builtin to true so that CodeGenerator will recognize this function
++    setattr(wrapper, TRITON_BUILTIN, True)
++    setattr(wrapper, BUFFER_BUILTIN, True)
++
++    return wrapper
++
++
++def is_builtin(fn) -> bool:
++    """Is this a registered buffer language builtin function?"""
++    return getattr(fn, BUFFER_BUILTIN, False)
++
++
++class _value:
++    """Base class of values that exist in the triton IR (i.e. not constexprs).
++    """
++
++    def __init__(self, handle):
++        self.handle = handle
++
++
++class address_space:
++    """Represents a buffer's address space.
++
++    The :code:`address_space` of a buffer is a target-specific attribute.
++    """
++
++    def to_ir(self, builder: ir.builder) -> ir.type:
++        raise NotImplementedError(
++            "Abstract address_space cannot be converted to ir"
++        )
++
++# -----------------------
++# buffer
++# -----------------------
++
++
++class buffer(_value):
++    """Represents a region of memory.
++
++    :code:`buffer` is the fundamental data structure for Triton programs using
++    the buffer language extension. Most functions in
++    :py:mod:`triton.extension.buffer.language` operate on and return buffers.
++
++    Most of the named member functions here are duplicates of the free functions
++    in :code:`triton.language`.  For example, :code:`triton.language.sqrt(x)` is
++    equivalent to :code:`x.sqrt()`.
++
++    .. rubric:: Constructors
++    ..
++       For some reason Sphinx includes __init__ before printing the full table
++       of methods.  Not what I want, but I can't figure out how to fix it.  Give
++       it its own section so it looks intentional. :)
++    """
++
++    def __init__(self, handle, shape, dtype: tl.dtype, space: address_space = None):
++        """Not called by user code."""
++        # IR handle
++        super().__init__(handle)
++        self.dtype = dtype.scalar
++        self.shape = shape
++        self.space = space
++
++    def __str__(self) -> str:
++        # ex. "<16x32xfloat32, address_space>"
++        res = '<' + 'x'.join(str(s)
++                             for s in self.shape) + 'x' + str(self.dtype)
++        if self.space:
++            res += ', ' + str(self.space)
++        return res + '>'
++
++
++from . import semantic as semantic # NOQA: E402
++
++
++@builtin
++def allocate_local_buffer(
++    type: tl.dtype,
++    shape: List[tl.constexpr],
++    address_space: address_space = None,
++    _builder=None
++) -> buffer:
++    """
++    Allocates a region of local memory with the specified shape and type.
++
++    :param type: the element type of the buffer.
++    :type type: tl.dtype
++    :param shape: A list of non-negative integers representing the shape of the buffer.
++    :type shape: List[tl.constexpr]
++    :param address_space: (Optional) backend-specific local memory address space
++    :type address_space: bl.address_space
++    """
++    return semantic.allocate_local_buffer(
++        type, shape, address_space, _builder
++    )
+
+diff --git a/triton_extension/python/triton/extension/buffer/language/semantic.py b/triton_extension/python/triton/extension/buffer/language/semantic.py
+@@ -0,0 +1,49 @@
++# Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++# Copyright 2018-2020 Philippe Tillet
++# Copyright 2020-2022 OpenAI
++#
++# Permission is hereby granted, free of charge, to any person obtaining a copy
++# of this software and associated documentation files (the "Software"), to deal
++# in the Software without restriction, including without limitation the rights
++# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++# copies of the Software, and to permit persons to whom the Software is
++# furnished to do so, subject to the following conditions:
++#
++# The above copyright notice and this permission notice shall be included in
++# all copies or substantial portions of the Software.
++#
++# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++# THE SOFTWARE.
++
++from typing import (
++    TypeVar, List
++)
++
++from triton._C.libtriton import ir
++import triton.language.core as tl
++
++from . import core as bl
++
++
++T = TypeVar('T')
++
++
++def allocate_local_buffer(
++    type: tl.dtype,
++    shape: List[tl.constexpr],
++    address_space: bl.address_space,
++    builder: ir.builder
++) -> bl.buffer:
++    if not isinstance(shape, (tuple, list)):
++        raise TypeError("shape must be list/tuple")
++    shape = tl._unwrap_shape(shape)
++    element_ty = type.to_ir(builder)
++    address_space = address_space.to_ir(
++        builder) if address_space else builder.get_null_attr()
++    return bl.buffer(builder.allocate_local_buffer(element_ty, shape, address_space),
++                     dtype=type, shape=shape, space=address_space)
+
+diff --git a/triton_patch/python/src/.clang-format b/triton_patch/python/src/.clang-format
+@@ -0,0 +1 @@
++BasedOnStyle: LLVM
+
+diff --git a/triton_patch/python/src/ir.cc b/triton_patch/python/src/ir.cc
+@@ -22,6 +22,8 @@
+  * THE SOFTWARE.
+  */
+ 
++#include "ir.h"
++
+ #include <optional>
+ #include <pybind11/functional.h>
+ #include <pybind11/pybind11.h>
+@@ -62,89 +64,6 @@ namespace py = pybind11;
+ using namespace mlir;
+ using namespace triton;
+ 
+-// A custom op builder that keeps track of the last location
+-class TritonOpBuilder {
+-public:
+-  TritonOpBuilder(MLIRContext *context) {
+-    builder = std::make_unique<OpBuilder>(context);
+-    lastLoc = std::make_unique<Location>(builder->getUnknownLoc());
+-  }
+-
+-  OpBuilder &getBuilder() { return *builder; }
+-
+-  bool isLineInfoEnabled() { return lineInfoEnabled; }
+-
+-  void setLastLoc(Location loc) {
+-    if (lineInfoEnabled)
+-      lastLoc = std::make_unique<Location>(loc);
+-  }
+-
+-  void setLastLoc(const std::string &fileName, int line, int column) {
+-    auto context = builder->getContext();
+-    setLastLoc(FileLineColLoc::get(context, fileName, line, column));
+-  }
+-
+-  Location getLastLoc() {
+-    assert(lastLoc);
+-    return *lastLoc;
+-  }
+-
+-  void setInsertionPointToStart(Block &block) {
+-    if (!block.empty())
+-      setLastLoc(block.begin()->getLoc());
+-    else
+-      setLastLoc(builder->getUnknownLoc());
+-    builder->setInsertionPointToStart(&block);
+-  }
+-
+-  void setInsertionPointToEnd(Block &block) {
+-    if (!block.empty())
+-      setLastLoc(block.back().getLoc());
+-    else
+-      setLastLoc(builder->getUnknownLoc());
+-    builder->setInsertionPointToEnd(&block);
+-  }
+-
+-  void setInsertionPointAfter(Operation &op) {
+-    setLastLoc(op.getLoc());
+-    builder->setInsertionPointAfter(&op);
+-  }
+-
+-  void restoreInsertionPoint(OpBuilder::InsertPoint pt) {
+-    if (pt.isSet() && pt.getPoint() != pt.getBlock()->end())
+-      setLastLoc(pt.getPoint()->getLoc());
+-    else
+-      setLastLoc(builder->getUnknownLoc());
+-    builder->restoreInsertionPoint(pt);
+-  }
+-
+-  template <typename OpTy, typename... Args> OpTy create(Args &&...args) {
+-    auto loc = getLastLoc();
+-    return builder->create<OpTy>(loc, std::forward<Args>(args)...);
+-  }
+-
+-  // Overload to create or fold a single result operation.
+-  template <typename OpTy, typename... Args>
+-  std::enable_if_t<OpTy::template hasTrait<OpTrait::OneResult>(), Value>
+-  createOrFold(Args &&...args) {
+-    auto loc = getLastLoc();
+-    return builder->createOrFold<OpTy>(loc, std::forward<Args>(args)...);
+-  }
+-
+-  // Overload to create or fold a zero result operation.
+-  template <typename OpTy, typename... Args>
+-  std::enable_if_t<OpTy::template hasTrait<OpTrait::ZeroResults>(), OpTy>
+-  createOrFold(Args &&...args) {
+-    auto loc = getLastLoc();
+-    return builder->createOrFold<OpTy>(loc, std::forward<Args>(args)...);
+-  }
+-
+-private:
+-  std::unique_ptr<OpBuilder> builder;
+-  std::unique_ptr<Location> lastLoc;
+-  bool lineInfoEnabled = !triton::tools::getBoolEnv("TRITON_DISABLE_LINE_INFO");
+-};
+-
+ std::string locationToString(Location loc) {
+   std::string str;
+   llvm::raw_string_ostream os(str);
+@@ -660,14 +579,14 @@ void init_triton_ir(py::module &&m) {
+            [](TritonOpBuilder &self, std::string value) {
+              return self.getBuilder().getStringAttr(value);
+            })
+-      .def("get_unit_attr",
+-          [](TritonOpBuilder &self) {
+-            return self.getBuilder().getUnitAttr();
+-          })
++      .def(
++          "get_unit_attr",
++          [](TritonOpBuilder &self) { return self.getBuilder().getUnitAttr(); })
++      .def("get_null_attr", [](TritonOpBuilder &self) { return Attribute(); })
+       .def("get_i64_array_attr",
+-          [](TritonOpBuilder &self, const std::vector<int64_t>& array) {
+-            return self.getBuilder().getI64ArrayAttr(array);
+-          })
++           [](TritonOpBuilder &self, const std::vector<int64_t> &array) {
++             return self.getBuilder().getI64ArrayAttr(array);
++           })
+       // Use arith.ConstantOp to create constants
+       // Constants
+       .def("get_int1",
+@@ -1304,19 +1223,23 @@ void init_triton_ir(py::module &&m) {
+            })
+       .def("create_tensor_descriptor_type",
+            [](TritonOpBuilder &self, Type blockTy, bool isSigned) -> Type {
+-               auto ctx = self.getBuilder().getContext();
+-               return triton::TensorDescType::get(ctx, cast<RankedTensorType>(blockTy), isSigned);
++             auto ctx = self.getBuilder().getContext();
++             return triton::TensorDescType::get(
++                 ctx, cast<RankedTensorType>(blockTy), isSigned);
+            })
+       .def("create_descriptor_load",
+-           [](TritonOpBuilder &self, Value desc, std::vector<Value> &indices, CacheModifier cacheModifier,
++           [](TritonOpBuilder &self, Value desc, std::vector<Value> &indices,
++              CacheModifier cacheModifier,
+               EvictionPolicy evictionPolicy) -> Value {
+-                auto descTy = cast<triton::TensorDescType>(desc.getType());
+-                auto resTy = descTy.getSignlessBlockType();
+-                return self.create<DescriptorLoadOp>(resTy, desc, indices, cacheModifier, evictionPolicy);
++             auto descTy = cast<triton::TensorDescType>(desc.getType());
++             auto resTy = descTy.getSignlessBlockType();
++             return self.create<DescriptorLoadOp>(
++                 resTy, desc, indices, cacheModifier, evictionPolicy);
+            })
+       .def("create_descriptor_store",
+-           [](TritonOpBuilder &self, Value desc, Value value, std::vector<Value> &indices) -> void {
+-               self.create<DescriptorStoreOp>(desc, value, indices);
++           [](TritonOpBuilder &self, Value desc, Value value,
++              std::vector<Value> &indices) -> void {
++             self.create<DescriptorStoreOp>(desc, value, indices);
+            })
+       .def("create_tensormap_create",
+            [](TritonOpBuilder &self, Value desc_ptr, Value global_address,
+@@ -1375,52 +1298,55 @@ void init_triton_ir(py::module &&m) {
+              return std::vector<Value>(op->result_begin(), op->result_end());
+            })
+       .def("create_extract_scalar",
+-           [](TritonOpBuilder &self, Value &src, std::vector<Value> &indices) -> Value {
+-            llvm::SmallVector<Value> arg_indices;
+-            for (const auto &i : indices) {
+-                auto iTy = i.getType();
+-                if (!iTy.isIndex()) {
+-                    auto v = self.create<arith::IndexCastOp>(
+-                        self.getBuilder().getIndexType(), i);
+-                    arg_indices.push_back(v);
+-                } else {
+-                    arg_indices.push_back(i);
+-                }
+-            }
+-            auto ret = self.create<tensor::ExtractOp>(src, arg_indices);
+-            return ret;
+-        })
++           [](TritonOpBuilder &self, Value &src,
++              std::vector<Value> &indices) -> Value {
++             llvm::SmallVector<Value> arg_indices;
++             for (const auto &i : indices) {
++               auto iTy = i.getType();
++               if (!iTy.isIndex()) {
++                 auto v = self.create<arith::IndexCastOp>(
++                     self.getBuilder().getIndexType(), i);
++                 arg_indices.push_back(v);
++               } else {
++                 arg_indices.push_back(i);
++               }
++             }
++             auto ret = self.create<tensor::ExtractOp>(src, arg_indices);
++             return ret;
++           })
+       .def("create_extract_slice",
+-        [](TritonOpBuilder &self, Value &ful, std::vector<Value> &offs_vec,
+-            std::vector<int> &sizs_vec, std::vector<int> &strd_vec) -> Value {
+-            llvm::SmallVector<Value> offsets;
+-            for (const auto &o : offs_vec) {
+-                auto oTy = o.getType();
+-                if (!oTy.isIndex()) {
+-                    auto v = self.create<arith::IndexCastOp>(
+-                        self.getBuilder().getIndexType(), o);
+-                    offsets.push_back(v);
+-                } else {
+-                    offsets.push_back(o);
+-                }
+-            }
+-            llvm::SmallVector<Value> sizes;
+-            llvm::SmallVector<int64_t> retSizes;
+-            for (const auto &s : sizs_vec) {
+-                auto v = self.create<arith::ConstantIndexOp>(s);
+-                sizes.push_back(v);
+-                retSizes.push_back(s);
+-            }
+-            llvm::SmallVector<Value> strides;
+-            for (const auto &s : strd_vec) {
+-                auto v = self.create<arith::ConstantIndexOp>(s);
+-                strides.push_back(v);
+-            }
+-            auto retTy = RankedTensorType::get(retSizes,
+-                cast<RankedTensorType>(ful.getType()).getElementType());
++           [](TritonOpBuilder &self, Value &ful, std::vector<Value> &offs_vec,
++              std::vector<int> &sizs_vec, std::vector<int> &strd_vec) -> Value {
++             llvm::SmallVector<Value> offsets;
++             for (const auto &o : offs_vec) {
++               auto oTy = o.getType();
++               if (!oTy.isIndex()) {
++                 auto v = self.create<arith::IndexCastOp>(
++                     self.getBuilder().getIndexType(), o);
++                 offsets.push_back(v);
++               } else {
++                 offsets.push_back(o);
++               }
++             }
++             llvm::SmallVector<Value> sizes;
++             llvm::SmallVector<int64_t> retSizes;
++             for (const auto &s : sizs_vec) {
++               auto v = self.create<arith::ConstantIndexOp>(s);
++               sizes.push_back(v);
++               retSizes.push_back(s);
++             }
++             llvm::SmallVector<Value> strides;
++             for (const auto &s : strd_vec) {
++               auto v = self.create<arith::ConstantIndexOp>(s);
++               strides.push_back(v);
++             }
++             auto retTy = RankedTensorType::get(
++                 retSizes,
++                 cast<RankedTensorType>(ful.getType()).getElementType());
+ 
+-            return self.create<tensor::ExtractSliceOp>(retTy, ful, offsets, sizes, strides);
+-        })
++             return self.create<tensor::ExtractSliceOp>(retTy, ful, offsets,
++                                                        sizes, strides);
++           })
+       .def("create_insert_slice",
+            [](TritonOpBuilder &self, Value &ful, Value &sub,
+               std::vector<Value> &offs_vec, std::vector<int> &sizs_vec,
+@@ -1714,77 +1640,83 @@ void init_triton_ir(py::module &&m) {
+       .def("create_custom_op_for_inter_core_sync",
+            [](TritonOpBuilder &self, std::string &op_name,
+               std::string &mode_or_sender, int id) -> void {
+-                auto args = self.getBuilder().getArrayAttr(
+-                    {self.getBuilder().getStringAttr(mode_or_sender),
+-                    self.getBuilder().getI32IntegerAttr(id)}
+-                );
+-                self.create<CustomOp>(op_name, args, ValueRange());
++             auto args = self.getBuilder().getArrayAttr(
++                 {self.getBuilder().getStringAttr(mode_or_sender),
++                  self.getBuilder().getI32IntegerAttr(id)});
++             self.create<CustomOp>(op_name, args, ValueRange());
+            })
+       // Make a tensor descriptor
+       .def("create_make_tensor_descriptor",
+-           [](TritonOpBuilder &self, Value &base, std::vector<Value> &shape, std::vector<Value> &strides,
+-              std::vector<int32_t> &tensorShape, bool isSignedInteger) -> Value {
+-                return self.create<MakeTensorDescOp>(base, shape, strides, tensorShape, isSignedInteger);
++           [](TritonOpBuilder &self, Value &base, std::vector<Value> &shape,
++              std::vector<Value> &strides, std::vector<int32_t> &tensorShape,
++              bool isSignedInteger) -> Value {
++             return self.create<MakeTensorDescOp>(base, shape, strides,
++                                                  tensorShape, isSignedInteger);
+            })
+       // Gather load operation
+       .def("create_gather_load",
+-           [](TritonOpBuilder &self, Value &src, Value &gatherIndices, int32_t gatherDim,
+-              std::vector<Value> &srcShape, std::vector<Value> &srcOffset,
+-              std::vector<int32_t> &readShape, std::vector<int32_t> &returnShape) -> Value {
+-                auto &builder = self.getBuilder();
+-                auto loc = self.getLastLoc();
++           [](TritonOpBuilder &self, Value &src, Value &gatherIndices,
++              int32_t gatherDim, std::vector<Value> &srcShape,
++              std::vector<Value> &srcOffset, std::vector<int32_t> &readShape,
++              std::vector<int32_t> &returnShape) -> Value {
++             auto &builder = self.getBuilder();
++             auto loc = self.getLastLoc();
+ 
+-                // Get element type from source pointer
+-                Type elemType;
+-                if (auto ptrTy = dyn_cast<triton::PointerType>(src.getType())) {
+-                  elemType = ptrTy.getPointeeType();
+-                } else {
+-                  llvm::report_fatal_error("gather_load: src must be pointer type");
+-                }
++             // Get element type from source pointer
++             Type elemType;
++             if (auto ptrTy = dyn_cast<triton::PointerType>(src.getType())) {
++               elemType = ptrTy.getPointeeType();
++             } else {
++               llvm::report_fatal_error(
++                   "gather_load: src must be pointer type");
++             }
+ 
+-                // Create return tensor type
+-                llvm::SmallVector<int64_t> retShape;
+-                for (const auto &s : returnShape) {
+-                  retShape.push_back(s);
+-                }
+-                auto retTensorType = RankedTensorType::get(retShape, elemType);
++             // Create return tensor type
++             llvm::SmallVector<int64_t> retShape;
++             for (const auto &s : returnShape) {
++               retShape.push_back(s);
++             }
++             auto retTensorType = RankedTensorType::get(retShape, elemType);
+ 
+-                // Convert srcShape and srcOffset values to index type if needed
+-                llvm::SmallVector<Value> srcShapeIndex;
+-                for (auto val : srcShape) {
+-                  if (!val.getType().isIndex()) {
+-                    val = self.create<arith::IndexCastOp>(builder.getIndexType(), val);
+-                  }
+-                  srcShapeIndex.push_back(val);
+-                }
+-                
+-                llvm::SmallVector<Value> srcOffsetIndex;
+-                for (auto val : srcOffset) {
+-                  if (!val.getType().isIndex()) {
+-                    val = self.create<arith::IndexCastOp>(builder.getIndexType(), val);
+-                  }
+-                  srcOffsetIndex.push_back(val);
+-                }
++             // Convert srcShape and srcOffset values to index type if needed
++             llvm::SmallVector<Value> srcShapeIndex;
++             for (auto val : srcShape) {
++               if (!val.getType().isIndex()) {
++                 val = self.create<arith::IndexCastOp>(builder.getIndexType(),
++                                                       val);
++               }
++               srcShapeIndex.push_back(val);
++             }
+ 
+-                // Create attributes
+-                auto gatherDimAttr = builder.getI32IntegerAttr(gatherDim);
+-                auto readShapeAttr = builder.getDenseI32ArrayAttr(readShape);
++             llvm::SmallVector<Value> srcOffsetIndex;
++             for (auto val : srcOffset) {
++               if (!val.getType().isIndex()) {
++                 val = self.create<arith::IndexCastOp>(builder.getIndexType(),
++                                                       val);
++               }
++               srcOffsetIndex.push_back(val);
++             }
+ 
+-                // Create the GatherLoadOp
+-                // Parameter order must match TritonOps.td definition:
+-                // src, gather_indices, gather_dim, src_shape, src_offset, read_shape
+-                auto gatherLoadOp = builder.create<triton::GatherLoadOp>(
+-                    loc,
+-                    retTensorType,        // result type
+-                    src,                  // src pointer
+-                    gatherIndices,        // gather_indices tensor
+-                    gatherDimAttr,        // gather_dim attribute
+-                    srcShapeIndex,        // src_shape (variadic, index type)
+-                    srcOffsetIndex,       // src_offset (variadic, index type)
+-                    readShapeAttr         // read_shape attribute
+-                );
++             // Create attributes
++             auto gatherDimAttr = builder.getI32IntegerAttr(gatherDim);
++             auto readShapeAttr = builder.getDenseI32ArrayAttr(readShape);
+ 
+-                return gatherLoadOp.getResult();
++             // Create the GatherLoadOp
++             // Parameter order must match TritonOps.td definition:
++             // src, gather_indices, gather_dim, src_shape, src_offset,
++             // read_shape
++             auto gatherLoadOp = builder.create<triton::GatherLoadOp>(
++                 loc,
++                 retTensorType,  // result type
++                 src,            // src pointer
++                 gatherIndices,  // gather_indices tensor
++                 gatherDimAttr,  // gather_dim attribute
++                 srcShapeIndex,  // src_shape (variadic, index type)
++                 srcOffsetIndex, // src_offset (variadic, index type)
++                 readShapeAttr   // read_shape attribute
++             );
++
++             return gatherLoadOp.getResult();
+            })
+       // Add an annotation
+       .def("create_annotation",
+@@ -1797,33 +1729,38 @@ void init_triton_ir(py::module &&m) {
+       .def("create_embedding_gather",
+            [](TritonOpBuilder &self, Value &src, Value &idx,
+               const int64_t bound, const int64_t blksiz,
+-              std::vector<Value> &offsets, std::vector<Value> &numels) -> Value {
+-                auto elemTy = cast<PointerType>(src.getType()).getPointeeType();
+-                auto idxTy = cast<RankedTensorType>(idx.getType());
+-                auto idxShape = idxTy.getShape();
+-                std::vector<int64_t> retShape(idxShape.begin(), idxShape.end());
+-                retShape.push_back(blksiz);
+-                auto resType = RankedTensorType::get(retShape, elemTy);
+-                auto idxBitWidth = idxTy.getElementType().getIntOrFloatBitWidth();
+-                auto bound_val = self.create<arith::ConstantIntOp>(bound, idxBitWidth);
+-                auto blksiz_val = self.create<arith::ConstantIntOp>(blksiz, idxBitWidth);
++              std::vector<Value> &offsets,
++              std::vector<Value> &numels) -> Value {
++             auto elemTy = cast<PointerType>(src.getType()).getPointeeType();
++             auto idxTy = cast<RankedTensorType>(idx.getType());
++             auto idxShape = idxTy.getShape();
++             std::vector<int64_t> retShape(idxShape.begin(), idxShape.end());
++             retShape.push_back(blksiz);
++             auto resType = RankedTensorType::get(retShape, elemTy);
++             auto idxBitWidth = idxTy.getElementType().getIntOrFloatBitWidth();
++             auto bound_val =
++                 self.create<arith::ConstantIntOp>(bound, idxBitWidth);
++             auto blksiz_val =
++                 self.create<arith::ConstantIntOp>(blksiz, idxBitWidth);
+ 
+-                return self.create<EmbeddingGatherOp>(
+-                          resType, src, idx, bound_val, blksiz_val, offsets, numels);
+-            })
++             return self.create<EmbeddingGatherOp>(resType, src, idx, bound_val,
++                                                   blksiz_val, offsets, numels);
++           })
+       // Add sort
+       .def("create_sort",
+-           [](TritonOpBuilder &self, Value src, int64_t dim, bool descending) -> Value {
+-               auto &builder = self.getBuilder();
+-               auto loc = self.getLastLoc();
++           [](TritonOpBuilder &self, Value src, int64_t dim,
++              bool descending) -> Value {
++             auto &builder = self.getBuilder();
++             auto loc = self.getLastLoc();
+ 
+-               auto dimAttr = builder.getI64IntegerAttr(dim);
+-               auto descendingAttr = builder.getBoolAttr(descending);
++             auto dimAttr = builder.getI64IntegerAttr(dim);
++             auto descendingAttr = builder.getBoolAttr(descending);
+ 
+-               auto op = builder.create<triton::SortOp>(loc, src, dimAttr, descendingAttr);
++             auto op = builder.create<triton::SortOp>(loc, src, dimAttr,
++                                                      descendingAttr);
+ 
+-               return op->getResult(0);
+-            });
++             return op->getResult(0);
++           });
+ 
+   py::class_<PassManager>(m, "pass_manager", py::module_local())
+       .def(py::init<MLIRContext *>())
+
+diff --git a/triton_patch/python/src/ir.h b/triton_patch/python/src/ir.h
+@@ -0,0 +1,115 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ * Copyright 2018-2020 Philippe Tillet
++ * Copyright 2020-2022 OpenAI
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++#pragma once
++
++#include <memory>
++
++#include "mlir/IR/Builders.h"
++#include "triton/Tools/Sys/GetEnv.hpp"
++
++// A custom op builder that keeps track of the last location
++class TritonOpBuilder {
++public:
++  TritonOpBuilder(mlir::MLIRContext *context) {
++    builder = std::make_unique<mlir::OpBuilder>(context);
++    lastLoc = std::make_unique<mlir::Location>(builder->getUnknownLoc());
++  }
++
++  mlir::OpBuilder &getBuilder() { return *builder; }
++
++  bool isLineInfoEnabled() { return lineInfoEnabled; }
++
++  void setLastLoc(mlir::Location loc) {
++    if (lineInfoEnabled)
++      lastLoc = std::make_unique<mlir::Location>(loc);
++  }
++
++  void setLastLoc(const std::string &fileName, int line, int column) {
++    auto context = builder->getContext();
++    setLastLoc(mlir::FileLineColLoc::get(context, fileName, line, column));
++  }
++
++  mlir::Location getLastLoc() {
++    assert(lastLoc);
++    return *lastLoc;
++  }
++
++  void setInsertionPointToStart(mlir::Block &block) {
++    if (!block.empty())
++      setLastLoc(block.begin()->getLoc());
++    else
++      setLastLoc(builder->getUnknownLoc());
++    builder->setInsertionPointToStart(&block);
++  }
++
++  void setInsertionPointToEnd(mlir::Block &block) {
++    if (!block.empty())
++      setLastLoc(block.back().getLoc());
++    else
++      setLastLoc(builder->getUnknownLoc());
++    builder->setInsertionPointToEnd(&block);
++  }
++
++  void setInsertionPointAfter(mlir::Operation &op) {
++    setLastLoc(op.getLoc());
++    builder->setInsertionPointAfter(&op);
++  }
++
++  void restoreInsertionPoint(mlir::OpBuilder::InsertPoint pt) {
++    if (pt.isSet() && pt.getPoint() != pt.getBlock()->end())
++      setLastLoc(pt.getPoint()->getLoc());
++    else
++      setLastLoc(builder->getUnknownLoc());
++    builder->restoreInsertionPoint(pt);
++  }
++
++  template <typename OpTy, typename... Args> OpTy create(Args &&...args) {
++    auto loc = getLastLoc();
++    return builder->create<OpTy>(loc, std::forward<Args>(args)...);
++  }
++
++  // Overload to create or fold a single result operation.
++  template <typename OpTy, typename... Args>
++  std::enable_if_t<OpTy::template hasTrait<mlir::OpTrait::OneResult>(),
++                   mlir::Value>
++  createOrFold(Args &&...args) {
++    auto loc = getLastLoc();
++    return builder->createOrFold<OpTy>(loc, std::forward<Args>(args)...);
++  }
++
++  // Overload to create or fold a zero result operation.
++  template <typename OpTy, typename... Args>
++  std::enable_if_t<OpTy::template hasTrait<mlir::OpTrait::ZeroResults>(), OpTy>
++  createOrFold(Args &&...args) {
++    auto loc = getLastLoc();
++    return builder->createOrFold<OpTy>(loc, std::forward<Args>(args)...);
++  }
++
++private:
++  std::unique_ptr<mlir::OpBuilder> builder;
++  std::unique_ptr<mlir::Location> lastLoc;
++  bool lineInfoEnabled =
++      !mlir::triton::tools::getBoolEnv("TRITON_DISABLE_LINE_INFO");
++};
+
+diff --git a/triton_patch/python/src/main.cc b/triton_patch/python/src/main.cc
+@@ -0,0 +1,83 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ * Copyright 2018-2020 Philippe Tillet
++ * Copyright 2020-2022 OpenAI
++ *
++ * Permission is hereby granted, free of charge, to any person obtaining a copy
++ * of this software and associated documentation files (the "Software"), to deal
++ * in the Software without restriction, including without limitation the rights
++ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
++ * copies of the Software, and to permit persons to whom the Software is
++ * furnished to do so, subject to the following conditions:
++ *
++ * The above copyright notice and this permission notice shall be included in
++ * all copies or substantial portions of the Software.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
++ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
++ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
++ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
++ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
++ * THE SOFTWARE.
++ */
++
++#include "llvm/ADT/StringRef.h"
++#include "llvm/Support/Signals.h"
++#include <pybind11/pybind11.h>
++
++namespace py = pybind11;
++
++#define FOR_EACH_1(MACRO, X) MACRO(X)
++#define FOR_EACH_2(MACRO, X, ...) MACRO(X) FOR_EACH_1(MACRO, __VA_ARGS__)
++#define FOR_EACH_3(MACRO, X, ...) MACRO(X) FOR_EACH_2(MACRO, __VA_ARGS__)
++#define FOR_EACH_4(MACRO, X, ...) MACRO(X) FOR_EACH_3(MACRO, __VA_ARGS__)
++
++#define FOR_EACH_NARG(...) FOR_EACH_NARG_(__VA_ARGS__, FOR_EACH_RSEQ_N())
++#define FOR_EACH_NARG_(...) FOR_EACH_ARG_N(__VA_ARGS__)
++#define FOR_EACH_ARG_N(_1, _2, _3, _4, N, ...) N
++#define FOR_EACH_RSEQ_N() 4, 3, 2, 1, 0
++
++#define CONCATENATE(x, y) CONCATENATE1(x, y)
++#define CONCATENATE1(x, y) x##y
++
++#define FOR_EACH(MACRO, ...)                                                   \
++  CONCATENATE(FOR_EACH_, FOR_EACH_NARG_HELPER(__VA_ARGS__))(MACRO, __VA_ARGS__)
++#define FOR_EACH_NARG_HELPER(...) FOR_EACH_NARG(__VA_ARGS__)
++
++// New macro to remove parentheses
++#define REMOVE_PARENS(...) __VA_ARGS__
++
++// Intermediate macro to ensure correct expansion
++#define FOR_EACH_P_INTERMEDIATE(MACRO, ...) FOR_EACH(MACRO, __VA_ARGS__)
++
++// Modified FOR_EACH to handle parentheses
++#define FOR_EACH_P(MACRO, ARGS_WITH_PARENS)                                    \
++  FOR_EACH_P_INTERMEDIATE(MACRO, REMOVE_PARENS ARGS_WITH_PARENS)
++
++#define DECLARE_BACKEND(name) void init_triton_##name(pybind11::module &&m);
++
++#define INIT_BACKEND(name) init_triton_##name(m.def_submodule(#name));
++
++void init_triton_env_vars(pybind11::module &m);
++void init_triton_ir(pybind11::module &&m);
++void init_buffer_ir(pybind11::module &&m);
++void init_ascend_ir(pybind11::module &&m);
++void init_triton_llvm(pybind11::module &&m);
++void init_triton_interpreter(pybind11::module &&m);
++void init_triton_passes(pybind11::module &&m);
++void init_triton_stacktrace_hook(pybind11::module &m);
++FOR_EACH_P(DECLARE_BACKEND, TRITON_BACKENDS_TUPLE)
++
++PYBIND11_MODULE(libtriton, m) {
++  m.doc() = "Python bindings to the C++ Triton API";
++  init_triton_stacktrace_hook(m);
++  init_triton_env_vars(m);
++  init_triton_ir(m.def_submodule("ir"));
++  init_buffer_ir(m.def_submodule("buffer_ir"));
++  init_ascend_ir(m.def_submodule("ascend_ir"));
++  init_triton_passes(m.def_submodule("passes"));
++  init_triton_interpreter(m.def_submodule("interpreter"));
++  init_triton_llvm(m.def_submodule("llvm"));
++  FOR_EACH_P(INIT_BACKEND, TRITON_BACKENDS_TUPLE)
++}
+
+diff --git a/triton_patch/python/triton_patch/compiler/code_generator.py b/triton_patch/python/triton_patch/compiler/code_generator.py
+@@ -29,14 +29,17 @@ import os
+ import textwrap
+ from typing import Any, Callable, Dict, Optional, Tuple, Type, Union
+ from .. import language
+-from .._C.libtriton import ir
++from .._C.libtriton import ir, buffer_ir, ascend_ir
+ from ..language import constexpr, tensor, str_to_ty
+ from ..language.core import _unwrap_if_constexpr, nv_tma_desc_type, _value
+ from ..runtime.jit import _normalize_ty, get_jit_fn_file_line
+ # ideally we wouldn't need any runtime component
+ from ..runtime import JITFunction
+-from .errors import (CompilationError, CompileTimeAssertionFailure, UnsupportedLanguageConstruct)
++from .errors import (
++    CompilationError, CompileTimeAssertionFailure, UnsupportedLanguageConstruct)
+ from types import ModuleType
++import triton.extension.buffer.language as bl
++import triton.extension.ascend.language as al
+ 
+ 
+ def mangle_ty(ty):
+@@ -60,7 +63,8 @@ def mangle_ty(ty):
+ def mangle_fn(name, arg_tys, constants):
+     # doesn't mangle ret type, which must be a function of arg tys
+     mangled_arg_names = '_'.join([mangle_ty(ty) for ty in arg_tys])
+-    mangled_constants = '_'.join([f'{i}c{repr(constants[i])}' for i in sorted(constants)])
++    mangled_constants = '_'.join(
++        [f'{i}c{repr(constants[i])}' for i in sorted(constants)])
+     mangled_constants = mangled_constants.replace('.', '_d_')
+     mangled_constants = mangled_constants.replace("'", '_sq_')
+     # [ and ] are not allowed in LLVM identifiers
+@@ -99,7 +103,8 @@ def _check_fn_args(node, fn, args):
+                 )
+ 
+ 
+-_condition_types = {bool, int, type(None)}  # Python types accepted for conditionals inside kernels
++# Python types accepted for conditionals inside kernels
++_condition_types = {bool, int, type(None)}
+ 
+ 
+ class enter_sub_region:
+@@ -209,10 +214,14 @@ class CodeGenerator(ast.NodeVisitor):
+                  noinline=False, file_name: Optional[str] = None, begin_line=0):
+         self.context = context
+         self.builder = ir.builder(context)
++        self.buffer_builder = buffer_ir.buffer_builder(context)
++        self.ascend_builder = ascend_ir.ascendnpu_ir_builder(context)
+         self.file_name = file_name
+         # node.lineno starts from 1, so we need to subtract 1
+         self.begin_line = begin_line - 1
+         self.builder.set_loc(file_name, begin_line, 0)
++        self.buffer_builder.set_loc(file_name, begin_line, 0)
++        self.ascend_builder.set_loc(file_name, begin_line, 0)
+         self.builder.options = options
+         self.builder.codegen_fns = codegen_fns
+         self.builder.module_map = {} if module_map is None else module_map
+@@ -245,13 +254,15 @@ class CodeGenerator(ast.NodeVisitor):
+         # SSA-construction
+         # name => language.tensor
+         self.local_defs: Dict[str, tensor] = {}
+-        self.dereference_name: Callable[[str], Any] = self._define_name_lookup()
++        self.dereference_name: Callable[[str],
++                                        Any] = self._define_name_lookup()
+         self.fn = None
+         # Are we currently visiting an ast.arg's default value?  These have some
+         # special handling.
+         self.visiting_arg_default_value = False
+ 
+-    builtin_namespace: Dict[str, Any] = {_.__name__: _ for _ in (len, list, range, float, int, isinstance, getattr)}
++    builtin_namespace: Dict[str, Any] = {_.__name__: _ for _ in (
++        len, list, range, float, int, isinstance, getattr)}
+     builtin_namespace.update((
+         ('print', language.core.device_print),
+         ('min', language.minimum),
+@@ -291,14 +302,16 @@ class CodeGenerator(ast.NodeVisitor):
+                     type(val) is ModuleType,  #
+                     isinstance(val, JITFunction),  #
+                     getattr(val, "__triton_builtin__", False),  #
+-                    getattr(val, "__module__", "").startswith("triton.language"),  #
++                    getattr(val, "__module__", "").startswith(
++                        "triton.language"),  #
+                     isinstance(val, language.dtype),  #
+                     self._is_constexpr_global(name),  #
+                     # Allow accesses to globals while visiting an ast.arg
+                     # because you should be able to do
+                     #   @triton.jit def fn(x: tl.constexpr = GLOBAL): ...
+                     self.visiting_arg_default_value,  #
+-                    os.environ.get("TRITON_ALLOW_NON_CONSTEXPR_GLOBALS", "0") == "1"
++                    os.environ.get(
++                        "TRITON_ALLOW_NON_CONSTEXPR_GLOBALS", "0") == "1"
+             ]):
+                 return val
+             raise NameError(
+@@ -331,17 +344,19 @@ class CodeGenerator(ast.NodeVisitor):
+         self.lscope[name] = value
+         self.local_defs[name] = value
+ 
+-    def _get_insertion_point_and_loc(self):
++    def _get_insertion_point_and_loc(self, builder=None):
+         # XXX: this is a hack to get the location of the insertion point.
+         # The insertion point's location could be invalid sometimes,
+         # so we need to explicitly set the location
+-        loc = self.builder.get_loc()
+-        ip = self.builder.get_insertion_point()
++        _builder = self.builder if not builder else builder
++        loc = _builder.get_loc()
++        ip = _builder.get_insertion_point()
+         return ip, loc
+ 
+-    def _set_insertion_point_and_loc(self, ip, loc):
+-        self.builder.restore_insertion_point(ip)
+-        self.builder.set_loc(loc)
++    def _set_insertion_point_and_loc(self, ip, loc, builder=None):
++        _builder = self.builder if not builder else builder
++        _builder.restore_insertion_point(ip)
++        _builder.set_loc(loc)
+ 
+     #
+     # AST visitor
+@@ -374,7 +389,8 @@ class CodeGenerator(ast.NodeVisitor):
+             self.builder.ret([])
+             ret_ty = language.void
+         elif isinstance(ret_value, tuple):
+-            ret_values = [language.semantic.to_tensor(v, self.builder) for v in ret_value]
++            ret_values = [language.semantic.to_tensor(
++                v, self.builder) for v in ret_value]
+             ret_types = [v.type for v in ret_values]
+             self.builder.ret([v.handle for v in ret_values])
+             ret_ty = tuple(ret_types)
+@@ -386,7 +402,8 @@ class CodeGenerator(ast.NodeVisitor):
+         if self.ret_type is None:
+             self.ret_type = ret_ty
+         elif self.ret_type != ret_ty:
+-            raise TypeError(f'Inconsistent return types: {self.ret_type} and {ret_ty}')
++            raise TypeError(
++                f'Inconsistent return types: {self.ret_type} and {ret_ty}')
+ 
+         # A return op must always terminate the basic block, so we create a dead
+         # basic block in case there are any ops after the return.
+@@ -396,7 +413,8 @@ class CodeGenerator(ast.NodeVisitor):
+     def visit_FunctionDef(self, node):
+         arg_names, kwarg_names = self.visit(node.args)
+         if self.fn:
+-            raise self._unsupported(node, "nested function definition is not supported.")
++            raise self._unsupported(
++                node, "nested function definition is not supported.")
+         # initialize defaults
+         for i, default_value in enumerate(node.args.defaults[::-1]):
+             arg_node = node.args.args[-i - 1]
+@@ -404,9 +422,11 @@ class CodeGenerator(ast.NodeVisitor):
+             name = arg_node.arg
+             st_target = ast.Name(id=name, ctx=ast.Store())
+             if annotation is None:
+-                init_node = ast.Assign(targets=[st_target], value=default_value)
++                init_node = ast.Assign(
++                    targets=[st_target], value=default_value)
+             else:
+-                init_node = ast.AnnAssign(target=st_target, value=default_value, annotation=annotation)
++                init_node = ast.AnnAssign(
++                    target=st_target, value=default_value, annotation=annotation)
+ 
+             try:
+                 assert not self.visiting_arg_default_value
+@@ -439,7 +459,8 @@ class CodeGenerator(ast.NodeVisitor):
+                 if isinstance(self.prototype.param_types[idx], nv_tma_desc_type):
+                     self.fn.set_arg_attr(idx, "tt.nv_tma_desc", 1)
+ 
+-                arg_values.append(tensor(self.fn.args(idx), self.prototype.param_types[idx]))
++                arg_values.append(
++                    tensor(self.fn.args(idx), self.prototype.param_types[idx]))
+                 idx += 1
+ 
+         insert_pt = self.builder.get_insertion_block()
+@@ -455,7 +476,8 @@ class CodeGenerator(ast.NodeVisitor):
+             self.ret_type = language.void
+             self.builder.ret([])
+         else:
+-            self.prototype.ret_types = list(self.ret_type) if isinstance(self.ret_type, tuple) else [self.ret_type]
++            self.prototype.ret_types = list(self.ret_type) if isinstance(
++                self.ret_type, tuple) else [self.ret_type]
+             self.fn.reset_type(self.prototype.to_ir(self.builder))
+             self.builder.ret([
+                 self.builder.create_poison(ty.to_ir(self.builder))
+@@ -503,7 +525,8 @@ class CodeGenerator(ast.NodeVisitor):
+             for target in node.targets:
+                 _names += [self.visit(target)]
+         if len(_names) > 1:
+-            raise self._unsupported(node, "simultaneous multiple assignment is not supported.")
++            raise self._unsupported(
++                node, "simultaneous multiple assignment is not supported.")
+         names = _names[0]
+         values = self.visit(node.value)
+         if not _is_list_like(names):
+@@ -606,7 +629,8 @@ class CodeGenerator(ast.NodeVisitor):
+                         f'but the {block_name} block redefines it as {defs[name].type}'
+             if name in then_defs or name in else_defs:
+                 names.append(name)
+-                ret_types.append(then_defs[name].type if name in then_defs else else_defs[name].type)
++                ret_types.append(
++                    then_defs[name].type if name in then_defs else else_defs[name].type)
+                 ir_ret_types.append(then_defs[name].handle.get_type() if name in
+                                     then_defs else else_defs[name].handle.get_type())
+             # variable defined in then but not in else
+@@ -638,20 +662,24 @@ class CodeGenerator(ast.NodeVisitor):
+             else_block = self.builder.create_block()
+             # create branch
+             self.builder.set_insertion_point_to_end(ip_block)
+-            self.builder.create_cond_branch(cond.handle, then_block, else_block)
++            self.builder.create_cond_branch(
++                cond.handle, then_block, else_block)
+             # visit then and else blocks
+             then_defs, else_defs, then_block, else_block, names, ret_types, ir_ret_types = \
+-                self.visit_then_else_blocks(node, liveins, then_block, else_block)
++                self.visit_then_else_blocks(
++                    node, liveins, then_block, else_block)
+             # create basic-block after conditional
+             endif_block = self.builder.create_block()
+             # then terminator
+             self.builder.set_insertion_point_to_end(then_block)
+             assert not then_block.has_terminator(), f"{then_block}"
+-            self.builder.create_branch(endif_block, [then_defs[n].handle for n in names])
++            self.builder.create_branch(
++                endif_block, [then_defs[n].handle for n in names])
+             # else terminator
+             self.builder.set_insertion_point_to_end(else_block)
+             assert not else_block.has_terminator(), f"{else_block}"
+-            self.builder.create_branch(endif_block, [else_defs[n].handle for n in names])
++            self.builder.create_branch(
++                endif_block, [else_defs[n].handle for n in names])
+             for ty in ir_ret_types:
+                 endif_block.add_argument(ty)
+ 
+@@ -670,24 +698,29 @@ class CodeGenerator(ast.NodeVisitor):
+             then_block = self.builder.create_block()
+             else_block = self.builder.create_block() if node.orelse else None
+             then_defs, else_defs, then_block, else_block, names, ret_types, _ = \
+-                self.visit_then_else_blocks(node, liveins, then_block, else_block)
++                self.visit_then_else_blocks(
++                    node, liveins, then_block, else_block)
+             # create if op
+             self._set_insertion_point_and_loc(ip, last_loc)
+-            if_op = self.builder.create_if_op([ty.to_ir(self.builder) for ty in ret_types], cond.handle, True)
++            if_op = self.builder.create_if_op(
++                [ty.to_ir(self.builder) for ty in ret_types], cond.handle, True)
+             then_block.merge_block_before(if_op.get_then_block())
+             self.builder.set_insertion_point_to_end(if_op.get_then_block())
+             if len(names) > 0:
+-                self.builder.create_yield_op([then_defs[n].handle for n in names])
++                self.builder.create_yield_op(
++                    [then_defs[n].handle for n in names])
+             if not node.orelse:
+                 else_block = if_op.get_else_block()
+             else:
+                 else_block.merge_block_before(if_op.get_else_block())
+             self.builder.set_insertion_point_to_end(if_op.get_else_block())
+             if len(names) > 0:
+-                self.builder.create_yield_op([else_defs[n].handle for n in names])
++                self.builder.create_yield_op(
++                    [else_defs[n].handle for n in names])
+         # update values
+         for i, name in enumerate(names):
+-            new_tensor = language.core.tensor(if_op.get_result(i), ret_types[i])
++            new_tensor = language.core.tensor(
++                if_op.get_result(i), ret_types[i])
+             self.set_value(name, new_tensor)
+ 
+     def visit_If(self, node):
+@@ -727,14 +760,16 @@ class CodeGenerator(ast.NodeVisitor):
+ 
+                 then_block = self.builder.create_block()
+                 self.builder.set_insertion_point_to_start(then_block)
+-                then_val = language.semantic.to_tensor(self.visit(node.body), self.builder)
++                then_val = language.semantic.to_tensor(
++                    self.visit(node.body), self.builder)
+                 then_block = self.builder.get_insertion_block()
+ 
+                 else_block = self.builder.create_block()
+                 self.builder.set_insertion_point_to_start(else_block)
+                 # do not need to reset lscope since
+                 # ternary expressions cannot define new variables
+-                else_val = language.semantic.to_tensor(self.visit(node.orelse), self.builder)
++                else_val = language.semantic.to_tensor(
++                    self.visit(node.orelse), self.builder)
+                 else_block = self.builder.get_insertion_block()
+ 
+                 self._set_insertion_point_and_loc(ip, last_loc)
+@@ -743,17 +778,21 @@ class CodeGenerator(ast.NodeVisitor):
+                     f'Ternary expression with dynamic condition has inconsistent types {then_val.type} and {else_val.type}'
+                 ret_type = then_val.type
+ 
+-                ret_type_ir = [ret_type.to_ir(self.builder)] if ret_type != language.void else []
+-                if_op = self.builder.create_if_op(ret_type_ir, cond.handle, True)
++                ret_type_ir = [ret_type.to_ir(
++                    self.builder)] if ret_type != language.void else []
++                if_op = self.builder.create_if_op(
++                    ret_type_ir, cond.handle, True)
+                 then_block.merge_block_before(if_op.get_then_block())
+                 if ret_type_ir:
+-                    self.builder.set_insertion_point_to_end(if_op.get_then_block())
++                    self.builder.set_insertion_point_to_end(
++                        if_op.get_then_block())
+                     self.builder.create_yield_op([then_val.handle])
+ 
+                 self.builder.set_insertion_point_to_end(if_op.get_then_block())
+                 else_block.merge_block_before(if_op.get_else_block())
+                 if ret_type_ir:
+-                    self.builder.set_insertion_point_to_end(if_op.get_else_block())
++                    self.builder.set_insertion_point_to_end(
++                        if_op.get_else_block())
+                     self.builder.create_yield_op([else_val.handle])
+                 return language.core.tensor(if_op.get_result(0), ret_type) if ret_type_ir else None
+         else:
+@@ -773,9 +812,24 @@ class CodeGenerator(ast.NodeVisitor):
+     def visit_Pass(self, node):
+         pass
+ 
++    def visit_With(self, node):
++        context_expr = self.visit(node.items[0].context_expr)
++        scope_class_name = type(context_expr).__name__
++        if(scope_class_name == "Scope" and hasattr(context_expr, "core_mode")):
++            if context_expr._builder is None:
++                context_expr._builder = self.builder
++            context_expr.__enter__()
++            try:
++                self.visit_compound_statement(node.body)
++            finally:
++                context_expr.__exit__(None, None, None)
++        else:
++            raise self._unsupported(node, f"Unsupported context manager type: {type(context_expr).__name__}. Only al.scope is supported.")
++
+     def visit_Compare(self, node):
+         if not (len(node.comparators) == 1 and len(node.ops) == 1):
+-            raise self._unsupported(node, "simultaneous multiple comparison is not supported")
++            raise self._unsupported(
++                node, "simultaneous multiple comparison is not supported")
+         lhs = self.visit(node.left)
+         rhs = self.visit(node.comparators[0])
+         lhs_value = _unwrap_if_constexpr(lhs)
+@@ -798,7 +852,8 @@ class CodeGenerator(ast.NodeVisitor):
+         operand = self.visit(node.operand)
+         fn = self._method_name_for_unary_op.get(type(node.op))
+         if fn is None:
+-            raise self._unsupported(node, f"AST unary operator '{node.op.__name__}' is not (currently) implemented.")
++            raise self._unsupported(
++                node, f"AST unary operator '{node.op.__name__}' is not (currently) implemented.")
+         if _is_triton_tensor(operand):
+             return getattr(operand, fn)(_builder=self.builder)
+         try:
+@@ -812,9 +867,12 @@ class CodeGenerator(ast.NodeVisitor):
+     }
+ 
+     def _verify_loop_carried_variable(self, name, loop_val, live_val):
+-        assert _is_triton_value(loop_val), f'cannot reassign constxpr {name} in the loop'
+-        assert _is_triton_value(live_val), f'cannot reasign constexpr {name} in the loop'
+-        assert type(loop_val) == type(live_val), f'Loop carried variable {name} changed type'
++        assert _is_triton_value(
++            loop_val), f'cannot reassign constxpr {name} in the loop'
++        assert _is_triton_value(
++            live_val), f'cannot reasign constexpr {name} in the loop'
++        assert type(loop_val) == type(
++            live_val), f'Loop carried variable {name} changed type'
+         assert not _is_triton_tensor(loop_val) or loop_val.type == live_val.type, \
+             f'Loop-carried variable {name} has initial type {live_val.type} '\
+             f'but is re-assigned to {loop_val.type} in loop! '\
+@@ -842,7 +900,8 @@ class CodeGenerator(ast.NodeVisitor):
+                     # We should not def new constexpr
+                     loop_val = loop_defs[name]
+                     live_val = liveins[name]
+-                    self._verify_loop_carried_variable(name, loop_val, live_val)
++                    self._verify_loop_carried_variable(
++                        name, loop_val, live_val)
+ 
+                     # these are loop-carried values
+                     names.append(name)
+@@ -857,12 +916,14 @@ class CodeGenerator(ast.NodeVisitor):
+                                                                  [ty.to_ir(self.builder) for ty in ret_types])
+             self.builder.set_insertion_point_to_start(before_block)
+             for i, name in enumerate(names):
+-                self.lscope[name] = language.core.tensor(before_block.arg(i), ret_types[i])
++                self.lscope[name] = language.core.tensor(
++                    before_block.arg(i), ret_types[i])
+                 self.local_defs[name] = self.lscope[name]
+             cond = self.visit(node.test)
+             self.builder.set_insertion_point_to_end(before_block)
+             # create ConditionOp: e.g., scf.condition(%cond) %arg0, %arg1, ...
+-            self.builder.create_condition_op(cond.handle, [before_block.arg(i) for i in range(len(init_args))])
++            self.builder.create_condition_op(
++                cond.handle, [before_block.arg(i) for i in range(len(init_args))])
+             # merge the loop body
+             after_block = self.builder.create_block_with_parent(while_op.get_after(),
+                                                                 [ty.to_ir(self.builder) for ty in ret_types])
+@@ -870,7 +931,8 @@ class CodeGenerator(ast.NodeVisitor):
+             # generate loop body
+             self.builder.set_insertion_point_to_start(after_block)
+             for i, name in enumerate(names):
+-                self.lscope[name] = language.core.tensor(after_block.arg(i), ret_types[i])
++                self.lscope[name] = language.core.tensor(
++                    after_block.arg(i), ret_types[i])
+                 self.local_defs[name] = self.lscope[name]
+             self.scf_stack.append(node)
+             self.visit_compound_statement(node.body)
+@@ -884,7 +946,8 @@ class CodeGenerator(ast.NodeVisitor):
+ 
+         # WhileOp defines new values, update the symbol table (lscope, local_defs)
+         for i, name in enumerate(names):
+-            new_def = language.core.tensor(while_op.get_result(i), ret_types[i])
++            new_def = language.core.tensor(
++                while_op.get_result(i), ret_types[i])
+             self.lscope[name] = new_def
+             self.local_defs[name] = new_def
+ 
+@@ -906,10 +969,12 @@ class CodeGenerator(ast.NodeVisitor):
+     def visit_For(self, node):
+         IteratorClass = self.visit(node.iter.func)
+         iter_args = [self.visit(arg) for arg in node.iter.args]
+-        iter_kwargs = dict(self.visit(keyword) for keyword in node.iter.keywords)
++        iter_kwargs = dict(self.visit(keyword)
++                           for keyword in node.iter.keywords)
+         if IteratorClass == language.static_range:
+             iterator = IteratorClass(*iter_args, **iter_kwargs)
+-            static_range = range(iterator.start.value, iterator.end.value, iterator.step.value)
++            static_range = range(iterator.start.value,
++                                 iterator.end.value, iterator.step.value)
+             for i in static_range:
+                 self.lscope[node.target.id] = constexpr(i)
+                 self.visit_compound_statement(node.body)
+@@ -944,10 +1009,13 @@ class CodeGenerator(ast.NodeVisitor):
+             # note: only `range` iterator is supported now
+             # collect lower bound (lb), upper bound (ub), and step
+             lb = iter_args[0] if len(iter_args) > 1 else self.visit(ast.Num(0))
+-            ub = iter_args[1] if len(iter_args) > 1 else self.visit(node.iter.args[0])
+-            step = iter_args[2] if len(iter_args) > 2 else self.visit(ast.Num(1))
++            ub = iter_args[1] if len(
++                iter_args) > 1 else self.visit(node.iter.args[0])
++            step = iter_args[2] if len(
++                iter_args) > 2 else self.visit(ast.Num(1))
+         else:
+-            raise RuntimeError('Only `range` and `static_range` iterators are currently supported')
++            raise RuntimeError(
++                'Only `range` and `static_range` iterators are currently supported')
+         # handle negative constant step (not supported by scf.for in MLIR)
+         negative_step = False
+         if _is_constexpr(step) and step.value < 0:
+@@ -959,7 +1027,8 @@ class CodeGenerator(ast.NodeVisitor):
+         step = language.semantic.to_tensor(step, self.builder)
+         # induction variable type
+         if not lb.dtype.is_int() or not ub.dtype.is_int() or not step.dtype.is_int():
+-            raise TypeError(f"For loop bounds and step must all be ints, are ({lb.dtype}, {ub.dtype}, {step.dtype})")
++            raise TypeError(
++                f"For loop bounds and step must all be ints, are ({lb.dtype}, {ub.dtype}, {step.dtype})")
+         iv_type = language.semantic.integer_promote_impl(lb.dtype, ub.dtype)
+         iv_type = language.semantic.integer_promote_impl(iv_type, step.dtype)
+         iv_ir_type = iv_type.to_ir(self.builder)
+@@ -998,7 +1067,8 @@ class CodeGenerator(ast.NodeVisitor):
+                 if name in liveins:
+                     loop_val = self.local_defs[name]
+                     live_val = liveins[name]
+-                    self._verify_loop_carried_variable(name, loop_val, live_val)
++                    self._verify_loop_carried_variable(
++                        name, loop_val, live_val)
+ 
+                     names.append(name)
+                     init_args.append(live_val)
+@@ -1006,9 +1076,11 @@ class CodeGenerator(ast.NodeVisitor):
+ 
+             # create ForOp
+             self._set_insertion_point_and_loc(ip, last_loc)
+-            for_op = self.builder.create_for_op(lb, ub, step, [arg.handle for arg in init_args])
++            for_op = self.builder.create_for_op(
++                lb, ub, step, [arg.handle for arg in init_args])
+             if num_stages is not None:
+-                for_op.set_attr("tt.num_stages", self.builder.get_int32_attr(num_stages))
++                for_op.set_attr("tt.num_stages",
++                                self.builder.get_int32_attr(num_stages))
+             if loop_unroll_factor is not None:
+                 for_op.set_attr("tt.loop_unroll_factor", self.builder.get_int32_attr(loop_unroll_factor))
+             if disallow_acc_multi_buffer:
+@@ -1020,7 +1092,8 @@ class CodeGenerator(ast.NodeVisitor):
+             if disable_licm:
+                 for_op.set_attr("tt.disable_licm", self.builder.get_unit_attr())
+             if (bind_sub_block is not None) and bind_sub_block:
+-                for_op.set_attr("bind_sub_block", self.builder.get_bool_attr(bind_sub_block))
++                for_op.set_attr("bind_sub_block",
++                                self.builder.get_bool_attr(bind_sub_block))
+ 
+             self.scf_stack.append(node)
+             self.builder.set_insertion_point_to_start(for_op.get_body(0))
+@@ -1028,13 +1101,15 @@ class CodeGenerator(ast.NodeVisitor):
+             self.lscope = liveins.copy()
+             self.local_defs = {}
+             for i, name in enumerate(names):
+-                self.set_value(name, language.core.tensor(for_op.get_body(0).arg(i + 1), yields[i].type))
++                self.set_value(name, language.core.tensor(
++                    for_op.get_body(0).arg(i + 1), yields[i].type))
+             self.visit_compound_statement(node.body)
+             self.scf_stack.pop()
+             yields = []
+             for name in self.local_defs:
+                 if name in liveins:
+-                    yields.append(language.semantic.to_tensor(self.local_defs[name], self.builder))
++                    yields.append(language.semantic.to_tensor(
++                        self.local_defs[name], self.builder))
+ 
+             # create YieldOp
+             if len(yields) > 0:
+@@ -1053,7 +1128,8 @@ class CodeGenerator(ast.NodeVisitor):
+ 
+         # update lscope & local_defs (ForOp defines new values)
+         for i, name in enumerate(names):
+-            self.set_value(name, language.core.tensor(for_op.get_result(i), yields[i].type))
++            self.set_value(name, language.core.tensor(
++                for_op.get_result(i), yields[i].type))
+ 
+         for stmt in node.orelse:
+             assert False, "Don't know what to do with else after for"
+@@ -1079,7 +1155,8 @@ class CodeGenerator(ast.NodeVisitor):
+     def call_JitFunction(self, fn: JITFunction, args, kwargs):
+         args = inspect.getcallargs(fn.fn, *args, **kwargs)
+         args = [args[name] for name in fn.arg_names]
+-        args = [arg if _is_triton_value(arg) else constexpr(arg) for arg in args]
++        args = [arg if _is_triton_value(
++            arg) else constexpr(arg) for arg in args]
+         # generate function def
+         attributes = {}
+         constexprs = [i for i, arg in enumerate(args) if _is_constexpr(arg)]
+@@ -1104,7 +1181,8 @@ class CodeGenerator(ast.NodeVisitor):
+                 generator.visit(fn.parse())
+             except Exception as e:
+                 # Wrap the error in the callee with the location of the call.
+-                raise CompilationError(self.jit_fn.src, self.cur_node, repr(e)) from e
++                raise CompilationError(
++                    self.jit_fn.src, self.cur_node, repr(e)) from e
+ 
+             callee_ret_type = generator.ret_type
+             self.function_ret_types[fn_name] = callee_ret_type
+@@ -1120,7 +1198,8 @@ class CodeGenerator(ast.NodeVisitor):
+             # should return a tuple of tl.tensor
+             results = []
+             for i in range(call_op.get_num_results()):
+-                results.append(tensor(call_op.get_result(i), callee_ret_type[i]))
++                results.append(
++                    tensor(call_op.get_result(i), callee_ret_type[i]))
+             return tuple(results)
+ 
+     def visit_Call(self, node):
+@@ -1135,12 +1214,24 @@ class CodeGenerator(ast.NodeVisitor):
+             _check_fn_args(node, fn, args)
+             return self.call_JitFunction(fn, args, kws)
+         if (hasattr(fn, '__self__') and _is_triton_value(fn.__self__)) or language.core.is_builtin(fn):
+-            extra_kwargs = {"_builder": self.builder}
++            # copy builder's location and insertion point
++            ip, last_loc = self._get_insertion_point_and_loc()
++            _builder = self.builder
++            if bl.core.is_builtin(fn):
++                _builder = self.buffer_builder
++            if al.core.is_builtin(fn):
++                _builder = self.ascend_builder
++            self._set_insertion_point_and_loc(ip, last_loc, _builder)
++            extra_kwargs = {"_builder": _builder}
+             sig = inspect.signature(fn)
+             if '_generator' in sig.parameters:
+                 extra_kwargs['_generator'] = self
+             try:
+-                return fn(*args, **extra_kwargs, **kws)
++                ret = fn(*args, **extra_kwargs, **kws)
++                # sync the builder's location
++                ip, last_loc = self._get_insertion_point_and_loc(_builder)
++                self._set_insertion_point_and_loc(ip, last_loc)
++                return ret
+             except Exception as e:
+                 # Normally when we raise a CompilationError, we raise it as
+                 # `from None`, because the original fileline from the exception
+@@ -1169,7 +1260,8 @@ class CodeGenerator(ast.NodeVisitor):
+                 node, "AST boolean operator '{}' is not (currently) implemented.".format(node.op.__name__))
+         return self._apply_binary_method(method_name, lhs, rhs)
+ 
+-    _method_name_for_bool_op: Dict[Type[ast.boolop], str] = {ast.And: 'logical_and', ast.Or: 'logical_or'}
++    _method_name_for_bool_op: Dict[Type[ast.boolop], str] = {
++        ast.And: 'logical_and', ast.Or: 'logical_or'}
+ 
+     if sys.version_info < (3, 8):
+ 
+@@ -1207,9 +1299,11 @@ class CodeGenerator(ast.NodeVisitor):
+                         node,
+                         "Cannot evaluate f-string containing non-constexpr conversion values, found conversion of type "
+                         + str(type(evaluated)))
+-                values[i] = ("{}" if conversion_code < 0 else "{!" + chr(conversion_code) + "}").format(evaluated.value)
++                values[i] = ("{}" if conversion_code < 0 else "{!" +
++                             chr(conversion_code) + "}").format(evaluated.value)
+             else:
+-                raise AssertionError("encountered unexpected node of type {} in a JoinedStr node".format(type(value)))
++                raise AssertionError(
++                    "encountered unexpected node of type {} in a JoinedStr node".format(type(value)))
+         return ''.join(values)
+ 
+     def visit(self, node):
+@@ -1219,12 +1313,14 @@ class CodeGenerator(ast.NodeVisitor):
+             # The ast library added visit_Constant and deprecated some other
+             # methods but we can't move to that without breaking Python 3.6 and 3.7.
+             warnings.simplefilter("ignore", DeprecationWarning)  # python 3.9
+-            warnings.simplefilter("ignore", PendingDeprecationWarning)  # python 3.8
++            warnings.simplefilter(
++                "ignore", PendingDeprecationWarning)  # python 3.8
+             last_node = self.cur_node
+             last_loc = self.builder.get_loc()
+             self.cur_node = node
+             if hasattr(node, 'lineno') and hasattr(node, 'col_offset'):
+-                self.builder.set_loc(self.file_name, self.begin_line + node.lineno, node.col_offset)
++                self.builder.set_loc(
++                    self.file_name, self.begin_line + node.lineno, node.col_offset)
+                 last_loc = self.builder.get_loc()
+             try:
+                 ret = super().visit(node)
+@@ -1233,7 +1329,8 @@ class CodeGenerator(ast.NodeVisitor):
+             except Exception as e:
+                 # Wrap the error in a CompilationError which contains the source
+                 # of the @jit function.
+-                raise CompilationError(self.jit_fn.src, self.cur_node, repr(e)) from None
++                raise CompilationError(
++                    self.jit_fn.src, self.cur_node, repr(e)) from None
+ 
+             # Reset the location to the last one before the visit
+             if last_loc:
+@@ -1242,12 +1339,14 @@ class CodeGenerator(ast.NodeVisitor):
+             return ret
+ 
+     def generic_visit(self, node):
+-        raise self._unsupported(node, "unsupported AST node type: {}".format(type(node).__name__))
++        raise self._unsupported(
++            node, "unsupported AST node type: {}".format(type(node).__name__))
+ 
+     def execute_static_assert(self, node: ast.Call) -> None:
+         arg_count = len(node.args)
+         if not (0 < arg_count <= 2) or len(node.keywords):
+-            raise TypeError("`static_assert` requires one or two positional arguments only")
++            raise TypeError(
++                "`static_assert` requires one or two positional arguments only")
+ 
+         passed = _unwrap_if_constexpr(self.visit(node.args[0]))
+         if not isinstance(passed, bool):
+@@ -1261,9 +1360,11 @@ class CodeGenerator(ast.NodeVisitor):
+                 try:
+                     message = self.visit(node.args[1])
+                 except Exception as e:
+-                    message = "<failed to evaluate assertion message: " + repr(e) + ">"
++                    message = "<failed to evaluate assertion message: " + \
++                        repr(e) + ">"
+ 
+-            raise CompileTimeAssertionFailure(self.jit_fn.src, node, _unwrap_if_constexpr(message))
++            raise CompileTimeAssertionFailure(
++                self.jit_fn.src, node, _unwrap_if_constexpr(message))
+         return None
+ 
+     def static_executor(python_fn):
+@@ -1302,8 +1403,9 @@ def kernel_suffix(signature, specialization):
+ def ast_to_ttir(fn, specialization, context, options, codegen_fns, module_map):
+     attrs = specialization.attrs
+     # create kernel prototype
+-    cst_key = lambda i: fn.arg_names.index(i) if isinstance(i, str) else i
+-    constants = {cst_key(key): value for key, value in specialization.constants.items()}
++    def cst_key(i): return fn.arg_names.index(i) if isinstance(i, str) else i
++    constants = {cst_key(key): value for key,
++                 value in specialization.constants.items()}
+     # visit kernel AST
+     gscope = fn.__globals__.copy()
+     function_name = fn.repr(specialization)
+@@ -1317,7 +1419,8 @@ def ast_to_ttir(fn, specialization, context, options, codegen_fns, module_map):
+     fn_attrs = new_attrs.get_fn_attrs()
+     all_constants = constants.copy()
+     all_constants.update(new_constants)
+-    arg_types = [str_to_ty(v) for k, v in specialization.signature.items() if k not in specialization.constants]
++    arg_types = [str_to_ty(v) for k, v in specialization.signature.items(
++    ) if k not in specialization.constants]
+     file_name, begin_line = get_jit_fn_file_line(fn)
+ 
+     prototype = language.function_type([], arg_types)
+
+diff --git a/triton_patch/python/triton_patch/compiler/compiler.py b/triton_patch/python/triton_patch/compiler/compiler.py
+@@ -23,7 +23,7 @@
+ from __future__ import annotations
+ import hashlib
+ import json
+-from .._C.libtriton import get_cache_invalidating_env_vars, ir
++from .._C.libtriton import get_cache_invalidating_env_vars, ir, buffer_ir
+ from ..backends import backends
+ from ..backends.compiler import GPUTarget, AttrsDescriptor
+ from ..backends.ascend.compiler import AscendAttrsDescriptor
+@@ -98,7 +98,8 @@ class ASTSource:
+         self.constants = constants
+         self.attrs = attrs
+         if isinstance(self.signature, str):
+-            self.signature = {k: v.strip() for k, v in enumerate(self.signature.split(","))}
++            self.signature = {k: v.strip()
++                              for k, v in enumerate(self.signature.split(","))}
+         else:
+             for k in self.signature.keys():
+                 if not isinstance(k, str):
+@@ -116,7 +117,8 @@ class ASTSource:
+         sorted_sig = [v for k, v in sorted(self.signature.items())]
+         # Note - we stringify the keys here to allow sorting to work for cases
+         # where constants have mixed int/str keys.
+-        sorted_constants = sorted((str(k), v) for k, v in self.constants.items())
++        sorted_constants = sorted((str(k), v)
++                                  for k, v in self.constants.items())
+         key = f"{self.fn.cache_key}-{self.attrs.hash()}-{sorted_sig}-{sorted_constants}"
+         return hashlib.sha256(key.encode("utf-8")).hexdigest()
+ 
+@@ -139,7 +141,8 @@ class IRSource:
+         self.name = match.group(1)
+         signature = match.group(2)
+         types = re.findall(arg_type_pattern[self.ext], signature)
+-        self.signature = {k: convert_type_repr(ty) for k, ty in enumerate(types)}
++        self.signature = {k: convert_type_repr(
++            ty) for k, ty in enumerate(types)}
+ 
+     def hash(self):
+         return hashlib.sha256(self.src.encode("utf-8")).hexdigest()
+@@ -259,7 +262,8 @@ def compile(src, target=None, options=None):
+     # core changes to make it easier to track kernels by hash.
+     enable_override = os.environ.get("TRITON_KERNEL_OVERRIDE", "0") == "1"
+     enable_ir_dump = os.environ.get("TRITON_KERNEL_DUMP", "0") == "1"
+-    fn_override_manager = get_override_manager(src.hash()) if enable_override else None
++    fn_override_manager = get_override_manager(
++        src.hash()) if enable_override else None
+     fn_dump_manager = get_dump_manager(src.hash()) if enable_ir_dump else None
+     # Pre-truncate the file name here to avoid hitting the 255 character limit on common platforms.
+     # The final file name in the cache will have a format of f"{filename}.{ext}.tmp.pid_{pid}_{uuid}".
+@@ -274,7 +278,8 @@ def compile(src, target=None, options=None):
+         # cache hit!
+         metadata = json.loads(Path(metadata_path).read_text())
+         return CompiledKernel(src, metadata_group, hash)
+-    compile_speed_opt = os.getenv("TRITON_ASCEND_COMPILE_SPEED_OPT", 'false').lower() in ('true', '1')
++    compile_speed_opt = os.getenv(
++        "TRITON_ASCEND_COMPILE_SPEED_OPT", 'false').lower() in ('true', '1')
+     if (compile_speed_opt):
+         ttir_path = f"{file_name}.ttir"
+         if (metadata_path is None) and (fn_cache_manager.has_file(ttir_path)):
+@@ -296,6 +301,7 @@ def compile(src, target=None, options=None):
+         first_stage += 1
+     context = ir.context()
+     ir.load_dialects(context)
++    buffer_ir.load_dialects(context)
+     backend.load_dialects(context)
+     codegen_fns = backend.get_codegen_implementation()
+     module_map = backend.get_module_map()
+@@ -315,14 +321,16 @@ def compile(src, target=None, options=None):
+                 stage_name = "ConvertLinalgRToBinary"
+             else:
+                 stage_name = "MLIRCompile"
+-            error_detail = e.stderr.decode('utf-8') if hasattr(e, 'stderr') and e.stderr else str(e)
++            error_detail = e.stderr.decode(
++                'utf-8') if hasattr(e, 'stderr') and e.stderr else str(e)
+             error_detail += f"\n\n[INFO]: The compiled kernel cache is in {fn_cache_manager.cache_dir}\n\n"
+             raise MLIRCompilationError(stage_name, error_detail)
+         ir_filename = f"{file_name}.{ext}"
+         if (fn_override_manager is not None and (full_name := fn_override_manager.get_file(ir_filename)) is not None):
+             print(f"\nOverriding kernel with file {full_name}")
+             next_module = parse(full_name, ext, context)
+-        metadata_group[ir_filename] = fn_cache_manager.put(next_module, ir_filename)
++        metadata_group[ir_filename] = fn_cache_manager.put(
++            next_module, ir_filename)
+         if fn_dump_manager is not None:
+             fn_dump_manager.put(next_module, ir_filename)
+         # use an env variable to parse ir from file
+@@ -345,7 +353,8 @@ def compile(src, target=None, options=None):
+ 
+ 
+ def make_backend(target):
+-    actives = [x.compiler for x in backends.values() if x.compiler.supports_target(target)]
++    actives = [x.compiler for x in backends.values(
++    ) if x.compiler.supports_target(target)]
+     if len(actives) != 1:
+         raise RuntimeError(
+             f"{len(actives)} compatible backends for target ({target.backend}) ({actives}). There should only be one.")
+@@ -389,13 +398,16 @@ class CompiledKernel:
+ 
+     def __init__(self, src, metadata_group, hash):
+         from collections import namedtuple
+-        metadata_path = next((Path(p) for c, p in metadata_group.items() if c.endswith(".json")))
++        metadata_path = next(
++            (Path(p) for c, p in metadata_group.items() if c.endswith(".json")))
+         metadata = json.loads(metadata_path.read_text())
+         metadata['cluster_dims'] = tuple(metadata['cluster_dims'])
+         # JSON serialization dumps the target as a dict. Restore it to a GPUTarget.
+         target = metadata['target']
+-        metadata['target'] = GPUTarget(target['backend'], target['arch'], target['warp_size'])
+-        KernelMetadata = namedtuple('KernelMetadata', sorted(list(metadata.keys())))
++        metadata['target'] = GPUTarget(
++            target['backend'], target['arch'], target['warp_size'])
++        KernelMetadata = namedtuple(
++            'KernelMetadata', sorted(list(metadata.keys())))
+         self.metadata = KernelMetadata(**metadata)
+         backend = make_backend(self.metadata.target)
+         self.packed_metadata = backend.pack_metadata(self.metadata)
+@@ -403,10 +415,12 @@ class CompiledKernel:
+         self.hash = hash
+         self.name = self.metadata.name
+         # stores the text of each level of IR that was generated during compilation
+-        asm_files = [Path(p) for c, p in metadata_group.items() if not c.endswith(".json")]
++        asm_files = [Path(p) for c, p in metadata_group.items()
++                     if not c.endswith(".json")]
+         binary_ext = backend.binary_ext
+         self.asm = AsmDict({
+-            file.suffix[1:]: file.read_bytes() if file.suffix[1:] == binary_ext else file.read_text()
++            file.suffix[1:]: file.read_bytes(
++            ) if file.suffix[1:] == binary_ext else file.read_text()
+             for file in asm_files
+         })
+         self.kernel = self.asm[binary_ext]
+@@ -423,9 +437,11 @@ class CompiledKernel:
+         # create launcher
+         self.run = driver.active.launcher_cls(self.src, self.metadata)
+         # not enough shared memory to run the kernel
+-        max_shared = driver.active.utils.get_device_properties(device)["max_shared_mem"]
++        max_shared = driver.active.utils.get_device_properties(device)[
++            "max_shared_mem"]
+         if self.metadata.shared > max_shared:
+-            raise OutOfResources(self.metadata.shared, max_shared, "shared memory")
++            raise OutOfResources(self.metadata.shared,
++                                 max_shared, "shared memory")
+         # TODO: n_regs, n_spills should be metadata generated when calling `ptxas`
+         self.module, self.function, self.n_regs, self.n_spills = driver.active.utils.load_binary(
+             self.name, self.kernel, self.metadata.shared, device)
+@@ -436,7 +452,8 @@ class CompiledKernel:
+     def launch_metadata(self, grid, stream, *args):
+         if CompiledKernel.launch_enter_hook is None:
+             return None
+-        ret = LazyDict({"name": self.name, "function": self.function, "stream": stream})
++        ret = LazyDict(
++            {"name": self.name, "function": self.function, "stream": stream})
+         if not isinstance(self.src, ASTSource) or self.src.fn.launch_metadata is None:
+             return ret
+         arg_dict = {}
