@@ -47,6 +47,17 @@ confidence: source-reported
 - NPU 的最佳带宽对齐
 - 确保每次内存访问充分利用带宽
 
+
+## AscendC movement probe notes for 910B2C
+
+A local AscendC/ACLNN microbenchmark is summarized in [`exp-ascend910b2c-mte-l2-nd2nz-summary`](../../probes/910b2c-mte-l2-nd2nz.md). Treat the values as experimental, event-timed reference points for 910B2C:
+
+- Direct `GM/L2 -> L0A` via `LoadData` measured about **300 GB/s** for one AIC, faster than raw `GM/L2 -> L1` staging (~149 GB/s) and `GM ND -> L1 NZ` (~116 GB/s).
+- `L1 -> L0A` measured about **368 GB/s**, while `L1 -> L0B` measured about **205 GB/s**; L0A feed is materially faster in this probe.
+- Same-AIC `GM/L2 -> L0A` plus `GM/L2 -> L1` mostly shared/serialized bandwidth; do not assume two independent MTE2 streams.
+- For one-use large A-transpose tiles, prefer direct `LoadData(ifTranspose=true)` into L0A. L1/NZ staging becomes attractive only when A tile reuse amortizes the ND2NZ cost (rough crossover in the probe: ~16 uses).
+- L2/SLC hot data is visible across cube cores, but same-address two-cube reads did not show a strong extra multicast advantage; prioritize temporal locality and keeping hot working sets below the observed ~160--192 MiB transition region.
+
 ## 固定核心数启动
 
 MatMul 算子使用 **CUBE核心数**（矩阵计算核心）。

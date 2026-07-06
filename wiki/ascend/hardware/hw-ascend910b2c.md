@@ -80,3 +80,6 @@ aliases: []
 ## Local bandwidth probe
 
 A local AscendC Cube memory-path benchmark for 910B2C is recorded in [`exp-ascend910b2c-cube-bandwidth`](../probes/910b2c-cube-bandwidth.md). Key measured reference points include ~1540 GB/s aggregate `GM -> A1/B1` MTE2 bandwidth across 24 AICs, ~9806 GB/s aggregate `A1/L1 -> A2/L0A` MTE1 bandwidth, and ~5197 GB/s aggregate `B1/L1 -> B2/L0B` MTE1 bandwidth under the recorded host-timed protocol.
+
+
+A newer MTE/L2/ND2NZ movement probe is recorded in [`exp-ascend910b2c-mte-l2-nd2nz-summary`](../probes/910b2c-mte-l2-nd2nz.md). Key single-AIC reference points under the recorded ACLNN event-timed protocol: ~300 GB/s `GM/L2 -> L0A`, ~149 GB/s `GM/L2 -> L1`, ~116 GB/s `GM ND -> L1 NZ`, ~368 GB/s `L1 -> L0A`, ~205 GB/s `L1 -> L0B`. The same probe observed a hot-capacity cliff around 160--192 MiB and cross-cube visibility of hot L2/SLC data, without a strong same-line multicast advantage.
