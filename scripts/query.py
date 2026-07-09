@@ -201,8 +201,26 @@ def filter_pages(pages, args):
             fm_vendor = fm.get("vendor", "")
             path_parts = path.split("/")
             path_vendor = path_parts[1] if path_parts[0] == "wiki" and len(path_parts) > 2 else ""
-            vendor = fm_vendor or path_vendor
-            if vendor != args.vendor:
+            vendor_values = []
+            if isinstance(fm_vendor, (list, tuple, set)):
+                vendor_values.extend(str(v) for v in fm_vendor)
+            elif fm_vendor:
+                vendor_values.append(str(fm_vendor))
+            if path_vendor:
+                vendor_values.append(path_vendor)
+
+            # Generic cross-vendor pages often carry concrete architectures
+            # or stack/language tags (e.g. ascend910b, triton-ascend) while
+            # keeping vendor: generic to match their wiki/generic path. Treat
+            # those metadata fields as vendor applicability for filtering.
+            reg = _load_vendor_registry()
+            for k in ("architectures", "languages", "tags", "hardware_features", "kernel_types"):
+                for value in fm.get(k) or []:
+                    inferred_vendor = reg.get(str(value).lower())
+                    if inferred_vendor:
+                        vendor_values.append(inferred_vendor)
+
+            if args.vendor not in set(vendor_values):
                 continue
 
         if args.repo:
