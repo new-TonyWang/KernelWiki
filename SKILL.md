@@ -6,7 +6,10 @@ description: >-
   NPU kernels (Ascend 910B/910C, AscendC, Triton Ascend, TileLang). Covers
   foundational optimization skills, hardware feature characterization,
   operator routing (elementwise, reduction, GEMM, attention, pooling,
-  sort/select), API definitions, or PR references from
+  sort/select), numerical precision alignment and parity debugging
+  (bf16/fp16/int8 rounding, PyTorch-vs-kernel mismatches, Triton
+  materialization/store-reload issues, libdevice/math semantics), API
+  definitions, or PR references from
   CUTLASS/SGLang/vLLM/FlashInfer/PyTorch.
   Do NOT use for host-side framework integration or distributed systems
   (DeepEP/EPLB/DualPipe).
@@ -28,6 +31,7 @@ Trigger this skill when the user asks about:
 - **Hopper/SM90 kernel programming** — wgmma, TMA, mbarrier, ping-pong kernels, StreamK, register pressure and scheduler effects
 - **Huawei Ascend NPU kernel programming** — Ascend 910B/910C hardware, AI Core/CUBE/VEC/SU, UB/L1/L0A/L0B/L0C memory hierarchy, 256B/512B alignment, GM↔UB/L1/L0 data movement, MTE/FixP/CUBE/VEC pipelines
 - **Ascend DSLs and APIs** — AscendC APIs, Triton Ascend programming, TileLang on Ascend, host tiling, Cube/Vector split, C/V fusion, cross-core synchronization, autotune and debug patterns
+- **Numerical precision alignment** — Triton / Triton Ascend / CUDA / AscendC bf16, fp16, fp32, int8, quant/dequant, rounding-mode, overflow, `tl.exp`, libdevice/math, store+reload materialization, and PyTorch baseline mismatch debugging
 - **Kernel implementations** — FlashAttention-4, DeepGEMM, FlashMLA, NSA, GatedDeltaNet, NVFP4 GEMM/GEMV, fused MoE, gated dual GEMM
 - **Foundational optimization skills** — CUDA coalescing/warp/shared-memory/register/occupancy tuning; Ascend tiling, vectorization, UB reuse, CUBE/VEC partitioning, scalar lowering avoidance, pass merge, load-order optimization
 - **Operator routing** — elementwise, reduction, normalization, GEMM, attention, pooling, interpolate, sort/select, scan/cumulative decision trees
