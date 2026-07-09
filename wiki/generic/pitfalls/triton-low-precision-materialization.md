@@ -14,12 +14,46 @@ architectures:
 languages:
 - triton
 - triton-ascend
+aliases:
+- precision
+- 精度
+- 精度误差
+- 误差
+- mismatch
+- wrong result
+- wrong answer
+- 数值不一致
+- rounding
+- round
+- bf16
+- fp16
+- low precision
+- 低精度
+- cast
+- to bf16
+- to fp16
+- exp
+- exp minus one
+- exp - 1
+- store reload
+- store load
+- materialize
+- materialization
+- torch mismatch
+- pytorch mismatch
+- triton precision
 confidence: source-reported
 related:
 - skill-ascend-autotune
 sources: []
 ---
 # Triton Low-Precision Intermediate Materialization Pitfall
+
+## Search Keywords
+
+Simple search terms: precision, 精度, 精度误差, 误差, mismatch, wrong result, wrong answer, rounding, bf16, fp16, low precision, 低精度, cast, exp, exp - 1, store reload, store load, materialize, materialization, torch mismatch, pytorch mismatch, Triton precision.
+
+Chinese shortcuts: Triton 精度, bf16 误差, fp16 误差, exp 误差, cast 误差, store reload, 低精度不一致, PyTorch 不一致。
 
 ## Symptom
 

@@ -808,6 +808,10 @@ Ascend NPU 数据传输以 **256B** 为单位，设计 block 大小时需考虑�
 - **Softmax 防溢出**：先减最大值再 `exp`
 - **sqrt 非负检查**：`tl.maximum(variance, 0.0)` 再开方
 - **累加用 float32**：reduce 累加建议用 `tl.float32` 避免精度损失
+- **Low-precision rounding parity**: bf16/fp16/int8 failures often come from rounding-boundary or materialization differences. Start from [Low-Precision Rounding Parity Overview](lowprecision-rounding-parity.md), then route by dtype to the bf16/fp16/scalar/int8 pages.
+- **fp16 NaN/Inf mask parity**: if the torch_npu fp16 path overflows to `inf` while Triton-Ascend saturates to `65504`, see [Triton Ascend fp16 Overflow Semantics](fp16-overflow-semantics.md).
+- **Scatter duplicate-index semantics**: when `accumulate=False` and indices are duplicated, the reference behavior is undefined and cannot be aligned with precision patches; see [Scatter / index_put Duplicate Index Semantics](scatter-duplicate-semantics.md).
+- **N-D gather/index addressing**: do not assume the indexed axis is the last dimension; replace the `dim` coordinate in the output N-D coordinate and compute the source address with real strides. See [N-D Gather / Index Addressing](nd-index-addressing.md).
 
 ```python
 # 错误：直接 exp 可能溢出
@@ -919,6 +923,10 @@ data = tl.load(ptr + idx, mask=mask, other=0.0)
 | constexpr误用 | 编译失败 | 在host侧使用tl.constexpr | 仅在kernel参数中使用tl.constexpr |
 | Stride设置错误 | 计算结果错误、数据错位 | stride参数计算或传递错误 | 验证stride设置，检查tensor.stride() |
 | 数值不稳定 | 结果为NaN或Inf | softmax/sqrt等操作溢出 | 减去最大值、检查非负、使用float32 |
+| bf16/fp16/int8 low-precision allclose failure | fp32 passes but low precision has a few tolerance failures or int8 off-by-one values | Per-op materialization, rounding mode, scalar pre-rounding, or quant division order differs | Use [low precision rounding parity](lowprecision-rounding-parity.md) and route by dtype |
+| fp16 NaN/Inf mask mismatch | Reference has NaN/Inf but implementation does not, or Inf signs differ | torch_npu fp16 overflows to `inf` while Triton-Ascend cast saturates to `65504` | Explicitly materialize the corresponding op boundary; see [fp16 overflow semantics](fp16-overflow-semantics.md) |
+| scatter / index_put duplicate-index mismatch | fp32 also fails; values look like another source from the collision set | `accumulate=False` + duplicate indices has undefined reference semantics; this is not precision error | Use unique indices, an order-agnostic gate, or a defined tie-break; see [scatter duplicate semantics](scatter-duplicate-semantics.md) |
+| gather / index_select fails only for high rank or `dim=0` | `dim=-1` passes, but `rank=3, dim=0` is wrong or near zero | Kernel assumes the indexed axis is last or implements only a 2-D address formula | Decode coordinates and use real strides for the source offset; see [N-D index addressing](nd-index-addressing.md) |
 | 数据竞争 | 结果不确定、每次运行不同 | 多program并发写入同一位置 | 使用tl.atomic_add等原子操作 |
 | BLOCK_SIZE过大 | 编译失败或运行时错误 | BLOCK_SIZE超过65536或硬件限制 | 减小BLOCK_SIZE，使用循环处理 |
 | tl.where偏移计算 | 编译失败（Ascend后端） | 在内存偏移中使用tl.where | 改用if-else静态分支处理 |
