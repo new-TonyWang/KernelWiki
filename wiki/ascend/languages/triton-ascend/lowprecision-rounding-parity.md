@@ -44,7 +44,7 @@ Route by dtype and symptom:
 
 | Symptom | First page to check |
 |---|---|
-| bf16 finite allclose fails while fp32 passes | [bf16 rounding parity](bf16-rounding-parity.md) |
+| bf16 finite allclose fails while fp32 passes | [low-precision materialization pitfall](../../../generic/pitfalls/triton-low-precision-materialization.md) |
 | fp16 finite values or intrinsic behavior differ | [fp16 native chain parity](fp16-native-chain-parity.md) |
 | fp16 NaN/Inf mask differs | [fp16 overflow semantics](fp16-overflow-semantics.md) |
 | Scalar parameters participate in low-precision expressions | pre-round scalar parameters explicitly |

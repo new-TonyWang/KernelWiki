@@ -83,4 +83,4 @@ Use this rule when:
 2. Run fp16 transcendentals on fp16 operands when the reference does so.
 3. Materialize each reference fp16 boundary with `.to(tl.float16)`.
 4. If NaN/Inf masks differ, combine this with [fp16 overflow semantics](fp16-overflow-semantics.md).
-5. Use [bf16 rounding parity](bf16-rounding-parity.md) for bf16 instead.
+5. For bf16, use the generic [low-precision materialization pitfall](../../../generic/pitfalls/triton-low-precision-materialization.md) guidance instead.

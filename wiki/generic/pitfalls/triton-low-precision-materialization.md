@@ -114,6 +114,44 @@ result = (exp_val - 1.0).to(tl.bfloat16)
 
 The store+reload creates a physical bf16 rounding boundary that matches PyTorch's tensor semantics.
 
+## Tuning Direction: Minimize Materialization Boundaries
+
+`tl.store` / `tl.load` is a correctness tool, but it is not free: it adds memory traffic, consumes bandwidth, and can create extra scheduling pressure. If a kernel contains multiple low-precision operations, do **not** automatically materialize every low-precision intermediate. Instead, place materialization only at the boundaries that are required to match the reference semantics.
+
+Practical guidance:
+
+- First identify which low-precision intermediate must behave like a PyTorch tensor boundary. Usually this is the value that PyTorch would write as bf16/fp16 before the next arithmetic step.
+- Keep chains in registers when later operations are allowed to use the compiler's fused / higher-precision behavior and do not affect the tested numerical contract.
+- If several low-precision expressions feed the same subsequent operation, try to materialize only the minimal set that changes the observed mismatch.
+- Validate incrementally: start from the fully materialized version, then remove store+reload pairs one by one while checking the target tolerance.
+- Prefer one shared scratch/output buffer round-trip per required boundary over repeated store+reload of every scalar expression.
+
+Example pattern:
+
+```python
+# Too conservative: every low-precision value is forced through memory.
+a = op_a(x).to(tl.bfloat16)
+tl.store(tmp_a + offs, a, mask=mask)
+a = tl.load(tmp_a + offs, mask=mask)
+
+b = op_b(a).to(tl.bfloat16)
+tl.store(tmp_b + offs, b, mask=mask)
+b = tl.load(tmp_b + offs, mask=mask)
+
+c = op_c(b).to(tl.bfloat16)
+tl.store(tmp_c + offs, c, mask=mask)
+c = tl.load(tmp_c + offs, mask=mask)
+
+# Better: materialize only the boundary that must match PyTorch.
+a = op_a(x).to(tl.bfloat16)
+b = op_b(a).to(tl.bfloat16)
+tl.store(tmp_b + offs, b, mask=mask)  # required rounding boundary
+b = tl.load(tmp_b + offs, mask=mask)
+c = op_c(b).to(tl.bfloat16)
+```
+
+The goal is **precision parity with the fewest materialization points**, not maximal store+reload.
+
 ## Additional Measure: Disable FP Fusion
 
 Set `enable_fp_fusion=False` in the kernel launch to prevent the compiler from fusing floating-point operations across the materialization boundary:
