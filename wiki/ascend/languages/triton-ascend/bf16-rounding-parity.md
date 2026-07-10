@@ -107,5 +107,5 @@ Integer bitcast arithmetic cannot be folded into a floating-point FMA, so it is 
 2. The reference is a decomposed torch_npu op graph, not an opaque fused vendor op.
 3. Identify every reference edge that materializes to bf16.
 4. Insert `round_bf16` at each corresponding Triton edge.
-5. Pre-round scalar parameters as needed; see [low-precision scalar rounding](lowprecision-scalar-rounding.md).
+5. Pre-round scalar parameters as needed; pre-round scalar parameters explicitly when they participate in low-precision expressions.
 6. Do not use this bf16 bit-round recipe for fp16; see [fp16 native chain parity](fp16-native-chain-parity.md).

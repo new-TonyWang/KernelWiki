@@ -47,7 +47,7 @@ Route by dtype and symptom:
 | bf16 finite allclose fails while fp32 passes | [bf16 rounding parity](bf16-rounding-parity.md) |
 | fp16 finite values or intrinsic behavior differ | [fp16 native chain parity](fp16-native-chain-parity.md) |
 | fp16 NaN/Inf mask differs | [fp16 overflow semantics](fp16-overflow-semantics.md) |
-| Scalar parameters participate in low-precision expressions | [low-precision scalar rounding](lowprecision-scalar-rounding.md) |
+| Scalar parameters participate in low-precision expressions | pre-round scalar parameters explicitly |
 | int8 dynamic quantization has off-by-one values | [int8 quant rounding parity](int8-quant-rounding-parity.md) |
 
 ## 2. Core principles
