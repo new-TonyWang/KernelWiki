@@ -1,12 +1,21 @@
 ---
-id: pitfall-triton-low-precision-materialization
-title: "Triton Low-Precision Intermediate Materialization Pitfall"
-type: pitfall
+id: skill-triton-bf16-fp16-low-precision-materialization
+title: "Triton BF16/FP16 Low-Precision Intermediate Materialization Pitfall"
+type: skill
 vendor: generic
 tags:
 - triton
 - triton-ascend
 - quantization
+evidence_level: inferred
+applies_to:
+- triton
+- triton-ascend
+- bf16
+- fp16
+source:
+- path: local
+  anchor: triton-low-precision-materialization
 architectures:
 - sm90
 - sm100
@@ -47,7 +56,7 @@ related:
 - skill-ascend-autotune
 sources: []
 ---
-# Triton Low-Precision Intermediate Materialization Pitfall
+# Triton BF16/FP16 Low-Precision Intermediate Materialization Pitfall
 
 ## Search Keywords
 
