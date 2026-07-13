@@ -30,6 +30,19 @@ except ImportError:
     read_by_anchor = None
 
 
+def _extract_excerpt(src_page, anchor=None, max_chars=500):
+    """Extract a text excerpt, using anchor-aware reading if available."""
+    if anchor and read_by_anchor:
+        try:
+            _, _, anchor_text, _ = read_by_anchor(src_page, anchor)
+            return anchor_text[:max_chars].strip()
+        except Exception:
+            pass
+    content = src_page.read_text(encoding="utf-8")
+    _, body = split_frontmatter(content)
+    return ((body or "")[:max_chars]).strip()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Get a wiki page by id or path")
     parser.add_argument("lookup", help="Page id (e.g. kernel-flash-attention-4) or relative path")
@@ -106,19 +119,7 @@ def main():
                 except (ValueError, Exception):
                     pass
             if src_page:
-                anchor_str = anchor or ""
-                if anchor_str and read_by_anchor:
-                    try:
-                        _, _, anchor_text, _ = read_by_anchor(src_page, anchor_str)
-                        excerpt = anchor_text[:500].strip()
-                    except Exception:
-                        src_content = src_page.read_text(encoding="utf-8")
-                        _, src_body = split_frontmatter(src_content)
-                        excerpt = (src_body or "")[:500].strip()
-                else:
-                    src_content = src_page.read_text(encoding="utf-8")
-                    _, src_body = split_frontmatter(src_content)
-                    excerpt = (src_body or "")[:500].strip()
+                excerpt = _extract_excerpt(src_page, anchor)
                 print(f"### {lookup}")
                 try:
                     print(f"`{src_page.relative_to(WIKI_ROOT)}`")

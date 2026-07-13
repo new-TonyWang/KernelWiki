@@ -133,38 +133,27 @@ def resolve_corpus_path(path_str: str) -> Path:
     """
     if not _is_safe_corpus_input(path_str):
         raise ValueError(f"path rejected — absolute or traversal: {path_str}")
+    # Normalize: strip leading "corpus/" prefix to avoid double-prefixing
+    normalized = path_str[len("corpus/"):] if path_str.startswith("corpus/") else path_str
     # Format 1: try matching against manifest source_ids
     variables = load_localize_variables()
     for entry in load_manifest():
         sid = entry.source_id
-        if path_str.startswith(sid + "/") or path_str == sid:
-            remaining = path_str[len(sid):].lstrip("/")
+        if normalized.startswith(sid + "/") or normalized == sid:
+            remaining = normalized[len(sid):].lstrip("/")
             resolved = entry.resolved_path(variables)
             if resolved:
                 return resolved / remaining if remaining else resolved
     # Format 2: placeholder
-    if PLACEHOLDER_RE.search(path_str):
-        result = path_str
-        for m in PLACEHOLDER_RE.finditer(path_str):
+    if PLACEHOLDER_RE.search(normalized):
+        result = normalized
+        for m in PLACEHOLDER_RE.finditer(normalized):
             var = m.group(1)
             if var in variables:
                 result = result.replace(f"{{{{{var}}}}}", variables[var])
         return Path(result)
-    # Strip leading "corpus/" prefix to avoid double-prefixing
-    if path_str.startswith("corpus/"):
-        stripped = path_str[len("corpus/"):]
-        # Retry source-id matching with the stripped path
-        for entry in load_manifest():
-            sid = entry.source_id
-            if stripped.startswith(sid + "/") or stripped == sid:
-                remaining = stripped[len(sid):].lstrip("/")
-                resolved = entry.resolved_path(variables)
-                if resolved:
-                    return resolved / remaining if remaining else resolved
-        # Fall back to corpus-relative with stripped prefix
-        return SOURCE_CORPUS_ROOT / stripped
     # Format 3: relative to corpus/
-    return SOURCE_CORPUS_ROOT / path_str
+    return SOURCE_CORPUS_ROOT / normalized
 
 
 def to_corpus_path(abs_path: Path) -> str | None:

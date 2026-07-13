@@ -398,6 +398,19 @@ def handle_wiki_get_page(params):
     return _make_text_response(envelope)
 
 
+def _extract_excerpt(src_page, anchor=None, max_chars=500):
+    """Extract a text excerpt from a source page, using anchor if available."""
+    if anchor and _read_by_anchor:
+        try:
+            _, _, anchor_text, _ = _read_by_anchor(src_page, anchor)
+            return anchor_text[:max_chars].strip()
+        except Exception:
+            pass
+    content = src_page.read_text(encoding="utf-8")
+    _, body = split_frontmatter(content)
+    return ((body or "")[:max_chars]).strip()
+
+
 def _collect_source_excerpts(fm):
     """Collect source excerpts for --follow-sources equivalent.
 
@@ -425,19 +438,7 @@ def _collect_source_excerpts(fm):
             except (ValueError, Exception):
                 pass
         if src_page:
-            anchor_str = anchor or ""
-            if anchor_str and _read_by_anchor:
-                try:
-                    _, _, anchor_text, _ = _read_by_anchor(src_page, anchor_str)
-                    excerpt = anchor_text[:500].strip()
-                except Exception:
-                    src_content = src_page.read_text(encoding="utf-8")
-                    _, src_body = split_frontmatter(src_content)
-                    excerpt = ((src_body or "")[:500]).strip()
-            else:
-                src_content = src_page.read_text(encoding="utf-8")
-                _, src_body = split_frontmatter(src_content)
-                excerpt = ((src_body or "")[:500]).strip()
+            excerpt = _extract_excerpt(src_page, anchor)
             try:
                 display_path = str(src_page.relative_to(WIKI_ROOT))
             except ValueError:
