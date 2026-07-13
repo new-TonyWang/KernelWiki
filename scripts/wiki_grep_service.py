@@ -9,6 +9,13 @@ from pathlib import Path
 
 from _wiki_root import WIKI_ROOT
 
+_WIKI_ROOT_RESOLVED = WIKI_ROOT.resolve()
+
+
+def _is_within_root(path):
+    """Return True if resolved path is inside WIKI_ROOT."""
+    return path.resolve().is_relative_to(_WIKI_ROOT_RESOLVED)
+
 
 # ---------------------------------------------------------------------------
 # Default artifact-scope extensions (R32/R33 contract)
@@ -58,6 +65,8 @@ def iter_files(scope, exts=None):
             continue
         for f in base.rglob("*"):
             if not f.is_file():
+                continue
+            if not _is_within_root(f):
                 continue
             if f.suffix.lower() in search_exts:
                 yield f

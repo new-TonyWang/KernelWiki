@@ -10,6 +10,13 @@ from pathlib import Path
 
 from _wiki_root import WIKI_ROOT
 
+_WIKI_ROOT_RESOLVED = WIKI_ROOT.resolve()
+
+
+def _is_within_root(path):
+    """Return True if resolved path is inside WIKI_ROOT."""
+    return path.resolve().is_relative_to(_WIKI_ROOT_RESOLVED)
+
 
 # ---------------------------------------------------------------------------
 # Global caches (lazy-loaded)
@@ -107,6 +114,8 @@ def load_all_pages():
         if not base.exists():
             continue
         for md in base.rglob("*.md"):
+            if not _is_within_root(md):
+                continue
             fm, body = load_frontmatter(md)
             if fm is None:
                 continue
