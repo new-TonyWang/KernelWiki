@@ -70,6 +70,15 @@ def read_body(filepath):
     return content
 
 
+def detect_vendor_from_path(filepath):
+    """Extract vendor name from filepath if under wiki/{vendor}/."""
+    rel = filepath.relative_to(REPO_ROOT)
+    parts = rel.parts
+    if parts[0] == "wiki" and len(parts) > 2:
+        return parts[1]
+    return None
+
+
 def detect_page_type(filepath, fm):
     """Detect page type from filepath and frontmatter."""
     rel = filepath.relative_to(REPO_ROOT)
@@ -84,11 +93,19 @@ def detect_page_type(filepath, fm):
             return "source-blog"
         elif parts[1] == "contests":
             return "source-contest"
+        elif parts[1] == "experience":
+            return "source-experience"
     elif parts[0] == "wiki":
         t = fm.get("type", "")
         if t:
             return f"wiki-{t}"
-        subdir = parts[1] if len(parts) > 1 else ""
+        # Determine the category subdir, skipping vendor prefix if present
+        # Supports both wiki/{category}/ (legacy) and wiki/{vendor}/{category}/
+        vendor = detect_vendor_from_path(filepath)
+        if vendor:
+            subdir = parts[2] if len(parts) > 2 else ""
+        else:
+            subdir = parts[1] if len(parts) > 1 else ""
         type_map = {
             "hardware": "wiki-hardware",
             "techniques": "wiki-technique",
@@ -96,6 +113,11 @@ def detect_page_type(filepath, fm):
             "kernels": "wiki-kernel",
             "languages": "wiki-language",
             "migration": "wiki-migration",
+            "foundations": "wiki-skill",
+            "operator-routing": "wiki-operator-routing",
+            "api-definitions": "wiki-api-definition",
+            "code-walkthroughs": "wiki-code-walkthrough",
+            "probes": "wiki-experience",
         }
         return type_map.get(subdir, "unknown")
     return "unknown"
@@ -332,17 +354,70 @@ def validate_file(filepath, schemas, valid_tags, all_source_ids, code_langs):
                 f"expected '{constraints['type']}' for {page_type}"
             )
 
-    # Check blackwell_relevance required for Hopper-only wiki pages
-    # Pages targeting both Hopper AND Blackwell are inherently Blackwell-relevant
-    if page_type.startswith("wiki-"):
-        archs = set(fm.get("architectures", []) if isinstance(fm.get("architectures"), list) else [])
-        hopper_archs = archs & {"sm90", "sm90a"}
-        blackwell_archs = archs & {"sm100", "sm100a", "sm120"}
-        if hopper_archs and not blackwell_archs and "blackwell_relevance" not in fm:
+    # Validate migrated kp-mvp source/artifact path contracts.  The older
+    # `source:` / `artifacts:` fields are intentionally allowed by the merged
+    # schemas, but their paths must still obey the post-migration split:
+    #   * source paths point at source/wiki/corpus/spec references, not
+    #     `sources/experience/**/artifacts/**`.
+    #   * artifact paths point at real files under `artifacts/**`, never under
+    #     `sources/experience/**/artifacts/**`.
+    def _is_local_ref_path(value):
+        if not isinstance(value, str) or not value:
+            return False
+        if value in {"spec", "manual", "n/a", "none"}:
+            return False
+        if value.startswith(("http://", "https://", "{{")):
+            return False
+        return value.startswith(("wiki/", "sources/", "artifacts/", "corpus/"))
+
+    def _check_local_path(field_name, value, *, artifact_field=False):
+        if not _is_local_ref_path(value):
+            return
+        if value.startswith("sources/experience/") and "/artifacts/" in value:
             errors.append(
-                f"{rel}: page targets only Hopper {hopper_archs} without Blackwell arch; "
-                f"add 'blackwell_relevance' to justify inclusion in Blackwell-first scope"
+                f"{rel}: {field_name} '{value}' mixes source and artifact roots; "
+                f"use artifacts/experience/... for files and sources/experience/*.md "
+                f"for source pages"
             )
+            return
+        if artifact_field and value.startswith("sources/experience/"):
+            errors.append(
+                f"{rel}: {field_name} '{value}' is an artifact field pointing "
+                f"inside sources/experience; use artifacts/experience or a source_refs entry"
+            )
+            return
+        if not (REPO_ROOT / value).exists():
+            errors.append(f"{rel}: {field_name} path '{value}' does not exist")
+
+    if isinstance(fm.get("source"), list):
+        for i, entry in enumerate(fm["source"]):
+            if isinstance(entry, dict) and "path" in entry:
+                _check_local_path(f"source[{i}].path", str(entry["path"]))
+
+    if isinstance(fm.get("artifacts"), dict):
+        for key, value in fm["artifacts"].items():
+            _check_local_path(f"artifacts.{key}", str(value), artifact_field=True)
+
+    # Vendor-path consistency: if page is under wiki/{vendor}/, vendor field must match
+    if page_type.startswith("wiki-"):
+        path_vendor = detect_vendor_from_path(filepath)
+        fm_vendor = fm.get("vendor")
+        if path_vendor and fm_vendor and fm_vendor != path_vendor:
+            errors.append(
+                f"{rel}: vendor '{fm_vendor}' does not match path vendor '{path_vendor}'"
+            )
+
+    # Validate evidence_level if present (for new strict-tier types)
+    el_constraint = constraints.get("evidence_level")
+    if el_constraint and "evidence_level" in fm:
+        if fm["evidence_level"] not in el_constraint:
+            errors.append(f"{rel}: invalid evidence_level '{fm['evidence_level']}', expected one of {el_constraint}")
+
+    # Validate namespace for api-definition pages
+    ns_constraint = constraints.get("namespace")
+    if ns_constraint and "namespace" in fm:
+        if fm["namespace"] not in ns_constraint:
+            errors.append(f"{rel}: invalid namespace '{fm['namespace']}', expected one of {ns_constraint}")
 
     # Check performance_claims structure (including shape and numeric value)
     if "performance_claims" in fm:
@@ -966,7 +1041,7 @@ def validate_claim_bearing_pages_have_pointer():
     """If an in-scope page contains any obsolete claim signature, it MUST
     carry a version_sensitive frontmatter pointer. Pages with the
     signatures inside an explicitly-marked historical-context block
-    are exempt (the wiki/languages/triton-blackwell.md historical
+    are exempt (the wiki/nvidia/languages/triton-blackwell.md historical
     subsection)."""
     errors = []
     in_scope = []
@@ -1213,6 +1288,14 @@ def discover_bundle_roots():
                     d = slug / sub
                     if d.is_dir():
                         yield d
+    # Experience artifact bundles (migrated from kb-mvp 80-experience)
+    experience = ARTIFACTS_DIR / "experience"
+    if experience.is_dir():
+        for category in sorted(experience.iterdir()):
+            if category.is_dir():
+                for slug_dir in sorted(category.iterdir()):
+                    if slug_dir.is_dir():
+                        yield slug_dir
 
 
 def find_orphan_source_files():
@@ -1388,11 +1471,41 @@ def validate_bundle(bundle_root, known_source_ids):
     return errors
 
 
+def _resolve_source_ref(full_ref: str):
+    """Resolve a source_refs path. Returns (status, path_or_none).
+
+    Status values:
+      "resolved" — path resolved successfully
+      "unlocalized" — external source without localize.yaml (tier-2 warning)
+      "error" — resolver import or runtime failure
+    """
+    try:
+        sys.path.insert(0, str(REPO_ROOT))
+        from scripts.source_corpus.registry import (
+            resolve_corpus_path, load_manifest, load_localize_variables, PLACEHOLDER_RE,
+        )
+        manifest = load_manifest()
+        for entry in manifest:
+            if full_ref.startswith(entry.source_id + "/") or full_ref == entry.source_id:
+                if PLACEHOLDER_RE.search(entry.local_path):
+                    variables = load_localize_variables()
+                    resolved_entry = entry.resolved_path(variables)
+                    if resolved_entry is None:
+                        return "unlocalized", None
+                break
+        return "resolved", resolve_corpus_path(full_ref)
+    except ImportError:
+        return "error", None
+    except Exception:
+        return "error", None
+
+
 def main():
     tags = load_yaml_file(DATA_DIR / "tags.yaml")
     schemas = load_yaml_file(DATA_DIR / "schemas.yaml")
 
     all_errors = []
+    all_warnings = []
     file_count = 0
     ids_seen = {}
 
@@ -1412,6 +1525,21 @@ def main():
         fm = extract_frontmatter(md_file)
         if fm and isinstance(fm, dict) and "id" in fm:
             all_known_ids.add(fm["id"])
+
+    # Load MANIFEST.yaml for source_refs validation (IDs + entries for path resolution)
+    manifest_source_ids = set()
+    manifest_entries = []
+    manifest_path = REPO_ROOT / "corpus" / "MANIFEST.yaml"
+    if manifest_path.exists():
+        try:
+            manifest_data = load_yaml_file(manifest_path)
+            if isinstance(manifest_data, list):
+                for entry in manifest_data:
+                    if isinstance(entry, dict) and "source_id" in entry:
+                        manifest_source_ids.add(entry["source_id"])
+                        manifest_entries.append(entry)
+        except Exception:
+            pass
 
     # Second pass: validate everything
     for search_dir in [SOURCES_DIR, WIKI_DIR]:
@@ -1434,6 +1562,81 @@ def main():
 
             errors = validate_file(md_file, schemas, tags, all_source_ids, code_langs)
             all_errors.extend(errors)
+
+            # Validate source_refs against MANIFEST.yaml with full path resolution
+            if fm and isinstance(fm, dict) and "source_refs" in fm:
+                refs = fm["source_refs"]
+                rel_path = md_file.relative_to(REPO_ROOT)
+                if not isinstance(refs, list):
+                    all_errors.append(f"{rel_path}: source_refs must be a list")
+                else:
+                    for i, ref in enumerate(refs):
+                        if not isinstance(ref, dict):
+                            all_errors.append(f"{rel_path}: source_refs[{i}] must be a mapping")
+                            continue
+                        sid = ref.get("source_id", "")
+                        rpath = ref.get("path", "")
+                        if not isinstance(sid, str) or not sid:
+                            all_errors.append(f"{rel_path}: source_refs[{i}] source_id must be a non-empty string")
+                            continue
+                        if not isinstance(rpath, str) or not rpath:
+                            all_errors.append(f"{rel_path}: source_refs[{i}] path must be a non-empty string")
+                            continue
+                        if manifest_source_ids and sid not in manifest_source_ids:
+                            all_errors.append(
+                                f"{rel_path}: source_refs source_id "
+                                f"'{sid}' not found in corpus/MANIFEST.yaml"
+                            )
+                        if rpath.startswith("/"):
+                            all_errors.append(
+                                f"{rel_path}: source_refs path "
+                                f"'{rpath}' is absolute; must be source-root-relative"
+                            )
+                        # Unified path resolution through source-corpus registry
+                        if sid in manifest_source_ids:
+                            full_ref = f"{sid}/{rpath}"
+                            status, resolved = _resolve_source_ref(full_ref)
+                            if status == "unlocalized":
+                                all_warnings.append(
+                                    f"{rel_path}: source_refs[{i}] "
+                                    f"'{sid}/{rpath}' — tier-2 source not localized "
+                                    f"(configure corpus/localize.yaml)"
+                                )
+                            elif status == "error":
+                                all_errors.append(
+                                    f"{rel_path}: source_refs[{i}] "
+                                    f"resolver error for '{sid}/{rpath}'"
+                                )
+                            elif resolved is not None and not resolved.exists():
+                                all_errors.append(
+                                    f"{rel_path}: source_refs[{i}] "
+                                    f"path '{rpath}' not found under source '{sid}'"
+                                )
+
+            # AC-5: Validate related: entries point to existing page IDs
+            if fm and isinstance(fm, dict) and "related" in fm:
+                related = fm["related"]
+                if isinstance(related, list):
+                    for rel_id in related:
+                        if isinstance(rel_id, str) and rel_id not in all_known_ids:
+                            all_errors.append(
+                                f"{md_file.relative_to(REPO_ROOT)}: related entry "
+                                f"'{rel_id}' not found in any page ID"
+                            )
+
+            # No absolute machine paths in committed wiki/source content
+            # Only flag user-specific paths (/data1/, /home/), not system paths
+            # (/usr/local/cuda) which appear legitimately in source PR quotes
+            if fm and isinstance(fm, dict):
+                rel_path = md_file.relative_to(REPO_ROOT)
+                content = md_file.read_text(encoding="utf-8")
+                for pattern in ["/data1/", "/home/tongyu/"]:
+                    if pattern in content:
+                        if "PROVENANCE" not in str(rel_path):
+                            all_errors.append(
+                                f"{rel_path}: contains absolute machine path '{pattern}...'"
+                            )
+                            break
 
     # Phase 3: artifact bundle validation
     bundle_count = 0
@@ -1507,6 +1710,106 @@ def main():
     # AC-10 discoverability + sources/upstreams forbidden.
     all_errors.extend(validate_discoverability())
 
+    # AC-5.1: Body markdown link validation
+    # 1) Reject old kb-mvp numbered-layer paths
+    old_path_patterns = [
+        "80-experience/", "30-skill/", "40-hardware-feature/",
+        "50-classical-algo/", "60-code/", "10-api-raw/", "20-pattern/",
+        "70-reasoning/", "05-source-corpus/", "knowledge/",
+    ]
+    body_link_errors = 0
+    for search_dir in [WIKI_DIR, SOURCES_DIR]:
+        if not search_dir.exists():
+            continue
+        for md_file in sorted(search_dir.rglob("*.md")):
+            try:
+                content = md_file.read_text(encoding="utf-8")
+            except Exception:
+                continue
+            rel = md_file.relative_to(REPO_ROOT)
+            for pattern in old_path_patterns:
+                if pattern in content:
+                    all_errors.append(
+                        f"{rel}: body contains old kb-mvp path '{pattern}...' "
+                        f"(must be rewritten to new layout)"
+                    )
+                    body_link_errors += 1
+                    break
+    if body_link_errors:
+        print(f"  Body-link validation: {body_link_errors} files with old paths")
+
+    # 2) Resolve relative Markdown links and check targets exist
+    _LINK_RE = re.compile(r'\[([^\]]*)\]\(([^)]+)\)')
+    link_resolve_errors = 0
+    for search_dir in [WIKI_DIR, SOURCES_DIR]:
+        if not search_dir.exists():
+            continue
+        for md_file in sorted(search_dir.rglob("*.md")):
+            try:
+                body = read_body(md_file)
+            except Exception:
+                continue
+            rel = md_file.relative_to(REPO_ROOT)
+            # Skip files inside code fences
+            in_fence = False
+            for line in body.split('\n'):
+                if line.strip().startswith('```'):
+                    in_fence = not in_fence
+                    continue
+                if in_fence:
+                    continue
+                for m in _LINK_RE.finditer(line):
+                    target = m.group(2)
+                    # Skip URLs, anchors, mailto, images
+                    if target.startswith(('http://', 'https://', '#', 'mailto:')):
+                        continue
+                    # Strip anchor from target
+                    target_path = target.split('#')[0]
+                    if not target_path:
+                        continue
+                    # Resolve relative to file's directory
+                    resolved = (md_file.parent / target_path).resolve()
+                    if not resolved.exists():
+                        all_errors.append(
+                            f"{rel}: broken link [{m.group(1)}]({target}) "
+                            f"→ target does not exist"
+                        )
+                        link_resolve_errors += 1
+    if link_resolve_errors:
+        print(f"  Body-link resolution: {link_resolve_errors} broken links")
+
+    # AC-13: MANIFEST schema validation
+    manifest_path = REPO_ROOT / "corpus" / "MANIFEST.yaml"
+    if manifest_path.exists():
+        try:
+            manifest_data = load_yaml_file(manifest_path)
+            if isinstance(manifest_data, list):
+                for entry in manifest_data:
+                    sid = entry.get("source_id", "?")
+                    tier = entry.get("tier", "")
+                    if tier == "external":
+                        remote = entry.get("remote", {}) or {}
+                        if not remote.get("url"):
+                            all_errors.append(
+                                f"corpus/MANIFEST.yaml: external entry '{sid}' "
+                                f"missing remote.url"
+                            )
+                        if not entry.get("default_ref"):
+                            all_errors.append(
+                                f"corpus/MANIFEST.yaml: external entry '{sid}' "
+                                f"missing default_ref"
+                            )
+                    elif tier == "in-git":
+                        lp = entry.get("local_path", "")
+                        resolved = REPO_ROOT / "corpus" / lp
+                        if not resolved.exists():
+                            all_errors.append(
+                                f"corpus/MANIFEST.yaml: in-git entry '{sid}' "
+                                f"path '{lp}' does not exist"
+                            )
+        except Exception as e:
+            all_errors.append(f"corpus/MANIFEST.yaml: parse error: {e}")
+
     print(f"Validated {file_count} files ({len(all_source_ids)} source IDs collected)")
     if bundle_count or orphans:
         print(f"Validated {bundle_count} asset bundles "
@@ -1514,6 +1817,10 @@ def main():
               f"orphan-source-files={len(orphans)})")
     if ledger_count:
         print(f"Validated {ledger_count} candidate ledgers")
+    if all_warnings:
+        print(f"\n{len(all_warnings)} warnings:")
+        for w in all_warnings:
+            print(f"  WARNING: {w}")
     if all_errors:
         print(f"\n{len(all_errors)} errors found:\n")
         for err in all_errors:

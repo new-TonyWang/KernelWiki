@@ -1,0 +1,147 @@
+diff --git a/ascend/examples/pytest_ut/test_cast_full.py b/ascend/examples/pytest_ut/test_cast_full.py
+@@ -29,7 +29,7 @@ def cast_to_i8(output_ptr, x_ptr, XB : tl.constexpr,YB : tl.constexpr,ZB : tl.co
+     idx=xidx[:,None,None]*YB*ZB+yidx[None,:,None]*ZB+zidx[None,None,:]
+ 
+     X = tl.load(x_ptr+idx)
+-    ret = tl.cast(X,dtype = tl.int8)
++    ret = tl.cast(X,dtype = tl.int8, overflow_mode = "trunc")
+ 
+     tl.store(output_ptr+idx,ret)
+
+diff --git a/triton_patch/python/src/ir.cc b/triton_patch/python/src/ir.cc
+@@ -375,6 +375,7 @@ void init_triton_ir(py::module &&m) {
+   py::class_<IntegerAttr, Attribute>(m, "integer_attr", py::module_local());
+   py::class_<BoolAttr, Attribute>(m, "bool_attr", py::module_local());
+   py::class_<UnitAttr, Attribute>(m, "unit_attr", py::module_local());
++  py::class_<StringAttr, Attribute>(m, "str_attr", py::module_local());
+ 
+   // Ops
+   py::class_<OpState>(m, "OpState", py::module_local())
+@@ -627,6 +628,11 @@ void init_triton_ir(py::module &&m) {
+            [](TritonOpBuilder &self, int32_t value) {
+              return self.getBuilder().getI32IntegerAttr(value);
+            })
++      .def("get_str_attr",
++           [](TritonOpBuilder &self, std::string value) {
++             return self.getBuilder().getStringAttr(value);
++           }
++        )
+       .def(
+           "get_unit_attr",
+           [](TritonOpBuilder &self) { return self.getBuilder().getUnitAttr(); })
+
+diff --git a/triton_patch/python/triton_patch/language/core.py b/triton_patch/python/triton_patch/language/core.py
+@@ -16,7 +16,7 @@ from triton.language.core import (
+     _unwrap_if_constexpr,
+     range,
+ )
+-
++from typing import Optional
+ # from triton.language.core import _unwrap_if_constexpr, _unwrap_shape
+ from . import semantic
+ 
+@@ -162,6 +162,31 @@ from . import semantic
+ #         ret_types = [ret_type.to_ir(builder) for ret_type in self.ret_types]
+ #         return builder.get_function_ty(ir_param_types, ret_types)
+ 
++@_tensor_member_fn
++@builtin
++def cast(input, dtype: real_dtype, fp_downcast_rounding: Optional[str] = None, bitcast: bool = False, overflow_mode: Optional[str] = None, _builder=None):
++    """
++    Casts a tensor to the given :code:`dtype`.
++
++    :param dtype: The target data type.
++    :type dtype: tl.dtype
++    :param fp_downcast_rounding: The rounding mode for downcasting
++        floating-point values. This parameter is only used when self is a
++        floating-point tensor and dtype is a floating-point type with a
++        smaller bitwidth. Supported values are :code:`"rtne"` (round to
++        nearest, ties to even) and :code:`"rtz"` (round towards zero).
++    :type fp_downcast_rounding: str, optional
++    :param bitcast: If true, the tensor is bitcasted to the given
++        :code:`dtype`, instead of being numerically casted.
++    :type bitcast: bool, optional
++    """
++    input = semantic.to_tensor(input, _builder)
++    if isinstance(bitcast, constexpr):
++        bitcast = bitcast.value
++    if bitcast:
++        return semantic.bitcast(input, dtype, _builder)
++    return semantic.cast(input, dtype, _builder, fp_downcast_rounding, overflow_mode)
++
+ 
+ @_tensor_member_fn
+ @builtin
+
+diff --git a/triton_patch/python/triton_patch/language/semantic.py b/triton_patch/python/triton_patch/language/semantic.py
+@@ -26,7 +26,7 @@ def arange(start: int, end: int, builder: ir.builder) -> tl.tensor:
+     return tl.tensor(builder.create_make_range(start, end), ret_ty)
+ 
+ def cast(input: tl.tensor, dst_ty: tl.dtype, builder: ir.builder,
+-         fp_downcast_rounding: Optional[str] = None) -> tl.tensor:
++         fp_downcast_rounding: Optional[str] = None, overflow_mode: Optional[str] = None) -> tl.tensor:
+     src_ty = input.type
+     if isinstance(dst_ty, tl.constexpr):
+         dst_ty = dst_ty.value
+@@ -70,7 +70,7 @@ def cast(input: tl.tensor, dst_ty: tl.dtype, builder: ir.builder,
+     # bf16 <=> (not fp32)
+     if (src_sca_ty.is_fp16() and not dst_sca_ty.is_fp32()) or \
+        (src_sca_ty.is_bf16() and not dst_sca_ty.is_fp32()):
+-        return cast(cast(input, tl.float32, builder), dst_sca_ty, builder)
++        return cast(cast(input, tl.float32, builder), dst_sca_ty, builder, overflow_mode=overflow_mode)
+ 
+     # Standard floating types' casting: truncation
+     #   fp64 => fp32, fp16, bf16
+@@ -100,7 +100,9 @@ def cast(input: tl.tensor, dst_ty: tl.dtype, builder: ir.builder,
+             _0 = tl.tensor(builder.get_null_value(ty), input.dtype)
+             return not_equal(input, _0, builder)
+         else:
+-            return tl.tensor(builder.create_int_cast(input.handle, dst_ty.to_ir(builder), sign_extend), dst_ty)
++            ret = tl.tensor(builder.create_int_cast(input.handle, dst_ty.to_ir(builder), sign_extend), dst_ty)
++            compile_hint(ret, "overflow_mode", overflow_mode, builder)
++            return ret
+ 
+     # Casting standard floating types to integer types
+     if src_sca_ty.is_standard_floating() and dst_sca_ty.is_int():
+@@ -109,9 +111,11 @@ def cast(input: tl.tensor, dst_ty: tl.dtype, builder: ir.builder,
+             _0 = tl.tensor(builder.get_null_value(ty), input.dtype)
+             return not_equal(input, _0, builder)
+         elif dst_sca_ty.is_int_signed():
+-            return tl.tensor(builder.create_fp_to_si(input.handle, dst_ty.to_ir(builder)), dst_ty)
++            ret = tl.tensor(builder.create_fp_to_si(input.handle, dst_ty.to_ir(builder)), dst_ty)
+         else:
+-            return tl.tensor(builder.create_fp_to_ui(input.handle, dst_ty.to_ir(builder)), dst_ty)
++            ret = tl.tensor(builder.create_fp_to_ui(input.handle, dst_ty.to_ir(builder)), dst_ty)
++        compile_hint(ret, "overflow_mode", overflow_mode, builder)
++        return ret
+ 
+     # Casting integer types to standard floating types
+     if src_sca_ty.is_int() and dst_sca_ty.is_standard_floating():
+@@ -551,6 +555,8 @@ def compile_hint(ptr: tl.tensor, hint_name: str, hint_val, builder: ir.builder):
+         hint_val = builder.get_bool_attr(hint_val)
+     elif isinstance(hint_val, int):
+         hint_val = builder.get_int32_attr(hint_val)
++    elif isinstance(hint_val, core.constexpr):
++        hint_val = builder.get_str_attr(hint_val.value)
+     else:
+         raise ValueError(f"Unsupported hint value type: {type(hint_val)}")
+     builder.create_annotation(ptr.handle, hint_name, hint_val)
+\ No newline at end of file
+
+diff --git a/triton_patch/python/triton_patch/testing.py b/triton_patch/python/triton_patch/testing.py
+@@ -614,6 +614,7 @@ def get_max_simd_tflops(dtype, clock_rate, device=None):
+ 
+ from .triton_patch.language.core import (
+     dot,
++    cast,
+     gather,
+     insert_slice,
+     extract_slice,
+@@ -662,6 +663,7 @@ from .triton_patch.language.semantic import (
+ )
+ from . import language
+ 
++language.cast = cast
+ language.dot = dot
+ language.flip = flip
+ language.sigmoid = sigmoid

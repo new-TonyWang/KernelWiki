@@ -1,0 +1,68 @@
+task_id: 2026-04-17-probe-runtime-all-sync
+task_type: probe-api
+target_path: wiki/nvidia/api-definitions/runtime/__all_sync.md
+hardware:
+  device: H200
+  sm: 9.0a
+  cuda_runtime: '12.9'
+upstream_scope:
+- corpus/nvidia/
+references:
+- reasoning/api-probing.md
+- reasoning/benchmark-protocol.md
+success_criteria:
+- file_exists: sources/experience/api-probes/2026-04-17-runtime-all-sync.md
+- file_updated: wiki/nvidia/api-definitions/runtime/__all_sync.md
+- has_end_to_end_example_flipped: true
+- 'lint_clean: true'
+api:
+  name: __all_sync
+  namespace: runtime
+referenced_in_corpus:
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA API References/cccl/cccl.md
+  anchor: L22834-L22834
+  title: Removed functions and classes
+  scope: cuda-official
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23872-L23872
+  title: 5.4.6.2. Warp Vote Functions
+  scope: cuda-official
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L23880-L23880
+  title: 5.4.6.2. Warp Vote Functions
+  scope: cuda-official
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24232-L24232
+  title: 5.4.6.6. Warp __sync Intrinsic Constraints
+  scope: cuda-official
+- path: corpus/nvidia/cuda-official/cuda-toolkit-documentation-13.2/CUDA Programming
+    Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L24238-L24238
+  title: 5.4.6.6. Warp __sync Intrinsic Constraints
+  scope: cuda-official
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/README.md
+  anchor: L116-L116
+  title: '[simpleVoteIntrinsics](./simpleVoteIntrinsics)'
+  scope: source-code
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/README.md
+  anchor: L5-L5
+  title: Description
+  scope: source-code
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
+  anchor: L58-L58
+  title: define SIMPLEVOTE_KERNEL_CU
+  scope: source-code
+- path: corpus/nvidia/source-code/cuda-samples/Samples/0_Introduction/simpleVoteIntrinsics/simpleVote_kernel.cuh
+  anchor: L76-L76
+  title: define SIMPLEVOTE_KERNEL_CU
+  scope: source-code
+notes: "F10 probe for __all_sync. Follow api-probing.md 6-step protocol.\nPrefetched\
+  \ corpus hits are provided in referenced_in_corpus — prefer reading those via source_read\
+  \ before writing new probes.\nDeliverables:\n  1. sources/experience/api-probes/2026-04-17-runtime-all-sync.md\
+  \ (probe record with experience.yaml frontmatter)\n  2. artifacts/experience/api-probes/__all_sync_probe.cu\
+  \ (minimal runnable kernel, compiled on H200 via SSH)\n  3. Update wiki/nvidia/api-definitions/runtime/__all_sync.md:\
+  \ flip has_end_to_end_example → true, set probed_by to the probe record path, append\
+  \ ## End-to-End Example section\nRun scripts/validate.py before declaring done."

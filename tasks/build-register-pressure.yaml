@@ -1,0 +1,66 @@
+task_id: 2026-04-16-register-pressure
+task_type: build-skill
+target_path: wiki/nvidia/foundations/memory/register-pressure/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - <local-path>
+  - <local-path> Programming Guides/cuda-c-best-practices-guide/
+  - <local-path>
+
+references:
+  - reasoning/api-probing.md
+  - reasoning/hardware-microbench.md
+  - reasoning/benchmark-protocol.md
+  - reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: skill.md
+  - file_exists: pitfalls.md
+  - file_exists: apis.md
+  - lint_clean: true
+  - at_least_one_hw_probe_linked: true
+
+related_skills: [ilp, compiler-hints, warp-primitives]
+
+notes: |
+  Cover register pressure management: understanding how register usage per
+  thread affects occupancy, when spilling hurts, and techniques to reduce
+  register count.
+
+  Key topics:
+  - H200 register file: 65536 regs/SM, 255 regs max/thread, shared across blocks
+  - Occupancy = f(regs/thread, smem/block, threads/block) — registers are often
+    the binding constraint
+  - Register spilling: local_mem_per_thread > 0 means spill to L1/L2/HBM
+  - How to detect spilling: -Xptxas -v output, cuFuncGetAttribute LOCAL_SIZE_BYTES,
+    kp_introspect kernel-static
+  - Techniques to reduce register pressure:
+    - __launch_bounds__ (link to compiler-hints skill)
+    - --maxrregcount (link to compiler-hints skill)
+    - Reduce ILP (trade throughput for occupancy — link to ilp skill)
+    - Break large kernels into smaller sequential stages
+    - Use shared memory to explicitly spill hot values (manual register tiling)
+  - The occupancy sweet spot: sometimes 50% occupancy with zero spills beats
+    100% occupancy with spills
+  - Reading -Xptxas -v output: "Used N registers, M bytes smem, K bytes local"
+
+  apis.md is REQUIRED: cuFuncGetAttribute(CU_FUNC_ATTRIBUTE_NUM_REGS),
+  cuFuncGetAttribute(CU_FUNC_ATTRIBUTE_LOCAL_SIZE_BYTES),
+  cudaOccupancyMaxActiveBlocksPerMultiprocessor, __launch_bounds__,
+  -Xptxas -v (not an API but critical diagnostic).
+
+  Microbench probe: write a kernel that is deliberately register-heavy
+  (many live variables, e.g. 40+ float accumulators). Compile it twice:
+    (a) default: let compiler choose register count
+    (b) with --maxrregcount=32: force spilling
+  Compare: regs/thread from -Xptxas -v, local_mem_per_thread (spill bytes),
+  and execution latency. Show the tradeoff: fewer regs → more occupancy but
+  spill penalty.
+
+  Cross-reference the compiler-hints skill (already built) and the ilp skill
+  for the register-vs-ILP tradeoff.

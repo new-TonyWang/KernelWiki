@@ -1,5 +1,5 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 79f1964d..bbf625d3 100644
+index 79f1964dad..bbf625d306 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
 @@ -3,8 +3,7 @@ cmake_minimum_required(VERSION 3.10)
@@ -28,7 +28,7 @@ index 79f1964d..bbf625d3 100644
  
  # The main Python API entrance
 diff --git a/README.md b/README.md
-index 04a289db..07766c89 100644
+index 04a289dbb5..07766c8967 100644
 --- a/README.md
 +++ b/README.md
 @@ -1,13 +1,16 @@
@@ -202,7 +202,7 @@ index 04a289db..07766c89 100644
 +}
 +```
 diff --git a/csrc/apis/attention.hpp b/csrc/apis/attention.hpp
-index 702cbd30..38ff225d 100644
+index 702cbd30a1..38ff225d33 100644
 --- a/csrc/apis/attention.hpp
 +++ b/csrc/apis/attention.hpp
 @@ -5,9 +5,9 @@
@@ -730,7 +730,7 @@ index 702cbd30..38ff225d 100644
            py::arg("q"), py::arg("kv_cache"), py::arg("weights"),
            py::arg("context_lens"), py::arg("block_table"), py::arg("schedule_meta"),
 diff --git a/csrc/apis/einsum.hpp b/csrc/apis/einsum.hpp
-index 46ef49fb..f82331ca 100644
+index 46ef49fbe6..f82331cacc 100644
 --- a/csrc/apis/einsum.hpp
 +++ b/csrc/apis/einsum.hpp
 @@ -29,7 +29,7 @@ static void bmk_bnk_mn(const torch::Tensor& a, const torch::Tensor& b, const tor
@@ -886,7 +886,7 @@ index 46ef49fb..f82331ca 100644
      } else {
          DG_HOST_UNREACHABLE(fmt::format("Unsupported einsum expression: {}", expr));
 diff --git a/csrc/apis/gemm.hpp b/csrc/apis/gemm.hpp
-index 6770cf92..42622df7 100644
+index 6770cf9285..42622df7d8 100644
 --- a/csrc/apis/gemm.hpp
 +++ b/csrc/apis/gemm.hpp
 @@ -6,7 +6,7 @@
@@ -1222,7 +1222,7 @@ index 6770cf92..42622df7 100644
  
  static void cublaslt_gemm_nn(const torch::Tensor& a, const torch::Tensor& b,
 diff --git a/csrc/apis/hyperconnection.hpp b/csrc/apis/hyperconnection.hpp
-index 0a85b10f..1a13984d 100644
+index 0a85b10f74..1a13984d24 100644
 --- a/csrc/apis/hyperconnection.hpp
 +++ b/csrc/apis/hyperconnection.hpp
 @@ -24,16 +24,16 @@ static void tf32_hc_prenorm_gemm(const torch::Tensor& a,
@@ -1258,7 +1258,7 @@ index 0a85b10f..1a13984d 100644
          sm90_tf32_hc_prenorm_gemm(a, b, d, sqr_sum, m, n, k, num_splits.has_value() ? num_splits.value() : 1);
      } else if (arch_major == 10) {
 diff --git a/csrc/apis/layout.hpp b/csrc/apis/layout.hpp
-index 3a37d36a..b404241a 100644
+index 3a37d36a45..b404241a66 100644
 --- a/csrc/apis/layout.hpp
 +++ b/csrc/apis/layout.hpp
 @@ -1,5 +1,6 @@
@@ -1396,7 +1396,7 @@ index 3a37d36a..b404241a 100644
  } // namespace deep_gemm::layout
 diff --git a/csrc/apis/mega.hpp b/csrc/apis/mega.hpp
 new file mode 100644
-index 00000000..8129b790
+index 0000000000..8129b79041
 --- /dev/null
 +++ b/csrc/apis/mega.hpp
 @@ -0,0 +1,216 @@
@@ -1617,7 +1617,7 @@ index 00000000..8129b790
 +
 +} // namespace deep_gemm::mega
 diff --git a/csrc/apis/runtime.hpp b/csrc/apis/runtime.hpp
-index a5d313e2..58fef941 100644
+index a5d313e290..58fef941b7 100644
 --- a/csrc/apis/runtime.hpp
 +++ b/csrc/apis/runtime.hpp
 @@ -4,6 +4,7 @@
@@ -1659,7 +1659,7 @@ index a5d313e2..58fef941 100644
      });
  }
 diff --git a/csrc/indexing/main.cu b/csrc/indexing/main.cu
-index 1b96da2f..a42b66f9 100644
+index 1b96da2fa5..a42b66f9e6 100644
 --- a/csrc/indexing/main.cu
 +++ b/csrc/indexing/main.cu
 @@ -3,12 +3,14 @@
@@ -1689,7 +1689,7 @@ index 1b96da2f..a42b66f9 100644
  
  int main() {
 diff --git a/csrc/jit/cache.hpp b/csrc/jit/cache.hpp
-index 1e8659fd..ddc763d0 100644
+index 1e8659fd32..ddc763d08d 100644
 --- a/csrc/jit/cache.hpp
 +++ b/csrc/jit/cache.hpp
 @@ -17,7 +17,7 @@ class KernelRuntimeCache {
@@ -1702,7 +1702,7 @@ index 1e8659fd..ddc763d0 100644
  
          if (KernelRuntime::check_validity(dir_path))
 diff --git a/csrc/jit/compiler.hpp b/csrc/jit/compiler.hpp
-index 3dc0cfbf..7d85a5f5 100644
+index 3dc0cfbfff..7d85a5f556 100644
 --- a/csrc/jit/compiler.hpp
 +++ b/csrc/jit/compiler.hpp
 @@ -2,6 +2,7 @@
@@ -1971,7 +1971,7 @@ index 3dc0cfbf..7d85a5f5 100644
          // Get and print compiler log
          size_t log_size;
 diff --git a/csrc/jit/device_runtime.hpp b/csrc/jit/device_runtime.hpp
-index d33743ef..2321aded 100644
+index d33743ef58..2321aded7a 100644
 --- a/csrc/jit/device_runtime.hpp
 +++ b/csrc/jit/device_runtime.hpp
 @@ -7,10 +7,13 @@
@@ -2072,7 +2072,7 @@ index d33743ef..2321aded 100644
  
  static auto device_runtime = LazyInit<DeviceRuntime>([](){ return std::make_shared<DeviceRuntime>(); });
 diff --git a/csrc/jit/handle.hpp b/csrc/jit/handle.hpp
-index 34447f91..be3bc31c 100644
+index 34447f91fd..be3bc31c07 100644
 --- a/csrc/jit/handle.hpp
 +++ b/csrc/jit/handle.hpp
 @@ -24,7 +24,7 @@ static void* get_driver_handle() {
@@ -2250,7 +2250,7 @@ index 34447f91..be3bc31c 100644
  
 diff --git a/csrc/jit/include_parser.hpp b/csrc/jit/include_parser.hpp
 new file mode 100644
-index 00000000..99f2663c
+index 0000000000..99f2663c78
 --- /dev/null
 +++ b/csrc/jit/include_parser.hpp
 @@ -0,0 +1,80 @@
@@ -2335,7 +2335,7 @@ index 00000000..99f2663c
 +
 +}  // namespace deep_gemm
 diff --git a/csrc/jit/kernel_runtime.hpp b/csrc/jit/kernel_runtime.hpp
-index ba66eeb8..40597fb4 100644
+index ba66eeb88a..40597fb448 100644
 --- a/csrc/jit/kernel_runtime.hpp
 +++ b/csrc/jit/kernel_runtime.hpp
 @@ -1,10 +1,13 @@
@@ -2517,7 +2517,7 @@ index ba66eeb8..40597fb4 100644
          Derived::launch_impl(kernel, config, args);
      }
 diff --git a/csrc/jit_kernels/heuristics/common.hpp b/csrc/jit_kernels/heuristics/common.hpp
-index a49584f4..2b79a8b7 100644
+index a49584f421..2b79a8b74a 100644
 --- a/csrc/jit_kernels/heuristics/common.hpp
 +++ b/csrc/jit_kernels/heuristics/common.hpp
 @@ -1,339 +1,54 @@
@@ -2896,7 +2896,7 @@ index a49584f4..2b79a8b7 100644
  } // namespace deep_gemm
 diff --git a/csrc/jit_kernels/heuristics/config.hpp b/csrc/jit_kernels/heuristics/config.hpp
 new file mode 100644
-index 00000000..c06f2f16
+index 0000000000..c06f2f168f
 --- /dev/null
 +++ b/csrc/jit_kernels/heuristics/config.hpp
 @@ -0,0 +1,171 @@
@@ -3073,7 +3073,7 @@ index 00000000..c06f2f16
 +}  // namespace deep_gemm
 diff --git a/csrc/jit_kernels/heuristics/mega_moe.hpp b/csrc/jit_kernels/heuristics/mega_moe.hpp
 new file mode 100644
-index 00000000..2caa6f17
+index 0000000000..2caa6f1762
 --- /dev/null
 +++ b/csrc/jit_kernels/heuristics/mega_moe.hpp
 @@ -0,0 +1,211 @@
@@ -3290,7 +3290,7 @@ index 00000000..2caa6f17
 +} // namespace deep_gemm
 diff --git a/csrc/jit_kernels/heuristics/runtime.hpp b/csrc/jit_kernels/heuristics/runtime.hpp
 new file mode 100644
-index 00000000..93f2a23a
+index 0000000000..93f2a23a1a
 --- /dev/null
 +++ b/csrc/jit_kernels/heuristics/runtime.hpp
 @@ -0,0 +1,62 @@
@@ -3357,7 +3357,7 @@ index 00000000..93f2a23a
 +
 +} // namespace deep_gemm
 diff --git a/csrc/jit_kernels/heuristics/sm100.hpp b/csrc/jit_kernels/heuristics/sm100.hpp
-index dd1e6024..c8e9e2e0 100644
+index dd1e6024ff..c8e9e2e07f 100644
 --- a/csrc/jit_kernels/heuristics/sm100.hpp
 +++ b/csrc/jit_kernels/heuristics/sm100.hpp
 @@ -2,9 +2,11 @@
@@ -3745,7 +3745,7 @@ index dd1e6024..c8e9e2e0 100644
  };
  
 diff --git a/csrc/jit_kernels/heuristics/sm90.hpp b/csrc/jit_kernels/heuristics/sm90.hpp
-index 2fd2e9ec..c411fb7e 100644
+index 2fd2e9ec5b..c411fb7e01 100644
 --- a/csrc/jit_kernels/heuristics/sm90.hpp
 +++ b/csrc/jit_kernels/heuristics/sm90.hpp
 @@ -2,162 +2,244 @@
@@ -4122,7 +4122,7 @@ index 2fd2e9ec..c411fb7e 100644
  
 diff --git a/csrc/jit_kernels/heuristics/utils.hpp b/csrc/jit_kernels/heuristics/utils.hpp
 new file mode 100644
-index 00000000..17d2ae07
+index 0000000000..17d2ae07e6
 --- /dev/null
 +++ b/csrc/jit_kernels/heuristics/utils.hpp
 @@ -0,0 +1,23 @@
@@ -4150,7 +4150,7 @@ index 00000000..17d2ae07
 +
 +} // namespace deep_gemm
 diff --git a/csrc/jit_kernels/impls/epilogue.hpp b/csrc/jit_kernels/impls/epilogue.hpp
-index bd21de10..1003df4c 100644
+index bd21de107d..1003df4c3f 100644
 --- a/csrc/jit_kernels/impls/epilogue.hpp
 +++ b/csrc/jit_kernels/impls/epilogue.hpp
 @@ -6,7 +6,7 @@
@@ -4163,7 +4163,7 @@ index bd21de10..1003df4c 100644
  
  } // namespace deep_gemm
 diff --git a/csrc/jit_kernels/impls/runtime_utils.hpp b/csrc/jit_kernels/impls/runtime_utils.hpp
-index b245b94a..72a76f0d 100644
+index b245b94a6e..72a76f0d67 100644
 --- a/csrc/jit_kernels/impls/runtime_utils.hpp
 +++ b/csrc/jit_kernels/impls/runtime_utils.hpp
 @@ -20,6 +20,9 @@ static int get_non_contiguous_dim(const cute::UMMA::Major& major) {
@@ -4317,7 +4317,7 @@ index b245b94a..72a76f0d 100644
      // `num_groups` is always applied into the outer dimensions
      return make_tma_2d_desc(t,
 diff --git a/csrc/jit_kernels/impls/sm100_bf16_gemm.hpp b/csrc/jit_kernels/impls/sm100_bf16_gemm.hpp
-index 95f72729..26219b0c 100644
+index 95f7272987..26219b0cfd 100644
 --- a/csrc/jit_kernels/impls/sm100_bf16_gemm.hpp
 +++ b/csrc/jit_kernels/impls/sm100_bf16_gemm.hpp
 @@ -16,9 +16,7 @@ namespace deep_gemm {
@@ -4885,7 +4885,7 @@ index 95f72729..26219b0c 100644
  }
  
 diff --git a/csrc/jit_kernels/impls/sm100_bmk_bnk_mn.hpp b/csrc/jit_kernels/impls/sm100_bmk_bnk_mn.hpp
-index 45c0bc8a..65c9d501 100644
+index 45c0bc8aca..65c9d501c2 100644
 --- a/csrc/jit_kernels/impls/sm100_bmk_bnk_mn.hpp
 +++ b/csrc/jit_kernels/impls/sm100_bmk_bnk_mn.hpp
 @@ -85,11 +85,11 @@ static void sm100_bmn_bnk_mn_gemm(const torch::Tensor &a,
@@ -4934,7 +4934,7 @@ index 45c0bc8a..65c9d501 100644
  
 diff --git a/csrc/jit_kernels/impls/sm100_fp8_fp4_gemm_1d1d.hpp b/csrc/jit_kernels/impls/sm100_fp8_fp4_gemm_1d1d.hpp
 new file mode 100644
-index 00000000..b8826361
+index 0000000000..b88263613c
 --- /dev/null
 +++ b/csrc/jit_kernels/impls/sm100_fp8_fp4_gemm_1d1d.hpp
 @@ -0,0 +1,459 @@
@@ -5399,7 +5399,7 @@ index 00000000..b8826361
 +} // namespace deep_gemm
 diff --git a/csrc/jit_kernels/impls/sm100_fp8_fp4_mega_moe.hpp b/csrc/jit_kernels/impls/sm100_fp8_fp4_mega_moe.hpp
 new file mode 100644
-index 00000000..a9afda2b
+index 0000000000..a9afda2b21
 --- /dev/null
 +++ b/csrc/jit_kernels/impls/sm100_fp8_fp4_mega_moe.hpp
 @@ -0,0 +1,210 @@
@@ -5614,7 +5614,7 @@ index 00000000..a9afda2b
 +
 +} // namespace deep_gemm
 diff --git a/csrc/jit_kernels/impls/sm100_tf32_hc_prenorm_gemm.hpp b/csrc/jit_kernels/impls/sm100_tf32_hc_prenorm_gemm.hpp
-index 4f3ce5b1..0071e2c5 100644
+index 4f3ce5b1c9..0071e2c57f 100644
 --- a/csrc/jit_kernels/impls/sm100_tf32_hc_prenorm_gemm.hpp
 +++ b/csrc/jit_kernels/impls/sm100_tf32_hc_prenorm_gemm.hpp
 @@ -79,21 +79,21 @@ static void sm100_tf32_hc_prenorm_gemm(const torch::Tensor& a,
@@ -5673,7 +5673,7 @@ index 4f3ce5b1..0071e2c5 100644
  }
  
 diff --git a/csrc/jit_kernels/impls/sm90_bf16_gemm.hpp b/csrc/jit_kernels/impls/sm90_bf16_gemm.hpp
-index 32003f88..1d29d855 100644
+index 32003f882d..1d29d85585 100644
 --- a/csrc/jit_kernels/impls/sm90_bf16_gemm.hpp
 +++ b/csrc/jit_kernels/impls/sm90_bf16_gemm.hpp
 @@ -14,9 +14,7 @@ namespace deep_gemm {
@@ -6237,7 +6237,7 @@ index 32003f88..1d29d855 100644
  }
  
 diff --git a/csrc/jit_kernels/impls/sm90_bmk_bnk_mn.hpp b/csrc/jit_kernels/impls/sm90_bmk_bnk_mn.hpp
-index ccaea7f2..473677b7 100644
+index ccaea7f27a..473677b70c 100644
 --- a/csrc/jit_kernels/impls/sm90_bmk_bnk_mn.hpp
 +++ b/csrc/jit_kernels/impls/sm90_bmk_bnk_mn.hpp
 @@ -84,9 +84,9 @@ static void sm90_bmn_bnk_mn_gemm(const torch::Tensor &a,
@@ -6276,7 +6276,7 @@ index ccaea7f2..473677b7 100644
  }
  
 diff --git a/csrc/jit_kernels/impls/sm90_fp8_gemm_1d1d.hpp b/csrc/jit_kernels/impls/sm90_fp8_gemm_1d1d.hpp
-index e61841b3..9d903d48 100644
+index e61841b347..9d903d4800 100644
 --- a/csrc/jit_kernels/impls/sm90_fp8_gemm_1d1d.hpp
 +++ b/csrc/jit_kernels/impls/sm90_fp8_gemm_1d1d.hpp
 @@ -15,9 +15,7 @@ namespace deep_gemm {
@@ -6530,7 +6530,7 @@ index e61841b3..9d903d48 100644
      SM90FP8Gemm1D1DRuntime::launch(runtime, args);
  }
 diff --git a/csrc/jit_kernels/impls/sm90_fp8_gemm_1d2d.hpp b/csrc/jit_kernels/impls/sm90_fp8_gemm_1d2d.hpp
-index 2696b5a0..96b5cd0b 100644
+index 2696b5a071..96b5cd0ba4 100644
 --- a/csrc/jit_kernels/impls/sm90_fp8_gemm_1d2d.hpp
 +++ b/csrc/jit_kernels/impls/sm90_fp8_gemm_1d2d.hpp
 @@ -17,14 +17,13 @@ namespace deep_gemm {
@@ -7002,7 +7002,7 @@ index 2696b5a0..96b5cd0b 100644
  }
  
 diff --git a/csrc/jit_kernels/impls/sm90_tf32_hc_prenorm_gemm.hpp b/csrc/jit_kernels/impls/sm90_tf32_hc_prenorm_gemm.hpp
-index aeea2623..c17d1b55 100644
+index aeea262311..c17d1b554e 100644
 --- a/csrc/jit_kernels/impls/sm90_tf32_hc_prenorm_gemm.hpp
 +++ b/csrc/jit_kernels/impls/sm90_tf32_hc_prenorm_gemm.hpp
 @@ -81,21 +81,21 @@ static void sm90_tf32_hc_prenorm_gemm(const torch::Tensor& a,
@@ -7061,7 +7061,7 @@ index aeea2623..c17d1b55 100644
  }
  
 diff --git a/csrc/jit_kernels/impls/smxx_clean_logits.hpp b/csrc/jit_kernels/impls/smxx_clean_logits.hpp
-index fdb91a03..ebe4c7a6 100644
+index fdb91a03bb..ebe4c7a6b9 100644
 --- a/csrc/jit_kernels/impls/smxx_clean_logits.hpp
 +++ b/csrc/jit_kernels/impls/smxx_clean_logits.hpp
 @@ -17,7 +17,8 @@ class SMXXCleanLogitsRuntime final: public LaunchRuntime<SMXXCleanLogitsRuntime>
@@ -7107,7 +7107,7 @@ index fdb91a03..ebe4c7a6 100644
  }
  
 diff --git a/csrc/jit_kernels/impls/smxx_cublaslt.hpp b/csrc/jit_kernels/impls/smxx_cublaslt.hpp
-index dc20e334..7f29b0a5 100644
+index dc20e334ba..7f29b0a59a 100644
 --- a/csrc/jit_kernels/impls/smxx_cublaslt.hpp
 +++ b/csrc/jit_kernels/impls/smxx_cublaslt.hpp
 @@ -46,7 +46,7 @@ static void call_cublaslt_api(const cublasOperation_t& trans_a,
@@ -7234,7 +7234,7 @@ index dc20e334..7f29b0a5 100644
  }
 diff --git a/csrc/jit_kernels/impls/smxx_fp8_fp4_mqa_logits.hpp b/csrc/jit_kernels/impls/smxx_fp8_fp4_mqa_logits.hpp
 new file mode 100644
-index 00000000..3be10c98
+index 0000000000..3be10c98fb
 --- /dev/null
 +++ b/csrc/jit_kernels/impls/smxx_fp8_fp4_mqa_logits.hpp
 @@ -0,0 +1,328 @@
@@ -7568,7 +7568,7 @@ index 00000000..3be10c98
 +} // namespace deep_gemm
 diff --git a/csrc/jit_kernels/impls/smxx_fp8_fp4_paged_mqa_logits.hpp b/csrc/jit_kernels/impls/smxx_fp8_fp4_paged_mqa_logits.hpp
 new file mode 100644
-index 00000000..89d1fd66
+index 0000000000..89d1fd662d
 --- /dev/null
 +++ b/csrc/jit_kernels/impls/smxx_fp8_fp4_paged_mqa_logits.hpp
 @@ -0,0 +1,445 @@
@@ -8018,7 +8018,7 @@ index 00000000..89d1fd66
 +
 +} // namespace deep_gemm
 diff --git a/csrc/jit_kernels/impls/smxx_layout.hpp b/csrc/jit_kernels/impls/smxx_layout.hpp
-index 3d113498..5d1f17b5 100644
+index 3d113498d1..5d1f17b5b8 100644
 --- a/csrc/jit_kernels/impls/smxx_layout.hpp
 +++ b/csrc/jit_kernels/impls/smxx_layout.hpp
 @@ -72,7 +72,7 @@ static void __instantiate_kernel() {{
@@ -8201,7 +8201,7 @@ index 3d113498..5d1f17b5 100644
      return out;
  }
 diff --git a/csrc/python_api.cpp b/csrc/python_api.cpp
-index 0354f1f8..a966afe1 100644
+index 0354f1f823..a966afe1ed 100644
 --- a/csrc/python_api.cpp
 +++ b/csrc/python_api.cpp
 @@ -6,6 +6,7 @@
@@ -8220,7 +8220,7 @@ index 0354f1f8..a966afe1 100644
      deep_gemm::runtime::register_apis(m);
  }
 diff --git a/csrc/utils/exception.hpp b/csrc/utils/exception.hpp
-index 2aa27066..417dd3b4 100644
+index 2aa270661a..417dd3b42f 100644
 --- a/csrc/utils/exception.hpp
 +++ b/csrc/utils/exception.hpp
 @@ -42,7 +42,7 @@ do { \
@@ -8260,7 +8260,7 @@ index 2aa27066..417dd3b4 100644
          std::ostringstream ss; \
          ss << static_cast<int>(e) << " (" << cublasGetStatusString(e) << ")"; \
 diff --git a/csrc/utils/hash.hpp b/csrc/utils/hash.hpp
-index 6bdc3f2c..9efe6408 100644
+index 6bdc3f2c6a..9efe640816 100644
 --- a/csrc/utils/hash.hpp
 +++ b/csrc/utils/hash.hpp
 @@ -6,7 +6,7 @@ namespace deep_gemm {
@@ -8288,7 +8288,7 @@ index 6bdc3f2c..9efe6408 100644
          z = (z ^ (z >> 27)) * 0x94d049bb133111ebull;
          return z ^ (z >> 31);
 diff --git a/csrc/utils/layout.hpp b/csrc/utils/layout.hpp
-index d67cfcfb..928472d3 100644
+index d67cfcfb69..928472d35a 100644
 --- a/csrc/utils/layout.hpp
 +++ b/csrc/utils/layout.hpp
 @@ -116,9 +116,4 @@ static torch::Tensor check_sf_layout(const torch::Tensor& sf,
@@ -8302,7 +8302,7 @@ index d67cfcfb..928472d3 100644
 -
  } // namespace deep_gemm
 diff --git a/csrc/utils/math.hpp b/csrc/utils/math.hpp
-index 9ece5a3b..19a86c38 100644
+index 9ece5a3beb..19a86c3890 100644
 --- a/csrc/utils/math.hpp
 +++ b/csrc/utils/math.hpp
 @@ -1,3 +1,4 @@
@@ -8322,7 +8322,7 @@ index 9ece5a3b..19a86c38 100644
  template <typename T>
  static T ceil_div(const T& a, const T& b) {
 diff --git a/csrc/utils/system.hpp b/csrc/utils/system.hpp
-index b0e28ba9..fda020be 100644
+index b0e28ba938..fda020be55 100644
 --- a/csrc/utils/system.hpp
 +++ b/csrc/utils/system.hpp
 @@ -16,7 +16,7 @@ namespace deep_gemm {
@@ -8398,7 +8398,7 @@ index b0e28ba9..fda020be 100644
 +
  } // deep_gemm
 diff --git a/deep_gemm/__init__.py b/deep_gemm/__init__.py
-index 1c07f5d9..a36122a9 100644
+index 1c07f5d918..a36122a939 100644
 --- a/deep_gemm/__init__.py
 +++ b/deep_gemm/__init__.py
 @@ -19,6 +19,10 @@
@@ -8454,7 +8454,7 @@ index 1c07f5d9..a36122a9 100644
 +__version__ = '2.4.2'
 diff --git a/deep_gemm/include/deep_gemm/comm/barrier.cuh b/deep_gemm/include/deep_gemm/comm/barrier.cuh
 new file mode 100644
-index 00000000..8cc92637
+index 0000000000..8cc9263737
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/comm/barrier.cuh
 @@ -0,0 +1,74 @@
@@ -8534,7 +8534,7 @@ index 00000000..8cc92637
 +} // namespace deep_gemm::comm
 diff --git a/deep_gemm/include/deep_gemm/common/compile.cuh b/deep_gemm/include/deep_gemm/common/compile.cuh
 new file mode 100644
-index 00000000..e93c43fb
+index 0000000000..e93c43fb77
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/common/compile.cuh
 @@ -0,0 +1,18 @@
@@ -8557,7 +8557,7 @@ index 00000000..e93c43fb
 +#define CUTLASS_DEVICE_NOINLINE
 +#endif
 diff --git a/deep_gemm/include/deep_gemm/common/cute_tie.cuh b/deep_gemm/include/deep_gemm/common/cute_tie.cuh
-index cd2aace7..a3a8b62a 100644
+index cd2aace7a8..a3a8b62a28 100644
 --- a/deep_gemm/include/deep_gemm/common/cute_tie.cuh
 +++ b/deep_gemm/include/deep_gemm/common/cute_tie.cuh
 @@ -1,5 +1,7 @@
@@ -8570,7 +8570,7 @@ index cd2aace7..a3a8b62a 100644
  struct ignore_t {
 diff --git a/deep_gemm/include/deep_gemm/common/exception.cuh b/deep_gemm/include/deep_gemm/common/exception.cuh
 new file mode 100644
-index 00000000..78acf747
+index 0000000000..78acf74755
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/common/exception.cuh
 @@ -0,0 +1,43 @@
@@ -8619,7 +8619,7 @@ index 00000000..78acf747
 +#endif
 diff --git a/deep_gemm/include/deep_gemm/common/math.cuh b/deep_gemm/include/deep_gemm/common/math.cuh
 new file mode 100644
-index 00000000..0f0d2504
+index 0000000000..0f0d250481
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/common/math.cuh
 @@ -0,0 +1,149 @@
@@ -8774,7 +8774,7 @@ index 00000000..0f0d2504
 +} // namespace deep_gemm
 diff --git a/deep_gemm/include/deep_gemm/common/tma_copy.cuh b/deep_gemm/include/deep_gemm/common/tma_copy.cuh
 new file mode 100644
-index 00000000..2c5bf708
+index 0000000000..2c5bf708d4
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/common/tma_copy.cuh
 @@ -0,0 +1,92 @@
@@ -8872,7 +8872,7 @@ index 00000000..2c5bf708
 +} // namespace deep_gemm::tma
 diff --git a/deep_gemm/include/deep_gemm/common/types.cuh b/deep_gemm/include/deep_gemm/common/types.cuh
 new file mode 100644
-index 00000000..e07df0af
+index 0000000000..e07df0af8a
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/common/types.cuh
 @@ -0,0 +1,43 @@
@@ -8920,7 +8920,7 @@ index 00000000..e07df0af
 +
 +} // namespace deep_gemm
 diff --git a/deep_gemm/include/deep_gemm/common/utils.cuh b/deep_gemm/include/deep_gemm/common/utils.cuh
-index 8fb6c2fc..3a5f7ad6 100644
+index 8fb6c2fc53..3a5f7ad668 100644
 --- a/deep_gemm/include/deep_gemm/common/utils.cuh
 +++ b/deep_gemm/include/deep_gemm/common/utils.cuh
 @@ -1,167 +1,24 @@
@@ -9114,7 +9114,7 @@ index 8fb6c2fc..3a5f7ad6 100644
 +} // namespace deep_gemm::utils
 diff --git a/deep_gemm/include/deep_gemm/epilogue/sm100_store_cd.cuh b/deep_gemm/include/deep_gemm/epilogue/sm100_store_cd.cuh
 new file mode 100644
-index 00000000..bf0e460c
+index 0000000000..bf0e460c8f
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/epilogue/sm100_store_cd.cuh
 @@ -0,0 +1,137 @@
@@ -9257,7 +9257,7 @@ index 00000000..bf0e460c
 +} // namespace deep_gemm::epilogue
 diff --git a/deep_gemm/include/deep_gemm/epilogue/sm100_store_cd_swap_ab.cuh b/deep_gemm/include/deep_gemm/epilogue/sm100_store_cd_swap_ab.cuh
 new file mode 100644
-index 00000000..f3f5351e
+index 0000000000..f3f5351e6a
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/epilogue/sm100_store_cd_swap_ab.cuh
 @@ -0,0 +1,144 @@
@@ -9407,7 +9407,7 @@ index 00000000..f3f5351e
 +} // namespace deep_gemm::epilogue
 diff --git a/deep_gemm/include/deep_gemm/epilogue/transform.cuh b/deep_gemm/include/deep_gemm/epilogue/transform.cuh
 new file mode 100644
-index 00000000..0266f4d4
+index 0000000000..0266f4d402
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/epilogue/transform.cuh
 @@ -0,0 +1,24 @@
@@ -9436,7 +9436,7 @@ index 00000000..0266f4d4
 +
 +} // namespace deep_gemm::epilogue::transform
 diff --git a/deep_gemm/include/deep_gemm/impls/sm100_bf16_gemm.cuh b/deep_gemm/include/deep_gemm/impls/sm100_bf16_gemm.cuh
-index d9645b34..a60e2de8 100644
+index d9645b3477..a60e2de8df 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm100_bf16_gemm.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm100_bf16_gemm.cuh
 @@ -4,14 +4,18 @@
@@ -9978,7 +9978,7 @@ index d9645b34..a60e2de8 100644
          Allocator().free(0, kNumTmemCols);
  
 diff --git a/deep_gemm/include/deep_gemm/impls/sm100_bmk_bnk_mn.cuh b/deep_gemm/include/deep_gemm/impls/sm100_bmk_bnk_mn.cuh
-index f5101b94..13bb0872 100644
+index f5101b94cc..13bb087232 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm100_bmk_bnk_mn.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm100_bmk_bnk_mn.cuh
 @@ -5,18 +5,19 @@
@@ -10156,7 +10156,7 @@ index f5101b94..13bb0872 100644
      if (warp_idx == 1)
 diff --git a/deep_gemm/include/deep_gemm/impls/sm100_fp4_mqa_logits.cuh b/deep_gemm/include/deep_gemm/impls/sm100_fp4_mqa_logits.cuh
 new file mode 100644
-index 00000000..3d929351
+index 0000000000..3d929351d5
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/impls/sm100_fp4_mqa_logits.cuh
 @@ -0,0 +1,456 @@
@@ -10618,7 +10618,7 @@ index 00000000..3d929351
 +} // namespace deep_gemm
 diff --git a/deep_gemm/include/deep_gemm/impls/sm100_fp4_paged_mqa_logits.cuh b/deep_gemm/include/deep_gemm/impls/sm100_fp4_paged_mqa_logits.cuh
 new file mode 100644
-index 00000000..1bf00253
+index 0000000000..1bf00253fc
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/impls/sm100_fp4_paged_mqa_logits.cuh
 @@ -0,0 +1,496 @@
@@ -11120,7 +11120,7 @@ index 00000000..1bf00253
 +} // namespace deep_gemm
 diff --git a/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_gemm_1d1d.cuh b/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_gemm_1d1d.cuh
 new file mode 100644
-index 00000000..0bc6a3fe
+index 0000000000..0bc6a3fe26
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_gemm_1d1d.cuh
 @@ -0,0 +1,514 @@
@@ -11640,7 +11640,7 @@ index 00000000..0bc6a3fe
 +#pragma clang diagnostic pop
 diff --git a/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh b/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh
 new file mode 100644
-index 00000000..58fb3430
+index 0000000000..58fb343028
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh
 @@ -0,0 +1,1364 @@
@@ -13009,7 +13009,7 @@ index 00000000..58fb3430
 +
 +} // namespace deep_gemm
 diff --git a/deep_gemm/include/deep_gemm/impls/sm100_fp8_mqa_logits.cuh b/deep_gemm/include/deep_gemm/impls/sm100_fp8_mqa_logits.cuh
-index 180a308b..e6744f59 100644
+index 180a308b32..e6744f59ac 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm100_fp8_mqa_logits.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm100_fp8_mqa_logits.cuh
 @@ -6,27 +6,31 @@
@@ -13478,7 +13478,7 @@ index 180a308b..e6744f59 100644
  
  } // namespace deep_gemm
 diff --git a/deep_gemm/include/deep_gemm/impls/sm100_fp8_paged_mqa_logits.cuh b/deep_gemm/include/deep_gemm/impls/sm100_fp8_paged_mqa_logits.cuh
-index 7058c40f..dd38d93e 100644
+index 7058c40f4f..dd38d93e88 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm100_fp8_paged_mqa_logits.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm100_fp8_paged_mqa_logits.cuh
 @@ -6,28 +6,30 @@
@@ -14031,7 +14031,7 @@ index 7058c40f..dd38d93e 100644
  
  } // namespace deep_gemm
 diff --git a/deep_gemm/include/deep_gemm/impls/sm100_tf32_hc_prenorm_gemm.cuh b/deep_gemm/include/deep_gemm/impls/sm100_tf32_hc_prenorm_gemm.cuh
-index 4e4ff21d..aaf7fd9a 100644
+index 4e4ff21d07..aaf7fd9aea 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm100_tf32_hc_prenorm_gemm.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm100_tf32_hc_prenorm_gemm.cuh
 @@ -4,20 +4,22 @@
@@ -14226,7 +14226,7 @@ index 4e4ff21d..aaf7fd9a 100644
                  sqr_sum[m_offset + m_idx] = reduced_sum;
          }
 diff --git a/deep_gemm/include/deep_gemm/impls/sm90_bf16_gemm.cuh b/deep_gemm/include/deep_gemm/impls/sm90_bf16_gemm.cuh
-index 7a77e4e8..84a149eb 100644
+index 7a77e4e8fb..84a149eb9b 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm90_bf16_gemm.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm90_bf16_gemm.cuh
 @@ -11,14 +11,19 @@
@@ -14464,7 +14464,7 @@ index 7a77e4e8..84a149eb 100644
              if (threadIdx.x < BLOCK_N / TMA_D_BLOCK_N) {
                  auto in_block_n_offset = threadIdx.x * TMA_D_BLOCK_N;
 diff --git a/deep_gemm/include/deep_gemm/impls/sm90_bmk_bnk_mn.cuh b/deep_gemm/include/deep_gemm/impls/sm90_bmk_bnk_mn.cuh
-index 191a4fe2..7c344296 100644
+index 191a4fe2c4..7c34429651 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm90_bmk_bnk_mn.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm90_bmk_bnk_mn.cuh
 @@ -4,26 +4,32 @@
@@ -14625,7 +14625,7 @@ index 191a4fe2..7c344296 100644
          for (uint32_t i = 0; i < WGMMA::kNumAccum / 4; ++ i) {
              if (col + i * 8 >= SHAPE_N)
 diff --git a/deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d1d.cuh b/deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d1d.cuh
-index 2c24c5e2..32096250 100644
+index 2c24c5e2e6..3209625064 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d1d.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d1d.cuh
 @@ -6,18 +6,26 @@
@@ -14959,7 +14959,7 @@ index 2c24c5e2..32096250 100644
              cute::tma_store_fence();
              cutlass::arch::NamedBarrier::sync(128, math_wg_idx);
 diff --git a/deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d2d.cuh b/deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d2d.cuh
-index 9247304c..aa412484 100644
+index 9247304cdd..aa412484de 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d2d.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm90_fp8_gemm_1d2d.cuh
 @@ -10,17 +10,21 @@
@@ -15222,7 +15222,7 @@ index 9247304c..aa412484 100644
                          __float22bfloat162_rn({shifted_accum[i * 4 + 2], shifted_accum[i * 4 + 3]}),
                          smem_ptr
 diff --git a/deep_gemm/include/deep_gemm/impls/sm90_fp8_mqa_logits.cuh b/deep_gemm/include/deep_gemm/impls/sm90_fp8_mqa_logits.cuh
-index d58c7162..225af441 100644
+index d58c716242..225af44168 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm90_fp8_mqa_logits.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm90_fp8_mqa_logits.cuh
 @@ -7,36 +7,31 @@
@@ -15501,7 +15501,7 @@ index d58c7162..225af441 100644
                  }
              }
 diff --git a/deep_gemm/include/deep_gemm/impls/sm90_fp8_paged_mqa_logits.cuh b/deep_gemm/include/deep_gemm/impls/sm90_fp8_paged_mqa_logits.cuh
-index 482a85a8..0610a2e7 100644
+index 482a85a80f..0610a2e7e3 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm90_fp8_paged_mqa_logits.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm90_fp8_paged_mqa_logits.cuh
 @@ -6,133 +6,43 @@
@@ -15890,7 +15890,7 @@ index 482a85a8..0610a2e7 100644
          }
      }
 diff --git a/deep_gemm/include/deep_gemm/impls/sm90_tf32_hc_prenorm_gemm.cuh b/deep_gemm/include/deep_gemm/impls/sm90_tf32_hc_prenorm_gemm.cuh
-index e3bf9847..93b14100 100644
+index e3bf984789..93b1410010 100644
 --- a/deep_gemm/include/deep_gemm/impls/sm90_tf32_hc_prenorm_gemm.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/sm90_tf32_hc_prenorm_gemm.cuh
 @@ -5,20 +5,23 @@
@@ -16082,7 +16082,7 @@ index e3bf9847..93b14100 100644
          cute::tma_store_fence();
          cutlass::arch::NamedBarrier::sync(128, 1);
 diff --git a/deep_gemm/include/deep_gemm/impls/smxx_clean_logits.cuh b/deep_gemm/include/deep_gemm/impls/smxx_clean_logits.cuh
-index cc9e5e6b..2f66b980 100644
+index cc9e5e6b0c..2f66b980c5 100644
 --- a/deep_gemm/include/deep_gemm/impls/smxx_clean_logits.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/smxx_clean_logits.cuh
 @@ -3,21 +3,24 @@
@@ -16177,7 +16177,7 @@ index cc9e5e6b..2f66b980 100644
              logits[i * stride_logits + j] = neg_inf;
          for (uint32_t j = ke; j < aligned_ke; ++ j)
 diff --git a/deep_gemm/include/deep_gemm/impls/smxx_layout.cuh b/deep_gemm/include/deep_gemm/impls/smxx_layout.cuh
-index bea70002..a977c554 100644
+index bea7000276..a977c55472 100644
 --- a/deep_gemm/include/deep_gemm/impls/smxx_layout.cuh
 +++ b/deep_gemm/include/deep_gemm/impls/smxx_layout.cuh
 @@ -1,13 +1,16 @@
@@ -16351,7 +16351,7 @@ index bea70002..a977c554 100644
          // Pack and store
 diff --git a/deep_gemm/include/deep_gemm/layout/mega_moe.cuh b/deep_gemm/include/deep_gemm/layout/mega_moe.cuh
 new file mode 100644
-index 00000000..fe3c4160
+index 0000000000..fe3c416052
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/layout/mega_moe.cuh
 @@ -0,0 +1,255 @@
@@ -16612,7 +16612,7 @@ index 00000000..fe3c4160
 +} // namespace deep_gemm::layout
 diff --git a/deep_gemm/include/deep_gemm/layout/sym_buffer.cuh b/deep_gemm/include/deep_gemm/layout/sym_buffer.cuh
 new file mode 100644
-index 00000000..7f11aabc
+index 0000000000..7f11aabc91
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/layout/sym_buffer.cuh
 @@ -0,0 +1,41 @@
@@ -16659,7 +16659,7 @@ index 00000000..7f11aabc
 +} // namespace deep_gemm::layout
 diff --git a/deep_gemm/include/deep_gemm/mma/sm100.cuh b/deep_gemm/include/deep_gemm/mma/sm100.cuh
 new file mode 100644
-index 00000000..0c554f4c
+index 0000000000..0c554f4cd6
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/mma/sm100.cuh
 @@ -0,0 +1,151 @@
@@ -16816,7 +16816,7 @@ index 00000000..0c554f4c
 +} // namespace deep_gemm::mma::sm100
 diff --git a/deep_gemm/include/deep_gemm/mma/sm90.cuh b/deep_gemm/include/deep_gemm/mma/sm90.cuh
 new file mode 100644
-index 00000000..2c061940
+index 0000000000..2c061940de
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/mma/sm90.cuh
 @@ -0,0 +1,293 @@
@@ -17115,7 +17115,7 @@ index 00000000..2c061940
 +} // namespace deep_gemm::mma::sm90
 diff --git a/deep_gemm/include/deep_gemm/ptx/ld_st.cuh b/deep_gemm/include/deep_gemm/ptx/ld_st.cuh
 new file mode 100644
-index 00000000..6a64b9c4
+index 0000000000..6a64b9c40a
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/ptx/ld_st.cuh
 @@ -0,0 +1,247 @@
@@ -17368,7 +17368,7 @@ index 00000000..6a64b9c4
 +} // namespace deep_gemm::ptx
 diff --git a/deep_gemm/include/deep_gemm/ptx/tcgen05.cuh b/deep_gemm/include/deep_gemm/ptx/tcgen05.cuh
 new file mode 100644
-index 00000000..528b3dd1
+index 0000000000..528b3dd103
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/ptx/tcgen05.cuh
 @@ -0,0 +1,168 @@
@@ -17542,7 +17542,7 @@ index 00000000..528b3dd1
 +} // namespace deep_gemm::ptx
 diff --git a/deep_gemm/include/deep_gemm/ptx/tma.cuh b/deep_gemm/include/deep_gemm/ptx/tma.cuh
 new file mode 100644
-index 00000000..1530a3ed
+index 0000000000..1530a3edc5
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/ptx/tma.cuh
 @@ -0,0 +1,112 @@
@@ -17660,7 +17660,7 @@ index 00000000..1530a3ed
 +} // namespace deep_gemm::ptx
 diff --git a/deep_gemm/include/deep_gemm/ptx/utils.cuh b/deep_gemm/include/deep_gemm/ptx/utils.cuh
 new file mode 100644
-index 00000000..5c27166b
+index 0000000000..5c27166b79
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/ptx/utils.cuh
 @@ -0,0 +1,53 @@
@@ -17719,7 +17719,7 @@ index 00000000..5c27166b
 +} // namespace deep_gemm::ptx
 diff --git a/deep_gemm/include/deep_gemm/ptx/wgmma.cuh b/deep_gemm/include/deep_gemm/ptx/wgmma.cuh
 new file mode 100644
-index 00000000..8912a157
+index 0000000000..8912a15766
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/ptx/wgmma.cuh
 @@ -0,0 +1,25 @@
@@ -17750,7 +17750,7 @@ index 00000000..8912a157
 +} // namespace deep_gemm::ptx
 diff --git a/deep_gemm/include/deep_gemm/scheduler/gemm.cuh b/deep_gemm/include/deep_gemm/scheduler/gemm.cuh
 new file mode 100644
-index 00000000..5cd50c66
+index 0000000000..5cd50c66f6
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/scheduler/gemm.cuh
 @@ -0,0 +1,300 @@
@@ -18056,7 +18056,7 @@ index 00000000..5cd50c66
 +} // namespace deep_gemm::sched
 diff --git a/deep_gemm/include/deep_gemm/scheduler/mega_moe.cuh b/deep_gemm/include/deep_gemm/scheduler/mega_moe.cuh
 new file mode 100644
-index 00000000..cdbecccd
+index 0000000000..cdbecccd56
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/scheduler/mega_moe.cuh
 @@ -0,0 +1,221 @@
@@ -18283,7 +18283,7 @@ index 00000000..cdbecccd
 +} // namespace deep_gemm::sched
 diff --git a/deep_gemm/include/deep_gemm/scheduler/paged_mqa_logits.cuh b/deep_gemm/include/deep_gemm/scheduler/paged_mqa_logits.cuh
 new file mode 100644
-index 00000000..42f955f7
+index 0000000000..42f955f765
 --- /dev/null
 +++ b/deep_gemm/include/deep_gemm/scheduler/paged_mqa_logits.cuh
 @@ -0,0 +1,114 @@
@@ -18402,7 +18402,7 @@ index 00000000..42f955f7
 +
 +} // namespace deep_gemm::sched
 diff --git a/deep_gemm/legacy/a_fused_m_grouped_gemm.py b/deep_gemm/legacy/a_fused_m_grouped_gemm.py
-index 3f1f5294..41b35d53 100644
+index 3f1f52949f..41b35d5397 100644
 --- a/deep_gemm/legacy/a_fused_m_grouped_gemm.py
 +++ b/deep_gemm/legacy/a_fused_m_grouped_gemm.py
 @@ -47,7 +47,7 @@ def a_fused_m_grouped_bf16_gemm_contiguous_tl_impl(a_ptr, b_ptr, d_ptr,
@@ -18415,7 +18415,7 @@ index 3f1f5294..41b35d53 100644
          a_ptrs = a_ptr + rows[:, None] * K + k_range[None, :]
          b_ptrs = b_ptr + batch_id * K * N + k_range[:, None] * (1 if IS_B_K_MAJOR else N) + n_range[None, :].to(tl.int64) * (K if IS_B_K_MAJOR else 1)
 diff --git a/deep_gemm/legacy/b_fused_k_grouped_gemm.py b/deep_gemm/legacy/b_fused_k_grouped_gemm.py
-index a642204b..7df8741f 100644
+index a642204bc0..7df8741fa9 100644
 --- a/deep_gemm/legacy/b_fused_k_grouped_gemm.py
 +++ b/deep_gemm/legacy/b_fused_k_grouped_gemm.py
 @@ -50,7 +50,7 @@ def b_fused_k_grouped_bf16_gemm_contiguous_tl_impl(a_ptr, b_ptr, d_ptr,
@@ -18429,7 +18429,7 @@ index a642204b..7df8741f 100644
          b_ptrs = b_ptr + rows[:, None] * N + n_range[None, :]
 diff --git a/deep_gemm/mega/__init__.py b/deep_gemm/mega/__init__.py
 new file mode 100644
-index 00000000..2010bade
+index 0000000000..2010bade26
 --- /dev/null
 +++ b/deep_gemm/mega/__init__.py
 @@ -0,0 +1,128 @@
@@ -18562,7 +18562,7 @@ index 00000000..2010bade
 +        fast_math
 +    )
 diff --git a/deep_gemm/testing/bench.py b/deep_gemm/testing/bench.py
-index 2c752da2..552b9aa1 100644
+index 2c752da2d3..552b9aa18a 100644
 --- a/deep_gemm/testing/bench.py
 +++ b/deep_gemm/testing/bench.py
 @@ -1,6 +1,7 @@
@@ -18617,7 +18617,7 @@ index 2c752da2..552b9aa1 100644
      # Save chrome traces
      if trace_path is not None:
 diff --git a/deep_gemm/utils/__init__.py b/deep_gemm/utils/__init__.py
-index e8f859a2..a0dc6f78 100644
+index e8f859a207..a0dc6f783b 100644
 --- a/deep_gemm/utils/__init__.py
 +++ b/deep_gemm/utils/__init__.py
 @@ -1,3 +1,4 @@
@@ -18627,7 +18627,7 @@ index e8f859a2..a0dc6f78 100644
 +from .dist import init_dist, uneven_all_gather
 diff --git a/deep_gemm/utils/dist.py b/deep_gemm/utils/dist.py
 new file mode 100644
-index 00000000..426c3967
+index 0000000000..426c39676f
 --- /dev/null
 +++ b/deep_gemm/utils/dist.py
 @@ -0,0 +1,74 @@
@@ -18706,7 +18706,7 @@ index 00000000..426c3967
 +        print(s, flush=True)
 +    dist.barrier()
 diff --git a/deep_gemm/utils/layout.py b/deep_gemm/utils/layout.py
-index 790e0d66..6512c5ab 100644
+index 790e0d66e7..6512c5ab7a 100644
 --- a/deep_gemm/utils/layout.py
 +++ b/deep_gemm/utils/layout.py
 @@ -10,7 +10,11 @@
@@ -18723,7 +18723,7 @@ index 790e0d66..6512c5ab 100644
  # Some alias
  get_m_alignment_for_contiguous_layout = get_mk_alignment_for_contiguous_layout
 diff --git a/deep_gemm/utils/math.py b/deep_gemm/utils/math.py
-index c65026e5..f1582ed5 100644
+index c65026e54b..f1582ed560 100644
 --- a/deep_gemm/utils/math.py
 +++ b/deep_gemm/utils/math.py
 @@ -11,21 +11,30 @@ def align(x: int, y: int) -> int:
@@ -18840,7 +18840,7 @@ index c65026e5..f1582ed5 100644
 +    return x_restored
 \ No newline at end of file
 diff --git a/setup.py b/setup.py
-index 6199d7c3..c4d74ae9 100644
+index 6199d7c35f..c4d74ae929 100644
 --- a/setup.py
 +++ b/setup.py
 @@ -68,7 +68,7 @@ def get_package_version():
@@ -18861,7 +18861,7 @@ index 6199d7c3..c4d74ae9 100644
              with urllib.request.urlopen(wheel_url, timeout=1) as response:
                  with open(wheel_filename, 'wb') as out_file:
 diff --git a/tests/generators.py b/tests/generators.py
-index ee22e515..989e984e 100644
+index ee22e515a2..989e984e7c 100644
 --- a/tests/generators.py
 +++ b/tests/generators.py
 @@ -8,7 +8,8 @@
@@ -19026,7 +19026,7 @@ index ee22e515..989e984e 100644
      # Transpose for K Major A/B
      if (major_a, major_b) == (MajorTypeAB.KMajor, MajorTypeAB.KMajor):
 diff --git a/tests/test_attention.py b/tests/test_attention.py
-index b26cf673..6df1fc4f 100644
+index b26cf67374..6df1fc4f3f 100644
 --- a/tests/test_attention.py
 +++ b/tests/test_attention.py
 @@ -10,9 +10,9 @@
@@ -19491,7 +19491,7 @@ index b26cf673..6df1fc4f 100644
      test_mqa_logits()
      test_paged_mqa_logits()
 diff --git a/tests/test_bf16.py b/tests/test_bf16.py
-index 1a3b0467..fb3acf3d 100644
+index 1a3b046746..fb3acf3d0d 100644
 --- a/tests/test_bf16.py
 +++ b/tests/test_bf16.py
 @@ -11,7 +11,8 @@
@@ -19564,7 +19564,7 @@ index 1a3b0467..fb3acf3d 100644
      for num_groups, m, n, major_a, major_b, ks, expected_k_per_group in enumerate_k_grouped_contiguous(torch.bfloat16):
          for test_empty_groups in (False, True):
 diff --git a/tests/test_einsum.py b/tests/test_einsum.py
-index b7979989..57f54592 100644
+index b797998980..57f5459288 100644
 --- a/tests/test_einsum.py
 +++ b/tests/test_einsum.py
 @@ -99,7 +99,7 @@ def test_fp8_bhr_hdr_bhd(use_ue8m0: bool = True):
@@ -19595,7 +19595,7 @@ index b7979989..57f54592 100644
                    f'{t * 1e6:4.0f} us | '
                    f'{2 * b * h * r * d / t / 1e12:4.0f} TFLOPS | '
 diff --git a/tests/test_fp8_fp4.py b/tests/test_fp8_fp4.py
-index f7e3e1c4..4e9f54f7 100644
+index f7e3e1c4a8..4e9f54f7f4 100644
 --- a/tests/test_fp8_fp4.py
 +++ b/tests/test_fp8_fp4.py
 @@ -13,11 +13,11 @@
@@ -19747,7 +19747,7 @@ index f7e3e1c4..4e9f54f7 100644
                f'{2 * m * n * k / t / 1e12:4.0f} TFLOPS | '
                f'{count_bytes(a, b, c, d) / 1e9 / t:4.0f} GB/s')
 diff --git a/tests/test_layout.py b/tests/test_layout.py
-index 7875733a..a0d4a02e 100644
+index 7875733ac6..a0d4a02ebd 100644
 --- a/tests/test_layout.py
 +++ b/tests/test_layout.py
 @@ -1,6 +1,6 @@
@@ -19820,7 +19820,7 @@ index 7875733a..a0d4a02e 100644
                f'{count_bytes(fp32_sf, packed_sf, ks_tensor) / 1e9 / t:4.0f} GB/s')
      print()
 diff --git a/tests/test_lazy_init.py b/tests/test_lazy_init.py
-index 5363b6db..17a3a121 100644
+index 5363b6db33..17a3a121e4 100644
 --- a/tests/test_lazy_init.py
 +++ b/tests/test_lazy_init.py
 @@ -1,3 +1,4 @@
@@ -19843,7 +19843,7 @@ index 5363b6db..17a3a121 100644
      for p in procs:
 diff --git a/tests/test_mega_moe.py b/tests/test_mega_moe.py
 new file mode 100644
-index 00000000..ab9fd4b7
+index 0000000000..ab9fd4b7cb
 --- /dev/null
 +++ b/tests/test_mega_moe.py
 @@ -0,0 +1,264 @@
@@ -19896,4 +19896,527 @@ index 00000000..ab9fd4b7
 +
 +    # Allocate symmetric memory
 +    buffer = deep_gemm.get_symm_buffer_for_mega_moe(
-+        group, n
++        group, num_experts,
++        num_max_tokens_per_rank, num_topk,
++        hidden, intermediate_hidden
++    )
++    dist_print('Config:', once_in_node=True)
++    dist_print(f' > Tokens: {num_tokens}/{num_max_tokens_per_rank}', once_in_node=True)
++    dist_print(f' > Hidden: {hidden}', once_in_node=True)
++    dist_print(f' > Intermediate: {intermediate_hidden}', once_in_node=True)
++    dist_print(f' > Experts: {num_topk}/{num_experts}', once_in_node=True)
++    dist_print(f' > Buffer: {buffer.buffer.nbytes / 2 ** 30:.3f} GiB', once_in_node=True)
++    dist_print(once_in_node=True)
++
++    # Non-overlapped baseline: EP dispatch + GEMM + EP combine
++    alignment = deep_gemm.get_theoretical_mk_alignment_for_contiguous_layout()
++    deep_gemm.set_mk_alignment_for_contiguous_layout(alignment)
++    ep_buffer = deep_ep.ElasticBuffer(
++        group,
++        num_max_tokens_per_rank=num_max_tokens_per_rank, hidden=hidden,
++        num_topk=num_topk, use_fp8_dispatch=True,
++        explicitly_destroy=True,
++        allow_multiple_reduction=False,
++        gpu_timeout_secs=10, cpu_timeout_secs=30
++    ) if is_legacy_loaded else None
++
++    # Create inputs
++    def create_inputs():
++        global x, topk_idx, topk_weights, l1_weights, l2_weights, transformed_l1_weights, transformed_l2_weights
++        x = torch.randn((num_tokens, hidden), dtype=torch.bfloat16, device='cuda')
++        l1_weights = torch.randn(
++            (num_experts_per_rank, intermediate_hidden * 2, hidden), dtype=torch.bfloat16, device='cuda')
++        l2_weights = torch.randn(
++            (num_experts_per_rank, hidden, intermediate_hidden), dtype=torch.bfloat16, device='cuda')
++        scores = torch.randn((num_tokens, num_experts), dtype=torch.float, device='cuda')
++        topk_weights, topk_idx = torch.topk(scores, num_topk, dim=-1, largest=True, sorted=False)
++        if args.masked_ratio > 0:
++            rand_mask = torch.rand_like(topk_idx, dtype=torch.float)
++            topk_idx.masked_fill_(rand_mask < args.masked_ratio, -1)
++            topk_weights.masked_fill_(topk_idx < 0, 0)
++
++        # Check SF requirements
++        assert hidden % 128 == 0
++        assert intermediate_hidden % 128 == 0
++        assert l1_weights.shape[2] % 128 == 0 and l2_weights.shape[2] % 128 == 0
++
++        # Cast inputs to FP8 with per-32 UE8M0 SF
++        x = per_token_cast_to_fp8(x, use_ue8m0=True, gran_k=32, use_packed_ue8m0=True)
++
++        # Cast grouped BF16 weights to FP4 with MN-major SF
++        # TODO: merge with `cast_fp8_fp4_with_major`
++        def cast_grouped_weights_to_fp4(bf16_weights: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
++            num_groups, n, k = bf16_weights.shape
++            w = torch.empty((num_groups, n, k // 2), device='cuda', dtype=torch.int8)
++            w_sf = torch.empty((num_groups, n, k // 32), device='cuda', dtype=torch.float)
++            for i in range(num_groups):
++                w[i], w_sf[i] = per_token_cast_to_fp4(bf16_weights[i], use_ue8m0=True, gran_k=32)
++            w_sf = deep_gemm.transform_sf_into_required_layout(w_sf, n, k, (1, 32), num_groups)
++            return w, w_sf
++
++        l1_weights = cast_grouped_weights_to_fp4(l1_weights)
++        l2_weights = cast_grouped_weights_to_fp4(l2_weights)
++        transformed_l1_weights, transformed_l2_weights = deep_gemm.transform_weights_for_mega_moe(l1_weights, l2_weights)
++
++    def run_baseline():
++        recv_x, _, recv_topk_weights, handle, _ = ep_buffer.dispatch(
++            x, topk_idx=topk_idx, topk_weights=topk_weights,
++            num_experts=num_experts, expert_alignment=alignment,
++            do_cpu_sync=False, do_handle_copy=False,
++            do_expand=True, use_tma_aligned_col_major_sf=True
++        )
++        n = recv_x[0].size(0)
++        l1_y = torch.empty((n, intermediate_hidden * 2), dtype=torch.bfloat16, device='cuda')
++        deep_gemm.m_grouped_fp8_fp4_gemm_nt_contiguous(
++            recv_x, l1_weights, l1_y, handle.psum_num_recv_tokens_per_expert,
++            use_psum_layout=True, recipe=(1, 1, 32))
++        # noinspection PyCallingNonCallable
++        l1_y = tilelang_ops.swiglu_apply_weight_to_fp8(
++            x=l1_y,
++            topk_weights=recv_topk_weights,
++            avail_tokens=handle.psum_num_recv_tokens_per_expert[-1],
++            num_per_channels=32,
++            use_col_major_scales=True,
++            round_scale=True,
++            ue8m0_scale=True,
++            output_bf16=False,
++            clamp_value=args.activation_clamp,
++            fast_math=bool(args.fast_math)
++        )
++        l2_y = torch.empty((n, hidden), dtype=torch.bfloat16, device='cuda')
++        deep_gemm.m_grouped_fp8_fp4_gemm_nt_contiguous(
++            l1_y, l2_weights, l2_y, handle.psum_num_recv_tokens_per_expert,
++            use_psum_layout=True, recipe=(1, 1, 32))
++        return ep_buffer.combine(l2_y, handle=handle)[0]
++
++    # Run fused mega MoE
++    # NOTES: copy x into buffer before each call because debug mode zeros the entire buffer
++    def run_fused():
++        buffer.x[:num_tokens].copy_(x[0])
++        buffer.x_sf[:num_tokens].copy_(x[1])
++        buffer.topk_idx[:num_tokens].copy_(topk_idx)
++        buffer.topk_weights[:num_tokens].copy_(topk_weights)
++
++        y = torch.empty((num_tokens, hidden), dtype=torch.bfloat16, device='cuda')
++        # noinspection PyTypeChecker
++        deep_gemm.fp8_fp4_mega_moe(
++            y,
++            transformed_l1_weights, transformed_l2_weights,
++            buffer,
++            activation_clamp=args.activation_clamp,
++            fast_math=bool(args.fast_math)
++        )
++        return y
++
++    # Check correctness (must be bitwise identical)
++    num_correctness_tests = 1 if args.num_correctness_tests is None else args.num_correctness_tests
++    # noinspection PyBroadException
++    if is_legacy_loaded and num_correctness_tests > 0:
++        dist_print('Running correctness tests:', once_in_node=True)
++        for i in range(num_correctness_tests):
++            create_inputs()
++            assert torch.equal(run_fused(), run_baseline())
++            if (i + 1) % 100 == 0 or i == num_correctness_tests - 1:
++                dist_print(f' > Correctness test #{i + 1}/{args.num_correctness_tests} passed', once_in_node=True)
++        dist_print(once_in_node=True)
++    else:
++        create_inputs()
++
++    # Count local received tokens
++    gathered_topk_idx = uneven_all_gather(topk_idx, group=group)
++    num_recv_tokens = (rank_idx * num_experts_per_rank <= gathered_topk_idx) & \
++                      (gathered_topk_idx < (rank_idx + 1) * num_experts_per_rank)
++    num_recv_tokens = num_recv_tokens.sum().item()
++
++    # Benchmark
++    t_fused = bench_kineto(
++        run_fused, 'mega_moe',
++        barrier=lambda: ep_buffer.barrier(use_comm_stream=False) if ep_buffer else dist.barrier(),
++        trace_path=None if not args.dump_profile_traces else f'{args.dump_profile_traces}/mega_moe_rank{rank_idx}.json')
++    t_baseline = do_bench(run_baseline, _n_warmup=5, _n_repeat=1, backend='cudagraph', return_mode='median') / 1e3 if is_legacy_loaded else 0
++
++    # TFLOPS: 3 matmuls (L1 left, L1 right, L2), each 2 * M * N * K
++    safe_div = lambda a, b: float('nan') if b == 0 else a / b
++    tflops = safe_div(2 * num_recv_tokens * (hidden * intermediate_hidden * 3) / 1e12, t_fused)
++
++    # HBM bytes: weights (FP4 packed = 0.5 bytes) + activations (FP8 = 1 byte) + output (BF16 = 2 bytes)
++    num_hbm_bytes = (
++        num_experts_per_rank * intermediate_hidden * 2 * hidden // 2 +  # L1 weights (FP4)
++        num_experts_per_rank * hidden * intermediate_hidden // 2 +      # L2 weights (FP4)
++        num_recv_tokens * hidden +                                      # L1 acts read (FP8)
++        num_recv_tokens * intermediate_hidden +                         # L1 output write (FP8)
++        num_recv_tokens * intermediate_hidden +                         # L2 acts read (FP8)
++        num_recv_tokens * hidden * 2                                    # L2 output write (BF16)
++    )
++    hbm_gbs = safe_div(num_hbm_bytes / 1e9, t_fused)
++
++    # NVLink bytes: dispatch pull + combine write-back
++    num_nvlink_bytes = num_recv_tokens * hidden * 3
++    nvlink_gbs = safe_div(num_nvlink_bytes / 1e9, t_fused)
++
++    # Combine reduction (serial) time approximation
++    t_reduction = num_tokens * hidden * 2 * (1 + num_topk) / 6.5e12
++
++    # Summary
++    approx_factor = t_fused / (t_fused - t_reduction)
++    dist_print('Performance:', once_in_node=True)
++    dist_print(f' > EP: {rank_idx:2}/{num_ranks} | '
++               f'{tflops:4.0f} TFLOPS | '
++               f'overlap: '
++               f'{tflops * approx_factor:4.0f} TFLOPS, '
++               f'HBM {hbm_gbs * approx_factor:4.0f} GB/s, '
++               f'NVL {nvlink_gbs * approx_factor:3.0f} GB/s | '
++               f'{t_fused * 1e6:4.0f} us, '
++               f'reduction: {t_reduction * 1e6:4.1f} us | '
++               f'{safe_div(t_baseline, t_fused):.2f}x legacy')
++
++    # Exit
++    dist.barrier()
++    buffer.destroy()
++    ep_buffer.destroy() if is_legacy_loaded else None
++    dist.destroy_process_group()
++
++
++if __name__ == '__main__':
++    parser = argparse.ArgumentParser(description='Test PyTorch symmetric memory')
++    # Resource settings
++    parser.add_argument('--num-processes', type=int, default=8, help='Number of processes to spawn (default: 8)')
++
++    # Model settings
++    parser.add_argument('--num-max-tokens-per-rank', type=int, default=8192, help='Number of maximum tokens per rank')
++    parser.add_argument('--num-tokens', type=int, default=0, help='Number of tokens per rank (follow max minus removed if 0)')
++    parser.add_argument('--num-max-removed-tokens', type=int, default=0, help='Maximum number of tokens to remove')
++    parser.add_argument('--hidden', type=int, default=7168, help='Hidden size')
++    parser.add_argument('--intermediate-hidden', type=int, default=3072, help='Intermediate hidden size')
++    parser.add_argument('--activation-clamp', type=float, default=10, help='Clamp value for activation')
++    parser.add_argument('--num-experts', type=int, default=384, help='Number of experts')
++    parser.add_argument('--num-topk', type=int, default=6, help='Number of expert selections')
++    parser.add_argument('--masked-ratio', type=float, default=0.0, help='Mask some expert selections')
++    parser.add_argument('--fast-math', type=int, default=1, help='Enable fast math (0 or 1, default: 1)')
++
++    # Test settings
++    parser.add_argument('--num-correctness-tests', type=int, default=None, help='Pressure test')
++    parser.add_argument('--dump-profile-traces', type=str, default='', help='Dump profiling trace JSONs')
++    parser.add_argument('--local-rank-idx', type=int, default=None, help='Run as single process with this local rank (e.g. for NCU prof)')
++    args = parser.parse_args()
++
++    # Create dump trace directories
++    if args.dump_profile_traces:
++        os.makedirs(args.dump_profile_traces, exist_ok=True)
++
++    if args.local_rank_idx is not None:
++        # Single-process mode: each process is launched separately (e.g. by NCU)
++        test(args.local_rank_idx, args.num_processes, args)
++    else:
++        # Launch tests
++        num_processes = args.num_processes
++        torch.multiprocessing.spawn(test, args=(num_processes, args), nprocs=num_processes)
+diff --git a/tests/test_sanitizer.py b/tests/test_sanitizer.py
+index b063e6c46b..75ab10e60a 100644
+--- a/tests/test_sanitizer.py
++++ b/tests/test_sanitizer.py
+@@ -21,7 +21,7 @@
+ torch.manual_seed(0)
+ random.seed(0)
+ 
+-from tests.{module_name} import {func_name}
++from {module_name} import {func_name}
+ {func_name}()
+ """
+ 
+@@ -40,7 +40,7 @@
+     else:
+         # Get all test functions except those related to cuBLAS
+         files = [f for f in os.listdir(script_dir) if f.endswith('.py')]
+-        exclude_files = ['test_sanitizer.py', 'generators.py']
++        exclude_files = ['test_sanitizer.py', 'generators.py', 'test_mega_moe.py']
+         funcs = [
+             (module_name, name)
+             for module_name in [os.path.splitext(f)[0] for f in files if f not in exclude_files]
+@@ -53,6 +53,7 @@
+     env['CUDA_LAUNCH_BLOCKING'] = '1'
+     env['DG_JIT_PTXAS_CHECK'] = '1'
+     env['DG_USE_NVIDIA_TOOLS'] = '1'
++    env['DG_USE_TEMP_CUBLASLT_WORKSPACE'] = '1'  # Avoid holding CUDA tensor that crashes during shutdown
+     env['PYTORCH_NO_CUDA_MEMORY_CACHING'] = '1'
+     env['TORCH_SHOW_CPP_STACKTRACES'] = '1'
+ 
+diff --git a/third-party/tilelang_ops/__init__.py b/third-party/tilelang_ops/__init__.py
+new file mode 100644
+index 0000000000..47f9665ec7
+--- /dev/null
++++ b/third-party/tilelang_ops/__init__.py
+@@ -0,0 +1 @@
++from .swiglu_apply_weight_to_fp8 import swiglu_apply_weight_to_fp8
+diff --git a/third-party/tilelang_ops/swiglu_apply_weight_to_fp8.py b/third-party/tilelang_ops/swiglu_apply_weight_to_fp8.py
+new file mode 100644
+index 0000000000..7dc1dfc30f
+--- /dev/null
++++ b/third-party/tilelang_ops/swiglu_apply_weight_to_fp8.py
+@@ -0,0 +1,212 @@
++import deep_gemm
++import tilelang
++import torch
++from math import gcd
++from tilelang import language as T
++
++from .utils import get_sf_and_inv, get_sf_shape
++
++
++@tilelang.jit
++def _swiglu_apply_weight_to_fp8_tl(
++    half_hidden: int,
++    num_per_channels: int,
++    use_col_major_scales: bool,
++    round_scale: bool,
++    ue8m0_scale: bool,
++    num_ctas: int,
++    has_topk_weights: bool,
++    has_avail_tokens: bool,
++    has_clamp_value: bool,
++    output_bf16: bool,
++    fast_math: bool,
++) -> None:
++    in_dtype = T.bfloat16
++    w_dtype = T.float32
++    out_dtype = T.float8_e4m3fn
++    out_sf_dtype = T.uint8 if ue8m0_scale else T.float32
++    num_dtype = T.int32
++    num_tokens = T.dynamic("num_tokens")
++    assert half_hidden % 16 == 0
++    if not output_bf16:
++        assert half_hidden % num_per_channels == 0
++
++    num_block_h = max(half_hidden // gcd(half_hidden, 16 * 1024), 1)
++    assert num_block_h <= num_ctas, "not supported hidden size"
++    blk_h = half_hidden // num_block_h
++
++    layout_h = blk_h // 16
++
++    blk_n = 1024 // layout_h
++
++    def local_layout(i, j):  # noqa: ANN001
++        thread_id = i * layout_h + j // 16
++        local_id = j % 16
++        return thread_id, local_id
++
++    def local_layout_3d(i, j, k):  # noqa: ANN001
++        return local_layout(i, j * num_per_channels + k)
++
++    @T.macro
++    def main(
++        bi: int,
++        bh: int,
++        num_ctas: int,
++        x: T.Tensor[(num_tokens, half_hidden * 2), in_dtype],  # type: ignore
++        topk_weights: T.Tensor[num_tokens, w_dtype],  # type: ignore
++        avail_tokens: T.Tensor[1, num_dtype],  # type: ignore
++        out: T.Tensor[(num_tokens, half_hidden), out_dtype],  # type: ignore
++        out_sf: T.Tensor[get_sf_shape(num_tokens, half_hidden, num_per_channels, ue8m0_scale, use_col_major_scales), out_sf_dtype],  # type: ignore
++        out_bf16: T.Tensor[(num_tokens, half_hidden), T.bfloat16],  # type: ignore
++        clamp_value: T.float32,
++    ):
++        gate_frag = T.alloc_fragment((blk_n, blk_h), T.float32)
++        up_frag = T.alloc_fragment((blk_n, blk_h), T.float32)
++        y_frag = T.alloc_fragment((blk_n, blk_h // num_per_channels, num_per_channels), T.float32)
++        y_f8_frag = T.alloc_fragment((blk_n, blk_h), out_dtype)
++        T.annotate_layout(
++            {
++                gate_frag: T.Fragment(gate_frag.shape, forward_fn=local_layout),
++                up_frag: T.Fragment(up_frag.shape, forward_fn=local_layout),
++                y_frag: T.Fragment(y_frag.shape, forward_fn=local_layout_3d),
++                y_f8_frag: T.Fragment(y_f8_frag.shape, forward_fn=local_layout),
++            }
++        )
++
++        T.assume(0 <= bh * blk_h + blk_h <= half_hidden)
++
++        for i, j in T.Parallel(blk_n, blk_h):
++            gate_frag[i, j] = x[bi + i * num_ctas, bh * blk_h + j]
++        for i, j in T.Parallel(blk_n, blk_h):
++            up_frag[i, j] = x[bi + i * num_ctas, half_hidden + bh * blk_h + j]
++
++        topk_weight = T.alloc_fragment((blk_n,), T.float32)
++        for i in T.Parallel(blk_n):
++            topk_weight[i] = topk_weights[bi + i * num_ctas] if has_topk_weights else 1.0
++
++        zero = T.alloc_var(T.float32, 0.0)
++        for i, j in T.Parallel(blk_n, blk_h):
++            if has_clamp_value:
++                up_frag[i, j] = T.min(clamp_value, T.max(-clamp_value, up_frag[i, j]))
++                gate_frag[i, j] = T.min(clamp_value, gate_frag[i, j])
++            y_frag[i, j // num_per_channels, j % num_per_channels] = (
++                gate_frag[i, j] / (1 + T.exp(-gate_frag[i, j])) * up_frag[i, j] * topk_weight[i] + zero
++            )  # HACK : + 0 for vectorize
++
++        y_max_frag = T.alloc_fragment((blk_n, blk_h // num_per_channels), T.float32)
++        sf_inv_frag = T.alloc_fragment((blk_n, blk_h // num_per_channels), T.float32)
++        T.reduce_absmax(T.reshape(y_frag, (blk_n, blk_h // num_per_channels, num_per_channels)), y_max_frag)
++        for i, j in T.Parallel(blk_n, blk_h // num_per_channels):
++            clamped_amax = T.max(y_max_frag[i, j], 1e-4)
++            sf, sf_inv = get_sf_and_inv(clamped_amax, round_scale, ue8m0_scale)
++            i_index = bi + i * num_ctas
++            j_index = blk_h // num_per_channels * bh + j
++            # Store SF
++            if ue8m0_scale:
++                out_sf[j_index // 4, i_index * 4 + j_index % 4] = sf
++            elif use_col_major_scales:
++                out_sf[j_index, i_index] = sf
++            else:
++                out_sf[i_index, j_index] = sf
++            sf_inv_frag[i, j] = sf_inv
++
++        for i, j in T.Parallel(blk_n, blk_h):
++            y_f8_frag[i, j] = y_frag[i, j // num_per_channels, j % num_per_channels] * sf_inv_frag[i, j // num_per_channels]
++
++        for i, j in T.Parallel(blk_n, blk_h):
++            out[bi + i * num_ctas, blk_h * bh + j] = y_f8_frag[i, j]
++
++        if output_bf16:
++            for i, j in T.Parallel(blk_n, blk_h):
++                out_bf16[bi + i * num_ctas, blk_h * bh + j] = y_frag[i, j // num_per_channels, j % num_per_channels]
++
++    @T.prim_func
++    def _swiglu_apply_weight_to_fp8(
++        x: T.Tensor[(num_tokens, half_hidden * 2), in_dtype],  # type: ignore
++        topk_weights: T.Tensor[num_tokens, w_dtype],  # type: ignore
++        avail_tokens: T.Tensor[1, num_dtype],  # type: ignore
++        out: T.Tensor[(num_tokens, half_hidden), out_dtype],  # type: ignore
++        out_sf: T.Tensor[get_sf_shape(num_tokens, half_hidden, num_per_channels, ue8m0_scale, use_col_major_scales), out_sf_dtype],  # type: ignore
++        out_bf16: T.Tensor[(num_tokens, half_hidden), T.bfloat16],  # type: ignore
++        clamp_value: T.float32,
++    ):
++        # we actually don't use this
++        _ = num_tokens
++        # simplest schedule: one token one block, but pipelined as persistent
++        with T.Kernel(num_ctas, threads=1024) as cta_id:
++            avail_tokens_l = avail_tokens[0] if has_avail_tokens else num_tokens
++            T.pdl_sync()  # avail_tokens must be const.
++            T.assume(0 <= avail_tokens_l <= num_tokens)
++            thread_idx = T.get_thread_binding()
++            new_num_ctas = num_ctas // num_block_h
++            if cta_id >= new_num_ctas * num_block_h:
++                T.thread_return()
++            for bi in T.serial(cta_id // num_block_h, avail_tokens_l - thread_idx // layout_h * new_num_ctas, new_num_ctas * blk_n):
++                main(bi, cta_id % num_block_h, new_num_ctas, x, topk_weights, avail_tokens, out, out_sf, out_bf16, clamp_value)
++
++    return _swiglu_apply_weight_to_fp8
++
++
++def swiglu_apply_weight_to_fp8(
++    x: torch.Tensor,
++    topk_weights: torch.Tensor | None,
++    avail_tokens: torch.Tensor | None,
++    num_per_channels: int,
++    use_col_major_scales: bool,
++    round_scale: bool,
++    ue8m0_scale: bool,
++    clamp_value: float | None = None,
++    fmt: str = "e4m3",
++    num_sms: int | None = None,
++    output_bf16: bool = False,
++    fast_math: bool = True,
++) -> tuple[torch.Tensor, torch.Tensor] | tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
++    assert fmt == "e4m3"
++    if num_sms is None:
++        num_sms = deep_gemm.get_num_sms()
++
++    num_tokens, hidden_size = x.shape
++    assert hidden_size % (2 * num_per_channels) == 0
++
++    y = torch.empty(
++        (num_tokens, hidden_size // 2),
++        device=x.device,
++        dtype=torch.float8_e4m3fn,
++    )
++    y_sf = torch.empty(
++        get_sf_shape(num_tokens, hidden_size // 2, num_per_channels, ue8m0_scale, use_col_major_scales),
++        device=x.device,
++        dtype=(torch.uint8 if ue8m0_scale else torch.float32),
++    )
++
++    y_bf16 = torch.empty((num_tokens, hidden_size // 2), device=x.device, dtype=torch.bfloat16) if output_bf16 else None
++
++    if num_tokens > 0:
++        _swiglu_apply_weight_to_fp8_tl.pass_configs = {
++            tilelang.PassConfigKey.TL_DISABLE_WARP_SPECIALIZED: True,
++            tilelang.PassConfigKey.TL_DISABLE_TMA_LOWER: True,
++            tilelang.PassConfigKey.TL_ENABLE_FAST_MATH: fast_math,
++        }
++        kernel = _swiglu_apply_weight_to_fp8_tl(
++            hidden_size // 2,
++            num_per_channels,
++            use_col_major_scales,
++            round_scale,
++            ue8m0_scale,
++            num_sms,
++            topk_weights is not None,
++            avail_tokens is not None,
++            clamp_value is not None,
++            output_bf16,
++            fast_math
++        )
++        kernel(x, topk_weights, avail_tokens.view(1) if avail_tokens is not None else None, y, y_sf, y_bf16, clamp_value or 0.0)
++
++    if ue8m0_scale:
++        if num_tokens == 0:
++            y_sf.as_strided_(y_sf.size(), (0, 1))
++        y_sf = y_sf.view(dtype=torch.int32)
++    if output_bf16:
++        return y, y_sf.T[:num_tokens], y_bf16
++    else:
++        return y, y_sf.T[:num_tokens]
+diff --git a/third-party/tilelang_ops/utils.py b/third-party/tilelang_ops/utils.py
+new file mode 100644
+index 0000000000..3f3ca46dbc
+--- /dev/null
++++ b/third-party/tilelang_ops/utils.py
+@@ -0,0 +1,47 @@
++from typing import Any
++from tilelang import language as T
++
++
++def ceil_div(x: int, y: int) -> int:
++    return (x + y - 1) // y
++
++
++def align(x: int, y: int) -> int:
++    return ceil_div(x, y) * y
++
++
++def get_sf_shape(
++    num_tokens: int,
++    hidden: int,
++    num_per_channels: int,
++    use_ue8m0: bool,
++    use_col_major_sf: bool,
++) -> tuple[int, int]:
++    num_scales = ceil_div(hidden, num_per_channels)
++    num_scales = ceil_div(num_scales, 4) if use_ue8m0 else num_scales
++
++    # For col-major SF, TMA must be aligned into 16 bytes
++    # For UE8M0, we must use col-major SF, and 4 UE8M0 are expanded into the inner dim (token)
++    num_sf_tokens = num_tokens
++    if use_col_major_sf:
++        num_sf_tokens = align(num_tokens, 4)
++        num_sf_tokens = num_sf_tokens * 4 if use_ue8m0 else num_sf_tokens
++
++    return (num_scales, num_sf_tokens) if use_col_major_sf else (num_sf_tokens, num_scales)
++
++
++def get_sf_and_inv(amax: float, round_sf: bool, use_ue8m0: bool) -> tuple[Any, Any]:
++    sf = amax / 448.0
++    if not round_sf:
++        return sf, 448.0 / amax
++
++    # Round into 2's power
++    bits = T.reinterpret("uint32", sf)
++    exp = (bits >> 23) & 0xFF
++    man_bits = bits & ((1 << 23) - 1)
++    exp_scale = T.reinterpret("int32", exp - 127 + (man_bits != 0))
++    if use_ue8m0:  # noqa: SIM108
++        sf = T.Cast("uint8", exp_scale + 127)
++    else:
++        sf = T.reinterpret("float", (127 + exp_scale) << 23)
++    return sf, T.reinterpret("float", (127 - exp_scale) << 23)
+\ No newline at end of file

@@ -1,0 +1,63 @@
+task_id: 2026-04-16-pattern-elementwise
+task_type: build-pattern
+target_path: wiki/nvidia/operator-routing/cuda-core/elementwise/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - <local-path>
+  - <local-path> Programming Guides/cuda-c-best-practices-guide/
+  - <local-path>
+  - <local-path>
+
+references:
+  - reasoning/task-packet.md
+  - reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: INDEX.md
+  - file_exists: ROUTING.md
+  - file_exists: library-fallback.md
+  - file_exists: TASK-PACKET.md
+  - lint_clean: true
+
+related_skills: [coalescing, vectorized-access, warp-primitives]
+
+notes: |
+  Build the pattern four-pack for the "elementwise" operator under cuda-core/.
+
+  Elementwise covers: add, mul, activation (relu/gelu/silu/swish), cast
+  (fp32→fp16, bf16→fp32), fused elementwise chains (bias+activation, scale+add).
+
+  INDEX.md — Decision tree for an elementwise task:
+    Step 0: Library check — can torch built-in ops handle this? Fused ops via
+      torch.compile? If yes, use them. Only go custom when fusion pattern isn't
+      available or performance is provably worse.
+    Step 1: If custom kernel needed, the strategy is always:
+      - One thread per element (or per vector of elements)
+      - Pure memory-bound: the kernel is essentially a fancy memcpy with math
+      - Optimize reads/writes, not compute
+    Step 2: Optimization iteration — apply skills from ROUTING.md
+
+  ROUTING.md — Skill whitelist for elementwise:
+    Must ONLY reference skills that exist under wiki/nvidia/foundations/:
+      - wiki/nvidia/foundations/memory/coalescing/ (critical: elementwise is memory-bound)
+      - wiki/nvidia/foundations/memory/bank-conflict/ (only if using shared memory staging)
+      - wiki/nvidia/foundations/compute/warp-primitives/ (rarely needed for pure elementwise)
+    Do NOT reference skills that don't exist yet (vectorized-access, fast-math, etc.)
+
+  library-fallback.md — Document the library paths:
+    - torch built-in ops (torch.add, torch.relu, torch.sigmoid, etc.)
+    - torch.compile / Triton codegen for fused chains
+    - thrust::transform for simple unary/binary ops
+    Grep upstream for examples.
+
+  TASK-PACKET.md — Operator-specific task packet template:
+    Required fields: op=elementwise, shape (N or [B,M,N]), dtype,
+    elementwise_ops (list of ops to fuse, e.g. [add, relu]),
+    in_place (true/false), baseline (torch.<op> or torch.compile).
+
+  No microbench probe needed for pattern files.

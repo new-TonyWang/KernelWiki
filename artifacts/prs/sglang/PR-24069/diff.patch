@@ -1,0 +1,47 @@
+diff --git a/python/sglang/srt/layers/moe/fused_moe_native.py b/python/sglang/srt/layers/moe/fused_moe_native.py
+index 592205075cea..a478cf12c5b8 100644
+--- a/python/sglang/srt/layers/moe/fused_moe_native.py
++++ b/python/sglang/srt/layers/moe/fused_moe_native.py
+@@ -7,8 +7,10 @@
+ from torch.nn import functional as F
+ 
+ from sglang.srt.layers.activation import GeluAndMul, SiluAndMul
+-from sglang.srt.layers.moe.fused_moe_triton.fused_moe import swiglu_with_alpha_and_limit
+ from sglang.srt.layers.moe.moe_runner import MoeRunnerConfig
++from sglang.srt.layers.moe.moe_runner.triton_utils.fused_moe import (
++    swiglu_gpt_oss_sigmoid_alpha,
++)
+ from sglang.srt.layers.moe.token_dispatcher import (
+     StandardCombineInput,
+     StandardDispatchOutput,
+@@ -112,7 +114,7 @@ def moe_forward_native(
+             and moe_runner_config.gemm1_alpha is not None
+         ):
+             assert moe_runner_config.gemm1_clamp_limit is not None
+-            gate_up = swiglu_with_alpha_and_limit(
++            gate_up = swiglu_gpt_oss_sigmoid_alpha(
+                 gate_up,
+                 moe_runner_config.gemm1_alpha,
+                 moe_runner_config.gemm1_clamp_limit,
+diff --git a/python/sglang/srt/layers/moe/moe_runner/triton_utils/fused_moe.py b/python/sglang/srt/layers/moe/moe_runner/triton_utils/fused_moe.py
+index fff837fe49cc..eded81834bf5 100644
+--- a/python/sglang/srt/layers/moe/moe_runner/triton_utils/fused_moe.py
++++ b/python/sglang/srt/layers/moe/moe_runner/triton_utils/fused_moe.py
+@@ -312,7 +312,7 @@ def _swiglu_silu_clamp_mul(x, gemm1_limit):
+ 
+ 
+ @torch.compile
+-def _swiglu_gpt_oss_sigmoid_alpha(x, gemm1_alpha, gemm1_limit):
++def swiglu_gpt_oss_sigmoid_alpha(x, gemm1_alpha, gemm1_limit):
+     # NOTE: This variant uses gemm1_alpha, unlike _swiglu_silu_clamp_mul.
+     # At present, only GPT-OSS uses this variant.
+     gate, up = x[..., ::2], x[..., 1::2]
+@@ -521,7 +521,7 @@ def _fused_moe_kernel_sequence(
+         # - gemm1_alpha == None and gemm1_limit != None: silu+clamp+mul(limit-only)
+         if gemm1_alpha is not None:
+             assert gemm1_limit is not None
+-            intermediate_cache2 = _swiglu_gpt_oss_sigmoid_alpha(
++            intermediate_cache2 = swiglu_gpt_oss_sigmoid_alpha(
+                 intermediate_cache1.view(-1, N), gemm1_alpha, gemm1_limit
+             )
+         elif gemm1_limit is not None:

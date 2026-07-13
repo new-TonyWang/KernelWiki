@@ -1,0 +1,19 @@
+
+=== Numeric correctness verification ===
+  C=1: 0 / 67043328 mismatches (PASS)
+  C=2 multicast: 0 / 67043328 mismatches (PASS)
+  C=4 multicast: 0 / 67043328 mismatches (PASS)
+section,config,cluster_size,prod_warps,l2_promo,n_clusters,dram_bytes,smem_bytes_delivered,median_ms,dram_gbps,effective_smem_gbps
+cluster_sweep,c1,1,1,NONE,132,134086656,134086656,0.0415,3230.69,3230.69
+cluster_sweep,c2,2,1,NONE,66,67043328,134086656,0.0333,2012.59,4025.18
+cluster_sweep,c4,4,1,NONE,33,33521664,134086656,0.0238,1408.00,5632.00
+cluster_sweep,c8,8,1,NONE,16,16252928,130023424,0.0239,679.93,5439.40
+cluster_sweep,c16,16,1,NONE,8,8126464,130023424,0.0238,341.33,5461.33
+prod_warp_sweep,c2_pw1,2,1,NONE,66,67043328,134086656,0.0329,2040.02,4080.05
+prod_warp_sweep,c2_pw2,2,2,NONE,66,67043328,134086656,0.0234,2866.08,5732.16
+prod_warp_sweep,c2_pw4,2,4,NONE,66,67043328,134086656,0.0214,3136.38,6272.77
+l2_promo_sweep,c2_l2_NONE,2,1,NONE,66,67043328,134086656,0.0328,2042.01,4084.02
+l2_promo_sweep,c2_l2_64B,2,1,64B,66,67043328,134086656,0.0330,2032.11,4064.22
+l2_promo_sweep,c2_l2_128B,2,1,128B,66,67043328,134086656,0.0330,2034.08,4068.16
+l2_promo_sweep,c2_l2_256B,2,1,256B,66,67043328,134086656,0.0319,2103.52,4207.04
+xcta_empty_sweep,c2_xcta_empty,2,1,NONE,66,67043328,134086656,0.1461,458.95,917.90

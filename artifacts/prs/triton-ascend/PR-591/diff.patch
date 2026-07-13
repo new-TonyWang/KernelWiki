@@ -1,0 +1,394 @@
+diff --git a/.gitmodules b/.gitmodules
+@@ -1,6 +1,8 @@
+ [submodule "third_party/triton"]
+ 	path = third_party/triton
+ 	url = https://github.com/triton-lang/triton.git
++	depth = 1
+ [submodule "third_party/ascendnpu-ir"]
+ 	path = third_party/ascendnpu-ir
+-	url = https://gitcode.com/Ascend/AscendNPU-IR.git
+\ No newline at end of file
++	url = https://gitcode.com/Ascend/AscendNPU-IR.git
++	depth = 1
+\ No newline at end of file
+
+diff --git a/ascend/examples/generalization_cases/full_run.sh b/ascend/examples/generalization_cases/full_run.sh
+@@ -1,41 +0,0 @@
+-#!/bin/bash
+-current_date=$(date +%Y%m%d)
+-pid_log="process_${current_date}.log"
+-max_parallel=12
+-
+-fifo="/tmp/$$.fifo"
+-mkfifo $fifo
+-exec 9<>$fifo
+-rm -f $fifo
+-
+-for ((i=0; i<$max_parallel; i++)); do
+-    echo >&9
+-done
+-
+-> "$pid_log"  
+-
+-
+-if [ -d logs ]; then
+-  rm -rf logs
+-fi
+-
+-mkdir logs
+-
+-while IFS= read -r -d $'\0' file; do
+-    read -u 9  
+-
+-    test_log="./logs/${file%.py}_${current_date}.log"
+-
+-    {
+-        pytest -sv "$file" -n 16 > "$test_log" 2>&1
+-        echo >&9
+-    } &
+-
+-    echo "[INFO] Activated $(basename "$file"), PID=$!, logging into $test_log."
+-
+-done < <(find . -maxdepth 1 -type f -name "test_*.py" ! -name "test_common.py" -print0)
+-
+-wait 
+-exec 9>&-
+-
+-echo "[INFO] All test processes completed, pids logged into ${pid_log}"
+
+diff --git a/scripts/build.sh b/scripts/build.sh
+@@ -1,51 +0,0 @@
+-#!/bin/bash
+-
+-set -ex
+-
+-if [ $# -lt 5 ]; then
+-  echo "Usage: $0 <TRITON_ASCEND_ROOT> <LLVM_ROOT> <TRITON_ASCEND_VERSION> <BUILD_MODE> <IS_MANYLINUX>"
+-  exit 1
+-fi
+-
+-TRITON_ASCEND_ROOT=$1
+-LLVM_ROOT=$2
+-TRITON_ASCEND_VERSION=$3
+-BUILD_MODE=$4
+-IS_MANYLINUX_VAL=$5
+-
+-case "$BUILD_MODE" in
+-  "develop")
+-    echo "Building in editable/development mode..."
+-    cmd="pip install --no-build-isolation --editable ."
+-    ;;
+-  "install")
+-    echo "Building in normal install mode..."
+-    cmd="pip install --no-build-isolation ."
+-    ;;
+-  "bdist_wheel")
+-    echo "Building wheel package..."
+-    cmd="python -m build --wheel"
+-    ;;
+-  "clean")
+-    echo "Cleaning build artifacts..."
+-    python3 setup.py clean
+-    ;;
+-  *)
+-    echo "Error: Unknown BUILD_MODE: ${BUILD_MODE}"
+-    echo "Valid options: develop, install, bdist_wheel"
+-    exit 1
+-    ;;
+-esac
+-
+-TRITON_ASCEND_PROJECT_ROOT=$(readlink -f "${TRITON_ASCEND_ROOT}/..")
+-
+-cd $TRITON_ASCEND_PROJECT_ROOT
+-
+-LLVM_SYSPATH=${LLVM_ROOT} \
+-TRITON_PLUGIN_DIRS=${TRITON_ASCEND_ROOT} \
+-TRITON_BUILD_WITH_CCACHE=true \
+-TRITON_BUILD_WITH_CLANG_LLD=true \
+-TRITON_WHEEL_NAME="triton_ascend" \
+-TRITON_VERSION=${TRITON_ASCEND_VERSION} \
+-IS_MANYLINUX=${IS_MANYLINUX_VAL} \
+-${cmd}
+
+diff --git a/scripts/prepare_build.sh b/scripts/prepare_build.sh
+@@ -1,74 +0,0 @@
+-#!/bin/bash
+-set -ex
+-
+-WORK_ROOT=$(pwd)
+-TRITON_VERSION=${1}
+-
+-SHARED_DIR=/home/shared
+-mkdir -p $SHARED_DIR
+-
+-declare -A py_map=(["py39"]="3.9" ["py310"]="3.10" ["py311"]="3.11")
+-
+-# TODO: check this file exists
+-source /opt/miniconda3/etc/profile.d/conda.sh
+-
+-for env_name in "${!py_map[@]}"; do
+-    if ! conda env list | grep -wq "$env_name"; then
+-      conda create -y -n "$env_name" python="${py_map[$env_name]}"
+-    fi
+-    conda activate $env_name
+-    pip3 install pybind11 -i https://repo.huaweicloud.com/repository/pypi/simple/
+-done
+-
+-# LLVM
+-cd $SHARED_DIR
+-if [ ! -d llvm-project ]; then
+-  git clone --depth 1 https://gitclone.com/github.com/llvm/llvm-project.git
+-fi
+-cd llvm-project
+-TARGET_COMMIT="b5cc222d7429fe6f18c787f633d5262fac2e676f"
+-if ! git rev-parse --quiet --verify "$TARGET_COMMIT" &>/dev/null; then
+-  echo "Error: Commit $TARGET_COMMIT does not exist!" >&2
+-  exit 1
+-fi
+-if [ "$(git rev-parse HEAD)" != "$TARGET_COMMIT" ]; then
+-  echo "LLVM commit is NOT $TARGET_COMMIT"
+-  git fetch --depth 1 origin b5cc222d7429fe6f18c787f633d5262fac2e676f
+-  git checkout b5cc222d7429fe6f18c787f633d5262fac2e676f
+-else
+-  echo "LLVM commit is $TARGET_COMMIT"
+-fi
+-if [ ! -d /opt/llvm-b5cc222/lib ]; then
+-  mkdir -p build
+-  cd build
+-  cmake ../llvm \
+-    -G Ninja \
+-    -DCMAKE_BUILD_TYPE=Release \
+-    -DLLVM_ENABLE_ASSERTIONS=ON \
+-    -DLLVM_ENABLE_PROJECTS="mlir;llvm" \
+-    -DLLVM_TARGETS_TO_BUILD="host;NVPTX;AMDGPU" \
+-    -DCMAKE_INSTALL_PREFIX=/opt/llvm-b5cc222 \
+-    -DCMAKE_C_COMPILER=clang \
+-    -DCMAKE_CXX_COMPILER=clang++ \
+-    -DLLVM_ENABLE_LLD=ON
+-  ninja install
+-  cp bin/FileCheck /opt/llvm-b5cc222/bin
+-fi
+-# triton-ascend
+-cd $WORKSPACE
+-
+-git submodule set-url third_party/triton https://gitee.com/shijingchang/triton.git
+-git submodule sync && git submodule update --init --recursive
+-# In the future, we will propose a PR to apply the following change.
+-
+-cd $WORKSPACE
+-
+-environments=("py39" "py310" "py311")
+-
+-for env in "${environments[@]}"; do
+-    (
+-        conda activate "$env" && \
+-        echo "在 $env 中执行命令" && \
+-        bash scripts/build.sh $(pwd)/ascend /opt/llvm-b5cc222 ${TRITON_VERSION} bdist_wheel 1
+-    ) || echo "$env 执行失败"
+-done
+
+diff --git a/triton_patch/python/src/ir.cc b/triton_patch/python/src/ir.cc
+@@ -1734,6 +1734,13 @@ void init_triton_ir(py::module &&m) {
+              annotationOp->setAttr(self.getBuilder().getStringAttr(attrKey),
+                                    attrVal);
+            })
++      // Gather load operation
++      .def("create_gather_load",
++        [](TritonOpBuilder &self, Value &src, Value &gatherIndices, int32_t gatherDim,
++           std::vector<int64_t> &srcShape, std::vector<int64_t> &srcOffset,
++           std::vector<int64_t> &readShape) -> Value {
++            
++        })
+       // Add sort
+       .def("create_sort",
+            [](TritonOpBuilder &self, Value src, int64_t dim, bool descending) -> Value {
+
+diff --git a/triton_patch/python/triton_patch/language/core.py b/triton_patch/python/triton_patch/language/core.py
+@@ -462,6 +462,83 @@ def make_tensor_descriptor(
+     return semantic.make_tensor_descriptor(base, shape, strides, block_shape, _builder)
+ 
+ 
++@builtin
++def gather_load(
++    src: tensor,
++    gather_dim: int,
++    gather_indices: tensor,
++    src_shape: List[int],
++    src_offset: List[int],
++    read_shape: List[int],
++    _builder=None
++) -> tensor:
++    """
++    Parallel gather load operation from Global Memory to Unified Buffer.
++    
++    Gathers data from multiple indices along a specified dimension and loads 
++    them as tiles from GM directly to UB with zero-copy semantics.
++    
++    :param src: Source tensor pointer (in GM)
++    :type src: tensor (pointer type)
++    :param gather_dim: The dimension along which to gather
++    :type gather_dim: int or constexpr
++    :param gather_indices: 1D tensor of indices to gather (in UB)
++    :type gather_indices: tensor
++    :param src_shape: Complete shape of the source tensor
++    :type src_shape: List[int]
++    :param src_offset: Starting offset for reading
++    :type src_offset: List[int]
++    :param read_shape: Size to read (tile shape)
++    :type read_shape: List[int]
++    
++    **Constraints:**
++    
++    - ``read_shape[gather_dim]`` must be ``-1``
++    - ``src_offset[gather_dim]`` can be ``-1`` (will be ignored)
++    - Boundary handling: ``src_offset + read_shape > src_shape`` automatically 
++      truncates to ``src_shape`` boundary
++    - Does not check if ``gather_indices`` contains out-of-bounds values
++    
++    **Example:**
++    
++    .. code-block:: python
++    
++        @triton.jit
++        def kernel(src_ptr, output_ptr, indices_ptr, ...):
++            # Load indices (e.g., [5, 10, 15, 20])
++            indices = tl.load(indices_ptr + tl.arange(0, 4))
++            
++            # Gather load from dimension 1
++            # src: [8, 100, 256], gather at dim=1
++            # Read: [4, ?, 128] starting from [4, ?, 128]
++            result = tl.gather_load(
++                src_ptr,
++                gather_dim=1,
++                gather_indices=indices,
++                src_shape=[8, 100, 256],
++                src_offset=[4, -1, 128],
++                read_shape=[4, -1, 128]
++            )
++            # result shape: [4, 4, 128]
++            
++            tl.store(output_ptr + ..., result)
++    
++    :return: Result tensor in UB with shape where ``gather_dim`` is replaced 
++        by the length of ``gather_indices``
++    :rtype: tensor
++    """
++    gather_dim = _constexpr_to_value(gather_dim)
++    
++    # Convert shape lists to regular Python lists if they contain constexpr
++    src_shape = [_constexpr_to_value(s) for s in src_shape]
++    src_offset = [_constexpr_to_value(s) for s in src_offset]
++    read_shape = [_constexpr_to_value(s) for s in read_shape]
++    
++    return semantic.gather_load(
++        src, gather_dim, gather_indices, src_shape, src_offset, read_shape, _builder
++    )
++
++
+ def dtype_to_ir(self, builder: ir.builder) -> ir.type:
+     if self.name.startswith("fp8"):
+         raise ValueError(f'unexpected type fp8.')
+
+diff --git a/triton_patch/python/triton_patch/language/semantic.py b/triton_patch/python/triton_patch/language/semantic.py
+@@ -841,3 +841,100 @@ def make_tensor_descriptor(
+     handle = builder.create_make_tensor_descriptor(base_handle, [s.handle for s in shape],
+                                                     [s.handle for s in strides], block_shape, is_signed_int)
+     return tensor_descriptor(handle, shape, strides, desc_block_type)
++
++
++def gather_load(
++    src: tl.tensor,
++    gather_dim: int,
++    gather_indices: tl.tensor,
++    src_shape: List[int],
++    src_offset: List[int],
++    read_shape: List[int],
++    builder: ir.builder
++) -> tl.tensor:
++    """
++    Gather load operation that loads data from multiple indices along a dimension.
++    
++    Args:
++        src: Source tensor pointer (in GM)
++        gather_dim: Dimension along which to gather
++        gather_indices: 1D tensor of indices to gather (in UB)
++        src_shape: Complete shape of source tensor
++        src_offset: Starting offset for reading
++        read_shape: Size to read (tile shape)
++        builder: IR builder
++        
++    Returns:
++        Result tensor in UB
++        
++    Constraints:
++        - read_shape[gather_dim] must be -1
++        - src_offset[gather_dim] can be -1 (ignored)
++    """
++    # Validate inputs
++    if not isinstance(gather_dim, int):
++        raise ValueError(f"gather_dim must be an integer, got {type(gather_dim)}")
++    
++    if not isinstance(src_shape, (list, tuple)):
++        raise ValueError(f"src_shape must be a list or tuple, got {type(src_shape)}")
++    
++    if not isinstance(src_offset, (list, tuple)):
++        raise ValueError(f"src_offset must be a list or tuple, got {type(src_offset)}")
++    
++    if not isinstance(read_shape, (list, tuple)):
++        raise ValueError(f"read_shape must be a list or tuple, got {type(read_shape)}")
++    
++    ndim = len(src_shape)
++    if len(src_offset) != ndim or len(read_shape) != ndim:
++        raise ValueError(f"src_shape, src_offset, and read_shape must have same length. "
++                        f"Got {ndim}, {len(src_offset)}, {len(read_shape)}")
++    
++    if not (0 <= gather_dim < ndim):
++        raise ValueError(f"gather_dim {gather_dim} out of range for {ndim}D tensor")
++    
++    if read_shape[gather_dim] != -1:
++        raise ValueError(f"read_shape[gather_dim={gather_dim}] must be -1, got {read_shape[gather_dim]}")
++    
++    # Validate gather_indices is 1D
++    if not gather_indices.type.is_block():
++        raise ValueError("gather_indices must be a tensor")
++    
++    indices_shape = gather_indices.type.get_block_shapes()
++    if len(indices_shape) != 1:
++        raise ValueError(f"gather_indices must be 1D, got shape {indices_shape}")
++    
++    num_indices = indices_shape[0]
++    
++    # Build output shape: replace gather_dim with num_indices
++    output_shape = []
++    for i, size in enumerate(read_shape):
++        if i == gather_dim:
++            output_shape.append(num_indices)
++        else:
++            if size <= 0:
++                raise ValueError(f"read_shape[{i}] must be positive, got {size}")
++            output_shape.append(size)
++    
++    # Determine output element type from src
++    if hasattr(src.type, 'element_ty'):
++        element_ty = src.type.element_ty
++    elif hasattr(src.type, 'scalar'):
++        element_ty = src.type.scalar
++    else:
++        raise ValueError(f"Cannot determine element type from src type: {src.type}")
++    
++    # Create output type
++    output_ty = tl.block_type(element_ty, output_shape)
++    
++    # Create the gather_load op
++    # The builder will create the operation and return the result handle
++    handle = builder.create_gather_load(
++        src.handle,
++        gather_indices.handle,
++        gather_dim,
++        src_shape,
++        src_offset,
++        read_shape
++    )
++    
++    return tl.tensor(handle, output_ty)
+\ No newline at end of file

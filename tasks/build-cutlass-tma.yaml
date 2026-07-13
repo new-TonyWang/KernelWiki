@@ -1,0 +1,65 @@
+task_id: 2026-04-28-cutlass-tma
+task_type: build-hardware-feature   # see reasoning/task-packet.md
+target_path: wiki/nvidia/hardware/tma/
+also_writes:
+  - wiki/nvidia/code-walkthroughs/cutlass-cute/tma/
+  - sources/experience/hw-probes/tma/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - <local-path>                 # pinned commit f74fea9c
+  - <local-path>
+  - <local-path>
+upstream_repo_pin: "cutlass@f74fea9c"
+
+references:
+  - reasoning/hardware-microbench.md
+  - reasoning/benchmark-protocol.md
+  - templates/frontmatter/hardware-feature.yaml
+  - docs/15-代码仓库抽取知识流程_update_en.md  # AC-1
+
+source_anchors:
+  - examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu
+  - include/cute/atom/copy_traits_sm90_tma.hpp
+  - include/cute/atom/copy_traits_sm90_tma_swizzle.hpp
+  - corpus/nvidia/blogs/colfax/cutlass-tutorial-mastering-the-nvidia-tensor-memory-accelerator-tma
+
+success_criteria:
+  - file_exists: wiki/nvidia/hardware/tma/skill.md
+  - file_exists: wiki/nvidia/hardware/tma/pitfalls.md
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/tma/build.sh
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/tma/tma_end_to_end.cu
+  - dir_nonempty: sources/experience/hw-probes/tma/    # date-stamped record authored at execution time
+  - lint_clean: true
+  - skill_status: verified
+  - skill_evidence_level: measured
+  - measured_on: H200-SXM
+  - cuda_memcheck_clean: true
+  - correctness_within_fp16_bf16_tolerance: true
+  - ncu_metrics_recorded:
+      - sm__cycles_active.avg.pct_of_peak_sustained_elapsed   # SM occupancy proxy
+      - lts__t_sectors_op_atom.sum                             # cp.async.bulk-related counter
+
+blockers_for_round_1:
+  - reason: "Requires SSH session to ssh h200_ncu plus nvcc + ncu run; AC-V Stage 3.5 budget per task is up to 2h. The 90-minute round timeout cannot reasonably fit cutlass build + ncu sweep + correctness check + skill authoring + report writing for this task in a single round on top of all prerequisites."
+  - mitigation: "Activate this task in a dedicated round once AC-0 is approved by the user (manual git commit per AC-R)."
+
+related_tasks:
+  - build-cutlass-wgmma.yaml      # AC-2 — same example, different atom
+  - build-cutlass-gemm-aligned.yaml  # AC-4 — depends on TMA + wgmma
+
+notes: |
+  AC-1 from docs/15-代码仓库抽取知识流程_update_en.md.
+  Distill the minimum end-to-end TMA path from
+  examples/48_hopper_warp_specialized_gemm/48_hopper_warp_specialized_gemm.cu:
+    - host-side cuTensorMapEncode* + cudaMemcpyToSymbol of the TMA descriptor
+    - device-side cp.async.bulk.tensor.* via cute::copy on a TMA atom
+    - mbarrier-based completion handshake
+    - output correctness vs a naive reference
+  Skill must enumerate the pre-conditions to issue cp.async.bulk.tensor
+  (descriptor alignment, swizzle mode, sm_90a gate) and the failure modes
+  on misaligned descriptors; pitfalls.md owns the failure-mode story.

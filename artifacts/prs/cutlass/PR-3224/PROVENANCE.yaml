@@ -1,0 +1,24 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/3224
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 971d1ed8
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-3224
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: cec21934d92f9391ad83949d8403a19feb6f409c6fa108b57085d0b28b11ee3e
+- local_path: key-files/examples/python/CuTeDSL/cute/blackwell/kernel/attention/mla/mla_decode_fp16.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/python/CuTeDSL/cute/blackwell/kernel/attention/mla/mla_decode_fp16.py
+  sha256: 82116d97e611366d3122473ada3fde7e2550f1e06914ba1834fc448954dfd106
+- local_path: key-files/examples/python/CuTeDSL/cute/blackwell/kernel/attention/mla/mla_decode_fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/python/CuTeDSL/cute/blackwell/kernel/attention/mla/mla_decode_fp8.py
+  sha256: 408397e0e79f9f63ce04fed5ba7c38b137d7f7fccee3b95b745b1c84de6568d5

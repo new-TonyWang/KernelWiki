@@ -1,0 +1,46 @@
+task_id: 2026-04-16-pattern-indexing
+task_type: build-pattern
+target_path: wiki/nvidia/operator-routing/cuda-core/indexing/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - <local-path>
+  - <local-path> Programming Guides/cuda-c-best-practices-guide/
+  - <local-path>
+  - <local-path>
+
+references:
+  - reasoning/task-packet.md
+  - reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: INDEX.md
+  - file_exists: ROUTING.md
+  - file_exists: library-fallback.md
+  - file_exists: TASK-PACKET.md
+  - lint_clean: true
+
+notes: |
+  Indexing/gather/scatter operators: gather, scatter, one-hot, topk,
+  index_select, embedding lookup.
+
+  INDEX.md: library-first (torch.gather, torch.scatter, torch.index_select,
+  torch.topk, cub::DeviceRadixSort for topk, thrust::gather / scatter).
+  Custom path: gather = indirect load (thread i reads src[idx[i]]),
+  scatter = indirect store (thread i writes dst[idx[i]] = val[i]).
+  topk = partial sort (radix select, bucket select, or heap).
+
+  ROUTING.md: whitelist existing skills. Primary: coalescing (critical —
+  gather/scatter are inherently non-coalesced; understanding the cost is key),
+  vectorized-access (when indices are consecutive ranges). Secondary:
+  warp-primitives (for warp-level topk), atomic-reduction (scatter with conflicts).
+
+  library-fallback.md: torch ops are straightforward wrappers. cub::DeviceRadixSort
+  + truncate for topk. thrust::gather / thrust::scatter_if.
+
+  TASK-PACKET.md: op=indexing, index_type (gather/scatter/index_select/topk/one_hot),
+  shape (src + idx), dtype, k (for topk).

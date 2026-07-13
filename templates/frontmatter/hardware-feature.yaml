@@ -1,0 +1,52 @@
+# 40-hardware-feature/<feature>/skill.md frontmatter template
+#
+# Used by 40-hardware-feature/<feature>/skill.md
+# Enforced by tools/lint_knowledge.py --layer hardware-feature
+#
+# Hardware-feature skills are skill.md-shaped: they document a single
+# hardware-new-feature (TMA, wgmma, DSMEM, async-pipeline, setmaxnreg, …)
+# with evidence drawn from on-target measurement on H200 (sm_90a) or newer.
+# The schema mirrors skill.yaml; the only deltas are:
+#   * applies_to_pattern_class defaults to ["tensor-core"] but may include
+#     ["cuda-core", "tensor-core", "fused-cuda-tensor-core"] depending on
+#     where the feature plugs in.
+#   * requires_sm must be a Hopper-or-newer SM gate (>=9.0 / >=9.0a / >=10.0).
+#   * status: verified MUST come with evidence_level: measured AND a populated
+#     artifacts: {code, build, introspection} block plus measured_on.
+
+# ==== Core identity ====
+title: ""                              # REQUIRED. e.g. "TMA: cp.async.bulk.tensor end-to-end"
+status: draft                          # REQUIRED. draft | verified | deprecated
+evidence_level: spec                   # REQUIRED. spec | measured | inferred | anecdotal
+
+# ==== Applicability ====
+applies_to_pattern_class:              # REQUIRED. At least one entry.
+  - tensor-core                        #   cuda-core | tensor-core | fused-cuda-tensor-core
+applies_to_ops: []                     # REQUIRED. e.g. [gemm, attention]
+requires_sm: ">=9.0"                   # REQUIRED. Hopper or newer for this layer.
+requires_features: []                  # Optional. e.g. [tma, wgmma, mbarrier]
+single_kernel_useful: true             # REQUIRED.
+
+# ==== Environment (REQUIRED-IF evidence_level == measured) ====
+cuda_version_tested: ""
+driver_version_tested: ""
+toolchain: ""
+measured_on: ""                        # e.g. "H200-SXM | sm_90a | cuda 12.9 | driver 555.42"
+
+# ==== Provenance (REQUIRED: at least one entry) ====
+source:
+  - path: ""                           # absolute upstream path or knowledge/-relative
+    anchor: ""                         # heading slug or "Lxxx-Lyyy"
+    excerpt: ""                        # Optional, ≤200 chars
+
+# ==== Artifacts (REQUIRED-IF status == verified AND evidence_level == measured) ====
+artifacts:
+  code: ""                             # relative path to probe/microbench .cu (often under 60-code/<source-repo>/<topic>/)
+  build: ""                            # build.sh path or literal nvcc command
+  introspection: ""                    # kp_introspect bundle json path
+  profile: ""                          # Optional. ncu-rep / nsys-rep path
+
+# ==== Cross-references ====
+related_apis: []                       # Optional. slugs into 10-api-raw/
+related_skills: []                     # Optional. slugs into 30-skill/, 50-classical-algo/
+upstream_repo: ""                      # Optional. e.g. "cutlass@f74fea9c" — pin the commit when extracting.

@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/22314
+upstream_repo: vllm-project/vllm
+upstream_sha: 609b533c
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-22314
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 7722a3ff46a93edd027249424abf1370ee9b2d46acda61e0841999f91bbb233a
+- local_path: key-files/vllm/attention/ops/triton_decode_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/ops/triton_decode_attention.py
+  sha256: e1226ed3289f6fd4bb9d5e3c57ba80e31c52c7b1ef4d31ce29a3d023536b836c
+- local_path: key-files/vllm/model_executor/layers/quantization/kernels/mixed_precision/bitblas.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/kernels/mixed_precision/bitblas.py
+  sha256: ba854c9435a796cbf6eebb2b96182ec275c9da103ebcd46c28684670e2822105
+- local_path: key-files/vllm/v1/sample/ops/topk_topp_sampler.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/sample/ops/topk_topp_sampler.py
+  sha256: e94f59c414b72172bdffe0b10cb7efc280dacf0a0004fb456e2e4e38e08d6e22

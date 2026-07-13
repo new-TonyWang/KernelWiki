@@ -1,0 +1,5 @@
+variant,description,kernel_template,epilogue,shape_M,shape_N,shape_K,latency_us,tflops,bandwidth_gbps,bytes_moved_mb,notes
+fused,GEMM + ReLU absorbed into cooperative epilogue via LinCombEltAct<ReLu>,KernelTmaWarpSpecializedCooperative + TmaWarpSpecializedCooperative,LinCombEltAct<ReLu>,2048,2048,2048,86.83,196.3,n/a,50.33,fused total = 86.83 us; saves ~12.7 us / 12.65% vs non-fused chain
+non-fused-gemm,Cooperative GEMM only (default LinearCombination),KernelScheduleAuto -> Cooperative,LinearCombination,2048,2048,2048,91.92,186.9,n/a,50.33,GEMM portion of the non-fused chain
+non-fused-relu,Standalone ReLU after GEMM (separate kernel),custom 256-thread,n/a,2048,2048,n/a,8.29,n/a,4045.4,33.55,bandwidth-bound (read + write D in-place); 4045 GB/s / ~4 TB/s peak HBM
+non-fused-total,Sum of GEMM + standalone ReLU,KernelScheduleAuto + custom,LinearCombination then separate ReLU,2048,2048,2048,100.21,n/a,n/a,83.88,total = 100.21 us; fused saves 12.7%; lower-bound saving (relu_kernel time alone) = 8.3%

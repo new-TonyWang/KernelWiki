@@ -1,0 +1,46 @@
+task_id: 2026-04-28-cutlass-tiling-search
+task_type: build-skill
+status: deferred-pending-decision   # AC-8 is OPTIONAL per the plan
+target_path: wiki/nvidia/foundations/compute/gemm-tiling-search/
+also_writes:
+  - wiki/nvidia/code-walkthroughs/cutlass-cute/tiling-search/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - <local-path>
+upstream_repo_pin: "cutlass@f74fea9c"
+
+references:
+  - docs/15-代码仓库抽取知识流程_update_en.md  # AC-8 (optional)
+
+success_criteria:
+  - interface_accepts: [M, N, K, dtype, hw]
+  - returns_recommendation_with_confidence_score: true
+  - beats_no_search_default_in_h200_scenarios_count_min: 3
+  - file_exists: wiki/nvidia/foundations/compute/gemm-tiling-search/skill.md
+  - file_exists: wiki/nvidia/foundations/compute/gemm-tiling-search/pitfalls.md
+  - dir_nonempty: wiki/nvidia/code-walkthroughs/cutlass-cute/tiling-search/
+
+depends_on:
+  - extract-cutlass-warp-specialize.yaml
+  - extract-cutlass-persistent-kernel.yaml
+
+deferral_decision:
+  default: skip
+  rationale: "AC-8 is explicitly optional in the plan (Lower Bound says it may be skipped with reason recorded in the final report). Will be re-evaluated after AC-6 lands and search-space priors are concrete."
+  reconsider_when: "AC-6 verified and A/B ablation data exposes a configuration cliff that would benefit from automated search."
+
+blockers_for_round_1:
+  - reason: "Optional task; gated on AC-6 outputs and an explicit yes/no decision in the final report."
+
+notes: |
+  AC-8 from docs/15-代码仓库抽取知识流程_update_en.md (optional).
+  If implemented, expose a minimum-viable interface that maps
+  (M, N, K, dtype, hw) -> (tile, stage, cluster, confidence). Demonstrate
+  beat-default-in-≥3 H200 scenarios. Skipping is acceptable per the plan;
+  the final report (round summary at the loop's end) MUST record the
+  decision and reason either way.

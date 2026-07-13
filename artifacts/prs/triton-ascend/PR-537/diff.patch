@@ -1,0 +1,464 @@
+diff --git a/ascend/examples/generalization_cases/test_flip.py b/ascend/examples/generalization_cases/test_flip.py
+@@ -28,14 +28,13 @@ import pytest
+ import test_common
+ import logging
+ from test_common import TestUtils, check_ub_mem_overflow
+-import triton.language.extra.ascend.libdevice as libdevice
+ 
+ @triton.jit
+ def fn_npu_1d(output_ptr, x_ptr, XB: tl.constexpr, YB: tl.constexpr, ZB: tl.constexpr):
+     xidx = tl.arange(0, XB)
+     idx = xidx
+     X = tl.load(x_ptr + idx)
+-    ret = libdevice.flip(X, 0)
++    ret = tl.flip(X, 0)
+     oidx = xidx
+     tl.store(output_ptr + oidx, ret)
+ 
+@@ -45,7 +44,7 @@ def fn_npu_2d(output_ptr, x_ptr, XB: tl.constexpr, YB: tl.constexpr, ZB: tl.cons
+     yidx = tl.arange(0, YB) + tl.program_id(1) * YB
+     idx = xidx[:, None] * YB + yidx[None, :]
+     X = tl.load(x_ptr + idx)
+-    ret = libdevice.flip(X, 1)
++    ret = tl.flip(X, 1)
+     oidx = xidx[:, None] * YB + yidx[None, :]
+     tl.store(output_ptr + oidx, ret)
+ 
+@@ -57,7 +56,7 @@ def fn_npu_3d(output_ptr, x_ptr, XB: tl.constexpr, YB: tl.constexpr, ZB: tl.cons
+     zidx = tl.arange(0, ZB) + tl.program_id(2) * ZB
+     idx = xidx[:, None, None] * YNUMEL * ZNUMEL + yidx[None, :, None] * ZNUMEL + zidx[None, None, :]
+     X = tl.load(x_ptr + idx)
+-    ret = libdevice.flip(X, 2)
++    ret = tl.flip(X, 2)
+     oidx = xidx[:, None, None] * YNUMEL * ZNUMEL + yidx[None, :, None] * ZNUMEL + zidx[None, None, :]
+     tl.store(output_ptr + oidx, ret)
+ 
+@@ -119,7 +118,7 @@ def fn_npu_multi_d(output_ptr, x_ptr, XB: tl.constexpr, YB: tl.constexpr, ZB: tl
+         offsets = offsets[:, :, :, :, None] + tl.arange(0, NB)[None, None, None, None, :]
+ 
+     X = tl.load(x_ptr + offsets)
+-    ret = libdevice.flip(X, AXIS)
++    ret = tl.flip(X, AXIS)
+     tl.store(output_ptr + offsets, ret)
+
+diff --git a/ascend/examples/generalization_cases/test_general_gather.py b/ascend/examples/generalization_cases/test_general_gather.py
+@@ -24,7 +24,6 @@ import torch
+ import torch_npu
+ import triton
+ import triton.language as tl
+-import triton.language.extra.ascend.libdevice as libdevice
+ import test_common
+ import pytest
+ from test_common import TestUtils, check_ub_mem_overflow, get_dtype_size
+@@ -109,7 +108,7 @@ def test_gather_flip(param_list):
+             idx_min = tl.min(idx_blk, axis=0)
+             src_idx = src_ptr + x0_idx * R0_BLOCK + idx_min + r1_idx
+             src_blk = tl.load(src_idx)
+-            fliped_blk = libdevice.flip(src_blk, 0)
++            fliped_blk = tl.flip(src_blk, 0)
+             dst_idx = dst_ptr + x0_idx * R1_BLOCK + r1_idx
+             tl.store(dst_idx, fliped_blk)
+
+diff --git a/ascend/examples/pytest_ut/test_gather.py b/ascend/examples/pytest_ut/test_gather.py
+@@ -22,7 +22,6 @@ import torch
+ import torch_npu
+ import triton
+ import triton.language as tl
+-import triton.language.extra.ascend.libdevice as libdevice
+ import numpy as np
+ import test_common
+ import pytest
+@@ -95,7 +94,7 @@ def test_gather_flip(param_list):
+             idx_min = tl.min(idx_blk, axis=0)
+             src_idx = src_ptr + x0_idx * R0_BLOCK + idx_min + r1_idx
+             src_blk = tl.load(src_idx)
+-            fliped_blk = libdevice.flip(src_blk, 0)
++            fliped_blk = tl.flip(src_blk, 0)
+             dst_idx = dst_ptr + x0_idx * R1_BLOCK + r1_idx
+             tl.store(dst_idx, fliped_blk)
+
+diff --git a/ascend/language/ascend/libdevice.py b/ascend/language/ascend/libdevice.py
+@@ -122,33 +122,6 @@ def isnan(arg0, _builder=None):
+             (core.dtype("bf16"),): ("__hmf_isnan", core.dtype("int1")),
+         }, is_pure=True, _builder=_builder)
+ 
+-@core.extern
+-def flip(arg0, arg1=None, _builder=None):
+-    if arg1 == None:
+-        return core.extern_elementwise(
+-            "", "", [arg0], {
+-                (core.dtype("bf16"), ): ("__hmf_flipDhb", core.dtype("bf16")),
+-                (core.dtype("fp16"), ): ("__hmf_flipDh", core.dtype("fp16")),
+-                (core.dtype("fp32"), ): ("__hmf_flipf", core.dtype("fp32")),
+-                (core.dtype("int8"), ): ("__hmf_flipi8", core.dtype("int8")),
+-                (core.dtype("int16"), ): ("__hmf_flipi16", core.dtype("int16")),
+-                (core.dtype("int32"), ): ("__hmf_flipi32", core.dtype("int32")),
+-                (core.dtype("uint32"), ): ("__hmf_flipui32", core.dtype("uint32")),
+-                (core.dtype("int64"), ): ("__hmf_flipi64", core.dtype("int64")),
+-            }, is_pure=True, _builder=_builder)
+-
+-    return core.extern_elementwise(
+-        "", "", [arg0, arg1], {
+-            (core.dtype("bf16"), core.dtype("int32")): ("__hmf_flipDhb", core.dtype("bf16")),
+-            (core.dtype("fp16"), core.dtype("int32")): ("__hmf_flipDh", core.dtype("fp16")),
+-            (core.dtype("fp32"), core.dtype("int32")): ("__hmf_flipf", core.dtype("fp32")),
+-            (core.dtype("int8"), core.dtype("int32")): ("__hmf_flipi8", core.dtype("int8")),
+-            (core.dtype("int16"), core.dtype("int32")): ("__hmf_flipi16", core.dtype("int16")),
+-            (core.dtype("int32"), core.dtype("int32")): ("__hmf_flipi32", core.dtype("int32")),
+-            (core.dtype("uint32"), core.dtype("int32")): ("__hmf_flipui32", core.dtype("uint32")),
+-            (core.dtype("int64"), core.dtype("int32")): ("__hmf_flipi64", core.dtype("int64")),
+-        }, is_pure=True, _builder=_builder)
+-
+ @core.extern
+ def atan2(arg0, _builder=None):
+     core.static_print("tl.atan2 is unsupported for now. Use libdevice.atan2 instead.")
+@@ -825,4 +798,4 @@ def copysign(arg0: core.tensor, arg1: core.tensor, _builder: ir.builder):
+     
+     neg_magnitude = semantic.mul(magnitude, semantic.full(magnitude.shape, -1.0, magnitude.type.scalar, _builder), True, _builder)
+     
+-    return semantic.where(is_negative, neg_magnitude, magnitude, _builder)
+\ No newline at end of file
++    return semantic.where(is_negative, neg_magnitude, magnitude, _builder)
+
+diff --git a/ascend/triton-adapter/include/TritonToLinalg/TritonOpConverter.h b/ascend/triton-adapter/include/TritonToLinalg/TritonOpConverter.h
+@@ -541,6 +541,12 @@ struct MatmulConverter : public OpConversionPattern<triton::DotOp> {
+                   ConversionPatternRewriter &rewriter) const override;
+ };
+ 
++struct FlipOpConverter : public OpConversionPattern<triton::FlipOp> {
++    using OpConversionPattern<triton::FlipOp>::OpConversionPattern;
++
++    LogicalResult matchAndRewrite(triton::FlipOp op, OpAdaptor adaptor,
++                  ConversionPatternRewriter &rewriter) const override;
++};
+ 
+ struct SortOpConverter : public OpConversionPattern<triton::SortOp> {
+     using OpConversionPattern<triton::SortOp>::OpConversionPattern;
+
+diff --git a/ascend/triton-adapter/lib/TritonToLinalg/TritonOpConverter.cpp b/ascend/triton-adapter/lib/TritonToLinalg/TritonOpConverter.cpp
+@@ -1655,6 +1655,92 @@ MatmulConverter::matchAndRewrite(triton::DotOp op, OpAdaptor adaptor,
+   return success();
+ }
+ 
++LogicalResult FlipOpConverter::matchAndRewrite(
++    triton::FlipOp op, OpAdaptor adaptor,
++    ConversionPatternRewriter &rewriter) const {
++      Value src = adaptor.getSrc();
++    auto rankedSrcTy = cast<RankedTensorType>(src.getType());
++    auto srcElemTy = rankedSrcTy.getElementType();
++    auto srcShape = rankedSrcTy.getShape();
++    auto srcEnc   = rankedSrcTy.getEncoding();
++
++    MLIRContext *ctx = rewriter.getContext();
++
++    // Promote small ints to float, same as SortOp
++    Type backendElemTy = srcElemTy;
++    if (srcElemTy.isInteger(8)) {
++      backendElemTy = Float16Type::get(ctx);
++    } else if (srcElemTy.isInteger(16)) {
++      backendElemTy = Float32Type::get(ctx);
++    }
++    Type backendTensorTy =
++        RankedTensorType::get(srcShape, backendElemTy, srcEnc);
++
++    Type valuesTy = src.getType();
++    Location loc = op.getLoc();
++
++    auto dimAttr = op->getAttrOfType<IntegerAttr>("dim");
++    if (!dimAttr) {
++      op->emitError("missing 'dim' attribute");
++      return failure();
++    }
++
++    auto moduleOp = op->getParentOfType<ModuleOp>();
++    if (!moduleOp) {
++      op->emitError("must be inside a module");
++      return failure();
++    }
++
++    // Unique callee name: triton_flip, triton_flip_1, …
++    llvm::SmallString<64> baseName("triton_flip");
++    llvm::SmallString<64> funcName = baseName;
++    int uniqueId = 0;
++    while (SymbolTable::lookupSymbolIn(moduleOp, funcName)) {
++      funcName = baseName;
++      funcName += ("_" + std::to_string(uniqueId++));
++    }
++
++    auto i64Ty = IntegerType::get(ctx, 64);
++    auto libFnType = rewriter.getFunctionType(
++        {backendTensorTy, i64Ty},
++        {backendTensorTy});
++
++    // Declare the callee
++    auto moduleIP = rewriter.saveInsertionPoint();
++    rewriter.setInsertionPointToEnd(moduleOp.getBody());
++    auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
++    SymbolTable::setSymbolVisibility(funcOp, SymbolTable::Visibility::Private);
++    rewriter.restoreInsertionPoint(moduleIP);
++
++    // Cast input if needed
++    Value srcForCall = src;
++    if (backendElemTy != srcElemTy) {
++      srcForCall = rewriter.create<arith::SIToFPOp>(loc, backendTensorTy, src);
++    }
++
++    // dim constant
++    Value dimVal = rewriter.create<arith::ConstantIntOp>(loc, dimAttr.getInt(), 64);
++
++    // Call the backend function
++    auto callee = SymbolRefAttr::get(ctx, funcOp.getSymName());
++    auto callOp = rewriter.create<func::CallOp>(
++        loc,
++        TypeRange({backendTensorTy}),
++        callee,
++        ValueRange({srcForCall, dimVal}));
++
++    Value valuesFloat = callOp.getResult(0);
++    Value finalValues = valuesFloat;
++
++    // Cast back if needed
++    if (backendElemTy != srcElemTy) {
++      finalValues =
++          rewriter.create<arith::FPToSIOp>(loc, valuesTy, valuesFloat);
++    }
++
++    rewriter.replaceOp(op, {finalValues});
++    return success();
++}
+ 
+ LogicalResult SortOpConverter::matchAndRewrite(
+     triton::SortOp op, OpAdaptor adaptor,
+
+diff --git a/ascend/triton-adapter/lib/TritonToLinalg/TritonToLinalgPass.cpp b/ascend/triton-adapter/lib/TritonToLinalg/TritonToLinalgPass.cpp
+@@ -640,6 +640,7 @@ void TritonToLinalgPass::populateTritonToLinalgConversionPatterns(
+   patterns.add<TTOpConverters::DevicePrintConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::MatmulConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::SortOpConverter>(patterns.getContext());
++  patterns.add<TTOpConverters::FlipOpConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::DotScaledConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::PtrToIntConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::IndirectLoadConverter>(patterns.getContext());
+
+diff --git a/triton_patch/include/triton/Dialect/Triton/IR/TritonOps.td b/triton_patch/include/triton/Dialect/Triton/IR/TritonOps.td
+@@ -628,6 +628,29 @@ def TT_SplitOp : TT_Op<"split", [
+     let assemblyFormat = "$src attr-dict `:` type($src) `->` type($outLHS)";
+ }
+ 
++def TT_FlipOp : TT_Op<"flip", [
++  NoMemoryEffect,
++  DeclareOpInterfaceMethods<InferTypeOpInterface>
++]> {
++  let summary = "Reverse a tensor along a given dimension";
++  let description = [{
++    Reverses the elements of the input tensor along the specified dimension.
++    The output tensor has the same shape and element type as the input.
++  }];
++
++  let arguments = (ins
++    TT_Tensor:$src,   // Input tensor
++    I64Attr:$dim      // Dimension to flip along
++  );
++
++  let results = (outs
++    TT_Tensor:$flipped  // Flipped values
++  );
++
++  let assemblyFormat =
++    "$src `,` $dim attr-dict `:` type($src) `->` type($flipped)";
++}
++
+ def TT_SortOp : TT_Op<"sort", [
+   NoMemoryEffect,
+   DeclareOpInterfaceMethods<InferTypeOpInterface>
+
+diff --git a/triton_patch/lib/Dialect/Triton/IR/Ops.cpp b/triton_patch/lib/Dialect/Triton/IR/Ops.cpp
+@@ -274,6 +274,24 @@ LogicalResult TransOp::inferReturnTypes(
+   return success();
+ }
+ 
++// FlipOp
++LogicalResult FlipOp::inferReturnTypes(MLIRContext *context,
++                         std::optional<Location> location,
++                         ValueRange operands,
++                         DictionaryAttr attributes,
++                         OpaqueProperties properties,
++			 RegionRange regions,
++                         SmallVectorImpl<Type> &inferredReturnTypes) {
++  auto inputTy = dyn_cast<RankedTensorType>(operands[0].getType());
++  if (!inputTy) {
++    if (location)
++      return emitOptionalError(location, "expected ranked tensor for flip input");
++    return failure();
++  }
++  inferredReturnTypes.push_back(inputTy);
++  return success();
++}
++
+ //-- SortOp --
+ LogicalResult SortOp::inferReturnTypes(
+     MLIRContext *context, std::optional<Location> location, ValueRange operands,
+
+diff --git a/triton_patch/python/src/ir.cc b/triton_patch/python/src/ir.cc
+@@ -1822,6 +1822,18 @@ void init_triton_ir(py::module &&m) {
+ 
+                auto op = builder.create<triton::SortOp>(loc, src, dimAttr, descendingAttr);
+ 
++               return op->getResult(0);
++            })
++      // Add flip
++      .def("create_flip",
++     	    [](TritonOpBuilder &self, Value src, int64_t dim) -> Value {
++               auto &builder = self.getBuilder();
++               auto loc = self.getLastLoc();
++
++               auto dimAttr = builder.getI64IntegerAttr(dim);
++
++               auto op = builder.create<triton::FlipOp>(loc, src, dimAttr);
++
+                return op->getResult(0);
+             });
+
+diff --git a/triton_patch/python/triton_patch/language/core.py b/triton_patch/python/triton_patch/language/core.py
+@@ -38,7 +38,7 @@ from triton.language.core import (
+     _unwrap_if_constexpr,
+     add,
+     sub,
+-    mul,
++    mul
+ )
+ from typing import Optional
+ from . import semantic
+@@ -473,6 +473,15 @@ def compile_hint(ptr, hint_name, hint_val=None, _builder=None):
+     hint_val = _unwrap_if_constexpr(hint_val) if hint_val else hint_val
+     semantic.compile_hint(ptr, hint_name, hint_val, _builder)
+ 
++@builtin
++def flip(ptr, dim=-1, _builder=None):
++    try:
++        dim = int(dim.value) if hasattr(dim, "value") else int(dim)
++    except Exception as e:
++        raise TypeError(f"dim must be an integer (or tl.constexpr int), got {dim!r}") from e
++
++    dim = len(ptr.shape) - 1 if dim == -1 else dim
++    return semantic.flip(ptr, dim, _builder)
+ 
+ @builtin
+ def sort(ptr, dim=-1, descending=False, _builder=None):
+
+diff --git a/triton_patch/python/triton_patch/language/semantic.py b/triton_patch/python/triton_patch/language/semantic.py
+@@ -700,7 +700,6 @@ def custom_op(builder: ir.builder, op_name: str, **kwargs):
+     
+     raise ValueError(f"Unsupported custom op: {op_name}")
+ 
+-
+ def sort(ptr: tl.tensor, dim: int, descending, builder: ir.builder):
+     """
+     Triton sort 操作
+@@ -762,6 +761,48 @@ def sort(ptr: tl.tensor, dim: int, descending, builder: ir.builder):
+ 
+     return values
+ 
++def flip(ptr: tl.tensor, dim: int, builder: ir.builder):
++    """
++    Triton flip operation
++
++    Args:
++        ptr: tl.tensor, input tensor
++        dim: int, dimension to flip (can be negative, normalized here)
++        builder: ir.builder, underlying IR builder
++    Returns:
++        flipped: tl.tensor, same type and shape as input
++    """
++
++    shape = getattr(ptr, "shape", None)
++    if shape is None or shape == ():
++        shape = getattr(getattr(ptr, "type", None), "shape", None)
++
++    rank = None
++    if shape is not None:
++        try:
++            rank = len(shape)
++        except Exception:
++            rank = len(list(shape))
++
++    if rank is not None:
++        if rank < 1:
++            raise ValueError("tt.flip requires tensor rank >= 1")
++        norm_dim = dim if dim >= 0 else dim + rank
++        if not (0 <= norm_dim < rank):
++            raise ValueError(
++                f"tt.flip got invalid dim={dim} for shape {tuple(shape)}"
++            )
++        dim = norm_dim
++    else:
++        if dim < 0:
++            raise ValueError(
++                "tt.flip with unknown rank requires non-negative dim"
++            )
++
++    flipped_vals = builder.create_flip(ptr.handle, dim)
++    flipped = tl.tensor(flipped_vals, type=ptr.type)
++    return flipped
++
+ 
+ def _str_to_fp_type(float_format: Optional[str]):
+     if float_format == 'e4m3':
+
+diff --git a/triton_patch/python/triton_patch/language/standard.py b/triton_patch/python/triton_patch/language/standard.py
+@@ -25,23 +25,8 @@ from triton.language import core, math
+ from triton.language import float32, int1, int32
+ from triton.language.standard import max, sum
+ from triton.runtime.jit import jit
+-from triton.language.extra.ascend.libdevice import flip as ascend_flip
+ 
+ 
+-
+-@core._tensor_member_fn
+-@jit
+-def flip(x, dim=None):
+-    """
+-    Flips a tensor `x` along the dimension `dim`.
+-
+-    :param x: the first input tensor
+-    :type x: Block
+-    :param dim: the dimension to flip along (currently only final dimension supported)
+-    :type dim: int
+-    """
+-    return ascend_flip(x, dim)
+-
+ @core._tensor_member_fn
+ @jit
+ @math._add_math_1arg_docstr("sigmoid")
+
+diff --git a/triton_patch/python/triton_patch/testing.py b/triton_patch/python/triton_patch/testing.py
+@@ -674,9 +674,10 @@ from .triton_patch.language.core import (
+     dtype_to_ir,
+     sort,
+     load,
++    flip
+ )
+ from .triton_patch.language.core import dot_scaled as core_dot_scaled
+-from .triton_patch.language.standard import flip, sigmoid, softmax, isfinited, finitef, rint, atan2, argmax, argmin
++from .triton_patch.language.standard import sigmoid, softmax, isfinited, finitef, rint, atan2, argmax, argmin
+ from .triton_patch.language.math import (
+     umulhi,
+     exp,
+@@ -716,7 +717,7 @@ from .triton_patch.language.semantic import (
+     or_,
+     xor_,
+     minus,
+-    dot_scaled,
++    dot_scaled
+ )
+ from . import language
+ 
+@@ -823,7 +824,7 @@ language.math.tanh = language.extra.ascend.libdevice.tanh
+ language.math.ilogb = language.extra.ascend.libdevice.ilogb
+ language.math.ldexp = language.extra.ascend.libdevice.ldexp
+ language.math.pow = language.extra.ascend.libdevice.pow
+-language.math.flip = language.extra.ascend.libdevice.flip
++language.math.flip = language.flip
+ language.math.atan2 = language.extra.ascend.libdevice.atan2
+ language.math.div_rz = language.extra.ascend.libdevice.div_rz
+ language.math.fmod = language.extra.ascend.libdevice.fmod

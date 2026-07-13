@@ -103,12 +103,33 @@ def load_all_pages():
 
 def detect_page_type(fm, path):
     """Return a page-type label for filtering: source-pr/source-blog/..., wiki-hardware/..."""
-    if "type" in fm:
-        return f"wiki-{fm['type']}"
     parts = path.split("/")
     if parts[0] == "sources" and len(parts) > 1:
-        return f"source-{parts[1].rstrip('s')}"  # prs → source-pr
+        # Source-side experience records also carry `type: experience`.
+        # Prefer the physical corpus role here so output/filtering makes it
+        # clear that these are evidence records, not synthesized wiki pages.
+        if parts[1] == "experience":
+            return "source-experience"
+        if "type" not in fm:
+            return f"source-{parts[1].rstrip('s')}"  # prs → source-pr
+    if "type" in fm:
+        return f"wiki-{fm['type']}"
     return "unknown"
+
+
+def _flatten_meta_values(value):
+    """Yield strings from nested frontmatter structures for search/filtering."""
+    if value is None:
+        return
+    if isinstance(value, (str, int, float, bool)):
+        yield str(value)
+    elif isinstance(value, dict):
+        for k, v in value.items():
+            yield str(k)
+            yield from _flatten_meta_values(v)
+    elif isinstance(value, (list, tuple, set)):
+        for item in value:
+            yield from _flatten_meta_values(item)
 
 
 def score_keyword_match(fm, body, keywords):
@@ -124,6 +145,16 @@ def score_keyword_match(fm, body, keywords):
                           "languages", "aliases", "symptoms")
         for v in (fm.get(k) or [])
     ).lower()
+    metadata_text = " ".join(
+        s
+        for k in (
+            "repo", "upstream_repo", "source_refs", "source", "sources",
+            "artifacts", "artifact_dir", "api", "namespace", "func_name",
+            "operator", "applies_to", "applies_to_ops", "requires_features",
+            "related", "related_apis", "related_skills", "probe_slug",
+        )
+        for s in _flatten_meta_values(fm.get(k))
+    ).lower()
     body_lower = body.lower()
     for kw in keywords:
         best_variant_score = 0
@@ -134,6 +165,8 @@ def score_keyword_match(fm, body, keywords):
                 variant_score += 10
             if v_l in tag_text:
                 variant_score += 5
+            if v_l in metadata_text:
+                variant_score += 4
             body_hits = body_lower.count(v_l)
             variant_score += min(body_hits, 3)
             if variant_score > best_variant_score:
@@ -164,9 +197,42 @@ def filter_pages(pages, args):
             if not any(t.lower() in tag_variants for t in all_tags):
                 continue
 
+        if args.vendor and args.vendor != "all":
+            fm_vendor = fm.get("vendor", "")
+            path_parts = path.split("/")
+            path_vendor = path_parts[1] if path_parts[0] == "wiki" and len(path_parts) > 2 else ""
+            vendor_values = []
+            if isinstance(fm_vendor, (list, tuple, set)):
+                vendor_values.extend(str(v) for v in fm_vendor)
+            elif fm_vendor:
+                vendor_values.append(str(fm_vendor))
+            if path_vendor:
+                vendor_values.append(path_vendor)
+
+            # Generic cross-vendor pages often carry concrete architectures
+            # or stack/language tags (e.g. ascend910b, triton-ascend) while
+            # keeping vendor: generic to match their wiki/generic path. Treat
+            # those metadata fields as vendor applicability for filtering.
+            reg = _load_vendor_registry()
+            for k in ("architectures", "languages", "tags", "hardware_features", "kernel_types"):
+                for value in fm.get(k) or []:
+                    inferred_vendor = reg.get(str(value).lower())
+                    if inferred_vendor:
+                        vendor_values.append(inferred_vendor)
+
+            if args.vendor not in set(vendor_values):
+                continue
+
         if args.repo:
-            repo = str(fm.get("repo", "")).lower()
-            if args.repo.lower() not in repo:
+            repo_text = " ".join(
+                _flatten_meta_values({
+                    "repo": fm.get("repo"),
+                    "upstream_repo": fm.get("upstream_repo"),
+                    "source_refs": fm.get("source_refs"),
+                    "source": fm.get("source"),
+                })
+            ).lower()
+            if args.repo.lower() not in repo_text:
                 continue
 
         if args.language:
@@ -218,6 +284,19 @@ def filter_pages(pages, args):
             if ad:
                 candidate_dirs.append(WIKI_ROOT / ad)
 
+            # New merged pages often use an `artifacts:` mapping (code/build/
+            # profile/etc.) instead of a single artifact_dir. Treat any source
+            # file referenced by that mapping as code-backed, and also add its
+            # containing directories as scan candidates.
+            explicit_artifact_files = []
+            for art in _flatten_meta_values(fm.get("artifacts")):
+                art_path = WIKI_ROOT / art
+                if art_path.is_file():
+                    explicit_artifact_files.append(art_path)
+                    candidate_dirs.append(art_path.parent)
+                elif art_path.is_dir():
+                    candidate_dirs.append(art_path)
+
             # Fallback 1: conventional bundle locations per page type.
             # A source-blog's extracted code lives at artifacts/blogs/<slug>/code/;
             # a source-contest's reconstructed bundles live under
@@ -240,7 +319,13 @@ def filter_pages(pages, args):
                 candidate_dirs.append(WIKI_ROOT / "artifacts" / "prs" / repo_short / f"PR-{fm['pr']}")
 
             has_any = False
+            for f in explicit_artifact_files:
+                if f.suffix.lower() in exts:
+                    has_any = True
+                    break
             for cand in candidate_dirs:
+                if has_any:
+                    break
                 if not cand.is_dir():
                     continue
                 for f in cand.rglob("*"):
@@ -290,21 +375,104 @@ def format_result(page, compact=False):
     return "\n".join(lines)
 
 
+_VENDOR_REGISTRY = None
+
+
+def _load_vendor_registry():
+    """Load vendor->architecture mapping from data/vendors.yaml for auto-inference."""
+    global _VENDOR_REGISTRY
+    if _VENDOR_REGISTRY is not None:
+        return _VENDOR_REGISTRY
+    vpath = WIKI_ROOT / "data" / "vendors.yaml"
+    try:
+        raw = yaml.safe_load(vpath.read_text(encoding="utf-8")) or {}
+    except Exception:
+        _VENDOR_REGISTRY = {}
+        return _VENDOR_REGISTRY
+    reg = {}
+    for v in raw.get("vendors", []):
+        vid = v.get("id", "")
+        for arch in v.get("architectures", []):
+            reg[arch.lower()] = vid
+        for cs in v.get("compute_stack", []):
+            reg[cs.lower()] = vid
+    _VENDOR_REGISTRY = reg
+    return reg
+
+
+def infer_vendor(args):
+    """Auto-infer --vendor from --architecture, --language, --tag, or keywords.
+
+    Returns the inferred vendor string or None if ambiguous/unknown.
+    """
+    reg = _load_vendor_registry()
+    aliases = load_alias_expansions()
+
+    candidates = set()
+
+    # From --architecture
+    if args.architecture:
+        for variant in expand_keyword(args.architecture):
+            v = reg.get(variant.lower())
+            if v:
+                candidates.add(v)
+
+    # From --language
+    if args.language:
+        v = reg.get(args.language.lower())
+        if v:
+            candidates.add(v)
+
+    # From --tag
+    if args.tag:
+        for variant in expand_keyword(args.tag):
+            v = reg.get(variant.lower())
+            if v:
+                candidates.add(v)
+
+    # From keywords
+    for q in (args.query or []):
+        for tok in re.split(r"\s+", q.strip()):
+            tok_l = tok.lower()
+            v = reg.get(tok_l)
+            if v:
+                candidates.add(v)
+            canonical = aliases.get(tok_l)
+            if canonical:
+                v = reg.get(canonical.lower())
+                if v:
+                    candidates.add(v)
+
+    if len(candidates) == 1:
+        return candidates.pop()
+    return None
+
+
 def main():
-    parser = argparse.ArgumentParser(description="Query the Blackwell kernel wiki")
+    parser = argparse.ArgumentParser(description="Query the GPU/NPU kernel wiki")
     parser.add_argument("query", nargs="*", help="Free-text keywords")
     parser.add_argument("--type", help="Filter by page type (kernel, technique, hardware, pattern, language, migration, pr, blog, doc, contest)")
     parser.add_argument("--tag", help="Filter by tag (must appear in tags/techniques/hardware_features/kernel_types/languages)")
     parser.add_argument("--repo", help="Filter by source repo (partial match, e.g. 'cutlass')")
-    parser.add_argument("--language", help="Filter by language/DSL (cute-dsl, cuda-cpp, ptx, triton, etc.)")
-    parser.add_argument("--architecture", help="Filter by architecture (sm100, sm100a, sm90, sm90a)")
+    parser.add_argument("--language", help="Filter by language/DSL (cute-dsl, cuda-cpp, ptx, triton, ascendc, triton-ascend, etc.)")
+    parser.add_argument("--architecture", help="Filter by architecture (sm100, sm90, ascend910b, etc.)")
     parser.add_argument("--symptom", help="Filter by pattern symptom (memory-bound, register-pressure, etc.)")
     parser.add_argument("--confidence", help="Filter by confidence (verified, source-reported, inferred, experimental)")
+    parser.add_argument("--vendor", help="Filter by vendor (nvidia, ascend, biren, all). Auto-inferred from --architecture/--language/keywords when omitted.")
     parser.add_argument("--has-code", action="store_true", help="Only return pages whose artifact_dir contains at least one source file")
     parser.add_argument("--limit", type=int, default=10, help="Max results (default 10)")
     parser.add_argument("--compact", action="store_true", help="Compact one-line-per-result output")
     parser.add_argument("--paths-only", action="store_true", help="Output only file paths, one per line")
     args = parser.parse_args()
+
+    # Auto-infer vendor when not explicitly specified
+    if not args.vendor:
+        inferred = infer_vendor(args)
+        if inferred:
+            args.vendor = inferred
+            if not args.paths_only:
+                print(f"# Auto-detected vendor: {inferred}")
+                print()
 
     pages = load_all_pages()
     pages = filter_pages(pages, args)

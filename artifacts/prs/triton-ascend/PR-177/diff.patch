@@ -1,0 +1,767 @@
+diff --git a/.gitignore b/.gitignore
+@@ -6,7 +6,7 @@ fusion_result.json
+ kernel_meta/
+ 
+ # compilation
+-triton/
++/triton/
+ build/
+ compile_commands.json
+
+diff --git a/ascend/backend/driver.py b/ascend/backend/driver.py
+@@ -119,7 +119,8 @@ class NPUDriver(DriverBase):
+ 
+     def get_current_target(self):
+         backend = "npu"
+-        arch = self.utils.get_arch()
++        # arch = self.utils.get_arch()
++        arch = "910B"
+         warp_size = 0
+         return GPUTarget(backend, arch, warp_size)
+
+diff --git a/ascend/triton-adapter/include/TritonToLinalg/TritonOpConverter.h b/ascend/triton-adapter/include/TritonToLinalg/TritonOpConverter.h
+@@ -369,6 +369,15 @@ public:
+                   ConversionPatternRewriter &rewriter) const override;
+ };
+ 
++class AnnotationOpConverter
++    : public OpConversionPattern<AnnotationOp> {
++public:
++  using OpConversionPattern<AnnotationOp>::OpConversionPattern;
++  LogicalResult
++  matchAndRewrite(AnnotationOp op, OpAdaptor adaptor,
++                  ConversionPatternRewriter &rewriter) const override;
++};
++
+ class JoinConverter : public OpConversionPattern<triton::JoinOp> {
+ public:
+   using OpConversionPattern<triton::JoinOp>::OpConversionPattern;
+
+diff --git a/ascend/triton-adapter/lib/TritonToLinalg/CMakeLists.txt b/ascend/triton-adapter/lib/TritonToLinalg/CMakeLists.txt
+@@ -13,6 +13,8 @@ add_triton_library(TritonToLinalg
+ 
+   LINK_LIBS PUBLIC
+   MLIRArithDialect
++  MLIRAnnotationDialect
++  BiShengIRDialectUtils
+   MLIRDialectUtils
+   MLIRIR
+   MLIRMathDialect
+
+diff --git a/ascend/triton-adapter/lib/TritonToLinalg/TritonOpConverter.cpp b/ascend/triton-adapter/lib/TritonToLinalg/TritonOpConverter.cpp
+@@ -9,13 +9,16 @@
+ #include "TritonToLinalg/BlockPtrAnalysis.h"
+ #include "TritonToLinalg/MaskAnalysis.h"
+ #include "Utils/Utils.h"
++#include "mlir/IR/BuiltinAttributes.h"
+ #include "triton/Dialect/Triton/IR/Dialect.h"
++#include "triton/Dialect/Annotation/IR/Annotation.h"
+ 
+ #include "llvm/ADT/SmallVectorExtras.h"
+ #include "llvm/ADT/TypeSwitch.h"
+ #include "llvm/Support/ErrorHandling.h"
+ #include "llvm/Support/LogicalResult.h"
+ #include "llvm/Support/raw_ostream.h"
++#include <cassert>
+ #include <utility>
+ 
+ #include "mlir/Dialect/Arith/IR/Arith.h"
+@@ -1051,6 +1054,21 @@ LogicalResult UnrealizedCastConverter::matchAndRewrite(
+   return success();
+ }
+ 
++LogicalResult AnnotationOpConverter::matchAndRewrite(
++    AnnotationOp op, OpAdaptor adaptor,
++    ConversionPatternRewriter &rewriter) const {
++  auto loc = op->getLoc();
++  auto names = op.getAttributeNames();
++  assert(names.size() == 1 && "only 1 argument is designed for triton::AnnotationOp");
++  auto annotationOpAttr = op->getAttr(names[0]);
++  assert(op->getNumOperands() == 1 && "Annotation Op should only have one operand");
++  Value opd = op->getOperand(0);
++  auto markOp = rewriter.create<annotation::MarkOp>(loc, opd);
++  markOp->setAttr(names[0], annotationOpAttr);
++  rewriter.replaceOp(op, markOp);
++  return success();
++}
++
+ LogicalResult
+ JoinConverter::matchAndRewrite(triton::JoinOp op, OpAdaptor adaptor,
+                                ConversionPatternRewriter &rewriter) const {
+
+diff --git a/ascend/triton-adapter/lib/TritonToLinalg/TritonToLinalgPass.cpp b/ascend/triton-adapter/lib/TritonToLinalg/TritonToLinalgPass.cpp
+@@ -23,6 +23,7 @@
+ #include "mlir/Pass/PassManager.h"
+ #include "mlir/Transforms/GreedyPatternRewriteDriver.h"
+ #include "mlir/Transforms/Passes.h"
++#include "triton/Dialect/Annotation/IR/Annotation.h"
+ 
+ #include "llvm/ADT/STLExtras.h"
+ #include "llvm/ADT/SmallVector.h"
+@@ -299,7 +300,7 @@ void TritonToLinalgPass::addDynamicLegal(
+   target.addLegalDialect<
+       func::FuncDialect, arith::ArithDialect, math::MathDialect,
+       linalg::LinalgDialect, affine::AffineDialect, scf::SCFDialect,
+-      cf::ControlFlowDialect, tensor::TensorDialect,
++      cf::ControlFlowDialect, tensor::TensorDialect, annotation::AnnotationDialect,
+       bufferization::BufferizationDialect, memref::MemRefDialect>();
+ 
+   // add legal dialect on condition
+@@ -470,6 +471,7 @@ void TritonToLinalgPass::populateTritonToLinalgConversionPatterns(
+ 
+   patterns.add<TTOpConverters::DevicePrintConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::MatmulConverter>(patterns.getContext());
++  patterns.add<TTOpConverters::AnnotationOpConverter>(patterns.getContext());
+ 
+   if (!this->namedOps) {
+     linalg::populateElementwiseToLinalgConversionPatterns(patterns);
+@@ -480,6 +482,7 @@ void TritonToLinalgPass::getDependentDialects(DialectRegistry &registry) const {
+   registry.insert<func::FuncDialect, arith::ArithDialect, math::MathDialect,
+                   linalg::LinalgDialect, affine::AffineDialect, scf::SCFDialect,
+                   tensor::TensorDialect, bufferization::BufferizationDialect,
++                  annotation::AnnotationDialect,
+                   memref::MemRefDialect>();
+ }
+
+diff --git a/ascend/triton-adapter/tools/triton-adapter-opt/triton-adapter-opt.cpp b/ascend/triton-adapter/tools/triton-adapter-opt/triton-adapter-opt.cpp
+@@ -8,6 +8,7 @@
+ #include "mlir/Dialect/Tensor/IR/Tensor.h"
+ #include "mlir/Tools/mlir-opt/MlirOptMain.h"
+ #include "triton/Dialect/Triton/IR/Dialect.h"
++#include "triton/Dialect/Annotation/IR/Annotation.h"
+ 
+ int main(int argc, char **argv) {
+   mlir::DialectRegistry registry;
+@@ -18,6 +19,7 @@ int main(int argc, char **argv) {
+       mlir::math::MathDialect, mlir::arith::ArithDialect, mlir::scf::SCFDialect,
+       mlir::linalg::LinalgDialect, mlir::func::FuncDialect,
+       mlir::tensor::TensorDialect, mlir::memref::MemRefDialect,
++      mlir::annotation::AnnotationDialect,
+       mlir::bufferization::BufferizationDialect, mlir::gpu::GPUDialect>();
+ 
+   return mlir::asMainReturnCode(
+
+diff --git a/triton_patch/include/triton/Dialect/Annotation/CMakeLists.txt b/triton_patch/include/triton/Dialect/Annotation/CMakeLists.txt
+@@ -0,0 +1 @@
++add_subdirectory(IR)
+
+diff --git a/triton_patch/include/triton/Dialect/Annotation/IR/Annotation.h b/triton_patch/include/triton/Dialect/Annotation/IR/Annotation.h
+@@ -0,0 +1,34 @@
++//===- Annotation.h - Annotation dialect -------------------------*- C++-*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef BISHENGIR_DIALECT_ANNOTATION_IR_ANNOTATION_H
++#define BISHENGIR_DIALECT_ANNOTATION_IR_ANNOTATION_H
++
++#include "mlir/Bytecode/BytecodeOpInterface.h"
++#include "mlir/IR/BuiltinTypes.h"
++#include "mlir/IR/Dialect.h"
++#include "mlir/IR/OpDefinition.h"
++#include "mlir/IR/OpImplementation.h"
++#include "mlir/Interfaces/InferTypeOpInterface.h"
++#include "mlir/Interfaces/SideEffectInterfaces.h"
++#include "mlir/Interfaces/VectorInterfaces.h"
++
++//===----------------------------------------------------------------------===//
++// Annotation Dialect
++//===----------------------------------------------------------------------===//
++
++#include "triton/Dialect/Annotation/IR/AnnotationOpsDialect.h.inc"
++
++//===----------------------------------------------------------------------===//
++// Annotation Dialect Operations
++//===----------------------------------------------------------------------===//
++
++#define GET_OP_CLASSES
++#include "triton/Dialect/Annotation/IR/AnnotationOps.h.inc"
++
++#endif // BISHENGIR_DIALECT_ANNOTATION_IR_ANNOTATION_H
+
+diff --git a/triton_patch/include/triton/Dialect/Annotation/IR/AnnotationBase.td b/triton_patch/include/triton/Dialect/Annotation/IR/AnnotationBase.td
+@@ -0,0 +1,28 @@
++//===- AnnotationBase.td - Base definitions for annotation dialect ---------==//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef BISHENGIR_DIALECT_ANNOTATION_IR_ANNOTATIONBASE_TD
++#define BISHENGIR_DIALECT_ANNOTATION_IR_ANNOTATIONBASE_TD
++
++include "mlir/IR/OpBase.td"
++
++def Annotation_Dialect : Dialect {
++  let name = "annotation";
++  let description = [{
++    Annotation dialects for mark operations to
++    define some extra attrs for a certain op:
++
++    ```mlir
++    // Mark extra attrs
++    annotation.mark %a { attr-dict } : f64
++    ```
++  }];
++  let cppNamespace = "::mlir::annotation";
++}
++
++#endif // BISHENGIR_DIALECT_ANNOTATION_IR_ANNOTATIONBASE_TD
+
+diff --git a/triton_patch/include/triton/Dialect/Annotation/IR/AnnotationOps.td b/triton_patch/include/triton/Dialect/Annotation/IR/AnnotationOps.td
+@@ -0,0 +1,61 @@
++//===- AnnotationOps.td - Annotation op definitions -----------*-tablegen-*-==//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef BISHENGIR_DIALECT_ANNOTATION_IR_ANNOTATIONOPS_TD
++#define BISHENGIR_DIALECT_ANNOTATION_IR_ANNOTATIONOPS_TD
++
++include "triton/Dialect/Annotation/IR/AnnotationBase.td"
++include "mlir/Interfaces/SideEffectInterfaces.td"
++
++def MarkOp : Op<Annotation_Dialect, "mark", [Pure, MemoryEffects<[MemWrite]>]> {
++  let summary = "Annotate an IR value with key-value attribute pairs";
++  let description = [{
++    The `annotation.mark` operation can be used to annotated an IR value
++    with a set of key-value attributes pairs.
++
++    The value can be both static (i.e. an attribute) or dynamic
++    (a.k.a. an IR value).
++
++    Example:
++
++    ```mlir
++    annotation.mark %target keys = ["key"] values = [%val]
++    annotation.mark %target {key : val}
++    ```
++  }];
++  let arguments = (ins AnyType:$src,
++                       Variadic<AnyType>:$values,
++                       OptionalAttr<StrArrayAttr>:$keys);
++  let assemblyFormat = [{
++    $src attr-dict
++    (`keys` `=` $keys^)?
++    (`values` `=` `[`$values^`:`type($values) `]`)?
++    `:`type($src)
++  }];
++  let builders = [
++    OpBuilder<(ins "Value":$src)>
++  ];
++  let hasCanonicalizer = 1;
++  let hasFolder = 1;
++  let extraClassDeclaration = [{
++    /// Return whether the `annotation.mark` op is annotated
++    /// by a key-value pair with the target `key`.
++    bool isAnnotatedBy(StringRef key);
++
++    bool isAnnotatedByStaticAttr(StringRef key);
++    bool isAnnotatedByDynamicAttr(StringRef key);
++
++    /// Return key-value pair's value with the target `key`.
++    OpFoldResult getMixedAttrValue(StringRef key);
++
++    Attribute getStaticAttrValue(StringRef key);
++    Value getDynamicAttrValue(StringRef key);
++  }];
++}
++
++#endif // BISHENGIR_DIALECT_ANNOTATION_IR_ANNOTATIONOPS_TD
+
+diff --git a/triton_patch/include/triton/Dialect/Annotation/IR/CMakeLists.txt b/triton_patch/include/triton/Dialect/Annotation/IR/CMakeLists.txt
+@@ -0,0 +1,2 @@
++add_mlir_dialect(AnnotationOps annotation)
++add_mlir_doc(AnnotationOps AnnotationOps Dialects/ -gen-dialect-doc -dialect annotation)
+
+diff --git a/triton_patch/include/triton/Dialect/CMakeLists.txt b/triton_patch/include/triton/Dialect/CMakeLists.txt
+@@ -1 +1,2 @@
+ add_subdirectory(Triton)
++add_subdirectory(Annotation)
+
+diff --git a/triton_patch/include/triton/Dialect/Triton/IR/TritonOps.td b/triton_patch/include/triton/Dialect/Triton/IR/TritonOps.td
+@@ -868,6 +868,21 @@ def TT_HistogramOp : TT_Op<"histogram", [Pure]> {
+   }];
+ }
+ 
++//
++// Annotation Op
++//
++def TT_AnnotationOp : TT_Op<"annotation", [Pure, MemoryEffects<[MemWrite]>]> {
++  let summary = "annottation op is used for adding annotation.mark at triton";
++  let description = [{
++    `tt.annotation` takes a tensor and mark it with multi_buffer attribute.
++    It does not have any uses.
++  }];
++  let arguments = (ins TT_Tensor:$src, I32Attr:$multi_buffer);
++  let assemblyFormat = [{
++    $src attr-dict `:` type($src)
++  }];
++}
++
+ //
+ // Gather Op
+ //
+
+diff --git a/triton_patch/include/triton/Dialect/Utils/Util.h b/triton_patch/include/triton/Dialect/Utils/Util.h
+@@ -0,0 +1,35 @@
++//===- Util.h ---BiShengIR Dialect Uitls-------------------------*- C++ -*-===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#ifndef BISHENGIR_DIALECT_UTILS_UTIL_H
++#define BISHENGIR_DIALECT_UTILS_UTIL_H
++
++#include "mlir/Dialect/MemRef/IR/MemRef.h"
++namespace mlir {
++namespace utils {
++/// Return true if the input operation is `memref.alloc` or `memref.alloca`
++bool isAllocLikeOp(Operation *op);
++
++/// Return true if the input value is the SSA result value of `memref.alloc` or
++/// `memref.alloca` op.
++bool isAllocLikeOp(Value val);
++
++/// Try to trace back the current mermef-typed value to the source value.
++/// This function always return a value.
++Value tracebackMemRef(Value memrefVal);
++
++/// Try to trace back the current mermef-typed value to the source
++/// `mermef.alloc`.
++/// Return `std::nullopt` if max-iteration is reached, or that the value doesn't
++/// originate from a alloc op.
++std::optional<memref::AllocOp> tracebackMemRefToAlloc(Value memrefVal);
++
++} // namespace utils
++} // namespace mlir
++
++#endif
+
+diff --git a/triton_patch/lib/Dialect/Annotation/CMakeLists.txt b/triton_patch/lib/Dialect/Annotation/CMakeLists.txt
+@@ -0,0 +1 @@
++add_subdirectory(IR)
+
+diff --git a/triton_patch/lib/Dialect/Annotation/IR/AnnotationDialect.cpp b/triton_patch/lib/Dialect/Annotation/IR/AnnotationDialect.cpp
+@@ -0,0 +1,26 @@
++//===- AnnotationDialect.cpp - MLIR dialect for Annotation implementation -===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#include "triton/Dialect/Annotation/IR/Annotation.h"
++#include "mlir/Dialect/UB/IR/UBOps.h"
++#include "mlir/Transforms/InliningUtils.h"
++
++using namespace mlir;
++using namespace mlir::annotation;
++
++#include "triton/Dialect/Annotation/IR/AnnotationOpsDialect.cpp.inc"
++
++#define GET_OP_CLASSES
++#include "triton/Dialect/Annotation/IR/AnnotationOps.cpp.inc"
++
++void mlir::annotation::AnnotationDialect::initialize() {
++  addOperations<
++#define GET_OP_LIST
++#include "triton/Dialect/Annotation/IR/AnnotationOps.cpp.inc"
++      >();
++}
+
+diff --git a/triton_patch/lib/Dialect/Annotation/IR/AnnotationOps.cpp b/triton_patch/lib/Dialect/Annotation/IR/AnnotationOps.cpp
+@@ -0,0 +1,140 @@
++//===- AnnotationOps.cpp - Implementation of Annotation Dialect Ops -------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#include "triton/Dialect/Annotation/IR/Annotation.h"
++#include "triton/Dialect/Utils/Util.h"
++
++#include "mlir/Dialect/MemRef/IR/MemRef.h"
++#include "mlir/Dialect/Tensor/IR/Tensor.h"
++#include "mlir/IR/PatternMatch.h"
++
++using namespace mlir;
++using namespace mlir::annotation;
++
++namespace {
++static constexpr llvm::StringLiteral kBufferSizeInByteAttr =
++    "buffer_size_in_byte";
++} // namespace
++
++//===----------------------------------------------------------------------===//
++// MarkOp
++//===----------------------------------------------------------------------===//
++
++void MarkOp::build(OpBuilder &odsBuilder, OperationState &odsState, Value src) {
++  build(odsBuilder, odsState, src, /*values=*/ValueRange{}, /*keys=*/nullptr);
++}
++
++/// Fold buffer size annotation to mark the root alloc.
++LogicalResult foldBufferSizeAnnotationToAlloc(MarkOp markOp) {
++  if (!markOp.isAnnotatedByStaticAttr(kBufferSizeInByteAttr))
++    return failure();
++
++  // find the root alloc and move upwards
++  auto markedVal = markOp.getSrc();
++  if (utils::isAllocLikeOp(markedVal))
++    return failure();
++
++  auto maybeAllocOp = utils::tracebackMemRefToAlloc(markedVal);
++  if (!maybeAllocOp.has_value())
++    return failure();
++
++  markOp.getSrcMutable().assign((*maybeAllocOp).getMemref());
++  return success();
++}
++
++LogicalResult MarkOp::fold(FoldAdaptor adaptor,
++                           SmallVectorImpl<OpFoldResult> &results) {
++  return foldBufferSizeAnnotationToAlloc(*this);
++}
++
++struct FoldUselessBufferSizeMarkOp : OpRewritePattern<annotation::MarkOp> {
++  using OpRewritePattern<annotation::MarkOp>::OpRewritePattern;
++
++  LogicalResult matchAndRewrite(annotation::MarkOp markOp,
++                                PatternRewriter &rewriter) const override {
++    if (!markOp.isAnnotatedByStaticAttr(kBufferSizeInByteAttr))
++      return failure();
++
++    if (!llvm::hasSingleElement(markOp->getAttrs()))
++      return failure();
++
++    auto srcVal = markOp.getSrc();
++    // If the alloc is a static one, we can ignore the buffer size.
++    if (isa<MemRefType>(srcVal.getType())) {
++      auto maybeAlloc = utils::tracebackMemRefToAlloc(srcVal);
++      if (maybeAlloc.has_value() && (*maybeAlloc).getType().hasStaticShape()) {
++        rewriter.eraseOp(markOp);
++        return success();
++      }
++    }
++
++    auto users = srcVal.getUses();
++    if (!llvm::hasSingleElement(users))
++      return failure();
++
++    // if the value marked by annotation only have one user...
++
++    // and that the source op is a tensor/memref cast,
++    // propagate the annotation mark to its source
++    auto *srcDefiningOp = srcVal.getDefiningOp();
++    if (isa_and_present<tensor::CastOp, memref::CastOp, tensor::CollapseShapeOp,
++                        tensor::ExpandShapeOp, memref::CollapseShapeOp,
++                        memref::ExpandShapeOp>(srcDefiningOp)) {
++      rewriter.modifyOpInPlace(markOp, [&]() {
++        markOp.setOperand(0, srcDefiningOp->getOperand(0));
++      });
++      return success();
++    }
++
++    // otherwise, directly remote it
++    rewriter.eraseOp(markOp);
++    return success();
++  }
++};
++
++void MarkOp::getCanonicalizationPatterns(RewritePatternSet &results,
++                                         MLIRContext *context) {
++  results.add<FoldUselessBufferSizeMarkOp>(context);
++}
++
++bool MarkOp::isAnnotatedBy(StringRef key) {
++  return isAnnotatedByStaticAttr(key) || isAnnotatedByDynamicAttr(key);
++}
++
++bool MarkOp::isAnnotatedByStaticAttr(StringRef key) {
++  return (*this)->hasAttr(key);
++}
++
++bool MarkOp::isAnnotatedByDynamicAttr(StringRef key) {
++  if (!getKeys())
++    return false;
++
++  return llvm::any_of(getKeysAttr().getValue(), [&](Attribute attr) {
++    return cast<StringAttr>(attr).getValue() == key;
++  });
++}
++
++OpFoldResult MarkOp::getMixedAttrValue(StringRef key) {
++  if (isAnnotatedByStaticAttr(key))
++    return OpFoldResult{getStaticAttrValue(key)};
++
++  return OpFoldResult{getDynamicAttrValue(key)};
++}
++
++Attribute MarkOp::getStaticAttrValue(StringRef key) {
++  return (*this)->getAttr(key);
++}
++
++Value MarkOp::getDynamicAttrValue(StringRef key) {
++  for (auto [storedKey, value] :
++       llvm::zip_equal(getKeysAttr().getValue(), getValues())) {
++    if (cast<StringAttr>(storedKey).getValue() == key)
++      return value;
++  }
++  return Value();
++}
+\ No newline at end of file
+
+diff --git a/triton_patch/lib/Dialect/Annotation/IR/CMakeLists.txt b/triton_patch/lib/Dialect/Annotation/IR/CMakeLists.txt
+@@ -0,0 +1,14 @@
++add_triton_library(MLIRAnnotationDialect
++  AnnotationDialect.cpp
++  AnnotationOps.cpp
++  
++  DEPENDS
++  MLIRAnnotationOpsIncGen
++
++  LINK_LIBS PUBLIC
++  MLIRDialect
++  MLIRIR
++  MLIRArithDialect
++  MLIRMathDialect
++  MLIRSCFDialect
++)
+
+diff --git a/triton_patch/lib/Dialect/CMakeLists.txt b/triton_patch/lib/Dialect/CMakeLists.txt
+@@ -1 +1,3 @@
++add_subdirectory(Annotation)
+ add_subdirectory(Triton)
++add_subdirectory(Utils)
+
+diff --git a/triton_patch/lib/Dialect/Utils/CMakeLists.txt b/triton_patch/lib/Dialect/Utils/CMakeLists.txt
+@@ -0,0 +1,18 @@
++add_triton_library(BiShengIRDialectUtils
++  Util.cpp
++
++  # DEPENDS
++  # MLIRLinalgOpsIncGen
++  # MLIRLinalgStructuredOpsIncGen
++
++  LINK_LIBS PUBLIC
++  MLIRAnnotationDialect
++  MLIRArithDialect
++  MLIRDestinationStyleOpInterface
++  MLIRFuncDialect
++  MLIRIR
++  MLIRLinalgDialect
++  MLIRMemRefDialect
++  MLIRSCFDialect
++  MLIRTensorDialect
++)
+
+diff --git a/triton_patch/lib/Dialect/Utils/Util.cpp b/triton_patch/lib/Dialect/Utils/Util.cpp
+@@ -0,0 +1,127 @@
++//===------------- ExtraBuffer.cpp ----------------------------------------===//
++//
++// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
++// See https://llvm.org/LICENSE.txt for license information.
++// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
++//
++//===----------------------------------------------------------------------===//
++
++#include "triton/Dialect/Utils/Util.h"
++#include "mlir/Dialect/SCF/IR/SCF.h"
++
++#define DEBUG_TYPE "bishengir-util"
++#define DBGS() (llvm::dbgs() << "[" DEBUG_TYPE "]: ")
++#define DBGSNL() (llvm::dbgs() << "\n")
++#define LDBG(X) LLVM_DEBUG(DBGS() << X << "\n")
++#define LLDBG(X)                                                               \
++  LLVM_DEBUG(DBGS() << __FILE__ << ":" << __LINE__ << " " << X << "\n")
++
++namespace mlir {
++
++namespace {
++
++Value tracebackImpl(Value memrefVal) {
++  // case 1: v is the iter_arg of a scf.for
++  if (auto arg = dyn_cast<BlockArgument>(memrefVal)) {
++    if (auto forOp =
++            dyn_cast<scf::ForOp>(arg.getParentRegion()->getParentOp())) {
++      if (arg.getArgNumber() > 0 &&
++          forOp.getInitArgs().size() > arg.getArgNumber() - 1) {
++        return forOp.getInitArgs()[arg.getArgNumber() - 1];
++      }
++    }
++  }
++
++  Value result;
++  Operation *def = memrefVal.getDefiningOp();
++  if (!def) {
++    // failed to trace back
++    return result;
++  }
++
++  // case 2: v is the result of cast-like ops
++  //  - memref.cast
++  //  - memref.collapse_shape
++  //  - memref.expand_shape
++  //  - memref.memory_space_cast
++  //  - memref.reinterpret_cast
++  //  - memref.reshape
++  //  - memref.transpose
++  if (auto op = dyn_cast<memref::CastOp>(def)) {
++    result = op.getSource();
++  } else if (auto op = dyn_cast<memref::CollapseShapeOp>(def)) {
++    result = op.getSrc();
++  } else if (auto op = dyn_cast<memref::ExpandShapeOp>(def)) {
++    result = op.getSrc();
++  } else if (auto op = dyn_cast<memref::MemorySpaceCastOp>(def)) {
++    result = op.getSource();
++  } else if (auto op = dyn_cast<memref::ReinterpretCastOp>(def)) {
++    result = op.getSource();
++  } else if (auto op = dyn_cast<memref::ReshapeOp>(def)) {
++    result = op.getSource();
++  } else if (auto op = dyn_cast<memref::TransposeOp>(def)) {
++    result = op.getIn();
++  } else if (auto op = dyn_cast<UnrealizedConversionCastOp>(def)) {
++    result = op.getOperand(cast<OpResult>(memrefVal).getResultNumber());
++  } else if (auto op = dyn_cast<scf::ForOp>(def)) {
++    // trace back memref.alloc support scf.for
++    result = op.getInitArgs()[cast<OpResult>(memrefVal).getResultNumber()];
++  }
++
++  if (result) {
++    return result;
++  }
++
++  // case 3: v is the result of the view-like ops
++  //  - memref::view
++  //  - memref::subview
++  if (auto op = dyn_cast<memref::ViewOp>(def)) {
++    result = op.getViewSource();
++  } else if (auto op = dyn_cast<memref::SubViewOp>(def)) {
++    result = op.getViewSource();
++  }
++
++  return result;
++}
++
++} // namespace
++
++bool utils::isAllocLikeOp(Value val) {
++  return isAllocLikeOp(val.getDefiningOp());
++}
++
++bool utils::isAllocLikeOp(Operation *op) {
++  if (!op)
++    return false;
++  return isa<memref::AllocOp>(op) || isa<memref::AllocaOp>(op);
++}
++
++Value utils::tracebackMemRef(Value memrefVal) {
++  int loopBound = 256;
++  while (memrefVal && !utils::isAllocLikeOp(memrefVal)) {
++    auto upward = tracebackImpl(memrefVal);
++    if (!upward) {
++      break;
++    }
++
++    memrefVal = upward;
++
++    // avoid infinite loop
++    if (loopBound-- < 0) {
++      LLVM_DEBUG(llvm::dbgs()
++                 << "tracebackMemRef exceeds loopBound(" << loopBound << ")!");
++      break;
++    }
++  }
++
++  return memrefVal;
++}
++
++std::optional<memref::AllocOp> utils::tracebackMemRefToAlloc(Value memrefVal) {
++  auto tracedValue = utils::tracebackMemRef(memrefVal);
++  return utils::isAllocLikeOp(tracedValue)
++             ? tracedValue.getDefiningOp<memref::AllocOp>()
++             : std::optional<memref::AllocOp>();
++}
++
++} // namespace mlir
+\ No newline at end of file
+
+diff --git a/triton_patch/python/src/ir.cc b/triton_patch/python/src/ir.cc
+@@ -1631,6 +1631,9 @@ void init_triton_ir(py::module &&m) {
+                      IntegerType::get(operand.getContext(), 32)),
+                  operand);
+            })
++      .def("create_annotation",
++          [](TritonOpBuilder &self, Value operand, int size) {
++            self.create<AnnotationOp>(operand, size); })
+       .def("create_gather",
+            [](TritonOpBuilder &self, Value src, Value indices, int axis)
+                -> Value { return self.create<GatherOp>(src, indices, axis); })
+
+diff --git a/triton_patch/python/triton_patch/language/core.py b/triton_patch/python/triton_patch/language/core.py
+@@ -294,6 +294,17 @@ def extract_slice(ful, offsets, sizes, strides, _builder=None, _generator=None)
+     sub = semantic.extract_slice(ful, new_offsets, sizes, strides, _builder)
+     return sub
+ 
++@_tensor_member_fn
++@builtin
++def multi_buffer(src, size, _builder=None, _generator=None):
++    """
++    Set multi_buffer for an existing tensor
++    :param src: the tensor to set
++    :size: the size of multi_buffer
++    """
++    buffer_size = _constexpr_to_value(size)
++    return semantic.multi_buffer(src, buffer_size, _builder)
++
+ 
+ @builtin
+ def __lshift__(self, other, _builder=None):
+
+diff --git a/triton_patch/python/triton_patch/language/semantic.py b/triton_patch/python/triton_patch/language/semantic.py
+@@ -468,6 +468,12 @@ def extract_slice(ful: tl.tensor, offsets: List[tl.tensor], sizes: List[int], st
+     out = builder.create_extract_slice(ful.handle, new_offsets, sizes, strides)
+     return tl.tensor(out, ret_type)
+ 
++def multi_buffer(src: tl.tensor, buffer_size : int, builder: ir.builder) -> tl.tensor:
++    if buffer_size != 2:
++        raise ValueError(f"multi_buffer size must be 2 but got {buffer_size}")
++    
++    builder.create_annotation(src.handle, buffer_size)
++    
+ def atom_red_typechecking_impl(ptr: tl.tensor, val: tl.tensor, mask: tl.tensor, op: str,
+                                builder: ir.builder) -> Tuple[tl.tensor, tl.tensor, tl.tensor]:
+     if not ptr.type.scalar.is_ptr():
+
+diff --git a/triton_patch/python/triton_patch/testing.py b/triton_patch/python/triton_patch/testing.py
+@@ -615,6 +615,7 @@ from .triton_patch.language.core import (
+     __lshift__,
+     __rshift__,
+     parallel,
++    multi_buffer,
+ )
+ from .triton_patch.language.standard import flip, sigmoid, softmax
+ from .triton_patch.language.math import (
+@@ -665,6 +666,7 @@ language.tensor.__lshift__ = __lshift__
+ language.tensor.__rshift__ = __rshift__
+ language.trans = trans
+ language.parallel = parallel
++language.multi_buffer = multi_buffer
+ 
+ # from .triton_patch.language.core import dtype, pointer_type, block_type, function_type
+ # language.core.dtype = dtype

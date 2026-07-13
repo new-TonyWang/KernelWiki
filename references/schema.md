@@ -12,12 +12,24 @@ Every page has a unique `id` with a type-specific prefix:
 | source-doc | `doc-*` | Official NVIDIA docs, papers |
 | source-blog | `blog-*` | Community blog posts, tutorials |
 | source-contest | `contest-*` | Competition problems / tracks |
-| wiki-hardware | `hw-*` | Blackwell hardware feature pages |
+| source-experience | `exp-*` | Hardware probe / measurement records |
+| wiki-hardware | `hw-*` | Hardware feature pages |
 | wiki-technique | `technique-*` | Optimization techniques |
 | wiki-kernel | `kernel-*` | Kernel case studies with perf claims |
 | wiki-pattern | `pattern-*` | Problem → solution diagnosis |
 | wiki-language | `lang-*` | DSL / language guides |
 | wiki-migration | `migration-*` | Hopper → Blackwell migration |
+| wiki-skill | `skill-*` | Foundational CUDA optimization skills |
+| wiki-api-definition | `api-*` | API definitions (CUDA Runtime, PTX) |
+| wiki-experience | `exp-*` | Hardware measurement / probe records |
+| wiki-operator-routing | `routing-*` | Operator decision trees |
+| wiki-algorithm | `algo-*` | Classical optimization algorithms |
+| wiki-code-walkthrough | `code-*` | Code repository extractions |
+| wiki-pitfall | `pitfall-*` | Common pitfalls and gotchas |
+
+## Vendor Field
+
+All wiki pages under `wiki/{vendor}/` carry an optional `vendor` field. When present, it must match the path vendor prefix. Pages may also carry `source_refs` for MANIFEST-backed external repository references (coexists with `sources` which holds wiki/source page IDs).
 
 ## Required Frontmatter by Type
 
@@ -130,6 +142,6 @@ When asking about:
 - `prerequisites`: list of wiki page IDs the reader should read first
 - `candidate_techniques` (pattern only): list of technique/hw/migration IDs that address the symptoms
 
-## Blackwell-First Scope
+## Architecture-Neutral Scope
 
-Pages including `sm90` in `architectures` WITHOUT any `sm100*` variant MUST include a `blackwell_relevance:` field explaining why the Hopper content is kept. Enforced by validator.
+SM90/Hopper, SM100/Blackwell, and general CUDA pages are all first-class. Architecture applicability is expressed with `architectures`; no architecture requires a special relevance-justification field.

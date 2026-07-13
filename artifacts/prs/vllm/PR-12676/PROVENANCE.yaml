@@ -1,0 +1,44 @@
+origin_url: https://github.com/vllm-project/vllm/pull/12676
+upstream_repo: vllm-project/vllm
+upstream_sha: 75e94309
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-12676
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: c9c78407033999c1cde206e51b6f7f8ebb7c11de01a102aa88ee24e081c06150
+- local_path: key-files/csrc/cache.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cache.h
+  sha256: 0cec066a722417ad4149c4df32e3f2291bc24efb7912628c60799394dca33905
+- local_path: key-files/csrc/cache_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cache_kernels.cu
+  sha256: 74611497bcb3df5594e5aa0a4e2bb13fd7f6ec4c91c5d21bdb705879cf039973
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: fde4d3fb7a45e6473a4fa31eccfc3b6b6463d4a0afb4efe41f35691165e2a643
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 89d66e8bcb1fa65ca44287c9903831a899329bebf17db6bbeb7c4d726b9f1d45
+- local_path: key-files/vllm/attention/backends/triton_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/triton_mla.py
+  sha256: a8c0bc0c24ae644de0935fa7f04c508d6d17a22fb529ea90690f5295e3bd36d7
+- local_path: key-files/vllm/attention/ops/triton_decode_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/ops/triton_decode_attention.py
+  sha256: 9ff2a5bdeaad872fa9563e4d0471ce953b5f1ccc39ba69d7b6daa13be00d68b5

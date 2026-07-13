@@ -1,0 +1,82 @@
+# Source Corpus Registry
+# Declares both tier-1 (in-git) and tier-2 (external) sources.
+# Consumed by scripts/localize.py, scripts/source_corpus_cli.py, and scripts/validate.py
+
+# === Tier 1: In-git sources (committed under corpus/nvidia/) ===
+
+- source_id: cuda-official/toolkit-docs-13.2
+  title: CUDA Toolkit Documentation 13.2
+  tier: in-git
+  local_path: nvidia/cuda-official/cuda-toolkit-documentation-13.2
+  remote:
+    url: https://docs.nvidia.com/cuda/
+  default_ref: "13.2"
+  fetched_at: "2026-04-10"
+  aliases: [cuda-official, toolkit-docs, programming-guide, ptx-isa, runtime-api]
+  tags: [programming-guide, best-practices, ptx, runtime, driver, cublas, cub]
+
+- source_id: blogs/colfax
+  title: Colfax CUDA and GPU blog collection
+  tier: in-git
+  local_path: nvidia/blogs/colfax
+  fetched_at: "2026-04-10"
+  aliases: [colfax, blogs/colfax]
+  tags: [hopper, blackwell, tma, wgmma, async-pipeline]
+
+- source_id: whitepapers/gpu
+  title: GPU architecture whitepapers
+  tier: in-git
+  local_path: nvidia/whitepapers/gpu-wite-paper
+  fetched_at: "2026-04-10"
+  aliases: [whitepapers, gpu-whitepaper, hopper-whitepaper]
+  tags: [hopper, architecture, whitepaper]
+
+- source_id: legacy-knowledge
+  title: KernelPilot legacy knowledge tree (pre-refactor)
+  tier: in-git
+  local_path: nvidia/legacy-knowledge
+  fetched_at: "2026-04-22"
+  aliases: [legacy, legacy-knowledge, kernelpilot-knowledge]
+  tags: [legacy, api-reference, optimization, pattern]
+
+# === Tier 2: External sources (resolved via localize.yaml) ===
+
+- source_id: source-code/cutlass
+  title: CUTLASS source tree
+  tier: external
+  local_path: "{{CUTLASS_REPO_REF}}"
+  remote:
+    url: https://github.com/NVIDIA/cutlass
+  default_ref: main
+  aliases: [cutlass, source-code/cutlass]
+  tags: [source, tensor-core, cute, wgmma]
+
+- source_id: source-code/cuda-samples
+  title: CUDA Samples source tree
+  tier: external
+  local_path: "{{CUDA_SAMPLES_REPO_REF}}"
+  remote:
+    url: https://github.com/NVIDIA/cuda-samples
+  default_ref: master
+  aliases: [cuda-samples, samples]
+  tags: [source, examples, reduction, scan]
+
+- source_id: source-code/flash-attention
+  title: FlashAttention v3 (Tri Dao et al.)
+  tier: external
+  local_path: "{{FLASH_ATTENTION_REPO_REF}}"
+  remote:
+    url: https://github.com/Dao-AILab/flash-attention
+  default_ref: bbda031f1cd1adf1a57a3b3e8cdc3db2b54d3994
+  aliases: [flash-attention, flash-attn, fav3]
+  tags: [attention, flash-attention, fmha, hopper]
+
+- source_id: research/claude
+  title: Claude research notes
+  tier: external
+  local_path: "{{CLAUDE_RESEARCH_REF}}"
+  remote:
+    url: file://local-research-notes
+  default_ref: HEAD
+  aliases: [claude-research, research]
+  tags: [notes, analysis]

@@ -1,0 +1,49 @@
+origin_url: https://github.com/vllm-project/vllm/pull/36540
+upstream_repo: vllm-project/vllm
+upstream_sha: 598190aa
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-36540
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ad5b092c3ab59a950eddb480360d6c46056391b23a8f18b220ff292527972c70
+- local_path: key-files/csrc/attention/merge_attn_states.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/attention/merge_attn_states.cu
+  sha256: b3e2454f158802bcf2a1e6b051c9a257a1fdee797bba38ea3f7d79c47c7ecae5
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: a31bd83b25536a90e6dd3a238113fcc9dabf2864b4ea655203a98379bb32d8d0
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: ad5b577ecd117272dd72d931a7768208654a7e0e967b75343d072e4877efa488
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: ee5c373c7e0137ca28ecb5af398277c4ccd1f5ec0c14ea9e4749983f59555686
+- local_path: key-files/vllm/model_executor/layers/attention/mla_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/attention/mla_attention.py
+  sha256: fd3483d512ec7b2953c23838abe533d21cfb6b8ab22f4edba9db755fdbdbc81b
+- local_path: key-files/vllm/v1/attention/ops/merge_attn_states.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/merge_attn_states.py
+  sha256: c565633bf305df8a65cf40e37d195c87e6c56271e7826acdef1c1d4cdaf6c70e
+- local_path: key-files/vllm/v1/attention/ops/triton_merge_attn_states.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/triton_merge_attn_states.py
+  sha256: dbb7f73c5b5041c234367b5ab0ed7fad4a294c10284d6ca286987bb007c75eaa

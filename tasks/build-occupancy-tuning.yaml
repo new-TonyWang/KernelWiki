@@ -1,0 +1,50 @@
+task_id: 2026-04-16-occupancy-tuning
+task_type: build-skill
+target_path: wiki/nvidia/foundations/compute/occupancy-tuning/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - <local-path>
+  - <local-path> Programming Guides/cuda-c-best-practices-guide/
+  - <local-path>
+
+references:
+  - reasoning/api-probing.md
+  - reasoning/hardware-microbench.md
+  - reasoning/benchmark-protocol.md
+  - reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: skill.md
+  - file_exists: pitfalls.md
+  - file_exists: apis.md
+  - lint_clean: true
+  - at_least_one_hw_probe_linked: true
+
+related_skills: [register-pressure, compiler-hints, ilp]
+
+notes: |
+  Cover occupancy tuning: choosing block size, understanding the occupancy
+  limit factors (registers, shared memory, max threads), and using the
+  occupancy API to find the optimal launch configuration.
+
+  Key topics:
+  - What occupancy is: active warps / max warps per SM
+  - Three limit factors: registers, shared memory, max threads per block
+  - cudaOccupancyMaxActiveBlocksPerMultiprocessor
+  - cudaOccupancyMaxPotentialBlockSize (auto block size selection)
+  - CUDA Occupancy Calculator spreadsheet (mention but focus on API)
+  - The "occupancy is not everything" insight: 50% occupancy with zero
+    spills often beats 100% occupancy with spills (link to register-pressure)
+  - Block size heuristics: 128/256/512 and why 256 is often the sweet spot
+
+  apis.md is REQUIRED: cudaOccupancyMaxActiveBlocksPerMultiprocessor,
+  cudaOccupancyMaxPotentialBlockSize, cudaOccupancyAvailableDynamicSMemPerBlock.
+
+  Microbench probe: sweep block sizes (64, 128, 256, 512, 1024) on a simple
+  vector-add kernel. Measure occupancy (via the API) and latency for each.
+  Show that the occupancy-optimal block size is not always the latency-optimal one.

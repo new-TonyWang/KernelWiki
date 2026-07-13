@@ -1,0 +1,620 @@
+diff --git a/.ci/docker/build.sh b/.ci/docker/build.sh
+index 8221423e46cdb..a56dad5a70d52 100755
+--- a/.ci/docker/build.sh
++++ b/.ci/docker/build.sh
+@@ -116,15 +116,6 @@ case "$tag" in
+     KATEX=yes
+     TRITON=yes
+     ;;
+-  pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks)
+-    CUDA_VERSION=12.8.1
+-    ANACONDA_PYTHON_VERSION=3.10
+-    GCC_VERSION=11
+-    VISION=yes
+-    KATEX=yes
+-    TRITON=yes
+-    INDUCTOR_BENCHMARKS=yes
+-    ;;
+   pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks)
+     CUDA_VERSION=13.0.2
+     ANACONDA_PYTHON_VERSION=3.10
+diff --git a/.github/workflows/docker-builds.yml b/.github/workflows/docker-builds.yml
+index 5b1b3dcd89cce..9a8fbe3ee7fa5 100644
+--- a/.github/workflows/docker-builds.yml
++++ b/.github/workflows/docker-builds.yml
+@@ -52,7 +52,6 @@ jobs:
+           pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11,
+           pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11,
+           pytorch-linux-jammy-cuda13.0-cudnn9-py3.12-gcc11-vllm,
+-          pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks,
+           pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks,
+           pytorch-linux-jammy-py3.10-clang15,
+           pytorch-linux-jammy-py3.11-clang15,
+diff --git a/.github/workflows/inductor-micro-benchmark.yml b/.github/workflows/inductor-micro-benchmark.yml
+index 5813aa28365e7..2473b5a515f77 100644
+--- a/.github/workflows/inductor-micro-benchmark.yml
++++ b/.github/workflows/inductor-micro-benchmark.yml
+@@ -30,14 +30,14 @@ jobs:
+       opt_out_experiments: lf
+ 
+   build:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-build.yml
+     needs:
+       - get-default-label-prefix
+     with:
+       runner_prefix: "${{ needs.get-default-label-prefix.outputs.label-type }}"
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm80
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '8.0'
+       test-matrix: |
+         { include: [
+@@ -46,7 +46,7 @@ jobs:
+     secrets: inherit
+ 
+   test:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-test.yml
+     needs: build
+     with:
+@@ -55,30 +55,3 @@ jobs:
+       test-matrix: ${{ needs.build.outputs.test-matrix }}
+       timeout-minutes: 720
+     secrets: inherit
+-
+-  build-cuda13:
+-    name: cuda13.0-py3.10-gcc11-sm80
+-    uses: ./.github/workflows/_linux-build.yml
+-    needs:
+-      - get-default-label-prefix
+-    with:
+-      runner_prefix: "${{ needs.get-default-label-prefix.outputs.label-type }}"
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+-      cuda-arch-list: '8.0'
+-      test-matrix: |
+-        { include: [
+-          { config: "inductor-micro-benchmark", shard: 1, num_shards: 1, runner: "linux.aws.a100", owners: ["oncall:pt2"] },
+-        ]}
+-    secrets: inherit
+-
+-  test-cuda13:
+-    name: cuda13.0-py3.10-gcc11-sm80
+-    uses: ./.github/workflows/_linux-test.yml
+-    needs: build-cuda13
+-    with:
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
+-      docker-image: ${{ needs.build-cuda13.outputs.docker-image }}
+-      test-matrix: ${{ needs.build-cuda13.outputs.test-matrix }}
+-      timeout-minutes: 720
+-    secrets: inherit
+diff --git a/.github/workflows/inductor-perf-compare.yml b/.github/workflows/inductor-perf-compare.yml
+index 17b265500d47e..1ab538f96c1f0 100644
+--- a/.github/workflows/inductor-perf-compare.yml
++++ b/.github/workflows/inductor-perf-compare.yml
+@@ -27,15 +27,15 @@ jobs:
+       opt_out_experiments: lf
+ 
+   build:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-build.yml
+     needs:
+       - get-default-label-prefix
+     with:
+       runner_prefix: "${{ needs.get-default-label-prefix.outputs.label-type }}"
+       runner: linux.4xlarge.memory
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm80
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '8.0'
+       test-matrix: |
+         { include: [
+@@ -48,7 +48,7 @@ jobs:
+     secrets: inherit
+ 
+   test:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-test.yml
+     needs: build
+     with:
+@@ -60,38 +60,3 @@ jobs:
+       monitor-log-interval: 15
+       monitor-data-collect-interval: 4
+     secrets: inherit
+-
+-  build-cuda13:
+-    name: cuda13.0-py3.10-gcc11-sm80
+-    uses: ./.github/workflows/_linux-build.yml
+-    needs:
+-      - get-default-label-prefix
+-    with:
+-      runner_prefix: "${{ needs.get-default-label-prefix.outputs.label-type }}"
+-      runner: linux.4xlarge.memory
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+-      cuda-arch-list: '8.0'
+-      test-matrix: |
+-        { include: [
+-          { config: "inductor_huggingface_perf_compare", shard: 1, num_shards: 1, runner: "linux.aws.a100" },
+-          { config: "inductor_timm_perf_compare", shard: 1, num_shards: 2, runner: "linux.aws.a100" },
+-          { config: "inductor_timm_perf_compare", shard: 2, num_shards: 2, runner: "linux.aws.a100" },
+-          { config: "inductor_torchbench_perf_compare", shard: 1, num_shards: 1, runner: "linux.aws.a100" },
+-        ]}
+-      build-additional-packages: "vision audio torchao"
+-    secrets: inherit
+-
+-  test-cuda13:
+-    name: cuda13.0-py3.10-gcc11-sm80
+-    uses: ./.github/workflows/_linux-test.yml
+-    needs: build-cuda13
+-    with:
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
+-      docker-image: ${{ needs.build-cuda13.outputs.docker-image }}
+-      test-matrix: ${{ needs.build-cuda13.outputs.test-matrix }}
+-      # disable monitor in perf tests for more investigation
+-      disable-monitor: false
+-      monitor-log-interval: 15
+-      monitor-data-collect-interval: 4
+-    secrets: inherit
+diff --git a/.github/workflows/inductor-perf-test-b200.yml b/.github/workflows/inductor-perf-test-b200.yml
+index 07c7a0cf987d7..96608d6d1d1d0 100644
+--- a/.github/workflows/inductor-perf-test-b200.yml
++++ b/.github/workflows/inductor-perf-test-b200.yml
+@@ -78,7 +78,7 @@ jobs:
+       opt_out_experiments: lf
+ 
+   build:
+-    name: cuda12.8-py3.10-gcc11-sm100
++    name: cuda13.0-py3.10-gcc11-sm100
+     uses: ./.github/workflows/_linux-build.yml
+     needs: get-label-type
+     with:
+@@ -88,8 +88,8 @@ jobs:
+       # from trunk. Also use a memory-intensive runner here because memory is
+       # usually the bottleneck
+       runner: linux.12xlarge.memory
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm100
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm100
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '10.0'
+       test-matrix: |
+         { include: [
+@@ -102,7 +102,7 @@ jobs:
+     secrets: inherit
+ 
+   test-periodically:
+-    name: cuda12.8-py3.10-gcc11-sm100
++    name: cuda13.0-py3.10-gcc11-sm100
+     uses: ./.github/workflows/_linux-test.yml
+     needs: build
+     if: github.event.schedule == '0 7 * * 1-6'
+@@ -119,7 +119,7 @@ jobs:
+     secrets: inherit
+ 
+   test-weekly:
+-    name: cuda12.8-py3.10-gcc11-sm100
++    name: cuda13.0-py3.10-gcc11-sm100
+     uses: ./.github/workflows/_linux-test.yml
+     needs: build
+     if: github.event.schedule == '0 7 * * 0'
+@@ -136,7 +136,7 @@ jobs:
+     secrets: inherit
+ 
+   test:
+-    name: cuda12.8-py3.10-gcc11-sm100
++    name: cuda13.0-py3.10-gcc11-sm100
+     uses: ./.github/workflows/_linux-test.yml
+     needs: build
+     with:
+diff --git a/.github/workflows/inductor-perf-test-nightly-h100.yml b/.github/workflows/inductor-perf-test-nightly-h100.yml
+index 155b995e3c8a2..4d161a00825b0 100644
+--- a/.github/workflows/inductor-perf-test-nightly-h100.yml
++++ b/.github/workflows/inductor-perf-test-nightly-h100.yml
+@@ -93,8 +93,8 @@ jobs:
+       # from trunk. Also use a memory-intensive runner here because memory is
+       # usually the bottleneck
+       runner: linux.12xlarge.memory
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm90
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm90
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '9.0'
+       test-matrix: |
+         { include: [
+diff --git a/.github/workflows/inductor-perf-test-nightly.yml b/.github/workflows/inductor-perf-test-nightly.yml
+index 2a8e29278b8bc..0d470a3bcd4cb 100644
+--- a/.github/workflows/inductor-perf-test-nightly.yml
++++ b/.github/workflows/inductor-perf-test-nightly.yml
+@@ -78,15 +78,15 @@ jobs:
+       opt_out_experiments: lf
+ 
+   build:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-build.yml
+     needs: get-label-type
+     with:
+       runner_prefix: "${{ needs.get-label-type.outputs.label-type }}"
+       # Every bit to make perf run faster helps
+       runner: linux.12xlarge.memory
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm80
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '8.0'
+       test-matrix: |
+         { include: [
+@@ -115,7 +115,7 @@ jobs:
+     secrets: inherit
+ 
+   test-nightly:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-test.yml
+     needs: build
+     if: github.event.schedule == '0 7 * * 1-6'
+@@ -131,7 +131,7 @@ jobs:
+     secrets: inherit
+ 
+   test-weekly:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-test.yml
+     needs: build
+     if: github.event.schedule == '0 7 * * 0'
+@@ -148,7 +148,7 @@ jobs:
+     secrets: inherit
+ 
+   test:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-test.yml
+     needs: build
+     if: github.event_name == 'workflow_dispatch'
+@@ -162,89 +162,3 @@ jobs:
+       monitor-log-interval: 15
+       monitor-data-collect-interval: 4
+     secrets: inherit
+-
+-  build-cuda13:
+-    name: cuda13.0-py3.10-gcc11-sm80
+-    uses: ./.github/workflows/_linux-build.yml
+-    needs: get-label-type
+-    with:
+-      runner_prefix: "${{ needs.get-label-type.outputs.label-type }}"
+-      # Every bit to make perf run faster helps
+-      runner: linux.12xlarge.memory
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+-      cuda-arch-list: '8.0'
+-      test-matrix: |
+-        { include: [
+-          { config: "inductor_huggingface_perf", shard: 1, num_shards: 5, runner: "linux.aws.a100" },
+-          { config: "inductor_huggingface_perf", shard: 2, num_shards: 5, runner: "linux.aws.a100" },
+-          { config: "inductor_huggingface_perf", shard: 3, num_shards: 5, runner: "linux.aws.a100" },
+-          { config: "inductor_huggingface_perf", shard: 4, num_shards: 5, runner: "linux.aws.a100" },
+-          { config: "inductor_huggingface_perf", shard: 5, num_shards: 5, runner: "linux.aws.a100" },
+-          { config: "inductor_timm_perf", shard: 1, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_timm_perf", shard: 2, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_timm_perf", shard: 3, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_timm_perf", shard: 4, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_timm_perf", shard: 5, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_timm_perf", shard: 6, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_torchbench_perf", shard: 1, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_torchbench_perf", shard: 2, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_torchbench_perf", shard: 3, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_torchbench_perf", shard: 4, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_torchbench_perf", shard: 5, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "inductor_torchbench_perf", shard: 6, num_shards: 6, runner: "linux.aws.a100" },
+-          { config: "cachebench", shard: 1, num_shards: 2, runner: "linux.aws.a100" },
+-          { config: "cachebench", shard: 2, num_shards: 2, runner: "linux.aws.a100" },
+-        ]}
+-      selected-test-configs: ${{ inputs.benchmark_configs }}
+-      build-additional-packages: "vision audio torchao"
+-    secrets: inherit
+-
+-  test-nightly-cuda13:
+-    name: cuda13.0-py3.10-gcc11-sm80
+-    uses: ./.github/workflows/_linux-test.yml
+-    needs: build-cuda13
+-    if: github.event.schedule == '0 7 * * 1-6'
+-    with:
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
+-      dashboard-tag: training-true-inference-true-default-true-dynamic-true-cudagraphs-true-cppwrapper-true-aotinductor-true-freezing_cudagraphs-true
+-      docker-image: ${{ needs.build-cuda13.outputs.docker-image }}
+-      test-matrix: ${{ needs.build-cuda13.outputs.test-matrix }}
+-      timeout-minutes: 720
+-      disable-monitor: false
+-      monitor-log-interval: 15
+-      monitor-data-collect-interval: 4
+-    secrets: inherit
+-
+-  test-weekly-cuda13:
+-    name: cuda13.0-py3.10-gcc11-sm80
+-    uses: ./.github/workflows/_linux-test.yml
+-    needs: build-cuda13
+-    if: github.event.schedule == '0 7 * * 0'
+-    with:
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
+-      dashboard-tag: training-true-inference-true-default-true-dynamic-true-cudagraphs-true-cppwrapper-true-aotinductor-true-freezing_cudagraphs-true-maxautotune-true-freeze_autotune_cudagraphs-true
+-      docker-image: ${{ needs.build-cuda13.outputs.docker-image }}
+-      test-matrix: ${{ needs.build-cuda13.outputs.test-matrix }}
+-      timeout-minutes: 1440
+-      # disable monitor in perf tests, next step is to enable it
+-      disable-monitor: false
+-      monitor-log-interval: 15
+-      monitor-data-collect-interval: 4
+-    secrets: inherit
+-
+-  test-cuda13:
+-    name: cuda13.0-py3.10-gcc11-sm80
+-    uses: ./.github/workflows/_linux-test.yml
+-    needs: build-cuda13
+-    if: github.event_name == 'workflow_dispatch'
+-    with:
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
+-      dashboard-tag: training-${{ inputs.training }}-inference-${{ inputs.inference }}-default-${{ inputs.default }}-dynamic-${{ inputs.dynamic }}-cudagraphs-${{ inputs.cudagraphs }}-cppwrapper-${{ inputs.cppwrapper }}-aotinductor-${{ inputs.aotinductor }}-maxautotune-${{ inputs.maxautotune }}-freezing_cudagraphs-${{ inputs.freezing_cudagraphs }}
+-      docker-image: ${{ needs.build-cuda13.outputs.docker-image }}
+-      test-matrix: ${{ needs.build-cuda13.outputs.test-matrix }}
+-      timeout-minutes: 720
+-      disable-monitor: false
+-      monitor-log-interval: 15
+-      monitor-data-collect-interval: 4
+-    secrets: inherit
+diff --git a/.github/workflows/inductor-periodic.yml b/.github/workflows/inductor-periodic.yml
+index 18d7c7189f38e..cfa844d3b7d96 100644
+--- a/.github/workflows/inductor-periodic.yml
++++ b/.github/workflows/inductor-periodic.yml
+@@ -38,8 +38,8 @@ jobs:
+     with:
+       runner_prefix: "${{ needs.get-default-label-prefix.outputs.label-type }}"
+       runner: linux.4xlarge.memory
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm86
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm86
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '8.0;8.6'
+       test-matrix: |
+         { include: [
+@@ -82,57 +82,6 @@ jobs:
+       test-matrix: ${{ needs.periodic-dynamo-benchmarks-build.outputs.test-matrix }}
+     secrets: inherit
+ 
+-  periodic-dynamo-benchmarks-build-cuda13:
+-    name: periodic-dynamo-benchmarks-build-cuda13
+-    uses: ./.github/workflows/_linux-build.yml
+-    needs: get-default-label-prefix
+-    with:
+-      runner_prefix: "${{ needs.get-default-label-prefix.outputs.label-type }}"
+-      runner: linux.4xlarge.memory
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm86
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+-      cuda-arch-list: '8.0;8.6'
+-      test-matrix: |
+-        { include: [
+-          { config: "dynamo_eager_torchbench", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamo_eager_torchbench", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamo_eager_huggingface", shard: 1, num_shards: 1, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamo_eager_timm", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamo_eager_timm", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "aot_eager_torchbench", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "aot_eager_torchbench", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "aot_eager_huggingface", shard: 1, num_shards: 1, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "aot_eager_timm", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "aot_eager_timm", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_aot_eager_torchbench", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_aot_eager_torchbench", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_aot_eager_huggingface", shard: 1, num_shards: 1, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_aot_eager_timm", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_aot_eager_timm", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_inductor_huggingface", shard: 1, num_shards: 1, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_inductor_timm", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_inductor_timm", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_inductor_torchbench", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "dynamic_inductor_torchbench", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "aot_inductor_huggingface", shard: 1, num_shards: 1, runner: "linux.aws.a100" },
+-          { config: "aot_inductor_timm", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "aot_inductor_timm", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "aot_inductor_torchbench", shard: 1, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "aot_inductor_torchbench", shard: 2, num_shards: 2, runner: "linux.g5.4xlarge.nvidia.gpu" },
+-        ]}
+-      build-additional-packages: "vision audio torchao"
+-    secrets: inherit
+-
+-  periodic-dynamo-benchmarks-test-cuda13:
+-    name: periodic-dynamo-benchmarks-test-cuda13
+-    uses: ./.github/workflows/_linux-test.yml
+-    needs: periodic-dynamo-benchmarks-build-cuda13
+-    with:
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm86
+-      docker-image: ${{ needs.periodic-dynamo-benchmarks-build-cuda13.outputs.docker-image }}
+-      test-matrix: ${{ needs.periodic-dynamo-benchmarks-build-cuda13.outputs.test-matrix }}
+-    secrets: inherit
+-
+   rocm-periodic-dynamo-benchmarks-build:
+     if: github.repository_owner == 'pytorch'
+     name: rocm-periodic-dynamo-benchmarks-build
+@@ -191,8 +140,8 @@ jobs:
+     with:
+       runner_prefix: "${{ needs.get-default-label-prefix.outputs.label-type }}"
+       runner: linux.4xlarge.memory
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm80
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '8.0'
+       test-matrix: |
+         { include: [
+diff --git a/.github/workflows/inductor-unittest.yml b/.github/workflows/inductor-unittest.yml
+index b5cea8ceb5265..82fb485f24b2b 100644
+--- a/.github/workflows/inductor-unittest.yml
++++ b/.github/workflows/inductor-unittest.yml
+@@ -36,8 +36,8 @@ jobs:
+     uses: ./.github/workflows/_linux-build.yml
+     needs: get-label-type
+     with:
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm86
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm86
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '8.6'
+       runner_prefix: "${{ needs.get-label-type.outputs.label-type }}"
+       test-matrix: |
+diff --git a/.github/workflows/inductor.yml b/.github/workflows/inductor.yml
+index acfa832c88ebb..2532279500849 100644
+--- a/.github/workflows/inductor.yml
++++ b/.github/workflows/inductor.yml
+@@ -49,8 +49,8 @@ jobs:
+     uses: ./.github/workflows/_linux-build.yml
+     needs: get-label-type
+     with:
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm86
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm86
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '8.6'
+       runner_prefix: "${{ needs.get-label-type.outputs.label-type }}"
+       runner: linux.4xlarge.memory
+@@ -75,37 +75,6 @@ jobs:
+       test-matrix: ${{ needs.inductor-build.outputs.test-matrix }}
+     secrets: inherit
+ 
+-  inductor-build-cuda13:
+-    name: inductor-build-cuda13
+-    uses: ./.github/workflows/_linux-build.yml
+-    needs: get-label-type
+-    with:
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm86
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+-      cuda-arch-list: '8.6'
+-      runner_prefix: "${{ needs.get-label-type.outputs.label-type }}"
+-      runner: linux.4xlarge.memory
+-      test-matrix: |
+-        { include: [
+-          { config: "inductor_huggingface", shard: 1, num_shards: 1, runner: "${{ needs.get-label-type.outputs.label-type }}linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "inductor_timm", shard: 1, num_shards: 2, runner: "${{ needs.get-label-type.outputs.label-type }}linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "inductor_timm", shard: 2, num_shards: 2, runner: "${{ needs.get-label-type.outputs.label-type }}linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "inductor_torchbench", shard: 1, num_shards: 2, runner: "${{ needs.get-label-type.outputs.label-type }}linux.g5.4xlarge.nvidia.gpu" },
+-          { config: "inductor_torchbench", shard: 2, num_shards: 2, runner: "${{ needs.get-label-type.outputs.label-type }}linux.g5.4xlarge.nvidia.gpu" },
+-        ]}
+-      build-additional-packages: "vision audio torchao"
+-    secrets: inherit
+-
+-  inductor-test-cuda13:
+-    name: inductor-test-cuda13
+-    uses: ./.github/workflows/_linux-test.yml
+-    needs: inductor-build-cuda13
+-    with:
+-      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm86
+-      docker-image: ${{ needs.inductor-build-cuda13.outputs.docker-image }}
+-      test-matrix: ${{ needs.inductor-build-cuda13.outputs.test-matrix }}
+-    secrets: inherit
+-
+   inductor-cpu-build:
+     name: inductor-cpu-build
+     uses: ./.github/workflows/_linux-build.yml
+diff --git a/.github/workflows/pull.yml b/.github/workflows/pull.yml
+index 4f2d2276a1a1c..1ab4a82e2d84e 100644
+--- a/.github/workflows/pull.yml
++++ b/.github/workflows/pull.yml
+@@ -413,37 +413,6 @@ jobs:
+         ]}
+     secrets: inherit
+ 
+-  linux-jammy-cuda12_8-py3_10-gcc11-inductor-build:
+-    if: ${{ needs.job-filter.outputs.jobs == '' || contains(needs.job-filter.outputs.jobs, ' cuda12.8-py3.10-gcc11-sm75 ') }}
+-    name: cuda12.8-py3.10-gcc11-sm75
+-    uses: ./.github/workflows/_linux-build.yml
+-    needs:
+-      - get-label-type
+-      - job-filter
+-    with:
+-      runner_prefix: "${{ needs.get-label-type.outputs.label-type }}"
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm75
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
+-      test-matrix: |
+-        { include: [
+-          { config: "pr_time_benchmarks", shard: 1, num_shards: 1, runner: "linux.g4dn.metal.nvidia.gpu" },
+-        ]}
+-    secrets: inherit
+-
+-  linux-jammy-cuda12_8-py3_10-gcc11-inductor-test:
+-    if: ${{ needs.job-filter.outputs.jobs == '' || contains(needs.job-filter.outputs.jobs, ' cuda12.8-py3.10-gcc11-sm75 ') }}
+-    name: cuda12.8-py3.10-gcc11-sm75
+-    uses: ./.github/workflows/_linux-test.yml
+-    needs:
+-      - linux-jammy-cuda12_8-py3_10-gcc11-inductor-build
+-      - job-filter
+-    with:
+-      build-environment: ${{ needs.linux-jammy-cuda12_8-py3_10-gcc11-inductor-build.outputs.build-environment }}
+-      docker-image: ${{ needs.linux-jammy-cuda12_8-py3_10-gcc11-inductor-build.outputs.docker-image }}
+-      test-matrix: ${{ needs.linux-jammy-cuda12_8-py3_10-gcc11-inductor-build.outputs.test-matrix }}
+-      tests-to-include: ${{ github.event.inputs.tests-to-include || '' }}
+-    secrets: inherit
+-
+   linux-jammy-cuda13_0-py3_10-gcc11-inductor-build:
+     if: ${{ needs.job-filter.outputs.jobs == '' || contains(needs.job-filter.outputs.jobs, ' cuda13.0-py3.10-gcc11-sm75 ') }}
+     name: cuda13.0-py3.10-gcc11-sm75
+diff --git a/.github/workflows/torchbench.yml b/.github/workflows/torchbench.yml
+index 508c39a653600..2b370f6083185 100644
+--- a/.github/workflows/torchbench.yml
++++ b/.github/workflows/torchbench.yml
+@@ -26,14 +26,14 @@ jobs:
+       curr_ref_type: ${{ github.ref_type }}
+ 
+   build:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-build.yml
+     needs:
+       - get-default-label-prefix
+     with:
+       runner_prefix: "${{ needs.get-default-label-prefix.outputs.label-type }}"
+-      build-environment: linux-jammy-cuda12.8-py3.10-gcc11-sm80
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
++      build-environment: linux-jammy-cuda13.0-py3.10-gcc11-sm80
++      docker-image-name: ci-image:pytorch-linux-jammy-cuda13.0-cudnn9-py3-gcc11-inductor-benchmarks
+       cuda-arch-list: '8.0'
+       test-matrix: |
+         { include: [
+@@ -42,7 +42,7 @@ jobs:
+     secrets: inherit
+ 
+   test:
+-    name: cuda12.8-py3.10-gcc11-sm80
++    name: cuda13.0-py3.10-gcc11-sm80
+     uses: ./.github/workflows/_linux-test.yml
+     needs: build
+     with:
+diff --git a/.github/workflows/trunk.yml b/.github/workflows/trunk.yml
+index 1d85db05f5d11..cf7093f53a34d 100644
+--- a/.github/workflows/trunk.yml
++++ b/.github/workflows/trunk.yml
+@@ -313,19 +313,6 @@ jobs:
+     if: ${{ needs.job-filter.outputs.jobs == '' || contains(needs.job-filter.outputs.jobs, ' inductor-build ') }}
+     name: inductor-build
+     uses: ./.github/workflows/_linux-build.yml
+-    needs:
+-      - get-label-type
+-      - job-filter
+-    with:
+-      build-environment: linux-jammy-cuda12.8-py3.12-gcc11-sm80
+-      docker-image-name: ci-image:pytorch-linux-jammy-cuda12.8-cudnn9-py3-gcc11-inductor-benchmarks
+-      cuda-arch-list: '8.0'
+-    secrets: inherit
+-
+-  inductor-build-cuda13:
+-    if: ${{ needs.job-filter.outputs.jobs == '' || contains(needs.job-filter.outputs.jobs, ' inductor-build-cuda13 ') }}
+-    name: inductor-build-cuda13
+-    uses: ./.github/workflows/_linux-build.yml
+     needs:
+       - get-label-type
+       - job-filter

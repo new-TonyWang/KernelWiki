@@ -1,0 +1,49 @@
+origin_url: https://github.com/vllm-project/vllm/pull/21188
+upstream_repo: vllm-project/vllm
+upstream_sha: 304dce7e
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-21188
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: a4ac380dc4d3d430bea07f3e4e60b9d18a898ca866bb4e6012508b93ec3b7fc3
+- local_path: key-files/vllm/attention/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/layer.py
+  sha256: 41629fe3c90d7fff9bb64943eeec668cf2a73568bc3fd4d24c4c35b1c8b9a499
+- local_path: key-files/vllm/v1/attention/backends/cpu_attn.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/cpu_attn.py
+  sha256: 947a3fe7478c4c7fb16ba02e0a08fc16bd438bd37e857a537f3711b8364b9178
+- local_path: key-files/vllm/v1/attention/backends/flash_attn.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/flash_attn.py
+  sha256: 19d1e60329d76721dba116a12c54302a03148af9be8665cbd220a2afea1652ae
+- local_path: key-files/vllm/v1/attention/backends/flashinfer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/flashinfer.py
+  sha256: 16ba49fa3a20ccaf5f7a393b97533d0f32924811d4d0bbf3bb55f30f2d66ef1a
+- local_path: key-files/vllm/v1/attention/backends/pallas.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/pallas.py
+  sha256: cc2734ffb27379e738eedcaecabe7389dfc42c4d2edbf63070ef543d944a683b
+- local_path: key-files/vllm/v1/attention/backends/rocm_aiter_fa.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/rocm_aiter_fa.py
+  sha256: 50180cd69f673f2676e6f28bac1347fb96199fd83b3785108864e20ab7d82194
+- local_path: key-files/vllm/v1/attention/backends/triton_attn.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/triton_attn.py
+  sha256: f995f5b013ea01a8b1a68dead12eae556d1c5a2cb2f1f262acdf76f2860523b2

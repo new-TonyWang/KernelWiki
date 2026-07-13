@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/31777
+upstream_repo: vllm-project/vllm
+upstream_sha: cbd4690a
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-31777
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: b9b57ba0924c6cab7d60445622aafd5a5f6c606c949d3f6ddff3f6b2830713c5
+- local_path: key-files/vllm/lora/ops/triton_ops/fused_moe_lora_op.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/lora/ops/triton_ops/fused_moe_lora_op.py
+  sha256: eb0fcb4dab1f5dc1c9e03e8cf73a7580921a40beb250413c2acbbed9a9477f62
+- local_path: key-files/vllm/lora/ops/triton_ops/lora_expand_op.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/lora/ops/triton_ops/lora_expand_op.py
+  sha256: b012ee060a10a9ca2cc5c5c09a7b2f7c987d3b4d200db8b6eb5753e309b42ac6
+- local_path: key-files/vllm/lora/ops/triton_ops/lora_shrink_op.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/lora/ops/triton_ops/lora_shrink_op.py
+  sha256: 25fa07d69eab4b8575272a9b6ebaab455babe9ff5bb1dbd766c5f401010cc733

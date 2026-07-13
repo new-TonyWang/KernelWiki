@@ -2,7 +2,7 @@ origin_url: https://github.com/sgl-project/sglang/pull/21325
 upstream_repo: sgl-project/sglang
 upstream_sha: dfc15b78
 license: inherits-from-upstream
-retrieved_at: '2026-04-17'
+retrieved_at: '2026-06-10'
 asset_mode: verbatim
 size_cap_truncated: false
 generated_by: scripts/fetch_pr_diff.py
@@ -22,6 +22,14 @@ files:
   mode: verbatim
   upstream_path: python/sglang/jit_kernel/awq_marlin_repack.py
   sha256: 41240466e8b62cf17e9b306ceeb57e6168ad480dbc7079830dc7fb85b082a0d4
+- local_path: key-files/python/sglang/jit_kernel/debug_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/debug_utils.py
+  sha256: d300b4cddbe9dfd48c90d971ab42979aa434bbef3dc5fb3380d3ab17b25aa74a
+  upstream_sha: 9f4d8ac99f81f77097f365d3ebfa8f6c5e326d57
+  captured_at_base_sha_note: 'PR #21325 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
 - local_path: key-files/python/sglang/jit_kernel/diffusion/triton/rmsnorm_onepass.py
   role: upstream-file
   mode: verbatim

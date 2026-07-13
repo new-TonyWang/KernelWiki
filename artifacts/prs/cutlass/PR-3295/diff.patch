@@ -1,0 +1,20 @@
+diff --git a/examples/python/CuTeDSL/cute/blackwell/kernel/attention/fmha/fmha.py b/examples/python/CuTeDSL/cute/blackwell/kernel/attention/fmha/fmha.py
+index 39ac474d54..d7887f009d 100644
+--- a/examples/python/CuTeDSL/cute/blackwell/kernel/attention/fmha/fmha.py
++++ b/examples/python/CuTeDSL/cute/blackwell/kernel/attention/fmha/fmha.py
+@@ -3818,6 +3818,7 @@ def check_seqlen_valid(
+         total_softmax_count,
+         current_stream,
+         use_pdl,
++        options=f"--opt-level=2" if cutlass.__version__[0:3]=="4.6" else "",
+     )
+     compilation_time = time.time() - start_time
+     print(f"Compilation time: {compilation_time:.4f} seconds")
+@@ -4003,7 +4004,6 @@ def run_torch_fmha(
+         total_softmax_count,
+         current_stream,
+         use_pdl,
+-        options=f"--opt-level=2" if cutlass.__version__[0:3]=="4.6" else "",
+     )
+     if stats_skip_softmax_ratio:
+         print(

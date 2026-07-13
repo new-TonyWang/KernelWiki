@@ -1,0 +1,28 @@
+## Vendor Registry
+## Defines known GPU vendors, their architectures, and compute stacks.
+## Consumed by scripts/validate.py for vendor-path consistency checks.
+
+vendors:
+  - id: nvidia
+    display_name: NVIDIA
+    architectures: [sm100, sm100a, sm90, sm90a, sm120]
+    compute_stack: [cuda, ptx, cute-dsl, triton, cutlass]
+    status: active
+
+  - id: ascend
+    display_name: Huawei Ascend
+    architectures: [ascend910b, ascend910b1, ascend910b2, ascend910b2c, ascend910b3, ascend910b4, ascend910c, ascend310p]
+    compute_stack: [cann, mindspore, ascendc, triton-ascend, tilelang]
+    status: active
+
+  - id: generic
+    display_name: Cross-Vendor
+    architectures: []
+    compute_stack: [triton]
+    status: active
+
+  - id: biren
+    display_name: Biren
+    architectures: [br100, br104]
+    compute_stack: [supa, birensdk]
+    status: planned

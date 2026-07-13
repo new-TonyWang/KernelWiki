@@ -1,0 +1,177 @@
+---
+title: Transpose Pattern -- Decision Tree
+pattern_class: cuda-core
+op: transpose
+covers:
+- matrix_transpose_2d
+- axis_permute_nd
+- aos_soa_conversion
+status: draft
+hardware:
+  device: H200
+  sm: 9.0a
+source:
+- path: spec
+  anchor: Reference
+id: routing-transpose-INDEX
+type: operator-routing
+vendor: nvidia
+operator: transpose
+source_refs:
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1413-L1483
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-programming-guide/cuda_cuda-programming-guide_index.html.md
+  anchor: L1484-L1540
+- source_id: cuda-official/toolkit-docs-13.2
+  path: CUDA Programming Guides/cuda-c-best-practices-guide/cuda_cuda-c-best-practices-guide_index.html.md
+  anchor: L606-L634
+architectures:
+- sm90
+- sm90a
+languages:
+- cuda-cpp
+hardware_features:
+- fp8
+techniques:
+- vectorized-loads
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+kernel_types:
+- fused-kernel
+- gemm
+- quantization
+confidence: inferred
+tags:
+- fp8
+- vectorized-loads
+- cache-policy
+- data-reuse
+- shared-memory-optimization
+- fused-kernel
+- gemm
+- quantization
+- cuda-cpp
+---
+# Transpose Pattern -- Decision Tree
+
+This document guides the kernel-writing agent through a transpose task from initial problem statement to a working, optimized kernel. The transpose family covers 2-D matrix transpose, general N-D axis permutation, and AoS ↔ SoA layout conversion.
+
+**Key characteristic**: a transpose is *not* a compute operation — it is a pure layout rearrangement. The central optimization challenge is that the naive implementation forces one side (load or store) to be non-coalesced. Staging through shared memory lets both sides be coalesced at the cost of one `__syncthreads()` and a smem tile.
+
+---
+
+## Scope
+
+This decision tree covers custom-kernel implementation choices only. It starts after the task has been classified as requiring a dedicated kernel implementation.
+
+## Step 1 -- Choose the custom kernel strategy
+
+### 2-D matrix transpose (the canonical case)
+
+Thread `(y, x)` reads `in[y*N + x]` and writes `out[x*N + y]`. The read is coalesced; the write is stride-N and therefore non-coalesced. Without smem, this is bounded by ~1/32 of peak on a warp's store side.
+
+```
+Q5a. Is M == N (square) and a multiple of 32?
+     YES --> Use the standard [TILE][TILE+1] padded smem tile (see
+             wiki/nvidia/foundations/memory/shared-memory-cache/ skill S2 and its
+             probe sources/experience/hw-probes/smem-tile-reuse/ — 3.19x
+             faster than naive, 1685 GB/s on H200 at 4096x4096 fp32).
+     NO   --> Same kernel works; add boundary predicates on the load
+             AND the store (sibling skill pitfall P2). Expect slightly
+             reduced peak BW due to partial edge tiles.
+```
+
+```cuda
+#define TILE 32
+__global__ void transpose_smem(const float* __restrict__ in,
+                               float*       __restrict__ out,
+                               int width, int height) {
+    __shared__ float tile[TILE][TILE + 1];    // +1 breaks bank conflicts
+    int x = blockIdx.x * TILE + threadIdx.x;
+    int y = blockIdx.y * TILE + threadIdx.y;
+    if (x < width && y < height)
+        tile[threadIdx.y][threadIdx.x] = in[y * width + x];   // coalesced read
+    __syncthreads();
+    x = blockIdx.y * TILE + threadIdx.x;
+    y = blockIdx.x * TILE + threadIdx.y;
+    if (x < height && y < width)
+        out[y * height + x] = tile[threadIdx.x][threadIdx.y]; // coalesced write
+}
+```
+
+Measured on H200 (fp32, 4096×4096): unpadded `[32][32]` gives 985 GB/s; padded `[32][33]` gives 1685 GB/s (3.19× over naive). See `wiki/nvidia/foundations/memory/shared-memory-cache/` and its probe record.
+
+### High-dim permute (N-D)
+
+```
+Q5b. Does the permutation swap the innermost axis (last dim) with a
+     non-innermost axis?
+     YES --> This is a "real" transpose: one axis becomes non-
+             contiguous. Collapse to a 2-D transpose where the
+             two affected dims form the tile, and the remaining dims
+             form a batch over which you loop with gridDim.z / a
+             block-per-batch strategy. Each 2-D slice uses the
+             transpose_smem kernel above.
+     NO   --> The permutation only swaps among non-innermost axes.
+             Innermost dim stays stride-1 in both layouts. This is
+             just an index remap; a plain elementwise kernel with a
+             rewritten output-index formula works with full coalescing.
+             Prefer that over smem staging.
+```
+
+### AoS → SoA (and SoA → AoS)
+
+This is technically a layout transform, not a transpose, but agents routinely confuse the two.
+
+```
+Q5c. Is the input a struct-of-fields array and the kernel wants
+     stride-1 access to one field?
+     YES --> Follow the layout-transform skill S1. Kernel is a one-
+             pass conversion that reads AoS coalesced (as a bulk
+             struct read) and writes N separate SoA arrays coalesced.
+             Measured on H200 (24-B Particle struct, N=16M): convert
+             cost 0.2017 ms; amortizes after 3.65 downstream calls.
+```
+
+### Strided view (in-place logical transpose)
+
+```
+Q5d. Can you get away with NOT materializing the transpose, by
+     changing downstream kernels' index formula to access strided?
+     YES --> Skip the transpose kernel entirely. The downstream
+             kernel pays the stride penalty (sibling skill
+             layout-transform: ~2x on H200 for stride-24 vs stride-1),
+             but you save the 0.2017 ms transpose cost.
+             Amortize: if only 1 downstream kernel reads the
+             transposed view, prefer the strided-view path; if >= 4,
+             materialize.
+     NO   --> Materialize via transpose_smem (Q5a) or layout-transform
+             S1 (Q5c).
+```
+
+---
+
+## Step 2 -- Optimization via ROUTING.md skills
+
+After the basic custom kernel is working and correct, apply optimization skills from `ROUTING.md` in priority order:
+
+1. **Shared memory cache** (`wiki/nvidia/foundations/memory/shared-memory-cache/`) — the central mechanism of the smem-tiled transpose. Applies to Q5a.
+2. **Bank-conflict avoidance** (`wiki/nvidia/foundations/memory/bank-conflict/`) — the `[TILE][TILE+1]` padding rule. Measured on H200: 488× bank- conflict reduction, 1.71× speedup.
+3. **Layout transform** (`wiki/nvidia/foundations/memory/layout-transform/`) — skill S1 covers AoS↔SoA (Q5c); S2 covers pitched allocation when rows are not naturally aligned.
+4. **Vectorized access** (`wiki/nvidia/foundations/memory/vectorized-access/`) — when the tile element is float or fp16, wider loads (float4 / bfloat162) reduce instruction count. Applies most to Q5a's large-shape regime.
+5. **Coalescing** (`wiki/nvidia/foundations/memory/coalescing/`) — sanity-check that both the smem-load and smem-store sides of the transpose are stride-1 on global memory.
+
+After each skill application, re-benchmark against the task-provided baseline and follow the bottleneck-triage procedure in `reasoning/bottleneck-triage.md`.
+
+---
+
+## Cross-references
+
+- **Skill whitelist for this pattern**: `ROUTING.md`
+- **Task packet template**: `TASK-PACKET.md`
+- **Central mechanism**: `wiki/nvidia/foundations/memory/shared-memory-cache/`
+- **Layout decision (AoS/SoA/pitched)**: `wiki/nvidia/foundations/memory/layout-transform/`
+- **Bottleneck triage after benchmarking**: `reasoning/bottleneck-triage.md`

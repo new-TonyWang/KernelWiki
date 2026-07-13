@@ -1,0 +1,39 @@
+origin_url: https://github.com/vllm-project/vllm/pull/43108
+upstream_repo: vllm-project/vllm
+upstream_sha: 7b98f498
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-43108
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 41092eecee77d9700a59b8b9ed1138b006629ceefb7b607ee686e1fceca15fb0
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/flashinfer_cutedsl_batched_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/flashinfer_cutedsl_batched_moe.py
+  sha256: 631a28681ad2b5fca74c00186f8f6536d822f1b91524fb7a88759898654eb5b9
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/flashinfer_cutedsl_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/flashinfer_cutedsl_moe.py
+  sha256: 9de20c80f2e8a5125364486323de314d1995e0e6cb0a6e0dc808bb43163d6524
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/gpt_oss_triton_kernels_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/gpt_oss_triton_kernels_moe.py
+  sha256: 805cc8aada6763052291d558ce19d78fa7b1044bcd9cf46d83c1c1f45ddf1fef
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/triton_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/triton_moe.py
+  sha256: f7b1f7fd1cde87d7c2b48d7a1ec2a4cf6a8bafca00c1d495c3e9f7b8e14fd2d4
+- local_path: key-files/vllm/model_executor/layers/fused_moe/modular_kernel.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/modular_kernel.py
+  sha256: b1e73b77322363d686c524d01e482c7eabb50f46fa8d9796eebcb7976acb8aa1

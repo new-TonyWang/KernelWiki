@@ -1,0 +1,506 @@
+diff --git a/ascend/backend/compiler.py b/ascend/backend/compiler.py
+@@ -80,6 +80,7 @@ def ttir_to_linalg(mod, metadata, opt, *, named_ops=False):
+             triton_adapter_opt_path,
+             src_path,
+             "--triton-to-annotation",
++            "--triton-to-hivm",
+             f"--triton-to-linalg=global-kernel=false named-ops={named_ops} "\
+             f"enable-nd2nz-on-vector={enable_nd2nz_on_vector}",
+             "-o",
+
+diff --git a/ascend/examples/pytest_ut/test_custom_op.py b/ascend/examples/pytest_ut/test_custom_op.py
+@@ -0,0 +1,36 @@
++import triton
++import triton.language as tl
++import pytest
++import test_common
++
++# eg: pytest -v test.py::test_sync_block
++#############################
++
++
++@triton.jit
++def triton_custom_op(in_ptr0, out_ptr0, xnumel, XBLOCK: tl.constexpr, XBLOCK_SUB: tl.constexpr):
++    xoffset = tl.program_id(0) * XBLOCK
++    for xoffset_sub in range(0, XBLOCK, XBLOCK_SUB):
++        xindex = xoffset + xoffset_sub + tl.arange(0, XBLOCK_SUB)[:]
++        xmask = xindex < xnumel
++        x0 = xindex
++        tl.sync_block_all("all_cube", 1)
++        tl.sync_block_set("cube", "vector", 2)
++        tl.sync_block_wait("vector", "cube", 3)
++        tmp0 = tl.load(in_ptr0 + (x0), xmask)
++        tmp2 = tmp0
++        tl.store(out_ptr0 + (xindex), tmp2, xmask)
++
++
++@pytest.mark.parametrize('param_list',
++                         [
++                             ['float32', (2, 4096, 8), 2, 32768, 1024],
++                         ]
++                         )
++def test_sync_block(param_list):
++    dtype, shape, ncore, xblock, xblock_sub = param_list
++    x0 = test_common.generate_tensor(shape, dtype).npu()
++    y_ref = x0
++    y_cal = test_common.generate_tensor(shape, dtype).npu()
++    triton_custom_op[(ncore, )](x0, y_cal, x0.numel(), xblock, xblock_sub)
++    test_common.validate_cmp(dtype, y_cal, y_ref)
+
+diff --git a/ascend/triton-adapter/include/CMakeLists.txt b/ascend/triton-adapter/include/CMakeLists.txt
+@@ -1,2 +1,3 @@
+ add_subdirectory(TritonToAnnotation)
++add_subdirectory(TritonToHIVM)
+ add_subdirectory(TritonToLinalg)
+\ No newline at end of file
+
+diff --git a/ascend/triton-adapter/include/TritonToAnnotation/Passes.h b/ascend/triton-adapter/include/TritonToAnnotation/Passes.h
+@@ -1,5 +1,6 @@
+ /*
+- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
++ * Copyright (c) Huawei Technologies Co.
++ * Licensed under the MIT license.
+  */
+ 
+ #ifndef TRITON_ADAPTER_TRITON_TO_ANNOTATION_CONVERSION_PASSES_H
+
+diff --git a/ascend/triton-adapter/include/TritonToAnnotation/Passes.td b/ascend/triton-adapter/include/TritonToAnnotation/Passes.td
+@@ -1,5 +1,6 @@
+ /*
+- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
++ * Copyright (c) Huawei Technologies Co.
++ * Licensed under the MIT license.
+  */
+ 
+ #ifndef TRITON_TO_ANNOTATION_CONVERSION_PASSES
+
+diff --git a/ascend/triton-adapter/include/TritonToHIVM/CMakeLists.txt b/ascend/triton-adapter/include/TritonToHIVM/CMakeLists.txt
+@@ -0,0 +1,3 @@
++set(LLVM_TARGET_DEFINITIONS Passes.td)
++mlir_tablegen(Passes.h.inc -gen-pass-decls --name TritonToHIVM)
++add_public_tablegen_target(TritonToHIVMConversionPassIncGen)
+\ No newline at end of file
+
+diff --git a/ascend/triton-adapter/include/TritonToHIVM/Passes.h b/ascend/triton-adapter/include/TritonToHIVM/Passes.h
+@@ -0,0 +1,26 @@
++/*
++ * Copyright (c) Huawei Technologies Co.
++ * Licensed under the MIT license.
++ */
++
++#ifndef TRITON_ADAPTER_TRITON_TO_HIVM_CONVERSION_PASSES_H
++#define TRITON_ADAPTER_TRITON_TO_HIVM_CONVERSION_PASSES_H
++
++#include "mlir/Pass/Pass.h"
++
++namespace mlir {
++// Forward declarations.
++class ModuleOp;
++
++namespace triton {
++
++/// Creates a pass to convert Triton dialect to HIVM dialect.
++std::unique_ptr<OperationPass<ModuleOp>> createTritonToHIVMPass();
++
++#define GEN_PASS_REGISTRATION
++#include "ascend/triton-adapter/include/TritonToHIVM/Passes.h.inc"
++
++} // namespace triton
++} // namespace mlir
++
++#endif // TRITON_ADAPTER_TRITON_TO_HIVM_CONVERSION_PASSES_H
+\ No newline at end of file
+
+diff --git a/ascend/triton-adapter/include/TritonToHIVM/Passes.td b/ascend/triton-adapter/include/TritonToHIVM/Passes.td
+@@ -0,0 +1,17 @@
++/*
++ * Copyright (c) Huawei Technologies Co.
++ * Licensed under the MIT license.
++ */
++
++#ifndef TRITON_TO_HIVM_CONVERSION_PASSES
++#define TRITON_TO_HIVM_CONVERSION_PASSES
++
++include "mlir/Pass/PassBase.td"
++
++def TritonToHIVM : Pass<"triton-to-hivm", "mlir::ModuleOp"> {
++  let summary = "Convert Triton to HIVM dialect";
++  let constructor = "triton::createTritonToHIVMPass()";
++  let dependentDialects = ["hivm::HIVMDialect"];
++}
++
++#endif // TRITON_TO_HIVM_CONVERSION_PASSES
+
+diff --git a/ascend/triton-adapter/lib/CMakeLists.txt b/ascend/triton-adapter/lib/CMakeLists.txt
+@@ -1,3 +1,4 @@
+ add_subdirectory(TritonToAnnotation)
++add_subdirectory(TritonToHIVM)
+ add_subdirectory(TritonToLinalg)
+ add_subdirectory(Utils)
+\ No newline at end of file
+
+diff --git a/ascend/triton-adapter/lib/TritonToAnnotation/TritonToAnnotation.cpp b/ascend/triton-adapter/lib/TritonToAnnotation/TritonToAnnotation.cpp
+@@ -1,5 +1,6 @@
+ /*
+- * Copyright (c) Huawei Technologies Co., Ltd. 2025-2025. All rights reserved.
++ * Copyright (c) Huawei Technologies Co.
++ * Licensed under the MIT license.
+  */
+ 
+ #include "TritonToAnnotation/Passes.h"
+
+diff --git a/ascend/triton-adapter/lib/TritonToHIVM/CMakeLists.txt b/ascend/triton-adapter/lib/TritonToHIVM/CMakeLists.txt
+@@ -0,0 +1,14 @@
++add_triton_library(TritonToHIVM
++  TritonToHIVM.cpp
++
++  DEPENDS
++  TritonToHIVMConversionPassIncGen
++
++  LINK_LIBS
++  BiShengIRHIVMDialect
++  MLIRIR
++  MLIRPass
++  MLIRTransforms
++  MLIRSupport
++  TritonIR
++)
+
+diff --git a/ascend/triton-adapter/lib/TritonToHIVM/TritonToHIVM.cpp b/ascend/triton-adapter/lib/TritonToHIVM/TritonToHIVM.cpp
+@@ -0,0 +1,140 @@
++/*
++ * Copyright (c) Huawei Technologies Co.
++ * Licensed under the MIT license.
++ */
++
++#include "TritonToHIVM/Passes.h"
++
++#include "bishengir/Dialect/HIVM/IR/HIVM.h"
++#include "mlir/IR/Attributes.h"
++#include "mlir/Pass/Pass.h"
++#include "mlir/Transforms/DialectConversion.h"
++#include "mlir/Transforms/GreedyPatternRewriteDriver.h"
++#include "triton/Dialect/Triton/IR/Dialect.h"
++#include "llvm/ADT/StringRef.h"
++#include "llvm/Support/LogicalResult.h"
++
++namespace mlir {
++namespace triton {
++#define GEN_PASS_DEF_TRITONTOHIVM
++#include "ascend/triton-adapter/include/TritonToHIVM/Passes.h.inc"
++} // namespace triton
++} // namespace mlir
++
++using namespace mlir;
++using namespace hivm;
++
++namespace {
++
++static LogicalResult EmitUnknownOpError(Operation *op,
++                                        llvm::StringRef opName) {
++  op->emitError("Unknown custom operation: ") << opName;
++  return failure();
++}
++
++static void CreateSyncBlock(PatternRewriter &rewriter, Location loc,
++                            MLIRContext *ctx, Operation *op, int64_t id,
++                            hivm::SyncBlockMode mode,
++                            PipeAttr pipe1, PipeAttr pipe2) {
++  auto syncMode = hivm::SyncBlockModeAttr::get(ctx, mode);
++  auto newOp = rewriter.create<hivm::SyncBlockOp>(
++      loc, syncMode, rewriter.getI16IntegerAttr(id),
++      Value{}, pipe1, pipe2);
++  rewriter.replaceOp(op, newOp);
++}
++
++static std::tuple<TCoreTypeAttr, PipeAttr, PipeAttr>
++GetCoreAndPipes(MLIRContext *ctx, llvm::StringRef sender) {
++  if (sender == "cube") {
++    return std::tuple{
++        TCoreTypeAttr::get(ctx, TCoreType::CUBE),
++        PipeAttr::get(ctx, PIPE::PIPE_FIX),
++        PipeAttr::get(ctx, PIPE::PIPE_MTE2)};
++  }
++  return std::tuple{
++      TCoreTypeAttr::get(ctx, TCoreType::VECTOR),
++      PipeAttr::get(ctx, PIPE::PIPE_MTE3),
++      PipeAttr::get(ctx, PIPE::PIPE_MTE2)};
++}
++
++} // end anonymous namespace
++namespace {
++struct TritonToHIVMPass
++    : public mlir::triton::impl::TritonToHIVMBase<
++          TritonToHIVMPass> {
++  void runOnOperation() override;
++};
++} // namespace
++
++struct TritonCustomOpToHIVMSyncOpConversion
++    : OpRewritePattern<triton::CustomOp> {
++  using OpRewritePattern<triton::CustomOp>::OpRewritePattern;
++
++LogicalResult matchAndRewrite(triton::CustomOp op,
++                              PatternRewriter &rewriter) const final {
++  auto *ctx = op->getContext();
++  auto loc = op->getLoc();
++  auto args = op.getStrArgs();
++  auto argAttr = dyn_cast<StringAttr>(args[0]);
++  auto id = dyn_cast<IntegerAttr>(args[1]).getInt();
++  llvm::StringRef opName = op.getOpName();
++  llvm::StringRef arg = argAttr.getValue();
++
++  if (opName == "sync_block_all") {
++    if (arg == "all_cube") {
++      CreateSyncBlock(rewriter, loc, ctx, op, id,
++                      hivm::SyncBlockMode::ALL_CUBE,
++                      PipeAttr::get(ctx, PIPE::PIPE_FIX),
++                      hivm::PipeAttr{});
++    } else if (arg == "all_vector") {
++      CreateSyncBlock(rewriter, loc, ctx, op, id,
++                      hivm::SyncBlockMode::ALL_VECTOR,
++                      hivm::PipeAttr{},
++                      PipeAttr::get(ctx, PIPE::PIPE_MTE3));
++    } else if (arg == "all") {
++      CreateSyncBlock(rewriter, loc, ctx, op, id,
++                      hivm::SyncBlockMode::ALL,
++                      PipeAttr::get(ctx, PIPE::PIPE_FIX),
++                      PipeAttr::get(ctx, PIPE::PIPE_MTE3));
++    } else {
++      return EmitUnknownOpError(op, opName);
++    }
++    return success();
++  }
++
++  if (opName == "sync_block_set") {
++    auto [coreAttr, prodPipe, consPipe] = GetCoreAndPipes(ctx, arg);
++    rewriter.replaceOp(op, rewriter.create<hivm::SyncBlockSetOp>(
++                                loc, coreAttr, prodPipe, consPipe,
++                                rewriter.getIndexAttr(id)));
++    return success();
++  }
++
++  if (opName == "sync_block_wait") {
++    auto [coreAttr, prodPipe, consPipe] = GetCoreAndPipes(ctx, arg);
++    rewriter.replaceOp(op, rewriter.create<hivm::SyncBlockWaitOp>(
++                                loc, coreAttr, prodPipe, consPipe,
++                                rewriter.getIndexAttr(id)));
++    return success();
++  }
++
++  return EmitUnknownOpError(op, opName);
++}
++};
++
++
++void TritonToHIVMPass::runOnOperation() {
++  auto module = getOperation();
++  ConversionTarget target(getContext());
++  target.addLegalDialect<hivm::HIVMDialect>();
++
++  RewritePatternSet patterns(&getContext());
++  patterns.add<TritonCustomOpToHIVMSyncOpConversion>(patterns.getContext());
++  if (failed(applyPartialConversion(module, target, std::move(patterns)))) {
++    signalPassFailure();
++  }
++}
++
++std::unique_ptr<OperationPass<ModuleOp>> mlir::triton::createTritonToHIVMPass() {
++  return std::make_unique<TritonToHIVMPass>();
++}
+\ No newline at end of file
+
+diff --git a/ascend/triton-adapter/lib/TritonToLinalg/TritonToLinalgPass.cpp b/ascend/triton-adapter/lib/TritonToLinalg/TritonToLinalgPass.cpp
+@@ -6,6 +6,7 @@
+ #include "TritonToLinalg/UseAnalysis.h"
+ #include "Utils/InterleaveOptimization.h"
+ #include "Utils/Utils.h"
++#include "bishengir/Dialect/HIVM/IR/HIVM.h"
+ #include "mlir/IR/Operation.h"
+ #include "mlir/Interfaces/SideEffectInterfaces.h"
+ #include "triton/Dialect/Triton/IR/Dialect.h"
+@@ -352,7 +353,7 @@ void TritonToLinalgPass::addDynamicLegal(
+       linalg::LinalgDialect, affine::AffineDialect, scf::SCFDialect,
+       cf::ControlFlowDialect, tensor::TensorDialect,
+       bufferization::BufferizationDialect, memref::MemRefDialect,
+-      annotation::AnnotationDialect>();
++      annotation::AnnotationDialect, hivm::HIVMDialect>();
+ 
+   // add legal dialect on condition
+   target.addLegalOp<ModuleOp>();
+
+diff --git a/ascend/triton-adapter/tools/triton-adapter-opt/CMakeLists.txt b/ascend/triton-adapter/tools/triton-adapter-opt/CMakeLists.txt
+@@ -7,6 +7,7 @@ add_llvm_executable(triton-adapter-opt triton-adapter-opt.cpp PARTIAL_SOURCES_IN
+ llvm_update_compile_flags(triton-adapter-opt)
+ target_link_libraries(triton-adapter-opt PRIVATE
+   TritonToAnnotation
++  TritonToHIVM
+   TritonToLinalg
+   TritonTransforms
+   ${dialect_libs}
+
+diff --git a/ascend/triton-adapter/tools/triton-adapter-opt/triton-adapter-opt.cpp b/ascend/triton-adapter/tools/triton-adapter-opt/triton-adapter-opt.cpp
+@@ -1,5 +1,6 @@
+ #include "TritonToLinalg/Passes.h"
+ #include "TritonToAnnotation/Passes.h"
++#include "TritonToHIVM/Passes.h"
+ #include "bishengir/InitAllDialects.h"
+ #include "mlir/Dialect/Bufferization/IR/Bufferization.h"
+ #include "mlir/Dialect/Func/IR/FuncOps.h"
+@@ -25,6 +26,7 @@ int main(int argc, char **argv) {
+   // Register all passes.
+   mlir::triton::registerTritonToLinalgPass();
+   mlir::triton::registerTritonToAnnotationPass();
++  mlir::triton::registerTritonToHIVMPass();
+ 
+   return mlir::asMainReturnCode(
+       mlir::MlirOptMain(argc, argv, "Triton-Adapter test driver\n", registry));
+
+diff --git a/triton_patch/include/triton/Dialect/Triton/IR/TritonOps.td b/triton_patch/include/triton/Dialect/Triton/IR/TritonOps.td
+@@ -1303,4 +1303,21 @@ def TT_AnnotationOp : TT_Op<"annotation", [Pure, MemoryEffects<[MemWrite]>]> {
+   }];
+ }
+ 
++//
++// Custom Op
++//
++def TT_CustomOp : TT_Op<"custom",  [Pure, MemoryEffects<[MemWrite]>]> {
++  let summary = "self-defined custom operation";
++  let description = [{
++    `tt.custom` triton custom op is designed to pass self-defined custom operation.
++
++    Example:
++    ```tt.custom {str_args = ["sync_block_wait", "cube"]} loc(#loc12)
++    ```
++  }];
++  let arguments = (ins StrAttr:$op_name, ArrayAttr:$str_args, Variadic<AnyType>:$args);
++
++  let assemblyFormat = "$op_name attr-dict ($args^ `:` type($args))?";
++}
++
+ #endif // Triton_OPS
+
+diff --git a/triton_patch/lib/Dialect/Triton/IR/Ops.cpp b/triton_patch/lib/Dialect/Triton/IR/Ops.cpp
+@@ -8,6 +8,8 @@
+ #include "triton/Dialect/Triton/IR/Dialect.h"
+ #include "triton/Dialect/Triton/IR/Types.h"
+ #include "triton/Dialect/Triton/IR/Utility.h"
++#include "llvm/ADT/StringRef.h"
++#include "llvm/Support/LogicalResult.h"
+ 
+ namespace mlir {
+ namespace triton {
+
+diff --git a/triton_patch/python/src/ir.cc b/triton_patch/python/src/ir.cc
+@@ -14,6 +14,7 @@
+ #include "mlir/IR/BuiltinOps.h"
+ #include "mlir/IR/Diagnostics.h"
+ #include "mlir/IR/MLIRContext.h"
++#include "mlir/IR/ValueRange.h"
+ #include "mlir/IR/Verifier.h"
+ #include "mlir/Parser/Parser.h"
+ #include "mlir/Pass/Pass.h"
+@@ -1662,6 +1663,16 @@ void init_triton_ir(py::module &&m) {
+               std::vector<Value> &offsets) -> Value {
+              return self.create<AdvanceOp>(ptr.getType(), ptr, offsets);
+            })
++      // Add custom op
++      .def("create_custom_op_for_inter_core_sync",
++           [](TritonOpBuilder &self, std::string &op_name,
++              std::string &mode_or_sender, int id) -> void {
++                auto args = self.getBuilder().getArrayAttr(
++                    {self.getBuilder().getStringAttr(mode_or_sender),
++                    self.getBuilder().getI32IntegerAttr(id)}
++                );
++                self.create<CustomOp>(op_name, args, ValueRange());
++           })
+       // Add an annotation
+       .def("create_annotation",
+            [](TritonOpBuilder &self, Value &ptr, const std::string &attrKey,
+
+diff --git a/triton_patch/python/triton_patch/language/core.py b/triton_patch/python/triton_patch/language/core.py
+@@ -388,6 +388,42 @@ def multibuffer(src: tensor, size, _builder=None):
+     semantic.compile_hint(src, "multi_buffer", buffer_size, _builder)
+ 
+ 
++@builtin
++def sync_block_all(mode, event_id, _builder=None):
++    mode = _constexpr_to_value(mode)
++    event_id = _constexpr_to_value(event_id)
++    assert isinstance(mode, str), f"mode: {mode} is not string"
++    assert isinstance(event_id, int) and (event_id >= 0) and (event_id < 16), f"event_id: {event_id} should be 0 ~ 15"
++    assert mode == "all_cube" or mode == "all_vector" or mode == "all", f"ERROR: mode = {mode}, only supports all_cube/all_vector/all"
++    semantic.custom_op(_builder, "sync_block_all", mode=mode, event_id=event_id)
++
++
++@builtin
++def sync_block_set(sender, receiver, event_id, _builder=None):
++    sender = _constexpr_to_value(sender)
++    receiver = _constexpr_to_value(receiver)
++    event_id = _constexpr_to_value(event_id)
++    assert isinstance(sender, str) and (sender == "cube" or sender == "vector"), f"ERROR: sender = {sender}, only supports cube/vector"
++    assert isinstance(receiver, str) and (receiver == "cube" or receiver == "vector"), f"ERROR: receiver = {receiver}, only supports cube/vector"
++    assert isinstance(event_id, int) and (event_id >= 0) and (event_id < 16), f"event_id: {event_id} should be 0 ~ 15"
++    if sender == receiver:
++        raise ValueError(f'Unexpected pair: {sender} -> {receiver}, only supports cube -> vector or vector -> cube')
++    semantic.custom_op(_builder, "sync_block_set", sender=sender, event_id=event_id)
++
++
++@builtin
++def sync_block_wait(sender, receiver, event_id, _builder=None):
++    sender = _constexpr_to_value(sender)
++    receiver = _constexpr_to_value(receiver)
++    event_id = _constexpr_to_value(event_id)
++    assert isinstance(sender, str) and (sender == "cube" or sender == "vector"), f"ERROR: sender = {sender}, only supports cube/vector"
++    assert isinstance(receiver, str) and (receiver == "cube" or receiver == "vector"), f"ERROR: receiver = {receiver}, only supports cube/vector"
++    assert isinstance(event_id, int) and (event_id >= 0) and (event_id < 16), f"event_id: {event_id} should be 0 ~ 15"
++    if sender == receiver:
++        raise ValueError(f'Unexpected pair: {sender} -> {receiver}, only supports cube -> vector or vector -> cube')
++    semantic.custom_op(_builder, "sync_block_wait", sender=sender, event_id=event_id)
++
++
+ def dtype_to_ir(self, builder: ir.builder) -> ir.type:
+     if self.name.startswith("fp8"):
+         raise ValueError(f'unexpected type fp8.')
+
+diff --git a/triton_patch/python/triton_patch/language/semantic.py b/triton_patch/python/triton_patch/language/semantic.py
+@@ -577,3 +577,16 @@ def compile_hint(ptr: tl.tensor, hint_name: str, hint_val, builder: ir.builder):
+     else:
+         raise ValueError(f"Unsupported hint value type: {type(hint_val)}")
+     builder.create_annotation(ptr.handle, hint_name, hint_val)
++
++
++def custom_op(builder: ir.builder, op_name: str, **kwargs):
++    if op_name == "sync_block_all":
++        return builder.create_custom_op_for_inter_core_sync(op_name, kwargs["mode"], kwargs["event_id"])
++
++    elif op_name == "sync_block_set":
++        return builder.create_custom_op_for_inter_core_sync(op_name, kwargs["sender"], kwargs["event_id"])
++    
++    elif op_name == "sync_block_wait":
++        return builder.create_custom_op_for_inter_core_sync(op_name, kwargs["sender"], kwargs["event_id"])
++    
++    raise ValueError(f"Unsupported custom op: {op_name}")
+\ No newline at end of file
+
+diff --git a/triton_patch/python/triton_patch/testing.py b/triton_patch/python/triton_patch/testing.py
+@@ -625,6 +625,9 @@ from .triton_patch.language.core import (
+     parallel,
+     compile_hint,
+     multibuffer,
++    sync_block_all,
++    sync_block_set,
++    sync_block_wait,
+     dtype_to_ir,
+ )
+ from .triton_patch.language.standard import flip, sigmoid, softmax, isfinited, finitef, rint, atan2
+@@ -681,6 +684,9 @@ language.trans = trans
+ language.parallel = parallel
+ language.compile_hint = compile_hint
+ language.multibuffer = multibuffer
++language.sync_block_all = sync_block_all
++language.sync_block_set = sync_block_set
++language.sync_block_wait = sync_block_wait
+ 
+ # from .triton_patch.language.core import dtype, pointer_type, block_type, function_type
+ # language.core.dtype = dtype

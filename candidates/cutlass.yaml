@@ -1,5 +1,5 @@
 repo: NVIDIA/cutlass
-searched_at: '2026-04-27'
+searched_at: '2026-06-10'
 keywords_used:
 - blackwell
 - sm100
@@ -23,10 +23,18 @@ keywords_used:
 - tile_scheduler
 - grouped_gemm
 - sub_byte
-total_candidates: 66
-included: 34
+- hopper
+- sm90
+- sm_90
+- h100
+- wgmma
+- tma
+- mbarrier
+- gmma
+total_candidates: 121
+included: 75
 excluded: 8
-deferred: 24
+deferred: 38
 prs:
 - number: 2033
   title: '[EVT] Add support for Row/Col broadcast PtrArray'
@@ -85,13 +93,13 @@ prs:
 - number: 2185
   title: v3.9
   date: '2025-03-20'
-  decision: defer
+  decision: include
   reason: v3.9 release PR, likely contains Blackwell kernel changes but scope unclear from title
   files_changed: []
 - number: 2203
   title: v3.9 update
   date: '2025-03-27'
-  decision: defer
+  decision: include
   reason: v3.9 update PR, likely contains kernel changes but scope unclear from title
   files_changed: []
 - number: 2220
@@ -423,4 +431,334 @@ prs:
   date: '2026-04-25'
   decision: defer
   reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3272
+  title: Add Blackwell GeForce blockscaled GEMM examples
+  date: '2026-05-27'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 3299
+  title: Update sm100 MMA desc offsetting
+  date: '2026-06-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3291
+  title: '[CLI] Recover fmha perf'
+  date: '2026-06-03'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 3295
+  title: '[CLI] quick fix for fmha compile options'
+  date: '2026-06-03'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 3251
+  title: '[CLI] Update FMHA & improve perf'
+  date: '2026-05-25'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 3224
+  title: '[CuTeDSL] fix MLA decode support for thor'
+  date: '2026-05-13'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 3184
+  title: Add Snake activation functor for EVT
+  date: '2026-05-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3262
+  title: Fix hopper grouped gemm example `elect_sync` api use
+  date: '2026-05-26'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 3087
+  title: CuTeDSL] Fix Boolean.__dsl_and__ to emit arith.andi directly for i1 operands
+  date: '2026-03-05'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3009
+  title: '[CuTeDSL] implment a cta-level norm example (both layernorm and rmsnorm)'
+  date: '2026-02-14'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2270
+  title: hopper-blockwise-generalization-optimization
+  date: '2025-04-29'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2123
+  title: Hopper Grouped GEMM support for FP8 Accum
+  date: '2025-02-21'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2095
+  title: 'Improvements for: Groupwise scaling along M for FP8 gemm'
+  date: '2025-02-28'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1972
+  title: Improve mixed dtype GEMM
+  date: '2024-12-06'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1835
+  title: Add some can implement rules of hopper convolution.
+  date: '2024-09-25'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1416
+  title: group gemm set stride L = cute::Int<0>
+  date: '2024-03-20'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1346
+  title: Updates for CUTLASS 3.4.1
+  date: '2024-02-15'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1308
+  title: Update PUBLICATIONS.md
+  date: '2024-01-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 1286
+  title: CUTLASS 3.4.0
+  date: '2023-12-29'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1167
+  title: CUTLASS 3.3.0
+  date: '2023-11-02'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1084
+  title: 'Support for Mixed Input TensorOp '
+  date: '2023-09-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 967
+  title: Update Hopper performance plot for CUTLASS 3.1 + CTK 12.1
+  date: '2023-06-01'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 950
+  title: 'Enhancement: Addition of 128x256 Threadblock Tiles for 16b Hopper Warp Group MMA GEMM'
+  date: '2023-05-17'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 905
+  title: Remove const qualifier from 3.x GemmUniversalAdapter::operator(cudaStream_t)
+  date: '2023-04-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 897
+  title: CUTLASS 3.0 Hopper GEMMs are GETTs in disguise
+  date: '2023-03-29'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 845
+  title: Reduce versbosity in manifest.py
+  date: '2023-03-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 2740
+  title: Fix register index bug in mma.sync.aligned.m16n8k16
+  date: '2026-02-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 2945
+  title: Fix out-of-bounds TMA access in wgmma_tma_sm90 tutorial
+  date: '2026-01-23'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2686
+  title: '[Bug Fix]Fixed compilation error when using StreamK scheduler + PDL(SM90)'
+  date: '2025-10-22'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2684
+  title: minor fix for sm90 mixed input building issue
+  date: '2025-10-15'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2219
+  title: '[SM90] Change register allocation for TileN=208 to avoid spills'
+  date: '2025-04-21'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2199
+  title: fix_missing_stdint
+  date: '2025-04-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 1864
+  title: Add GMMA shape m64n40k16
+  date: '2024-10-22'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2172
+  title: Fix SM90 beta=1 hang and stream-K launch errors
+  date: '2025-03-13'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1883
+  title: Improve sm90 mixed dtype kernel
+  date: '2024-10-18'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1803
+  title: Handle MNK Sm90{Row, Col}Reduction problem shapes
+  date: '2024-10-14'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1666
+  title: Add extended wgmma shapes for all data types
+  date: '2024-07-31'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1194
+  title: Allow SM90 pingpong kernel to use custom tile schedulers
+  date: '2023-11-15'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1153
+  title: Support ElementD to be void for tma
+  date: '2024-01-16'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 976
+  title: Fix SM90 Int8 and TF32 generators
+  date: '2023-06-12'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 920
+  title: Add missing schedules argument in SM90 WGMMA 16-bit op generation
+  date: '2023-04-26'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 927
+  title: Get SM count with cudaDeviceGetAttribute in KernelHardwareInfo
+  date: '2023-04-28'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 862
+  title: Add missing comma in cutlass/arch/mma_sm90.h
+  date: '2023-03-14'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1097
+  title: Replace 0x1f with 0xffffffff in __shfl_sync
+  date: '2023-09-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 1012
+  title: set kIsHeavy member variables
+  date: '2023-10-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3055
+  title: Replace std::min with cute::min in sm120 blockwise scaling device functions
+  date: '2026-04-24'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2970
+  title: '[CuTeDSL] Distributed example, using TMA load to access remote memory rank-by-rank, reducing in cta, broadcast result to all ranks by multimem TMA store'
+  date: '2026-02-11'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 3027
+  title: Replace fence proxy to the latest routine code in examples/distributed/all_reduce_tma.py
+  date: '2026-02-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 2930
+  title: Minor fix for testing of blockscaled dense GEMM with TMA prefetch
+  date: '2026-01-05'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2790
+  title: Blockscaled Ragged Contiguous Grouped Gemm for MoEs
+  date: '2025-11-27'
+  decision: include
+  reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 2889
+  title: add missing condition for sync
+  date: '2025-12-19'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 1225
+  title: Fixed illegal PTX syntax
+  date: '2023-12-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 1494
+  title: Fix mbarrier PTX typo
+  date: '2024-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 1890
+  title: Add all supported GMMA instruction shapes
+  date: '2024-10-22'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 1630
+  title: Add more GMMA shapes
+  date: '2024-07-29'
+  decision: include
+  reason: Hopper/SM90 kernel-related candidate selected for inclusion
   files_changed: []

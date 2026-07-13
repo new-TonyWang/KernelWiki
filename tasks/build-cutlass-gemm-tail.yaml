@@ -1,0 +1,55 @@
+task_id: 2026-04-28-cutlass-gemm-tail
+task_type: build-skill
+target_path: wiki/nvidia/foundations/compute/gemm/non-aligned-tail/
+also_writes:
+  - wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-tail/
+  - sources/experience/api-probes/gemm/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - <local-path>
+  - <local-path>
+upstream_repo_pin: "cutlass@f74fea9c"
+
+references:
+  - reasoning/api-probing.md
+  - reasoning/benchmark-protocol.md
+  - docs/15-代码仓库抽取知识流程_update_en.md  # AC-5
+
+source_anchors:
+  - examples/49_hopper_gemm_with_collective_builder/
+  - include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized.hpp
+
+success_criteria:
+  - file_exists: wiki/nvidia/foundations/compute/gemm/non-aligned-tail/skill.md
+  - file_exists: wiki/nvidia/foundations/compute/gemm/non-aligned-tail/pitfalls.md
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-tail/build.sh
+  - file_exists: wiki/nvidia/code-walkthroughs/cutlass-cute/gemm-tail/gemm_tail.cu
+  - dir_nonempty: sources/experience/api-probes/gemm/   # date-stamped record at execution time
+  - lint_clean: true
+  - skill_status: verified
+  - skill_evidence_level: measured
+  - shape_categories_covered:
+      - far-smaller-than-tile
+      - tile-misaligned
+      - far-larger-than-tile-with-tail
+  - tail_strategy_documented: true        # predicate / split-k tail / cp.async masked load
+  - ab_comparison_with_vs_without_strategy: true
+
+depends_on:
+  - build-cutlass-gemm-aligned.yaml  # AC-4
+
+blockers_for_round_1:
+  - reason: "H200 build + run + ncu; depends on aligned harness."
+
+notes: |
+  AC-5 from docs/15-代码仓库抽取知识流程_update_en.md.
+  Fork the AC-4 harness to cover three non-aligned shape categories.
+  Pick concrete shape numbers in the report and justify the category
+  assignment. Implement at least one explicit boundary strategy and
+  measure it against a baseline with the strategy disabled.
+  pitfalls.md must call out silent padding as a forbidden anti-pattern.

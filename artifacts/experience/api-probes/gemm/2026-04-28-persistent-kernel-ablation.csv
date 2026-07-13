@@ -1,0 +1,5 @@
+schedule,persistent,kernel_schedule,cluster_shape,shape_M,shape_N,shape_K,latency_us,tflops,cublas_max_abs,cublas_max_rel,cublas_mismatches,disposition,note
+plain-ws,off,KernelTmaWarpSpecialized,<1;1;1>,2048,2048,2048,87.94,195.4,0,0,0,Passed,non-persistent baseline
+pingpong,on-pingpong,KernelTmaWarpSpecializedPingpong,<2;1;1>,2048,2048,2048,88.64,193.8,0,0,0,Passed,2 consumer warpgroups alternating tiles
+cooperative,on-cooperative,KernelTmaWarpSpecializedCooperative,<4;2;1>,2048,2048,2048,91.92,186.9,0,0,0,Passed,2 consumer warpgroups cooperating on same tile + cluster-multicast
+cooperative,on-cooperative,KernelTmaWarpSpecializedCooperative,<4;2;1>,8192,8192,8192,3756.0,292.7,0,0,0,Passed,AC-4 anchor at large scale; cooperative+persistent wins here

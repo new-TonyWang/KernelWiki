@@ -1,0 +1,31 @@
+# api-raw entry template
+#
+# Used by 10-api-raw/<namespace>/<func>.md
+# One file per API function.
+# Enforced by tools/lint_knowledge.py --layer api-raw
+
+# ==== Identity ====
+func_name: ""                          # REQUIRED. e.g. "__shfl_sync"
+namespace: ""                          # REQUIRED. runtime | driver | cublas | cub | thrust | ptx | math | libcupp
+header: ""                             # REQUIRED. e.g. "cuda_runtime.h" or "<cub/cub.cuh>" or "PTX"
+signature: ""                          # REQUIRED. Full C/C++ signature on one line.
+since_cuda: ""                         # Optional. Minimum CUDA toolkit version, e.g. "11.0"
+
+# ==== Status ====
+status: draft                          # REQUIRED. draft | verified
+has_end_to_end_example: false          # REQUIRED. Flipped true once a probe back-fills the page.
+
+# ==== Semantics hints ====
+parameters: []                         # Optional. List of {name, type, description}
+return: ""                             # Optional. Return type + meaning.
+preconditions: []                      # Optional. Caller must ensure ...
+error_modes: []                        # Optional. What can go wrong at runtime.
+
+# ==== Provenance (REQUIRED: at least one entry) ====
+source:
+  - path: ""                           # REQUIRED. absolute upstream path
+    anchor: ""                         # REQUIRED. heading or line range
+    excerpt: ""                        # Optional. short quote.
+
+# ==== Probe linkage ====
+probed_by: ""                          # Optional. relative path to 80-experience/api-probes/<date>-<ns>-<func>.md

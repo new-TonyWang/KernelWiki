@@ -1,0 +1,44 @@
+origin_url: https://github.com/sgl-project/sglang/pull/19652
+upstream_repo: sgl-project/sglang
+upstream_sha: 991f3aa5
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-19652
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 2490b09a47c6e418d2c8bd4139c11300c99465217c2046aa5ddea4650f732d19
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/marlin/marlin_template.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/marlin/marlin_template.h
+  sha256: 066dd384495acb11a0a12fc56690035eafb30fbdcf9cf54344ba985351350116
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/marlin_moe/marlin_template.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/marlin_moe/marlin_template.h
+  sha256: e52875bb754a2ec90056ab1c55ab796a0c7fc9da1529b2e787714d60d36c1f68
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/marlin_moe/moe_wna16_marlin.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/marlin_moe/moe_wna16_marlin.cuh
+  sha256: 9274202ed3311a963c8f8586bc47469e70e4591b98a0dd0b66cb29fb23f431de
+- local_path: key-files/python/sglang/jit_kernel/moe_wna16_marlin.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/moe_wna16_marlin.py
+  sha256: 8b52d31a90974ba65cd13bf9baa482e3fda1bdfc8797c4643657348f077ffe93
+- local_path: key-files/python/sglang/srt/layers/moe/fused_moe_triton/fused_marlin_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/fused_moe_triton/fused_marlin_moe.py
+  sha256: 2e770ce79bef87d64da75ab5c220676a01e5b748daf3fb2889b454a26d0ef447
+- local_path: key-files/sgl-kernel/csrc/gemm/marlin/marlin_template.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/marlin/marlin_template.h
+  sha256: b39977a6953734b596b6b244470f0db08f902ee5db1132fea3817d155a0c04b9

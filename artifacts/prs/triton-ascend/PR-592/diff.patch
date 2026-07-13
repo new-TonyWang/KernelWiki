@@ -1,0 +1,256 @@
+diff --git a/triton_patch/python/src/ir.cc b/triton_patch/python/src/ir.cc
+@@ -1734,6 +1734,16 @@ void init_triton_ir(py::module &&m) {
+              annotationOp->setAttr(self.getBuilder().getStringAttr(attrKey),
+                                    attrVal);
+            })
++      // Gather load operation
++      .def("create_gather_load",
++        [](TritonOpBuilder &self, Value &src, Value &gatherIndices, int32_t gatherDim,
++           std::vector<Value> &srcShape, std::vector<Value> &srcOffset,
++           std::vector<Value> &readShape) -> Value {
++            // TODO: Implement using linalg/scf dialect
++            // This will be implemented by other team members
++            llvm::report_fatal_error("create_gather_load not yet implemented");
++            return Value();
++        })
+       // Add sort
+       .def("create_sort",
+            [](TritonOpBuilder &self, Value src, int64_t dim, bool descending) -> Value {
+
+diff --git a/triton_patch/python/triton_patch/language/core.py b/triton_patch/python/triton_patch/language/core.py
+@@ -462,6 +462,101 @@ def make_tensor_descriptor(
+     return semantic.make_tensor_descriptor(base, shape, strides, block_shape, _builder)
+ 
+ 
++@builtin
++def gather_load(
++    src: tensor,
++    gather_dim: int,
++    gather_indices: tensor,
++    src_shape: List,
++    src_offset: List,
++    read_shape: List,
++    _builder=None
++) -> tensor:
++    """
++    Parallel gather load operation from Global Memory to Unified Buffer.
++
++    Gathers data from multiple indices along a specified dimension and loads
++    them as tiles from GM directly to UB with zero-copy semantics.
++
++    :param src: Source tensor pointer (in GM)
++    :type src: tensor (pointer type)
++    :param gather_dim: The dimension along which to gather
++    :type gather_dim: int or constexpr
++    :param gather_indices: 1D tensor of indices to gather (in UB)
++    :type gather_indices: tensor
++    :param src_shape: Complete shape of the source tensor (can be int or tensor)
++    :type src_shape: List[Union[int, tensor]]
++    :param src_offset: Starting offset for reading (can be int or tensor)
++    :type src_offset: List[Union[int, tensor]]
++    :param read_shape: Size to read (tile shape, can be int or tensor)
++    :type read_shape: List[Union[int, tensor]]
++
++    **Constraints:**
++
++    - ``read_shape[gather_dim]`` must be ``-1``
++    - ``src_offset[gather_dim]`` can be ``-1`` (will be ignored)
++    - Boundary handling: ``src_offset + read_shape > src_shape`` automatically
++      truncates to ``src_shape`` boundary
++    - Does not check if ``gather_indices`` contains out-of-bounds values
++
++    **Example:**
++
++    .. code-block:: python
++
++        @triton.jit
++        def kernel(src_ptr, output_ptr, indices_ptr, M, N, D, ...):
++            # Load indices (e.g., [5, 10, 15, 20])
++            indices = tl.load(indices_ptr + tl.arange(0, 4))
++
++            # Example 1: Static shapes (constants)
++            # Gather load from dimension 1
++            # src: [8, 100, 256], gather at dim=1
++            # Read: [4, ?, 128] starting from [4, ?, 128]
++            result = tl.gather_load(
++                src_ptr,
++                gather_dim=1,
++                gather_indices=indices,
++                src_shape=[8, 100, 256],
++                src_offset=[4, -1, 128],
++                read_shape=[4, -1, 128]
++            )
++            # result shape: [4, 4, 128]
++
++            # Example 2: Dynamic shapes (variables)
++            result2 = tl.gather_load(
++                src_ptr,
++                gather_dim=1,
++                gather_indices=indices,
++                src_shape=[M, N, D],
++                src_offset=[4, -1, 128],
++                read_shape=[4, -1, 128]
++            )
++
++            tl.store(output_ptr + ..., result)
++
++    :return: Result tensor in UB with shape where ``gather_dim`` is replaced
++        by the length of ``gather_indices``
++    :rtype: tensor
++    """
++    gather_dim = _constexpr_to_value(gather_dim)
++
++    # Process shape parameters: convert constexpr to values, keep tensors as-is
++    def process_param(val):
++        """Convert constexpr to value, keep tensor or int as-is"""
++        if isinstance(val, tensor):
++            return val
++        else:
++            return _constexpr_to_value(val)
++
++    src_shape = [process_param(s) for s in src_shape]
++    src_offset = [process_param(s) for s in src_offset]
++    read_shape = [process_param(s) for s in read_shape]
++
++    return semantic.gather_load(
++        src, gather_dim, gather_indices, src_shape, src_offset, read_shape, _builder
++    )
++
++
+ def dtype_to_ir(self, builder: ir.builder) -> ir.type:
+     if self.name.startswith("fp8"):
+         raise ValueError(f'unexpected type fp8.')
+
+diff --git a/triton_patch/python/triton_patch/language/semantic.py b/triton_patch/python/triton_patch/language/semantic.py
+@@ -841,3 +841,130 @@ def make_tensor_descriptor(
+     handle = builder.create_make_tensor_descriptor(base_handle, [s.handle for s in shape],
+                                                     [s.handle for s in strides], block_shape, is_signed_int)
+     return tensor_descriptor(handle, shape, strides, desc_block_type)
++
++
++def gather_load(
++    src: tl.tensor,
++    gather_dim: int,
++    gather_indices: tl.tensor,
++    src_shape: List,  # Can be int or tl.tensor
++    src_offset: List,  # Can be int or tl.tensor
++    read_shape: List,  # Can be int or tl.tensor
++    builder: ir.builder
++) -> tl.tensor:
++    """
++    Gather load operation that loads data from multiple indices along a dimension.
++
++    Args:
++        src: Source tensor pointer (in GM)
++        gather_dim: Dimension along which to gather
++        gather_indices: 1D tensor of indices to gather (in UB)
++        src_shape: Complete shape of source tensor (can be int or tensor)
++        src_offset: Starting offset for reading (can be int or tensor)
++        read_shape: Size to read (tile shape, can be int or tensor)
++        builder: IR builder
++
++    Returns:
++        Result tensor in UB
++
++    Constraints:
++        - read_shape[gather_dim] must be -1
++        - src_offset[gather_dim] can be -1 (ignored)
++    """
++    # Validate inputs
++    if not isinstance(gather_dim, int):
++        raise ValueError(f"gather_dim must be an integer, got {type(gather_dim)}")
++
++    if not isinstance(src_shape, (list, tuple)):
++        raise ValueError(f"src_shape must be a list or tuple, got {type(src_shape)}")
++
++    if not isinstance(src_offset, (list, tuple)):
++        raise ValueError(f"src_offset must be a list or tuple, got {type(src_offset)}")
++
++    if not isinstance(read_shape, (list, tuple)):
++        raise ValueError(f"read_shape must be a list or tuple, got {type(read_shape)}")
++
++    ndim = len(src_shape)
++    if len(src_offset) != ndim or len(read_shape) != ndim:
++        raise ValueError(f"src_shape, src_offset, and read_shape must have same length. "
++                        f"Got {ndim}, {len(src_offset)}, {len(read_shape)}")
++
++    if not (0 <= gather_dim < ndim):
++        raise ValueError(f"gather_dim {gather_dim} out of range for {ndim}D tensor")
++
++    # Validate gather_indices is 1D
++    if not gather_indices.type.is_block():
++        raise ValueError("gather_indices must be a tensor")
++
++    indices_shape = gather_indices.type.get_block_shapes()
++    if len(indices_shape) != 1:
++        raise ValueError(f"gather_indices must be 1D, got shape {indices_shape}")
++
++    num_indices = indices_shape[0]
++
++    # Convert parameters to Value handles
++    # For src_shape, src_offset, read_shape: convert int to tensor
++    def to_value_handle(val):
++        if isinstance(val, tl.tensor):
++            return val.handle
++        elif isinstance(val, int):
++            # Convert int constant to i64 constant
++            return builder.get_int64(val)
++        else:
++            raise ValueError(f"Expected int or tensor, got {type(val)}")
++
++    src_shape_handles = [to_value_handle(v) for v in src_shape]
++    src_offset_handles = [to_value_handle(v) for v in src_offset]
++    read_shape_handles = [to_value_handle(v) for v in read_shape]
++
++    # For static validation, extract constant values where possible
++    def get_const_value(val):
++        """Try to get constant value, return None if dynamic"""
++        if isinstance(val, int):
++            return val
++        # For tensor, we can't extract compile-time constant
++        return None
++
++    # Validate read_shape[gather_dim] is -1 if it's a constant
++    read_shape_gather_val = get_const_value(read_shape[gather_dim])
++    if read_shape_gather_val is not None and read_shape_gather_val != -1:
++        raise ValueError(f"read_shape[gather_dim={gather_dim}] must be -1, got {read_shape_gather_val}")
++
++    # Build output shape: replace gather_dim with num_indices
++    # For dynamic shapes, we can only compute output shape for known dimensions
++    output_shape = []
++    for i in range(ndim):
++        if i == gather_dim:
++            output_shape.append(num_indices)
++        else:
++            size = get_const_value(read_shape[i])
++            if size is not None:
++                if size <= 0 and size != -1:
++                    raise ValueError(f"read_shape[{i}] must be positive or -1, got {size}")
++                output_shape.append(size if size > 0 else 1)  # Use 1 as placeholder for dynamic
++            else:
++                # Dynamic size, use placeholder (will be determined at runtime)
++                output_shape.append(1)
++
++    # Determine output element type from src
++    if hasattr(src.type, 'element_ty'):
++        element_ty = src.type.element_ty
++    elif hasattr(src.type, 'scalar'):
++        element_ty = src.type.scalar
++    else:
++        raise ValueError(f"Cannot determine element type from src type: {src.type}")
++
++    # Create output type
++    output_ty = tl.block_type(element_ty, output_shape)
++
++    # Create the gather_load op with Value handles
++    handle = builder.create_gather_load(
++        src.handle,
++        gather_indices.handle,
++        gather_dim,
++        src_shape_handles,
++        src_offset_handles,
++        read_shape_handles
++    )
++
++    return tl.tensor(handle, output_ty)
+\ No newline at end of file

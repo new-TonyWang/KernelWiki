@@ -1,0 +1,49 @@
+origin_url: https://github.com/vllm-project/vllm/pull/36185
+upstream_repo: vllm-project/vllm
+upstream_sha: c5362c73
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-36185
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ed332d3d1d666d29ef1cbe494dd44cabfa8d37c57fceb9911833722284f8bb62
+- local_path: key-files/vllm/v1/attention/backend.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backend.py
+  sha256: 95798ac8426d1497c99f7ef489b12ce587feb8666eed47aa71c8635b474a5efe
+- local_path: key-files/vllm/v1/attention/backends/mla/rocm_aiter_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/rocm_aiter_mla.py
+  sha256: 7c7ed73aa908787bfb9b5b188df0264338c89341ce342bdb940c5d8422d80f68
+- local_path: key-files/vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/rocm_aiter_mla_sparse.py
+  sha256: 6f866483debd7adea2e091ed1efdb4af07e583df70cbc831c5f181aa57934109
+- local_path: key-files/vllm/v1/attention/backends/mla/triton_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/triton_mla.py
+  sha256: 7604b95acdd6f8998836ca9f3f82dbc6abf3914564c98f6694eeb04c79dce5f8
+- local_path: key-files/vllm/v1/attention/backends/rocm_aiter_fa.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/rocm_aiter_fa.py
+  sha256: 0fa025b14be0ea34aa308537b9d1983c9a28bb320bfcedf6e119db69124c7bc7
+- local_path: key-files/vllm/v1/attention/backends/rocm_aiter_unified_attn.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/rocm_aiter_unified_attn.py
+  sha256: a1abc71b4612858a07edc8753b704bc6fb00945550aaa4445691be9dc78b1a34
+- local_path: key-files/vllm/v1/attention/backends/rocm_attn.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/rocm_attn.py
+  sha256: 72e768ee211754f5690bcddaf386f691330cf5213bcbba616ec208aea5907d28

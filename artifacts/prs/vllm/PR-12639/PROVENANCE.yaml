@@ -1,0 +1,82 @@
+origin_url: https://github.com/vllm-project/vllm/pull/12639
+upstream_repo: vllm-project/vllm
+upstream_sha: 288cc6c2
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-12639
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 4ecadedc6deed10a999e0722c4a6aa584cab1995801507fcdf88d07644cc8a85
+- local_path: key-files/csrc/cache.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cache.h
+  sha256: 36431dbcdd9094219e61d55567c98bfa50a4683396ced3bd58a4c25e6dfa0341
+- local_path: key-files/csrc/cache_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cache_kernels.cu
+  sha256: 3c1c2660d525f832516a7d5351714788b3ebf05edada12fe31105267d8cb719e
+- local_path: key-files/csrc/core/math.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/core/math.hpp
+  sha256: e7f791cdfef5445600e5783a6690129dd1525efb38eae7a144abab48c4504e7b
+- local_path: key-files/csrc/cuda_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cuda_utils.h
+  sha256: 02ef2db7face2cfbaecb4b4cf4f2b4760de00e19de797449b5d08fe5e7adc222
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_c3x.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_c3x.cu
+  sha256: a09cd4ce921b58c23778fa1badcfb1541543e9ad21f78c997f93fc9d7d6aaf31
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 44f943b04aa544b85f77c1fa8a351fa763056faf858e32f7a638d0a00794148b
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: e493a10066fc52128c8dfccaae51adf9c6b22fdf0884f0921e1829310e997c28
+- local_path: key-files/vllm/attention/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/__init__.py
+  sha256: 004508438ad9cec15ca8f8b172f33a06b647e533c3f4293beceb64b295d88b98
+- local_path: key-files/vllm/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/mla/common.py
+  sha256: 129448969f31dadbe215d15d743d2ada117b3213056c8b2674cb2e862aaf319c
+- local_path: key-files/vllm/attention/backends/mla/utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/mla/utils.py
+  sha256: 0404d85410e1530b8b57a33bbd818777eac86a92dfaf89ccd59d526e69672705
+  upstream_sha: 900edbfa485bc17f4a689f2f4f13a295b79320b7
+  captured_at_base_sha_note: 'PR #12639 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/vllm/attention/backends/triton_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/triton_mla.py
+  sha256: c21539009cb44130161cb5219bde9e0b6bec8a2b7162c54c2dac11485ee50a41
+- local_path: key-files/vllm/attention/ops/triton_merge_attn_states.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/ops/triton_merge_attn_states.py
+  sha256: 07eb5ed508a79bc5c6ba458e4ac6d4cf107d120e51074d5aad6e440df74cb326
+- local_path: key-files/vllm/v1/attention/backends/flash_attn.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/flash_attn.py
+  sha256: f560f51f6f1bcddbe0f66b2a81b866ed89e0ef3997fddd42f28175f6a347c85d

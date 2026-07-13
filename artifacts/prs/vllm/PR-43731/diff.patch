@@ -1,0 +1,27 @@
+diff --git a/vllm/model_executor/kernels/linear/__init__.py b/vllm/model_executor/kernels/linear/__init__.py
+index b99fcc7d34b2..cfeb40fecf6c 100644
+--- a/vllm/model_executor/kernels/linear/__init__.py
++++ b/vllm/model_executor/kernels/linear/__init__.py
+@@ -336,6 +336,7 @@ def _filter_kernels_by_backend(
+         MarlinLinearKernel,
+         ConchLinearKernel,
+         ExllamaLinearKernel,
++        TritonW4A16LinearKernel,
+     ],
+     PlatformEnum.ROCM: [
+         TritonW4A16LinearKernel,
+diff --git a/vllm/model_executor/kernels/linear/mixed_precision/triton_w4a16.py b/vllm/model_executor/kernels/linear/mixed_precision/triton_w4a16.py
+index 5cc100b3e1e3..5ba1caabae66 100644
+--- a/vllm/model_executor/kernels/linear/mixed_precision/triton_w4a16.py
++++ b/vllm/model_executor/kernels/linear/mixed_precision/triton_w4a16.py
+@@ -288,8 +288,8 @@ def get_min_capability(cls) -> int:
+ 
+     @classmethod
+     def can_implement(cls, c: MPLinearLayerConfig) -> tuple[bool, str | None]:
+-        if not current_platform.is_rocm():
+-            return False, "TritonW4A16LinearKernel only targets ROCm"
++        if not (current_platform.is_rocm() or current_platform.is_cuda()):
++            return False, "TritonW4A16LinearKernel requires CUDA or ROCm"
+ 
+         if c.weight_type not in cls.SUPPORTED_QUANT_TYPES:
+             return (

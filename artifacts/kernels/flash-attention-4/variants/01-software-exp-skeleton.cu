@@ -1,5 +1,5 @@
 // provenance: derived from pr-cutlass-2466, technique-software-exp, kernel-flash-attention-4; not upstream code
-// origin: wiki/kernels/flash-attention-4.md Phase 3 variant (software-emulated exponential skeleton)
+// origin: wiki/nvidia/kernels/flash-attention-4.md Phase 3 variant (software-emulated exponential skeleton)
 
 // FlashAttention-4 software exp trick: exp2f(x * log2(e)) is emitted by
 // the compiler as a fused ex2.approx.f32 instruction on SM100, which runs

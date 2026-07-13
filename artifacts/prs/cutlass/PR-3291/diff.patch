@@ -1,0 +1,12 @@
+diff --git a/examples/python/CuTeDSL/cute/blackwell/kernel/attention/fmha/fmha.py b/examples/python/CuTeDSL/cute/blackwell/kernel/attention/fmha/fmha.py
+index f9ec6acd0a..39ac474d54 100644
+--- a/examples/python/CuTeDSL/cute/blackwell/kernel/attention/fmha/fmha.py
++++ b/examples/python/CuTeDSL/cute/blackwell/kernel/attention/fmha/fmha.py
+@@ -4003,6 +4003,7 @@ def run_torch_fmha(
+         total_softmax_count,
+         current_stream,
+         use_pdl,
++        options=f"--opt-level=2" if cutlass.__version__[0:3]=="4.6" else "",
+     )
+     if stats_skip_softmax_ratio:
+         print(

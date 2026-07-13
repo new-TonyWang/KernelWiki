@@ -1,5 +1,5 @@
 // provenance: derived from pr-cutlass-2466, blog-flash-attention-4, technique-ping-pong-scheduling; not upstream code
-// origin: wiki/techniques/ping-pong-scheduling.md Phase 3 variant
+// origin: wiki/nvidia/techniques/ping-pong-scheduling.md Phase 3 variant
 
 // Minimal two-tile ping-pong: while tile A runs softmax+rescale on the
 // SFU path, tile B issues tcgen05.mma on the tensor-core path. The two

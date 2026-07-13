@@ -1,0 +1,24 @@
+origin_url: https://github.com/vllm-project/vllm/pull/43731
+upstream_repo: vllm-project/vllm
+upstream_sha: '22720624'
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-43731
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 21c9fc2b66b24ce0d53b75a14396a84b595572247e9c4f7566e49de239e65dad
+- local_path: key-files/vllm/model_executor/kernels/linear/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/kernels/linear/__init__.py
+  sha256: e86575862e9bf1a9782360c7970f44a727ef617540952feb9915e596eb461e78
+- local_path: key-files/vllm/model_executor/kernels/linear/mixed_precision/triton_w4a16.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/kernels/linear/mixed_precision/triton_w4a16.py
+  sha256: 9e545ec367887a0d11ec365d7fa5ba5ad592ba037bc102f9b38db87a30672e67

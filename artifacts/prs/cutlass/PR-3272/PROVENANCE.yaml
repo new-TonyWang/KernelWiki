@@ -1,0 +1,29 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/3272
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 9c1d0965
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-3272
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 9dfd61621ad3594fd14972298193079eb86fc61f2b7a58405184b7c45649f4dd
+- local_path: key-files/examples/python/CuTeDSL/cute/blackwell_geforce/kernel/blockscaled_gemm/blockscaled_gemm_dispatch.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/python/CuTeDSL/cute/blackwell_geforce/kernel/blockscaled_gemm/blockscaled_gemm_dispatch.py
+  sha256: 2d4ab5d6c150d938c0dbae3f63f5ddbbc9abf33975d66810cd6fd47a45ff3996
+- local_path: key-files/examples/python/CuTeDSL/cute/blackwell_geforce/kernel/blockscaled_gemm/dense_blockscaled_gemm_persistent_cooperative.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/python/CuTeDSL/cute/blackwell_geforce/kernel/blockscaled_gemm/dense_blockscaled_gemm_persistent_cooperative.py
+  sha256: e3e8503239716b4d68db7dfec4971dcff7b386470c8515c3d2cc8698c761540e
+- local_path: key-files/examples/python/CuTeDSL/cute/blackwell_geforce/kernel/blockscaled_gemm/dense_blockscaled_gemm_persistent_pingpong.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/python/CuTeDSL/cute/blackwell_geforce/kernel/blockscaled_gemm/dense_blockscaled_gemm_persistent_pingpong.py
+  sha256: ca4a705517123847e4082bc18d929ed62362322181071cfafdc049697af359c6

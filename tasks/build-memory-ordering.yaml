@@ -1,0 +1,76 @@
+task_id: 2026-04-16-memory-ordering
+task_type: build-skill
+target_path: wiki/nvidia/foundations/sync/memory-ordering/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - <local-path>
+  - <local-path>
+  - <local-path>
+
+references:
+  - reasoning/api-probing.md
+  - reasoning/benchmark-protocol.md
+  - reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: skill.md
+  - file_exists: pitfalls.md
+  - file_exists: apis.md
+  - lint_clean: true
+  # NO microbench probe required — this is correctness knowledge, not performance
+
+related_skills: [async-copy, warp-primitives]
+
+notes: |
+  This skill is derived from GTC25-S72683 Part 2 (Allart's section on the CUDA
+  memory model). Source transcript at:
+  <local-path>
+  (search for "Part 2 — The CUDA Memory Model")
+
+  READ THAT FILE — Part 2 section — for the complete structured notes.
+
+  Key topics for skill.md:
+
+  1. What a memory model is: contract between user, compiler, hardware, and language
+     determining what values a load can legally return.
+
+  2. Single-thread same-address ordering:
+     - Loads and stores to the same address from one thread cannot overtake each other
+     - EXCEPT through the constant cache (non-coherent with L1)
+     - The const_cast + asm volatile trick to demonstrate the UB
+
+  3. C++ memory orders (Volta+):
+     - memory_order_seq_cst: strongest, expensive, preserves program order
+     - memory_order_acquire: consumer side — subsequent ops stay after
+     - memory_order_release: producer side — prior ops stay before
+     - memory_order_relaxed: only same-address ordering within a thread
+
+  4. Thread scopes and their coherence points:
+     - thread_scope_thread: single thread (used by cuda::pipeline)
+     - thread_scope_block: same SM → coherence at L1 (cheapest)
+     - thread_scope_cluster: multiple SMs → coherence at L2 (Hopper+)
+     - thread_scope_device: all SMs → coherence at L2
+     - thread_scope_system: GPUs + CPUs → flush through entire hierarchy (most expensive)
+
+  5. Cost implications: block-scoped atomics are essentially free (L1 only);
+     device-scoped require L1→L2 flush/invalidate; system-scoped require full hierarchy flush.
+
+  apis.md: cuda::atomic<T, Scope>, cuda::std::memory_order_*, cuda::thread_scope_*,
+    cuda::atomic_ref, __threadfence(), __threadfence_block(), __threadfence_system()
+
+  pitfalls: constant cache non-coherence, relaxed order on different addresses,
+    forgetting scope (defaulting to device when block suffices = unnecessary cost),
+    __threadfence vs cuda::atomic (legacy vs modern API)
+
+  NO microbench probe needed — this is correctness/semantics knowledge. The skill
+  helps avoid data races and pick the cheapest synchronization scope, but the
+  "measurement" is correctness (no UB), not latency.
+
+  For the success_criteria, at_least_one_hw_probe_linked is NOT required for this
+  skill. Set evidence_level to "spec" (grounded in programming guide and PTX ISA
+  documentation, not in measured data).

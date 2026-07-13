@@ -1,5 +1,5 @@
 // provenance: derived from pr-flashinfer-1039, hw-tcgen05-mma, hw-tmem, technique-warp-specialization; not upstream code
-// origin: wiki/techniques/warp-specialization.md Phase 3 variant; see PROVENANCE.yaml in this directory
+// origin: wiki/nvidia/techniques/warp-specialization.md Phase 3 variant; see PROVENANCE.yaml in this directory
 //
 // Minimal three-role warp specialization skeleton for Blackwell SM100.
 // Warp 0 = producer (TMA loads), warps 1-7 = MMA warpgroup (tcgen05.mma),

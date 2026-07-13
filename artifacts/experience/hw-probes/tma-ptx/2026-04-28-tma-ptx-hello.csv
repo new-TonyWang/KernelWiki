@@ -1,0 +1,2 @@
+probe,kernel,tile_rows,tile_cols,src_rows,src_cols,dtype,matched,total,cutlass_free_preprocessor,cutlass_free_binary,notes
+tma_hello,cp.async.bulk.tensor.2d,16,32,64,32,float32,512,512,PASS,PASS,Cutlass-free TMA load via cuTensorMapEncodeTiled + cp.async.bulk.tensor + mbarrier; element-by-element match against host source

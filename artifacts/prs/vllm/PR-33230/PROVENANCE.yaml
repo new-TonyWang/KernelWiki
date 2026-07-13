@@ -1,0 +1,39 @@
+origin_url: https://github.com/vllm-project/vllm/pull/33230
+upstream_repo: vllm-project/vllm
+upstream_sha: e584dce5
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-33230
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: b80ab834eab4740f868c8183b017b161b97dec1a51b956790da190829ffae42d
+- local_path: key-files/vllm/_xpu_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_xpu_ops.py
+  sha256: 8b4851b75eb58e5959fe3aec088bcfe93bfb218af05530cffecd2543eeeb308f
+- local_path: key-files/vllm/triton_utils/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/triton_utils/__init__.py
+  sha256: 5297ed6e73448fb930148b423f66ffe213d0386884ed0d7e90f2677d2c95ced7
+- local_path: key-files/vllm/v1/attention/backends/mla/xpu_mla_sparse.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/xpu_mla_sparse.py
+  sha256: c62520c7babac40893f7fdc2e9f9a40e3bec4564e6c3fae10ae8f01ce76515a2
+- local_path: key-files/vllm/v1/attention/backends/registry.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/registry.py
+  sha256: 2ae7f36bb3674fdf13603006604a5c5b47929c2a52ee1068fb36a046e79d72e3
+- local_path: key-files/vllm/v1/attention/ops/xpu_mla_sparse.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/ops/xpu_mla_sparse.py
+  sha256: b103951fa34092703ea866de0406cd1a5ef2c0a522dedfe395e2102e22abfcf2

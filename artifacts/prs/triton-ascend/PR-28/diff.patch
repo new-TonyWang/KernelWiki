@@ -1,0 +1,1033 @@
+diff --git a/ascend/examples/generalization_cases/test_and.py b/ascend/examples/generalization_cases/test_and.py
+@@ -81,3 +81,25 @@ def test_case2(dtype, shape):
+     fn_npu_[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'uint32',
++    'float16',
++    'float32',
++    'bfloat16',
++]
++
++@pytest.mark.parametrize("dtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(dtype):
++    N = 32
++    shape = (N, )
++
++    x = test_common.generate_tensor(shape, dtype).npu()
++    y = test_common.generate_tensor(shape, dtype).npu()
++    z = test_common.generate_tensor(shape, dtype).npu()
++
++    output = torch.randint(1, shape, dtype=eval('torch.' + dtype)).npu()
++    grid = (1, 1, 1)
++    fn_npu_[grid](output, x, y, z, 1, 1, N, 1, 1, N)
++
+
+diff --git a/ascend/examples/generalization_cases/test_eq.py b/ascend/examples/generalization_cases/test_eq.py
+@@ -51,6 +51,22 @@ def test_eq(shape, dtype):
+     cmp_dtype = dtype if dtype != 'uint32' else 'float32'
+     test_common.validate_cmp(cmp_dtype, triton_res, torch_res)
+ 
++invalid_types = [
++    'uint32',
++    'bool',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x0 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    x1 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    triton_eq[1, 1, 1](x0, x1, output, N, N, N)
++
++
+ if __name__ == "__main__":
+     for dtype in TestUtils.dtype_list:
+         for shape in [(37,), (37, 3), (1, 22, 39)]:
+
+diff --git a/ascend/examples/generalization_cases/test_flip.py b/ascend/examples/generalization_cases/test_flip.py
+@@ -91,6 +91,20 @@ def test_flip(shape, dtype):
+     cmp_dtype = dtype if dtype != 'uint32' else 'float32'
+     test_common.validate_cmp(cmp_dtype, triton_res, torch_res)
+ 
++invalid_types = [
++    'uint32',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_floordiv_invalid_dtype(sigtype):
++    N = 32
++    data_dtype = eval('torch.' + sigtype)
++    x = torch.randint(low=0, high=128, size=(N, ), dtype=data_dtype).npu()
++
++    triton_res = torch.empty((N, ), dtype=data_dtype).npu()
++    fn_npu_1d[1, 1, 1](triton_res, x, N)
++
+ 
+ if __name__ == "__main__":
+     for dtype in TestUtils.dtype_list:
+
+diff --git a/ascend/examples/generalization_cases/test_ge_op.py b/ascend/examples/generalization_cases/test_ge_op.py
+@@ -80,3 +80,18 @@ def test_ge(sigtype, shape):
+     if len(shape) == 1:
+         triton_ge_1d[1, 1, 1](x0, x1, output, shape[0])
+     test_common.validate_cmp(sigtype, output, y_ref)
++
++invalid_types = [
++    'uint32',
++    'bool',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x0 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    x1 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    triton_ge_1d[1, 1, 1](x0, x1, output, N)
+
+diff --git a/ascend/examples/generalization_cases/test_general_add.py b/ascend/examples/generalization_cases/test_general_add.py
+@@ -77,4 +77,20 @@ def test_add(shape, dtype):
+ 
+     triton_add[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+-    test_common.validate_cmp(dtype, ans, output)
+\ No newline at end of file
++    test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'bool',
++    'uint32',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    triton_add[1, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
+
+diff --git a/ascend/examples/generalization_cases/test_general_div.py b/ascend/examples/generalization_cases/test_general_div.py
+@@ -34,7 +34,7 @@ def triton_div(output_ptr, x_ptr, y_ptr, z_ptr, XB: tl.constexpr, YB: tl.constex
+ 
+ @pytest.mark.parametrize('shape', TestUtils.full_shape) # some shape with int8 over ub
+ @pytest.mark.parametrize('dtype', ['int8', 'int16', 'int32', 'int64', 'float16', 'float32', 'bfloat16'])
+-def test_add(shape, dtype):
++def test_div(shape, dtype):
+     logging.log(logging.DEBUG, f"shape = {shape}")
+     x = test_common.generate_tensor(shape, dtype).npu()
+     y = test_common.generate_tensor(shape, dtype).npu()
+@@ -80,3 +80,20 @@ def test_add(shape, dtype):
+ 
+     triton_div[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'bool',
++    'uint32',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    triton_div[1, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
++
+
+diff --git a/ascend/examples/generalization_cases/test_general_floordiv.py b/ascend/examples/generalization_cases/test_general_floordiv.py
+@@ -34,7 +34,7 @@ def triton_floordiv(output_ptr, x_ptr, y_ptr, z_ptr, XB: tl.constexpr, YB: tl.co
+ 
+ @pytest.mark.parametrize('shape', TestUtils.full_shape) # some shape with int8 over ub
+ @pytest.mark.parametrize('dtype', ['int8', 'int16', 'int32', 'int64'])
+-def test_add(shape, dtype):
++def test_floordiv(shape, dtype):
+     logging.log(logging.DEBUG, f"shape = {shape}")
+     x = test_common.generate_tensor(shape, dtype).npu()
+     y = test_common.generate_tensor(shape, dtype).npu()
+@@ -77,3 +77,22 @@ def test_add(shape, dtype):
+     triton_floordiv[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'uint32',
++    'float16',
++    'float32',
++    'bfloat16',
++    'bool',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_floordiv_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    triton_cal = triton_floordiv[N, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
+
+diff --git a/ascend/examples/generalization_cases/test_general_mul.py b/ascend/examples/generalization_cases/test_general_mul.py
+@@ -79,3 +79,19 @@ def test_mul(shape, dtype):
+     triton_mul[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'bool',
++    'uint32',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    triton_mul[1, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
+
+diff --git a/ascend/examples/generalization_cases/test_general_sub.py b/ascend/examples/generalization_cases/test_general_sub.py
+@@ -78,3 +78,20 @@ def test_sub(shape, dtype):
+     triton_sub[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'bool',
++    'uint32',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    triton_sub[1, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
++
+
+diff --git a/ascend/examples/generalization_cases/test_gt_op.py b/ascend/examples/generalization_cases/test_gt_op.py
+@@ -80,3 +80,18 @@ def test_gt(sigtype, shape):
+     if len(shape) == 1:
+         triton_gt_1d[1, 1, 1](x0, x1, output, shape[0])
+     test_common.validate_cmp(sigtype, output, y_ref)
++
++invalid_types = [
++    'uint32',
++    'bool',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x0 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    x1 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    triton_gt_1d[1, 1, 1](x0, x1, output, N)
+
+diff --git a/ascend/examples/generalization_cases/test_invert.py b/ascend/examples/generalization_cases/test_invert.py
+@@ -88,3 +88,22 @@ def test_case2(dtype, shape):
+     fn_npu_[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'float32',
++    'float16',
++    'bfloat16',
++    'uint32',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    fn_npu_[1, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
++
+
+diff --git a/ascend/examples/generalization_cases/test_le_op.py b/ascend/examples/generalization_cases/test_le_op.py
+@@ -80,3 +80,19 @@ def test_le(sigtype, shape):
+     if len(shape) == 1:
+         triton_le_1d[1, 1, 1](x0, x1, output, shape[0])
+     test_common.validate_cmp(sigtype, output, y_ref)
++
++invalid_types = [
++    'uint32',
++    'bool',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x0 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    x1 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    triton_le_1d[1, 1, 1](x0, x1, output, N)
++
+
+diff --git a/ascend/examples/generalization_cases/test_logical_and_op.py b/ascend/examples/generalization_cases/test_logical_and_op.py
+@@ -72,6 +72,31 @@ def test_logical_and(shape, sigtype):
+ 
+     test_common.validate_cmp(sigtype, output, y_ref)
+ 
++invalid_types = [
++    'uint32',
++    'float16',
++    'float32',
++    'bfloat16',
++    'int8',
++    'int16',
++    'int32',
++    'int64',
++]
++
++@pytest.mark.parametrize("dtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(dtype):
++    N = 32
++    shape = (N, )
++
++    sigtype = eval('torch.' + dtype)
++    x0 = generate_tensor(shape=shape, dtype=dtype).npu()
++    x1 = generate_tensor(shape=shape, dtype=dtype).npu()
++    # ncore, xblock, xblock_sub = 2, 32768, 1024
++    output = torch.zeros(shape, dtype=sigtype).npu()
++    triton_logical_and_1d[1, 1, 1](x0, x1, output, shape[0])
++
++
+ if __name__ == "__main__":
+     for dtype in typelist:
+         for shape in [(37,), (37, 3), (1,22,39)]:
+
+diff --git a/ascend/examples/generalization_cases/test_lshift_op.py b/ascend/examples/generalization_cases/test_lshift_op.py
+@@ -86,3 +86,23 @@ def test_lshift(sigtype, shape):
+     if len(shape) == 1:
+         triton_lshift_1d[1, 1, 1](x0, output, shape[0])
+     test_common.validate_cmp(sigtype, output, y_ref)
++
++invalid_types = [
++    'uint32',
++    'bool',
++    'float16',
++    'float32',
++    'bfloat16',
++]
++
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor((N, ), sigtype).npu()
++    y = test_common.generate_tensor((N, ), sigtype).npu()
++    z = test_common.generate_tensor((N, ), sigtype).npu()
++
++    triton_lshift_1d[1, 1, 1](x, y, N)
++
+
+diff --git a/ascend/examples/generalization_cases/test_lt_op.py b/ascend/examples/generalization_cases/test_lt_op.py
+@@ -80,3 +80,18 @@ def test_lt(sigtype, shape):
+     if len(shape) == 1:
+         triton_lt_1d[1, 1, 1](x0, x1, output, shape[0])
+     test_common.validate_cmp(sigtype, output, y_ref)
++
++invalid_types = [
++    'uint32',
++    'bool',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x0 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    x1 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    triton_lt_1d[1, 1, 1](x0, x1, output, N)
+
+diff --git a/ascend/examples/generalization_cases/test_mod.py b/ascend/examples/generalization_cases/test_mod.py
+@@ -93,3 +93,23 @@ def test_case2(dtype, shape):
+     fn_npu_[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'float32',
++    'float16',
++    'bfloat16',
++    'uint32',
++    'bool',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    fn_npu_[1, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
++
+
+diff --git a/ascend/examples/generalization_cases/test_ne.py b/ascend/examples/generalization_cases/test_ne.py
+@@ -52,6 +52,22 @@ def test_ne(shape, dtype):
+     cmp_dtype = dtype if dtype != 'uint32' else 'float32'
+     test_common.validate_cmp(cmp_dtype, triton_res, torch_res)
+ 
++invalid_types = [
++    'uint32',
++    'bool',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x0 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    x1 = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    triton_ne[1, 1, 1](x0, x1, output, N, N, N)
++
++
+ if __name__ == "__main__":
+     for dtype in TestUtils.dtype_list:
+         for shape in [(37,), (37, 3), (1, 22, 39)]:
+
+diff --git a/ascend/examples/generalization_cases/test_neg.py b/ascend/examples/generalization_cases/test_neg.py
+@@ -83,3 +83,20 @@ def test_case2(dtype, shape):
+     fn_npu_[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'uint32',
++    'bool',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    fn_npu_[1, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
++
+
+diff --git a/ascend/examples/generalization_cases/test_not.py b/ascend/examples/generalization_cases/test_not.py
+@@ -84,3 +84,22 @@ def test_case2(dtype, shape):
+ 
+     test_common.validate_cmp(dtype, ans, output)
+ 
++invalid_types = [
++    'float32',
++    'float16',
++    'bfloat16',
++    'uint32',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    fn_npu_[1, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
++
++
+
+diff --git a/ascend/examples/generalization_cases/test_or.py b/ascend/examples/generalization_cases/test_or.py
+@@ -81,3 +81,25 @@ def test_case2(dtype, shape):
+     fn_npu_[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'uint32',
++    'float16',
++    'float32',
++    'bfloat16',
++]
++
++@pytest.mark.parametrize("dtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(dtype):
++    N = 32
++    shape = (N, )
++
++    x = test_common.generate_tensor(shape, dtype).npu()
++    y = test_common.generate_tensor(shape, dtype).npu()
++    z = test_common.generate_tensor(shape, dtype).npu()
++
++    output = torch.randint(1, shape, dtype=eval('torch.' + dtype)).npu()
++    grid = (1, 1, 1)
++    fn_npu_[grid](output, x, y, z, 1, 1, N, 1, 1, N)
++
+
+diff --git a/ascend/examples/generalization_cases/test_rshift_op.py b/ascend/examples/generalization_cases/test_rshift_op.py
+@@ -87,3 +87,22 @@ def test_lshift(sigtype, shape):
+     if len(shape) == 1:
+         triton_rshift_1d[1, 1, 1](x0, output, shape[0])
+     test_common.validate_cmp(sigtype, output, y_ref)
++
++invalid_types = [
++    'uint32',
++    'bool',
++    'float16',
++    'float32',
++    'bfloat16',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor((N, ), sigtype).npu()
++    y = test_common.generate_tensor((N, ), sigtype).npu()
++    z = test_common.generate_tensor((N, ), sigtype).npu()
++
++    triton_rshift_1d[1, 1, 1](x, y, N)
++
+
+diff --git a/ascend/examples/generalization_cases/test_where.py b/ascend/examples/generalization_cases/test_where.py
+@@ -82,3 +82,20 @@ def test_case2(dtype, shape):
+     fn_npu_[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'bool',
++    'uint32',
++]
++
++@pytest.mark.parametrize("sigtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(sigtype):
++    N = 32
++    x = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    y = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    z = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++    output = test_common.generate_tensor(shape=(N,), dtype=sigtype).npu()
++
++    fn_npu_[1, 1, 1](output, x, y, z, N, 1, 1, N, 1, 1)
++
+
+diff --git a/ascend/examples/generalization_cases/test_xor.py b/ascend/examples/generalization_cases/test_xor.py
+@@ -82,3 +82,25 @@ def test_case2(dtype, shape):
+     fn_npu_[grid](output, x, y, z, XB, YB, ZB, xnumel, ynumel, znumel)
+ 
+     test_common.validate_cmp(dtype, ans, output)
++
++invalid_types = [
++    'uint32',
++    'float16',
++    'float32',
++    'bfloat16',
++]
++
++@pytest.mark.parametrize("dtype", invalid_types)
++@test_common.raises_with_match(triton.compiler.errors.CompilationError, "Unexpected dtype")
++def test_invalid_dtype(dtype):
++    N = 32
++    shape = (N, )
++
++    x = test_common.generate_tensor(shape, dtype).npu()
++    y = test_common.generate_tensor(shape, dtype).npu()
++    z = test_common.generate_tensor(shape, dtype).npu()
++
++    output = torch.randint(1, shape, dtype=eval('torch.' + dtype)).npu()
++    grid = (1, 1, 1)
++    fn_npu_[grid](output, x, y, z, 1, 1, N, 1, 1, N)
++
+
+diff --git a/setup.py b/setup.py
+@@ -588,11 +588,12 @@ sys.modules['triton.testing'] = ascend_testing
+     insert_at_file_start(init_path, patched_content)
+ 
+     content_to_append = f"""
+-from .triton_patch.language.core import dot, gather, insert, subview
++from .triton_patch.language.core import dot, gather, insert, subview, __neg__
+ from .triton_patch.language.standard import flip, sigmoid, softmax
+ from .triton_patch.language.math import umulhi, exp, exp2, log, log2, cos, sin, sqrt, sqrt_rn, rsqrt, div_rn, erf, tanh, floor, ceil
+ from . import language
+ 
++language.__neg__ = __neg__
+ language.dot = dot
+ language.flip = flip
+ language.sigmoid = sigmoid
+@@ -608,7 +609,8 @@ language.subview = subview
+ # language.core.function_type = function_type
+ 
+ from .triton_patch.language.semantic import arange, floordiv, atom_red_typechecking_impl, \
+-        atomic_max, atomic_min, maximum, minimum
++        atomic_max, atomic_min, maximum, minimum, greater_than, greater_equal, less_than, less_equal, equal, \
++        not_equal, invert, mul, add, sub, truediv, where, and_, or_, xor_, logical_and, mod, not_, lshr, ashr, shl
+ language.semantic.arange = arange
+ language.semantic.floordiv = floordiv
+ language.semantic.atom_red_typechecking_impl = atom_red_typechecking_impl
+@@ -616,6 +618,27 @@ language.semantic.atomic_max = atomic_max
+ language.semantic.atomic_min = atomic_min
+ language.semantic.maximum = maximum
+ language.semantic.minimum = minimum
++language.semantic.greater_equal = greater_equal
++language.semantic.greater_than = greater_than
++language.semantic.less_than = less_than
++language.semantic.less_equal = less_equal
++language.semantic.equal = equal
++language.semantic.not_equal = not_equal
++language.semantic.invert = invert
++language.semantic.mul = mul
++language.semantic.sub = sub
++language.semantic.add = add
++language.semantic.truediv = truediv
++language.semantic.where = where
++language.semantic.and_ = and_
++language.semantic.or_ = or_
++language.semantic.xor_ = xor_
++language.semantic.logical_and = logical_and
++language.semantic.mod = mod
++language.semantic.not_ = not_
++language.semantic.ashr = ashr
++language.semantic.lshr = lshr
++language.semantic.shl = shl
+ 
+ language.umulhi = umulhi
+ language.exp = exp
+
+diff --git a/triton_patch/python/triton_patch/language/core.py b/triton_patch/python/triton_patch/language/core.py
+@@ -165,6 +165,12 @@ def dot(input, other, acc=None, input_precision=None, allow_tf32=None, max_num_i
+     max_num_imprecise_acc = _constexpr_to_value(max_num_imprecise_acc)
+     return semantic.dot(input, other, acc, input_precision, max_num_imprecise_acc, out_dtype, _builder)
+ 
++@builtin
++def __neg__(self, _builder=None):
++    if self.type.scalar.is_bool() or self.type.scalar.is_int_unsigned():
++        raise TypeError(f"Unexpected dtype {self.type.scalar}")
++    return semantic.minus(self, _builder)
++
+ @_tensor_member_fn
+ @builtin
+ def gather(src, index, axis, _builder=None):
+
+diff --git a/triton_patch/python/triton_patch/language/semantic.py b/triton_patch/python/triton_patch/language/semantic.py
+@@ -3,8 +3,8 @@ import numbers
+ import triton.language as tl
+ from triton._C.libtriton import ir
+ from triton.language.semantic import wrap_tensor, _str_to_rounding_mode, not_equal, _str_to_dot_input_precision, \
+-    binary_op_type_checking_impl, integer_promote_impl, broadcast_impl_shape, _str_to_sem, _str_to_scope
+-
++     binary_op_type_checking_impl, integer_promote_impl, broadcast_impl_shape, _str_to_sem, _str_to_scope, _bool_like, \
++     binary_op_sanitize_overflow_impl, bitwise_op_type_checking_impl, bitcast, broadcast_impl_value
+ 
+ def arange(start: int, end: int, builder: ir.builder) -> tl.tensor:
+     if not isinstance(start, int) or not isinstance(end, int):
+@@ -135,6 +135,330 @@ def cast(input: tl.tensor, dst_ty: tl.dtype, builder: ir.builder,
+ 
+     assert False, f'cannot cast {input} to {dst_ty}'
+ 
++def greater_than(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder)
++    scalar_ty = input.type.scalar
++    if scalar_ty.is_bool():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++    # float > float
++    if scalar_ty.is_floating():
++        return tl.tensor(builder.create_fcmpOGT(input.handle, other.handle), _bool_like(input))
++    # > int
++    elif scalar_ty.is_int():
++        if scalar_ty.is_int_signed():
++            return tl.tensor(builder.create_icmpSGT(input.handle, other.handle), _bool_like(input))
++        else:
++            raise TypeError(f"Unexpected dtype {scalar_ty}")
++    raise TypeError(f"Unexpected dtype {scalar_ty}")
++
++def greater_equal(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder)
++    scalar_ty = input.type.scalar
++    # float >= float
++    if scalar_ty.is_bool():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++    if scalar_ty.is_floating():
++        return tl.tensor(builder.create_fcmpOGE(input.handle, other.handle), _bool_like(input))
++    # >= int
++    elif scalar_ty.is_int():
++        if scalar_ty.is_int_signed():
++            return tl.tensor(builder.create_icmpSGE(input.handle, other.handle), _bool_like(input))
++        else:
++            raise TypeError(f"Unexpected dtype {scalar_ty}")
++            #return tl.tensor(builder.create_icmpUGE(input.handle, other.handle), _bool_like(input))
++    raise TypeError(f"Unexpected dtype {scalar_ty}")
++
++def less_than(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder)
++    scalar_ty = input.type.scalar
++    # float < float
++    if scalar_ty.is_bool():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++    if scalar_ty.is_floating():
++        return tl.tensor(builder.create_fcmpOLT(input.handle, other.handle), _bool_like(input))
++    # < int
++    elif scalar_ty.is_int():
++        if scalar_ty.is_int_signed():
++            return tl.tensor(builder.create_icmpSLT(input.handle, other.handle), _bool_like(input))
++        else:
++            raise TypeError(f"Unexpected dtype {scalar_ty}")
++            #return tl.tensor(builder.create_icmpULT(input.handle, other.handle), _bool_like(input))
++    raise TypeError(f"Unexpected dtype {scalar_ty}")
++
++def less_equal(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder)
++    scalar_ty = input.type.scalar
++    # float < float
++    if scalar_ty.is_bool():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++    if scalar_ty.is_floating():
++        return tl.tensor(builder.create_fcmpOLE(input.handle, other.handle), _bool_like(input))
++    # < int
++    elif scalar_ty.is_int():
++        if scalar_ty.is_int_signed():
++            return tl.tensor(builder.create_icmpSLE(input.handle, other.handle), _bool_like(input))
++        else:
++            raise TypeError(f"Unexpected dtype {scalar_ty}")
++            #return tl.tensor(builder.create_icmpULE(input.handle, other.handle), _bool_like(input))
++    raise TypeError(f"Unexpected dtype {scalar_ty}")
++
++def equal(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder)
++    scalar_ty = input.type.scalar
++    # float == float
++    if scalar_ty.is_bool():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++    if scalar_ty.is_floating():
++        return tl.tensor(builder.create_fcmpOEQ(input.handle, other.handle), _bool_like(input))
++    # == int
++    elif scalar_ty.is_int():
++        if scalar_ty.is_int_signed():
++            return tl.tensor(builder.create_icmpEQ(input.handle, other.handle), _bool_like(input))
++        else:
++            raise TypeError(f"Unexpected dtype {scalar_ty}")
++    raise TypeError(f"Unexpected dtype {scalar_ty}")
++
++def not_equal(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder)
++    scalar_ty = input.type.scalar
++    # float == float
++    if scalar_ty.is_bool():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++    if scalar_ty.is_floating():
++        return tl.tensor(builder.create_fcmpUNE(input.handle, other.handle), _bool_like(input))
++    # == int
++    elif scalar_ty.is_int():
++        if scalar_ty.is_int_signed():
++            return tl.tensor(builder.create_icmpNE(input.handle, other.handle), _bool_like(input))
++        else:
++            raise TypeError(f"Unexpected dtype {scalar_ty}")
++    raise TypeError(f"Unexpected dtype {scalar_ty}")
++
++def invert(input: tl.tensor, builder: tl.tensor) -> tl.tensor:
++    input_sca_ty = input.type.scalar
++    if input_sca_ty.is_int_unsigned():
++        raise TypeError(f"Unexpected dtype {input_sca_ty}")
++    if input_sca_ty.is_ptr() or input_sca_ty.is_floating():
++        raise TypeError(f"Unexpected dtype {input_sca_ty}")
++    _1 = tl.tensor(builder.get_all_ones_value(input_sca_ty.to_ir(builder)), input_sca_ty)
++    return xor_(input, _1, builder)
++
++def mul(input: tl.tensor | numbers.Number, other: tl.tensor | numbers.Number, sanitize_overflow: bool,
++        builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder)
++    scalar_ty = input.type.scalar
++    if scalar_ty.is_bool():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++    if scalar_ty.is_int_unsigned():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++    # float * float
++    if scalar_ty.is_floating():
++        return tl.tensor(builder.create_fmul(input.handle, other.handle), input.type)
++    # int * int
++    elif scalar_ty.is_int():
++        if sanitize_overflow:
++            binary_op_sanitize_overflow_impl(input, other, builder, mul)
++        return tl.tensor(builder.create_mul(input.handle, other.handle), input.type)
++    raise TypeError(f"Unexpected dtype {scalar_ty}")
++
++def truediv(input: tl.tensor | numbers.Number, other: tl.tensor | numbers.Number, builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder, False, False, True, True)
++    input_scalar_ty = input.type.scalar
++    other_scalar_ty = other.type.scalar
++    if input_scalar_ty.is_bool() or other_scalar_ty.is_bool():
++        if input_scalar_ty.is_bool():
++            raise TypeError(f"Unexpected dtype {input_scalar_ty}")
++        else:
++            raise TypeError(f"Unexpected dtype {other_scalar_ty}")
++    if input_scalar_ty.is_int_unsigned() or other_scalar_ty.is_int_unsigned():
++        if input_scalar_ty.is_int_unsigned():
++            raise TypeError(f"Unexpected dtype {input_scalar_ty}")
++        else:
++            raise TypeError(f"Unexpected dtype {other_scalar_ty}")
++    # float / int
++    if input_scalar_ty.is_floating() and other_scalar_ty.is_int():
++        other = cast(other, input_scalar_ty, builder)
++    # int / float
++    elif input_scalar_ty.is_int() and other_scalar_ty.is_floating():
++        input = cast(input, other_scalar_ty, builder)
++    # int / int (cast to tl.float32)
++    elif input_scalar_ty.is_int() and other_scalar_ty.is_int():
++        input = cast(input, tl.float32, builder)
++        other = cast(other, tl.float32, builder)
++    # float / float (cast to the highest exponent type)
++    elif input_scalar_ty.is_floating() and other_scalar_ty.is_floating():
++        if input_scalar_ty.fp_mantissa_width > other_scalar_ty.fp_mantissa_width:
++            other = cast(other, input_scalar_ty, builder)
++        else:
++            input = cast(input, other_scalar_ty, builder)
++    # unreachable
++    else:
++        raise TypeError(f"Unexpected dtype {input_scalar_ty}")
++    return tl.tensor(builder.create_fdiv(input.handle, other.handle), input.type)
++
++def add(input: tl.tensor | numbers.Number, other: tl.tensor | numbers.Number, sanitize_overflow: bool,
++        builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder, True, True)
++    input_scalar_ty = input.type.scalar
++    other_scalar_ty = other.type.scalar
++    if input_scalar_ty.is_ptr() and other_scalar_ty.is_ptr():
++        raise TypeError("cannot add pointers together")
++
++    # offset + ptr
++    # ptr + offset
++    if other_scalar_ty.is_ptr() and not input_scalar_ty.is_ptr():
++        input, other = other, input
++        input_scalar_ty = input.type.scalar
++        other_scalar_ty = other.type.scalar
++    if input_scalar_ty.is_bool() or input_scalar_ty.is_int_unsigned():
++        raise TypeError(f"Unexpected dtype {input_scalar_ty}")
++    if input_scalar_ty.is_ptr():
++        return tl.tensor(builder.create_addptr(input.handle, other.handle), input.type)
++    # float + float
++    elif input_scalar_ty.is_floating():
++        return tl.tensor(builder.create_fadd(input.handle, other.handle), input.type)
++    # int + int
++    elif input_scalar_ty.is_int():
++        if sanitize_overflow:
++            binary_op_sanitize_overflow_impl(input, other, builder, add)
++        return tl.tensor(builder.create_add(input.handle, other.handle), input.type)
++    raise TypeError(f"Unexpected dtype {input_scalar_ty}")
++
++def sub(input: tl.tensor | numbers.Number, other: tl.tensor | numbers.Number, sanitize_overflow: bool,
++        builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder, True, False)
++    scalar_ty = input.type.scalar
++    if scalar_ty.is_bool() or scalar_ty.is_int_unsigned():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++    # ptr - offset
++    if scalar_ty.is_ptr():
++        return tl.tensor(builder.create_addptr(input.handle, minus(other, builder).handle), input.type)
++    # float - float
++    if scalar_ty.is_floating():
++        return tl.tensor(builder.create_fsub(input.handle, other.handle), input.type)
++    # int - int
++    elif scalar_ty.is_int():
++        if sanitize_overflow:
++            binary_op_sanitize_overflow_impl(input, other, builder, sub)
++        return tl.tensor(builder.create_sub(input.handle, other.handle), input.type)
++    raise TypeError(f"Unexpected dtype {scalar_ty}")
++
++def and_(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    if not(input.type.scalar.is_bool() or input.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {input.type.scalar}")
++    if not(other.type.scalar.is_bool() or other.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {other.type.scalar}")
++    input, other = bitwise_op_type_checking_impl(input, other, builder)
++    return tl.tensor(builder.create_and(input.handle, other.handle), input.type)
++
++def or_(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    if not(input.type.scalar.is_bool() or input.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {input.type.scalar}")
++    if not(other.type.scalar.is_bool() or other.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {other.type.scalar}")
++    input, other = bitwise_op_type_checking_impl(input, other, builder)
++    return tl.tensor(builder.create_or(input.handle, other.handle), input.type)
++
++
++def xor_(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    if input.type.scalar.is_floating() or input.type.scalar.is_int_unsigned():
++        raise TypeError(f"Unexpected dtype {input.type.scalar}")
++    if other.type.scalar.is_floating() or other.type.scalar.is_int_unsigned():
++        raise TypeError(f"Unexpected dtype {other.type.scalar}")
++    input, other = bitwise_op_type_checking_impl(input, other, builder)
++    return tl.tensor(builder.create_xor(input.handle, other.handle), input.type)
++
++def logical_and(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    if not input.type.scalar.is_bool():
++        raise TypeError(f"Unexpected dtype {input.type.scalar}")
++    if not other.type.scalar.is_bool():
++        raise TypeError(f"Unexpected dtype {other.type.scalar}")
++    if not input.type.is_int1():
++        input = bitcast(input, tl.dtype("int1"), builder)
++    if not other.type.is_int1():
++        other = bitcast(other, tl.dtype("int1"), builder)
++    return and_(input, other, builder)
++
++def mod(input: tl.tensor | numbers.Number, other: tl.tensor | numbers.Number, builder: ir.builder) -> tl.tensor:
++    input, other = binary_op_type_checking_impl(input, other, builder, False, False, True, True)
++    scalar_ty = input.type.scalar
++    other_scalar_ty = other.type.scalar
++    # float % float
++    if scalar_ty.is_floating():
++        raise TypeError(f"Unexpected dtype {scalar_ty}")
++        # input - input.div(other, rounding_mode="floor") * other
++        #floor = math.floor(fdiv(input, other, False, builder), _builder=builder)
++        #ret = sub(input, mul(floor, other, True, builder), True, builder)
++        #return ret
++    # % int
++    elif scalar_ty.is_int():
++        if scalar_ty.int_signedness != other_scalar_ty.int_signedness:
++            raise TypeError("Cannot mod " + scalar_ty.__repr__() + " by " + other_scalar_ty.__repr__() + " "
++                            "because they have different signedness;"
++                            "this is unlikely to result in a useful answer. Cast them to the same signedness.")
++        if scalar_ty.is_int_signed():
++            return tl.tensor(builder.create_srem(input.handle, other.handle), input.type)
++        else:
++            raise TypeError(f"Unexpected dtype {scalar_ty}")
++            #return tl.tensor(builder.create_urem(input.handle, other.handle), input.type)
++    raise TypeError(f"Unexpected dtype {scalar_ty}")
++
++def not_(input: tl.tensor, builder: ir.builder):
++    if not(input.type.scalar.is_bool() or input.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {input.type.scalar}")
++    if not(other.type.scalar.is_bool() or other.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {other.type.scalar}")
++    if not input.type.is_int1():
++        input = bitcast(input, tl.dtype("int1"), builder)
++    return invert(input, builder)
++
++def where(condition: tl.tensor, x: tl.tensor, y: tl.tensor, builder: ir.builder) -> tl.tensor:
++    if condition.dtype != tl.int1:
++        warnings.warn(
++            f"tl.where with a non-boolean condition is deprecated and will error out in a future triton release. Got {condition.dtype}"
++        )
++    condition = cast(condition, tl.int1, builder)
++    x, y = binary_op_type_checking_impl(x, y, builder, True, True)
++    # x, y are broadcasted
++    if condition.type.is_block():
++        condition, x = broadcast_impl_value(condition, x, builder)
++        x, y = broadcast_impl_value(x, y, builder)
++    else:
++        condition, _ = broadcast_impl_value(condition, x, builder)
++    if x.type.is_bool() or x.type.is_int_unsigned():
++        raise TypeError(f"Unexpected type {x.type}")
++    if y.type.is_bool() or y.type.is_int_unsigned():
++        raise TypeError(f"Unexpected type {y.type}")
++    ret_ty = x.type
++    return tl.tensor(builder.create_select(condition.handle, x.handle, y.handle), ret_ty)
++
++def lshr(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    if not(input.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {input.type.scalar}")
++    if not(other.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {other.type.scalar}")
++    input, other = bitwise_op_type_checking_impl(input, other, builder)
++    return tl.tensor(builder.create_lshr(input.handle, other.handle), input.type)
++
++
++def ashr(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    if not(input.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {input.type.scalar}")
++    if not(other.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {other.type.scalar}")
++    input, other = bitwise_op_type_checking_impl(input, other, builder)
++    return tl.tensor(builder.create_ashr(input.handle, other.handle), input.type)
++
++
++def shl(input: tl.tensor, other: tl.tensor, builder: ir.builder) -> tl.tensor:
++    if not(input.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {input.type.scalar}")
++    if not(other.type.scalar.is_int_signed()):
++        raise TypeError(f"Unexpected dtype {other.type.scalar}")
++    input, other = bitwise_op_type_checking_impl(input, other, builder)
++    return tl.tensor(builder.create_shl(input.handle, other.handle), input.type)
++
++
+ def dot(lhs: tl.tensor, rhs: tl.tensor, acc: tl.tensor, input_precision: Optional[str], max_num_imprecise_acc: int,
+         out_dtype: tl.dtype, builder: ir.builder) -> tl.tensor:
+     assert lhs.type.is_block() and rhs.type.is_block()
+@@ -359,4 +683,4 @@ def atomic_min(ptr: tl.tensor, val: tl.tensor, mask: tl.tensor, sem: str, scope:
+ 
+     # Design for NPU
+     return tl.tensor(
+-        builder.create_atomic_rmw(ir.ATOMIC_OP.MIN, ptr.handle, val.handle, mask.handle, sem, scope), val.type)
+\ No newline at end of file
++        builder.create_atomic_rmw(ir.ATOMIC_OP.MIN, ptr.handle, val.handle, mask.handle, sem, scope), val.type)
+
+diff --git a/triton_patch/python/triton_patch/language/standard.py b/triton_patch/python/triton_patch/language/standard.py
+@@ -13,8 +13,24 @@ def flip(x, dim=None):
+     :param dim: the dimension to flip along (currently only final dimension supported)
+     :type dim: int
+     """
+-    core.static_print("tl.flip is unsupported for now. Use libdevice.flip instead.")
+-    core.static_assert(False)
++    if x.dtype == torch.uint32:
++        raise TypeError(f"Unexpected dtype {x.dtype}")
++    core.static_assert(_is_power_of_two(x.shape[_get_flip_dim(dim, x.shape)]))
++    core.static_assert(_is_power_of_two(x.numel))
++    # # reshape the tensor to have all dimensions be 2.
++    # # TODO: We shouldn't have to change the dimensions not sorted.
++    steps: core.constexpr = _log2(x.numel)
++    start: core.constexpr = _log2(x.numel) - _log2(x.shape[_get_flip_dim(dim, x.shape)])
++    y = core.reshape(x, [2] * steps)
++    y = core.expand_dims(y, start)
++    flip = (core.arange(0, 2)[:, None] == 1 - core.arange(0, 2))
++    for i in core.static_range(start, steps):
++        flip2 = flip
++        for j in core.static_range(0, steps + 1):
++            if j != i and j != i + 1:
++                flip2 = core.expand_dims(flip2, j)
++        y = sum(y * flip2, i + 1, keep_dims=True)
++    x = core.reshape(y, x.shape)
+     return x
+ 
+ @core._tensor_member_fn

@@ -1,0 +1,39 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/2709
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: c0dbc38c
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-2709
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: cd8d0a2f56f48299029b469e15d9f28a17540bcb135796dc693ad09a67ac9745
+- local_path: key-files/csrc/seq_chunk_cumsum.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/seq_chunk_cumsum.cu
+  sha256: 23d467dcf1edfbc8a9aead7a7bd73ecf2987b19a2cd5f6be1de17e145e4a3d58
+- local_path: key-files/csrc/seq_chunk_cumsum_jit_binding.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/seq_chunk_cumsum_jit_binding.cu
+  sha256: b900de54b830bc5c5cd53799315b1d7982bf41b2e0ddfa9a609573d659ac0ef4
+- local_path: key-files/flashinfer/mamba/ssd_kernel.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/mamba/ssd_kernel.py
+  sha256: 064b47473c6c429171306727009c60afd511a49b904bde858a95ba1f7fc49f24
+- local_path: key-files/flashinfer/triton/kernels/ssd_chunk_state.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/triton/kernels/ssd_chunk_state.py
+  sha256: 48b4be314fb9c039c4c7f12a41ef2a3d9163c5853cbc7b45fc1596a26212dc11
+- local_path: key-files/include/flashinfer/mamba/seq_chunk_cumsum.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/mamba/seq_chunk_cumsum.cuh
+  sha256: d05b924c28bc22a55761eddb62b3ac71536406badfac15b0d839e3d8d672ec7b

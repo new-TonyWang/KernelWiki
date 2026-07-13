@@ -1,0 +1,68 @@
+RUN mode=0 kib=16384 warm=0 loops=4096
+OK mode=0 loops=4096 nelems=8388608 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.910980 avg_us=636.993347
+RUN mode=20 kib=16384 warm=0 loops=4096
+OK mode=20 loops=4096 nelems=8388608 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.916440 avg_us=638.813354
+RUN mode=21 kib=16384 warm=0 loops=4096
+OK mode=21 loops=4096 nelems=8388608 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.931520 avg_us=643.840027
+RUN mode=0 kib=16384 warm=1 loops=4096
+OK mode=0 loops=4096 nelems=8388608 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.331720 avg_us=443.906647
+RUN mode=20 kib=16384 warm=1 loops=4096
+OK mode=20 loops=4096 nelems=8388608 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.324060 avg_us=441.353302
+RUN mode=21 kib=16384 warm=1 loops=4096
+OK mode=21 loops=4096 nelems=8388608 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.354340 avg_us=451.446655
+RUN mode=0 kib=65536 warm=0 loops=4096
+OK mode=0 loops=4096 nelems=33554432 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=2.130980 avg_us=710.326660
+RUN mode=20 kib=65536 warm=0 loops=4096
+OK mode=20 loops=4096 nelems=33554432 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=2.136940 avg_us=712.313293
+RUN mode=21 kib=65536 warm=0 loops=4096
+OK mode=21 loops=4096 nelems=33554432 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=2.110260 avg_us=703.419983
+RUN mode=0 kib=65536 warm=1 loops=4096
+OK mode=0 loops=4096 nelems=33554432 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.311900 avg_us=437.300018
+RUN mode=20 kib=65536 warm=1 loops=4096
+OK mode=20 loops=4096 nelems=33554432 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.374440 avg_us=458.146637
+RUN mode=21 kib=65536 warm=1 loops=4096
+OK mode=21 loops=4096 nelems=33554432 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.338680 avg_us=446.226685
+RUN mode=0 kib=131072 warm=0 loops=4096
+OK mode=0 loops=4096 nelems=67108864 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=2.355820 avg_us=785.273254
+RUN mode=20 kib=131072 warm=0 loops=4096
+OK mode=20 loops=4096 nelems=67108864 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=2.361360 avg_us=787.120056
+RUN mode=21 kib=131072 warm=0 loops=4096
+OK mode=21 loops=4096 nelems=67108864 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=2.419540 avg_us=806.513367
+RUN mode=0 kib=131072 warm=1 loops=4096
+OK mode=0 loops=4096 nelems=67108864 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.360120 avg_us=453.373383
+RUN mode=20 kib=131072 warm=1 loops=4096
+OK mode=20 loops=4096 nelems=67108864 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.357240 avg_us=452.413330
+RUN mode=21 kib=131072 warm=1 loops=4096
+OK mode=21 loops=4096 nelems=67108864 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.352280 avg_us=450.760010
+RUN mode=0 kib=262144 warm=0 loops=4096
+OK mode=0 loops=4096 nelems=134217728 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=2.433880 avg_us=811.293396
+RUN mode=20 kib=262144 warm=0 loops=4096
+OK mode=20 loops=4096 nelems=134217728 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=2.395040 avg_us=798.346680
+RUN mode=21 kib=262144 warm=0 loops=4096
+OK mode=21 loops=4096 nelems=134217728 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=2.349140 avg_us=783.046631
+RUN mode=0 kib=262144 warm=1 loops=4096
+OK mode=0 loops=4096 nelems=134217728 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.326000 avg_us=442.000000
+RUN mode=20 kib=262144 warm=1 loops=4096
+OK mode=20 loops=4096 nelems=134217728 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.389040 avg_us=463.013336
+RUN mode=21 kib=262144 warm=1 loops=4096
+OK mode=21 loops=4096 nelems=134217728 bytesPerLoop=32768 workspace=0 repeats=3 total_ms=1.358580 avg_us=452.859985
+RUN full_hot mode=20 mib=128 loops=4096
+OK mode=20 loops=4096 nelems=67108864 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=0.456680 avg_us=456.679993
+RUN full_hot mode=21 mib=128 loops=4096
+OK mode=21 loops=4096 nelems=67108864 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=0.455620 avg_us=455.619995
+RUN full_hot mode=20 mib=160 loops=5120
+OK mode=20 loops=5120 nelems=83886080 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=0.769680 avg_us=769.680054
+RUN full_hot mode=21 mib=160 loops=5120
+OK mode=21 loops=5120 nelems=83886080 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=0.559100 avg_us=559.099976
+RUN full_hot mode=20 mib=192 loops=6144
+OK mode=20 loops=6144 nelems=100663296 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=1.142260 avg_us=1142.260010
+RUN full_hot mode=21 mib=192 loops=6144
+OK mode=21 loops=6144 nelems=100663296 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=1.088240 avg_us=1088.239990
+RUN full_hot mode=20 mib=224 loops=7168
+OK mode=20 loops=7168 nelems=117440512 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=1.506320 avg_us=1506.319946
+RUN full_hot mode=21 mib=224 loops=7168
+OK mode=21 loops=7168 nelems=117440512 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=1.656640 avg_us=1656.640015
+RUN full_hot mode=20 mib=256 loops=8192
+OK mode=20 loops=8192 nelems=134217728 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=1.916680 avg_us=1916.679932
+RUN full_hot mode=21 mib=256 loops=8192
+OK mode=21 loops=8192 nelems=134217728 bytesPerLoop=32768 workspace=0 repeats=1 total_ms=1.931960 avg_us=1931.959961

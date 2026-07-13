@@ -1,0 +1,8 @@
+variant,kernel_names,samples,duration_us_med,block_num,vec_ratio_med,scalar_ratio_med,mte2_ratio_med,mte3_ratio_med,scalar_us_med,vec_us_med,mte2_us_med,mte3_us_med
+store_zero_offset_mask,_store_zero_kernel,3,62.563,1913.0,0.026,0.702,0.001,0.28,46.161,1.578,0.089,18.665
+copy_offset_mask_load_store,_copy_kernel,3,60.703,1913.0,0.005,0.609,0.17,0.233,37.877,0.312,10.641,14.008
+positive_scalar_broadcast,_positive_kernel,3,78.843,1913.0,0.222,0.493,0.125,0.164,38.182,17.223,9.547,11.044
+z_materialize_only,_z_materialize_kernel,3,79.504,1913.0,0.221,0.38,0.194,0.219,29.777,17.223,15.03,16.169
+no_materialize_current_like,_no_materialize_current_like_kernel,3,144.566,1913.0,0.361,0.417,0.099,0.147,59.588,51.489,14.125,20.764
+negative_exp_no_where,_negative_no_where_kernel,3,145.126,1913.0,0.31,0.343,0.174,0.208,52.5,44.379,24.837,29.716
+current_like_where,_current_like_kernel,3,157.786,1913.0,0.36,0.317,0.156,0.176,49.517,56.112,24.284,25.221

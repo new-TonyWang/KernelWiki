@@ -1,0 +1,24 @@
+origin_url: https://github.com/vllm-project/vllm/pull/30286
+upstream_repo: vllm-project/vllm
+upstream_sha: a55caf6a
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-30286
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: e8a726a27975cd63e9d3394124d304b474391822ea6a4137b6926c44fa9a971b
+- local_path: key-files/vllm/lora/ops/triton_ops/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/lora/ops/triton_ops/__init__.py
+  sha256: 7327f30f87bdbfc7927bd02eab2b3ad8f11e32c3eba69d4ac385f7970974a21a
+- local_path: key-files/vllm/lora/ops/triton_ops/fused_moe_lora_fp8_op.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/lora/ops/triton_ops/fused_moe_lora_fp8_op.py
+  sha256: 64f6d36051b662fa655eee58e414ffd10d029959e4df58abcde0206919cbdaf3

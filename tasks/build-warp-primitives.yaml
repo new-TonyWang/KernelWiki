@@ -1,0 +1,44 @@
+task_id: 2026-04-16-warp-primitives
+task_type: build-skill
+target_path: wiki/nvidia/foundations/compute/warp-primitives/
+
+hardware:
+  device: H200
+  sm: "9.0a"
+  cuda_runtime: "12.9"
+
+upstream_scope:
+  - cuda-official/toolkit-docs-13.2
+  - source-code/cuda-samples
+
+references:
+  - reasoning/api-probing.md
+  - reasoning/hardware-microbench.md
+  - reasoning/benchmark-protocol.md
+  - reasoning/bottleneck-triage.md
+
+success_criteria:
+  - file_exists: skill.md
+  - file_exists: pitfalls.md
+  - file_exists: apis.md
+  - lint_clean: true
+  - at_least_one_hw_probe_linked: true
+
+related_skills: [coalescing, vectorized-access, bank-conflict]
+
+notes: |
+  Cover the warp shuffle family (shfl.sync.idx / up / down / bfly) and
+  the warp vote family (ballot / all / any). Include one classical
+  warp-reduce example: block-level sum of 1024 fp32 elements using
+  butterfly reduction (__shfl_xor_sync).
+
+  Skip match.sync and reduce.sync for now — they are deferred post-MVP.
+
+  The agent must write its own compute-latency microbench probe for
+  shfl.sync.bfly following hardware-microbench.md protocol. The canonical
+  baseline (4096 trials, 128-unroll dependent chain) measured 23.83 cycles
+  on H200 — the skill-specific probe should exercise the exact warp-reduce
+  pattern and may show a different number.
+
+  apis.md is REQUIRED for this skill because it touches __shfl_sync,
+  __ballot_sync, and related intrinsics.

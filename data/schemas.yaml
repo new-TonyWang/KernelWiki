@@ -115,11 +115,12 @@ wiki-hardware:
     - sources
     - aliases
   optional:
+    - vendor
     - reproducibility
     - prerequisites
-    - blackwell_relevance
     - evidence_basis
     - version_sensitive
+    - source_refs
   constraints:
     type: hardware
     id_prefix: hw-
@@ -137,12 +138,13 @@ wiki-technique:
     - related
     - sources
   optional:
+    - vendor
     - aliases
     - symptoms
-    - blackwell_relevance
     - evidence_basis
     - version_sensitive
     - artifact_dir
+    - source_refs
   disallow_peer_of_artifact_dir:
     - full_code_dir
     - variants_dir
@@ -163,9 +165,11 @@ wiki-pattern:
     - related
     - sources
   optional:
+    - vendor
     - architectures
     - confidence
     - version_sensitive
+    - source_refs
   constraints:
     type: pattern
     id_prefix: pattern-
@@ -185,13 +189,14 @@ wiki-kernel:
     - sources
     - performance_claims
   optional:
+    - vendor
     - aliases
     - prerequisites
     - symptoms
-    - blackwell_relevance
     - evidence_basis
     - version_sensitive
     - artifact_dir
+    - source_refs
   disallow_peer_of_artifact_dir:
     - full_code_dir
     - variants_dir
@@ -211,12 +216,13 @@ wiki-language:
     - sources
     - reproducibility
   optional:
+    - vendor
     - architectures
     - confidence
     - aliases
     - evidence_basis
-    - blackwell_relevance
     - version_sensitive
+    - source_refs
   constraints:
     type: language
     id_prefix: lang-
@@ -232,15 +238,257 @@ wiki-migration:
     - tags
     - related
     - sources
-    - blackwell_relevance
   optional:
+    - vendor
     - confidence
     - reproducibility
     - prerequisites
     - version_sensitive
+    - source_refs
   constraints:
     type: migration
     id_prefix: migration-
+
+## New wiki page types added for KernelWiki merge
+## Vendor field is required for all wiki pages under wiki/{vendor}/
+
+wiki-skill:
+  required:
+    - id
+    - title
+    - type
+    - vendor
+    - tags
+    - evidence_level
+    - applies_to
+    - source
+  optional:
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
+    - requires_sm
+    - requires_features
+    - measured_on
+    - cuda_version_tested
+    - artifact_dir
+    - artifacts
+    - related
+    - related_apis
+    - related_skills
+    - reproducibility
+    - version_sensitive
+    - source_refs
+  constraints:
+    type: skill
+    id_prefix: skill-
+    evidence_level: [spec, measured, inferred, anecdotal]
+
+wiki-api-definition:
+  required:
+    - id
+    - title
+    - type
+    - vendor
+    - func_name
+    - namespace
+    - header
+    - signature
+    - source
+  optional:
+    - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
+    - since_cuda
+    - status
+    - has_end_to_end_example
+    - parameters
+    - return
+    - preconditions
+    - error_modes
+    - probed_by
+    - source_refs
+  constraints:
+    type: api-definition
+    id_prefix: api-
+    namespace: [runtime, driver, cublas, cub, ptx, math, ascendc, cann]
+
+wiki-experience:
+  required:
+    - id
+    - title
+    - type
+    - vendor
+    - probe_slug
+    - evidence_level
+    - measured_on
+    - source
+  optional:
+    - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
+    - api
+    - namespace
+    - status
+    - kind
+    - trigger
+    - clock_policy
+    - artifact_dir
+    - artifacts
+    - conclusions
+    - source_refs
+    - back_filled_into
+    - open_questions
+  constraints:
+    type: experience
+    id_prefix: exp-
+    evidence_level: [spec, measured, inferred, anecdotal]
+
+wiki-operator-routing:
+  required:
+    - id
+    - title
+    - type
+    - vendor
+    - operator
+  optional:
+    - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
+    - related
+    - sources
+    - source_refs
+  constraints:
+    type: operator-routing
+    id_prefix: routing-
+
+wiki-algorithm:
+  required:
+    - id
+    - title
+    - type
+    - vendor
+    - tags
+    - evidence_level
+    - source
+  optional:
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
+    - applies_to
+    - requires_sm
+    - measured_on
+    - artifact_dir
+    - artifacts
+    - related
+    - reproducibility
+    - source_refs
+  constraints:
+    type: algorithm
+    id_prefix: algo-
+    evidence_level: [spec, measured, inferred, anecdotal]
+
+wiki-code-walkthrough:
+  required:
+    - id
+    - title
+    - type
+    - vendor
+    - upstream_repo
+  optional:
+    - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
+    - related
+    - source
+    - artifact_dir
+    - artifacts
+    - source_refs
+  constraints:
+    type: code-walkthrough
+    id_prefix: code-
+
+wiki-pitfall:
+  required:
+    - id
+    - title
+    - type
+    - vendor
+  optional:
+    - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
+    - related
+    - sources
+    - source_refs
+  constraints:
+    type: pitfall
+    id_prefix: pitfall-
+
+source-experience:
+  required:
+    - id
+    - title
+    - type
+    - vendor
+    - probe_slug
+    - evidence_level
+    - measured_on
+  optional:
+    - tags
+    - architectures
+    - confidence
+    - aliases
+    - languages
+    - hardware_features
+    - kernel_types
+    - techniques
+    - api
+    - namespace
+    - status
+    - kind
+    - trigger
+    - clock_policy
+    - artifact_dir
+    - artifacts
+    - conclusions
+    - source_refs
+  constraints:
+    type: experience
+    id_prefix: exp-
+    evidence_level: [spec, measured, inferred, anecdotal]
 
 ## Phase 3: PROVENANCE.yaml schema for asset bundles under artifacts/
 ## Every asset bundle root (artifacts/prs/<repo>/PR-<N>/,

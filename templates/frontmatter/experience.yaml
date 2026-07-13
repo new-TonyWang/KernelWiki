@@ -1,0 +1,52 @@
+# Experience / Probe record template
+#
+# Used by 80-experience/api-probes/<YYYY-MM-DD>-<ns>-<func-slug>.md
+# Enforced by tools/lint_knowledge.py --layer experience
+
+# ==== Identity ====
+api: ""                                # REQUIRED. e.g. "__shfl_xor_sync"
+namespace: ""                          # REQUIRED. runtime | driver | cublas | cub | thrust | ptx | math | libcupp
+probe_slug: ""                         # REQUIRED. kebab-case slug used in the filename
+
+# ==== Status ====
+status: draft                          # REQUIRED. draft | verified | failed | blocked
+kind: documented                       # REQUIRED. documented | undocumented
+trigger: init-sweep                    # REQUIRED. init-sweep | runtime-demand | skill-build
+evidence_level: inferred               # REQUIRED. inferred | measured
+clock_policy: unknown                  # REQUIRED. unknown | locked | auto | stable-auto
+
+# ==== Hardware context (REQUIRED; filled by kp_introspect) ====
+measured_on:
+  device: ""                           # e.g. "NVIDIA H200"
+  sm: ""                               # e.g. "9.0a"
+  gpu_uuid: ""                         # Optional. from kp_introspect device-static.
+  cuda_runtime: ""                     # e.g. "12.4"
+  driver: ""                           # e.g. "550.54.15"
+
+# ==== Artifacts (REQUIRED when evidence_level == measured) ====
+artifacts:
+  code: ""                             # relative path to probe .cu
+  build: ""                            # relative path to build.sh OR literal nvcc command
+  introspection: ""                    # kp_introspect bundle json path
+  profile: ""                          # Optional. ncu-rep path.
+
+# ==== Upstream grounding (REQUIRED) ====
+source_refs: []                        # List of {source_id, path, anchor} MANIFEST-backed refs
+source:
+  - path: ""                           # REQUIRED (unless kind == undocumented)
+    anchor: ""
+    excerpt: ""
+
+# ==== Measurement summary (REQUIRED when status == verified) ====
+conclusions:
+  max_abs_err: null                    # numeric; pass/fail vs. tolerance
+  latency_ms_median: null
+  latency_ms_p10: null
+  latency_ms_p90: null
+  baseline_name: ""                    # e.g. "torch.sum" or "cub::BlockReduce"
+  baseline_ms: null
+  ratio: null                          # baseline_ms / latency_ms_median
+
+# ==== Follow-ups ====
+back_filled_into: []                   # relative paths to 10-api-raw entries that gained ## End-to-End Example
+open_questions: []                     # free-form strings for human review

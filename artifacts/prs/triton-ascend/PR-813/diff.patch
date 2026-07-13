@@ -1,0 +1,1736 @@
+diff --git a/ascend/examples/temp_cases/gather_example.py b/ascend/examples/temp_cases/gather_example.py
+@@ -0,0 +1,34 @@
++import torch
++import triton
++import triton.language as tl
++from triton.language.extra.ascend.libdevice import gather_out_to_ub
++
++@triton.jit
++def simple_gather_kernel(src_ptr, index_ptr, out_ptr):
++    # index tile shape: [2,2]
++    y0_local = tl.arange(0, 2)[:, None]  # [0,1] rows
++    x1_local = tl.arange(0, 2)[None, :]  # [0,1] cols
++    mask = (y0_local < 2) & (x1_local < 2)
++
++    # Load index tile to UB
++    index_tile = tl.load(index_ptr + y0_local*2 + x1_local, mask)
++
++    # Call gather_out_to_ub: gather values from src along dim=0
++    gathered = gather_out_to_ub(
++        src=src_ptr,
++        index_tile=index_tile,
++        index_boundary=4,
++        dim=0,
++        src_stride=(2, 1),
++        index_shape=(2, 2),
++        offsets=(0, 0)
++    )
++    
++    tl.store(out_ptr + y0_local*2 + x1_local, gathered, mask)
++
++src = torch.tensor([[1.,2.], [3.,4.], [5.,6.], [7.,8.]], device='npu')
++index = torch.tensor([[0,1], [2,3]], device='npu')
++out = torch.empty((2,2), device='npu', dtype=torch.float32)
++
++simple_gather_kernel[(1,)](src, index, out)
++print("Gather result:", out)  # ref: [[1.,4.], [5.,8.]]
+\ No newline at end of file
+
+diff --git a/ascend/examples/temp_cases/gather_example_n.py b/ascend/examples/temp_cases/gather_example_n.py
+@@ -0,0 +1,225 @@
++import torch
++import triton
++import triton.language as tl
++from triton.language.extra.ascend.libdevice import gather_out_to_ub
++
++import pytest
++
++# -------------------------- 2D专用Kernel --------------------------
++@triton.jit
++def gather_2d_kernel(
++    src_ptr, index_ptr, out_ptr,
++    src_dim0: tl.constexpr, src_dim1: tl.constexpr,
++    out_dim0: tl.constexpr, out_dim1: tl.constexpr,
++    gather_dim: tl.constexpr
++):
++    # 生成2D局部坐标（y:行，x:列）
++    y_local = tl.arange(0, out_dim0)[:, None]  
++    x_local = tl.arange(0, out_dim1)[None, :]  
++    mask = (y_local < out_dim0) & (x_local < out_dim1)
++    
++    # 计算2D索引偏移（原生多维存储逻辑）
++    index_offset = y_local * out_dim1 + x_local
++    index_tile = tl.load(index_ptr + index_offset, mask=mask)
++    
++    gathered = gather_out_to_ub(
++        src=src_ptr,
++        index_tile=index_tile,
++        index_boundary=src_dim0 if gather_dim == 0 else src_dim1,
++        dim=gather_dim,
++        src_stride=(src_dim1, 1),
++        index_shape=(out_dim0, out_dim1),
++        offsets=(0, 0)
++    )
++    
++    # 存储结果（2D偏移）
++    out_offset = y_local * out_dim1 + x_local
++    tl.store(out_ptr + out_offset, gathered, mask=mask)
++
++# -------------------------- 3D专用Kernel --------------------------
++@triton.jit
++def gather_3d_kernel(
++    src_ptr, index_ptr, out_ptr,
++    src_dim0: tl.constexpr, src_dim1: tl.constexpr, src_dim2: tl.constexpr,
++    out_dim0: tl.constexpr, out_dim1: tl.constexpr, out_dim2: tl.constexpr,
++    gather_dim: tl.constexpr
++):
++    # 生成3D局部坐标（z:深度，y:行，x:列）
++    z_local = tl.arange(0, out_dim0)[:, None, None]  
++    y_local = tl.arange(0, out_dim1)[None, :, None]  
++    x_local = tl.arange(0, out_dim2)[None, None, :]  
++    mask = (z_local < out_dim0) & (y_local < out_dim1) & (x_local < out_dim2)
++    
++    # 计算3D索引偏移（原生多维存储逻辑：z*dim1*dim2 + y*dim2 + x）
++    index_offset = z_local * out_dim1 * out_dim2 + y_local * out_dim2 + x_local
++    index_tile = tl.load(index_ptr + index_offset, mask=mask)
++    
++    gathered = gather_out_to_ub(
++        src=src_ptr,
++        index_tile=index_tile,
++        index_boundary=src_dim0,
++        dim=gather_dim,
++        src_stride=(src_dim1*src_dim2, src_dim2, 1),
++        index_shape=(out_dim0, out_dim1, out_dim2),
++        offsets=(0, 0, 0)
++    )
++    
++    # 存储结果（3D偏移）
++    out_offset = z_local * out_dim1 * out_dim2 + y_local * out_dim2 + x_local
++    tl.store(out_ptr + out_offset, gathered, mask=mask)
++
++
++# -------------------------- 4D专用Kernel --------------------------
++@triton.jit
++def gather_4d_kernel(
++    src_ptr, index_ptr, out_ptr,
++    src_dim0: tl.constexpr, src_dim1: tl.constexpr, src_dim2: tl.constexpr, src_dim3: tl.constexpr,
++    out_dim0: tl.constexpr, out_dim1: tl.constexpr, out_dim2: tl.constexpr, out_dim3: tl.constexpr,
++    gather_dim: tl.constexpr
++):
++    # 生成4D局部坐标（n: batch，z:深度，y:行，x:列）
++    n_local = tl.arange(0, out_dim0)[:, None, None, None]  
++    z_local = tl.arange(0, out_dim1)[None, :, None, None]  
++    y_local = tl.arange(0, out_dim2)[None, None, :, None]  
++    x_local = tl.arange(0, out_dim3)[None, None, None, :]  
++    mask = (n_local < out_dim0) & (z_local < out_dim1) & (y_local < out_dim2) & (x_local < out_dim3)
++    
++    # 计算4D索引偏移（原生多维存储：n*dim1*dim2*dim3 + z*dim2*dim3 + y*dim3 + x）
++    index_offset = n_local * out_dim1*out_dim2*out_dim3 + z_local * out_dim2*out_dim3 + y_local * out_dim3 + x_local
++    index_tile = tl.load(index_ptr + index_offset, mask=mask)
++    
++    gathered = gather_out_to_ub(
++        src=src_ptr,
++        index_tile=index_tile,
++        index_boundary=src_dim0,
++        dim=gather_dim,
++        src_stride=(src_dim1*src_dim2*src_dim3, src_dim2*src_dim3, src_dim3, 1),
++        index_shape=(out_dim0, out_dim1, out_dim2, out_dim3),
++        offsets=(0, 0, 0, 0)
++    )
++    
++    # 存储结果（4D偏移）
++    out_offset = n_local * out_dim1*out_dim2*out_dim3 + z_local * out_dim2*out_dim3 + y_local * out_dim3 + x_local
++    tl.store(out_ptr + out_offset, gathered, mask=mask)
++
++
++# -------------------------- 5D专用Kernel --------------------------
++@triton.jit
++def gather_5d_kernel(
++    src_ptr, index_ptr, out_ptr,
++    src_dim0: tl.constexpr, src_dim1: tl.constexpr, src_dim2: tl.constexpr, src_dim3: tl.constexpr, src_dim4: tl.constexpr,
++    out_dim0: tl.constexpr, out_dim1: tl.constexpr, out_dim2: tl.constexpr, out_dim3: tl.constexpr, out_dim4: tl.constexpr,
++    gather_dim: tl.constexpr
++):
++    # 生成5D局部坐标（b: batch，c: channel，d: depth，h: height，w: width）
++    b_local = tl.arange(0, out_dim0)[:, None, None, None, None]  
++    c_local = tl.arange(0, out_dim1)[None, :, None, None, None]  
++    d_local = tl.arange(0, out_dim2)[None, None, :, None, None]  
++    h_local = tl.arange(0, out_dim3)[None, None, None, :, None]  
++    w_local = tl.arange(0, out_dim4)[None, None, None, None, :]  
++    mask = (b_local < out_dim0) & (c_local < out_dim1) & (d_local < out_dim2) & (h_local < out_dim3) & (w_local < out_dim4)
++    
++    # 计算5D索引偏移（原生多维存储：b*dim1*dim2*dim3*dim4 + c*dim2*dim3*dim4 + d*dim3*dim4 + h*dim4 + w）
++    index_offset = b_local * out_dim1*out_dim2*out_dim3*out_dim4 + c_local * out_dim2*out_dim3*out_dim4 + d_local * out_dim3*out_dim4 + h_local * out_dim4 + w_local
++    index_tile = tl.load(index_ptr + index_offset, mask=mask)
++
++    gathered = gather_out_to_ub(
++        src=src_ptr,
++        index_tile=index_tile,
++        index_boundary=src_dim0,
++        dim=gather_dim,
++        src_stride=(src_dim1*src_dim2*src_dim3*src_dim4, src_dim2*src_dim3*src_dim4, src_dim3*src_dim4, src_dim4, 1),
++        index_shape=(out_dim0, out_dim1, out_dim2, out_dim3, out_dim4),
++        offsets=(0, 0, 0, 0, 0)
++    )
++    
++    # 存储结果（5D偏移）
++    out_offset = b_local * out_dim1*out_dim2*out_dim3*out_dim4 + c_local * out_dim2*out_dim3*out_dim4 + d_local * out_dim3*out_dim4 + h_local * out_dim4 + w_local
++    tl.store(out_ptr + out_offset, gathered, mask=mask)
++
++
++@pytest.mark.parametrize("src_shape, out_shape, gather_dim", [((5, 4), (3, 4), 0)])
++def test_gather_2d(src_shape, out_shape, gather_dim):
++    # 生成测试数据
++    src = torch.arange(src_shape[0]*src_shape[1], device='npu', dtype=torch.float32).reshape(src_shape)
++    index = torch.randint(0, src_shape[gather_dim], out_shape, device='npu', dtype=torch.int64)
++    out = torch.empty(out_shape, device='npu', dtype=torch.float32)
++
++    # 启动2D专用Kernel
++    gather_2d_kernel[(1,)](
++        src, index, out,
++        src_dim0=src_shape[0], src_dim1=src_shape[1],
++        out_dim0=out_shape[0], out_dim1=out_shape[1],
++        gather_dim=gather_dim
++    )
++
++    # 验证（PyTorch原生2D gather）
++    ref_out = torch.ops.aten.gather(src, gather_dim, index)
++    torch.testing.assert_close(out, ref_out)
++    print("2D gather结果:\n", out)
++    print("验证通过!\n")
++
++
++@pytest.mark.parametrize("src_shape, out_shape, gather_dim", [((4, 3, 2), (4, 2, 2), 0)])
++def test_gather_3d(src_shape, out_shape, gather_dim):
++    # 生成测试数据
++    src = torch.arange(src_shape[0]*src_shape[1]*src_shape[2], device='npu', dtype=torch.float32).reshape(src_shape)
++    index = torch.randint(0, src_shape[gather_dim], out_shape, device='npu', dtype=torch.int64)
++    out = torch.empty(out_shape, device='npu', dtype=torch.float32)
++
++    # 启动3D专用Kernel
++    gather_3d_kernel[(1,)](
++        src, index, out,
++        src_dim0=src_shape[0], src_dim1=src_shape[1], src_dim2=src_shape[2],
++        out_dim0=out_shape[0], out_dim1=out_shape[1], out_dim2=out_shape[2],
++        gather_dim=gather_dim
++    )
++
++    # 验证（PyTorch原生3D gather）
++    ref_out = torch.ops.aten.gather(src, gather_dim, index)
++    torch.testing.assert_close(out, ref_out)
++    print("3D gather结果:\n", out)
++    print("验证通过!\n")
++
++
++@pytest.mark.parametrize("src_shape, out_shape, gather_dim", [((2, 3, 4, 5), (2, 3, 2, 5), 0)])
++def test_gather_4d(src_shape, out_shape, gather_dim):
++    # 生成测试数据
++    src = torch.arange(src_shape[0]*src_shape[1]*src_shape[2]*src_shape[3], device='npu', dtype=torch.float32).reshape(src_shape)
++    index = torch.randint(0, src_shape[gather_dim], out_shape, device='npu', dtype=torch.int64)
++    out = torch.empty(out_shape, device='npu', dtype=torch.float32)
++
++    # 启动4D专用Kernel
++    gather_4d_kernel[(1,)](
++        src, index, out,
++        src_dim0=src_shape[0], src_dim1=src_shape[1], src_dim2=src_shape[2], src_dim3=src_shape[3],
++        out_dim0=out_shape[0], out_dim1=out_shape[1], out_dim2=out_shape[2], out_dim3=out_shape[3],
++        gather_dim=gather_dim
++    )
++
++    # 验证（PyTorch原生4D gather）
++    ref_out = torch.ops.aten.gather(src, gather_dim, index)
++    torch.testing.assert_close(out, ref_out)
++    print("4D gather结果:\n", out)
++    print("验证通过!\n")
++
++@pytest.mark.parametrize("src_shape, out_shape, gather_dim", [((2, 2, 3, 4, 5), (2, 2, 3, 2, 5), 0)])
++def test_gather_5d(src_shape, out_shape, gather_dim):
++    # 生成测试数据
++    src = torch.arange(src_shape[0]*src_shape[1]*src_shape[2]*src_shape[3]*src_shape[4], device='npu', dtype=torch.float32).reshape(src_shape)
++    index = torch.randint(0, src_shape[gather_dim], out_shape, device='npu', dtype=torch.int64)
++    out = torch.empty(out_shape, device='npu', dtype=torch.float32)
++
++    # 启动5D专用Kernel
++    gather_5d_kernel[(1,)](
++        src, index, out,
++        src_dim0=src_shape[0], src_dim1=src_shape[1], src_dim2=src_shape[2], src_dim3=src_shape[3], src_dim4=src_shape[4],
++        out_dim0=out_shape[0], out_dim1=out_shape[1], out_dim2=out_shape[2], out_dim3=out_shape[3], out_dim4=out_shape[4],
++        gather_dim=gather_dim
++    )
++
++    # 验证（PyTorch原生5D gather）
++    ref_out = torch.ops.aten.gather(src, gather_dim, index)
++    torch.testing.assert_close(out, ref_out)
++    print("5D gather结果:\n", out)
++    print("验证通过!\n")
+\ No newline at end of file
+
+diff --git a/ascend/examples/temp_cases/index_put_example.py b/ascend/examples/temp_cases/index_put_example.py
+@@ -0,0 +1,44 @@
++import torch
++import triton
++import triton.language as tl
++from triton.language.extra.ascend.libdevice import index_put
++
++@triton.jit
++def simple_index_put_kernel(value_ptr, index_ptr, dst_ptr):
++    # index tile shape: [2]
++    index_local = tl.arange(0, 2)
++    x1_local = tl.arange(0, 2)[None, :]  # shape=(1,2)
++
++    index_tile = tl.load(index_ptr + index_local)
++    value_tile = tl.load(value_ptr + index_local[:, None]*2 + x1_local)
++
++    index_put(
++        ptr=dst_ptr,
++        index=index_tile,
++        value=value_tile,
++        dim=0,
++        dst_shape=(4, 2),
++        dst_offset=(0, 0)
++    )
++
++def torch_index_put_eager_(dst: torch.Tensor, value: torch.Tensor, index_1d: torch.Tensor, dim: int=0):
++    # 将 1D index 扩展到 value.shape，然后在 dim 维 scatter_ 覆盖赋值
++    shape = list(value.shape)
++    view = [1] * value.ndim
++    view[dim] = shape[dim]
++    idx_expanded = index_1d.view(view).expand(shape)
++    out = dst.clone()
++    out.scatter_(dim, idx_expanded, value)
++    return out
++
++dst = torch.zeros((4,2), device='npu', dtype=torch.float32)
++value = torch.tensor([[1.,2.], [3.,4.]], device='npu')
++index = torch.tensor([2, 0], device='npu')
++
++torch_ref = torch_index_put_eager_(dst, value, index)
++# print("torch_ref", torch_ref)
++
++simple_index_put_kernel[(1,)](value, index, dst)
++# print("IndexPut result:", dst) # ref:[[3.,4.], [0.,0.], [1.,2.], [0.,0.]]
++
++torch.testing.assert_close(dst, torch_ref)
+\ No newline at end of file
+
+diff --git a/ascend/examples/temp_cases/index_put_n.py b/ascend/examples/temp_cases/index_put_n.py
+@@ -0,0 +1,225 @@
++import torch
++import triton
++import triton.language as tl
++from triton.language.extra.ascend.libdevice import index_put
++
++import pytest
++
++# -------------------------- 2D Kernel --------------------------
++@triton.jit
++def index_put_2d_kernel(
++    value_ptr, index_ptr, dst_ptr,
++    dst_dim0: tl.constexpr, dst_dim1: tl.constexpr,
++    val_dim0: tl.constexpr, val_dim1: tl.constexpr,
++    put_dim: tl.constexpr
++):
++    # 生成2D坐标
++    i = tl.arange(0, val_dim0)[:, None]
++    j = tl.arange(0, val_dim1)[None, :]
++    mask = (i < val_dim0) & (j < val_dim1)
++
++    # 计算 value 偏移（行主序）
++    value_offset = i * val_dim1 + j
++    value_tile = tl.load(value_ptr + value_offset, mask=mask)
++
++    # 加载 1D index（沿 dim 的长度）
++    line = tl.arange(0, val_dim0 if put_dim == 0 else val_dim1)
++    index_tile = tl.load(index_ptr + line)
++
++    # 写入
++    index_put(
++        ptr=dst_ptr,
++        index=index_tile,
++        value=value_tile,
++        dim=put_dim,
++        dst_shape=(dst_dim0, dst_dim1),
++        dst_offset=(0, 0)
++    )
++
++# -------------------------- 3D Kernel --------------------------
++@triton.jit
++def index_put_3d_kernel(
++    value_ptr, index_ptr, dst_ptr,
++    dst_dim0: tl.constexpr, dst_dim1: tl.constexpr, dst_dim2: tl.constexpr,
++    val_dim0: tl.constexpr, val_dim1: tl.constexpr, val_dim2: tl.constexpr,
++    put_dim: tl.constexpr
++):
++    a = tl.arange(0, val_dim0)[:, None, None]
++    b = tl.arange(0, val_dim1)[None, :, None]
++    c = tl.arange(0, val_dim2)[None, None, :]
++    mask = (a < val_dim0) & (b < val_dim1) & (c < val_dim2)
++
++    value_offset = a * (val_dim1 * val_dim2) + b * val_dim2 + c
++    value_tile = tl.load(value_ptr + value_offset, mask=mask)
++
++    line = tl.arange(0, val_dim0 if put_dim == 0 else (val_dim1 if put_dim == 1 else val_dim2))
++    index_tile = tl.load(index_ptr + line)
++
++    index_put(
++        ptr=dst_ptr,
++        index=index_tile,
++        value=value_tile,
++        dim=put_dim,
++        dst_shape=(dst_dim0, dst_dim1, dst_dim2),
++        dst_offset=(0, 0, 0)
++    )
++
++# -------------------------- 4D Kernel --------------------------
++@triton.jit
++def index_put_4d_kernel(
++    value_ptr, index_ptr, dst_ptr,
++    dst_dim0: tl.constexpr, dst_dim1: tl.constexpr, dst_dim2: tl.constexpr, dst_dim3: tl.constexpr,
++    val_dim0: tl.constexpr, val_dim1: tl.constexpr, val_dim2: tl.constexpr, val_dim3: tl.constexpr,
++    put_dim: tl.constexpr
++):
++    n = tl.arange(0, val_dim0)[:, None, None, None]
++    z = tl.arange(0, val_dim1)[None, :, None, None]
++    y = tl.arange(0, val_dim2)[None, None, :, None]
++    x = tl.arange(0, val_dim3)[None, None, None, :]
++    mask = (n < val_dim0) & (z < val_dim1) & (y < val_dim2) & (x < val_dim3)
++
++    value_offset = n * (val_dim1 * val_dim2 * val_dim3) + z * (val_dim2 * val_dim3) + y * val_dim3 + x
++    value_tile = tl.load(value_ptr + value_offset, mask=mask)
++
++    line = tl.arange(0, (val_dim0 if put_dim == 0 else (val_dim1 if put_dim == 1 else (val_dim2 if put_dim == 2 else val_dim3))))
++    index_tile = tl.load(index_ptr + line)
++
++    index_put(
++        ptr=dst_ptr,
++        index=index_tile,
++        value=value_tile,
++        dim=put_dim,
++        dst_shape=(dst_dim0, dst_dim1, dst_dim2, dst_dim3),
++        dst_offset=(0, 0, 0, 0)
++    )
++
++# -------------------------- 5D Kernel --------------------------
++@triton.jit
++def index_put_5d_kernel(
++    value_ptr, index_ptr, dst_ptr,
++    dst_dim0: tl.constexpr, dst_dim1: tl.constexpr, dst_dim2: tl.constexpr, dst_dim3: tl.constexpr, dst_dim4: tl.constexpr,
++    val_dim0: tl.constexpr, val_dim1: tl.constexpr, val_dim2: tl.constexpr, val_dim3: tl.constexpr, val_dim4: tl.constexpr,
++    put_dim: tl.constexpr
++):
++    b = tl.arange(0, val_dim0)[:, None, None, None, None]
++    c = tl.arange(0, val_dim1)[None, :, None, None, None]
++    d = tl.arange(0, val_dim2)[None, None, :, None, None]
++    h = tl.arange(0, val_dim3)[None, None, None, :, None]
++    w = tl.arange(0, val_dim4)[None, None, None, None, :]
++    mask = (b < val_dim0) & (c < val_dim1) & (d < val_dim2) & (h < val_dim3) & (w < val_dim4)
++
++    value_offset = (
++        b * (val_dim1 * val_dim2 * val_dim3 * val_dim4)
++        + c * (val_dim2 * val_dim3 * val_dim4)
++        + d * (val_dim3 * val_dim4)
++        + h * val_dim4
++        + w
++    )
++    value_tile = tl.load(value_ptr + value_offset, mask=mask)
++
++    line = tl.arange(0, (val_dim0 if put_dim == 0 else (val_dim1 if put_dim == 1 else (val_dim2 if put_dim == 2 else (val_dim3 if put_dim == 3 else val_dim4)))))
++    index_tile = tl.load(index_ptr + line)
++
++    index_put(
++        ptr=dst_ptr,
++        index=index_tile,
++        value=value_tile,
++        dim=put_dim,
++        dst_shape=(dst_dim0, dst_dim1, dst_dim2, dst_dim3, dst_dim4),
++        dst_offset=(0, 0, 0, 0, 0)
++    )
++
++# -------------------------- PyTorch eager 参考（scatter_ 等价） --------------------------
++def torch_index_put_eager(dst: torch.Tensor, value: torch.Tensor, index_1d: torch.Tensor, dim: int):
++    # 将 1D index 扩展到 value.shape，然后在 dim 维 scatter_ 覆盖赋值
++    shape = list(value.shape)
++    view = [1] * value.ndim
++    view[dim] = shape[dim]
++    idx_expanded = index_1d.view(view).expand(shape)
++    out = dst.clone()
++    out.scatter_(dim, idx_expanded, value)
++    return out
++
++# -------------------------- Tests --------------------------
++@pytest.mark.parametrize("dst_shape, val_shape, dim", [
++    ((4, 3), (2, 3), 0),
++])
++def test_index_put_2d(dst_shape, val_shape, dim):
++    device = 'npu'
++    dst = torch.zeros(dst_shape, device=device, dtype=torch.float32)
++    value = torch.arange(int(torch.tensor(val_shape).prod()), device=device, dtype=torch.float32).reshape(val_shape)
++    # index = torch.randint(0, dst_shape[dim], (val_shape[dim],), device=device, dtype=torch.int64)
++    index = torch.randperm(dst_shape[dim], device=device, dtype=torch.int64)[:val_shape[dim]]
++
++    ref = torch_index_put_eager(dst, value, index, dim)
++
++    index_put_2d_kernel[(1,)](
++        value, index, dst,
++        dst_dim0=dst_shape[0], dst_dim1=dst_shape[1],
++        val_dim0=val_shape[0], val_dim1=val_shape[1],
++        put_dim=dim
++    )
++    torch.testing.assert_close(dst, ref)
++
++@pytest.mark.parametrize("dst_shape, val_shape, dim", [
++    ((4, 3, 2), (2, 3, 2), 0),
++    ((3, 5, 4), (3, 2, 4), 1),
++])
++def test_index_put_3d(dst_shape, val_shape, dim):
++    device = 'npu'
++    dst = torch.zeros(dst_shape, device=device, dtype=torch.float32)
++    value = torch.arange(int(torch.tensor(val_shape).prod()), device=device, dtype=torch.float32).reshape(val_shape)
++    index = torch.randperm(dst_shape[dim], device=device, dtype=torch.int64)[:val_shape[dim]]
++
++    ref = torch_index_put_eager(dst, value, index, dim)
++
++    index_put_3d_kernel[(1,)](
++        value, index, dst,
++        dst_dim0=dst_shape[0], dst_dim1=dst_shape[1], dst_dim2=dst_shape[2],
++        val_dim0=val_shape[0], val_dim1=val_shape[1], val_dim2=val_shape[2],
++        put_dim=dim
++    )
++    torch.testing.assert_close(dst, ref)
++
++@pytest.mark.parametrize("dst_shape, val_shape, dim", [
++    ((2, 3, 4, 5), (2, 3, 2, 5), 2),
++    ((2, 3, 4, 5), (2, 2, 4, 5), 1),
++    ((2, 3, 4, 5), (1, 3, 4, 5), 0),
++])
++def test_index_put_4d(dst_shape, val_shape, dim):
++    device = 'npu'
++    dst = torch.zeros(dst_shape, device=device, dtype=torch.float32)
++    value = torch.arange(int(torch.tensor(val_shape).prod()), device=device, dtype=torch.float32).reshape(val_shape)
++    index = torch.randperm(dst_shape[dim], device=device, dtype=torch.int64)[:val_shape[dim]]
++
++    ref = torch_index_put_eager(dst, value, index, dim)
++
++    index_put_4d_kernel[(1,)](
++        value, index, dst,
++        dst_dim0=dst_shape[0], dst_dim1=dst_shape[1], dst_dim2=dst_shape[2], dst_dim3=dst_shape[3],
++        val_dim0=val_shape[0], val_dim1=val_shape[1], val_dim2=val_shape[2], val_dim3=val_shape[3],
++        put_dim=dim
++    )
++    torch.testing.assert_close(dst, ref)
++
++@pytest.mark.parametrize("dst_shape, val_shape, dim", [
++    ((2, 2, 3, 4, 5), (2, 2, 3, 2, 5), 3),
++    ((2, 2, 3, 4, 5), (2, 2, 2, 4, 5), 2),
++    ((2, 2, 3, 4, 5), (2, 1, 3, 4, 5), 1),
++    ((2, 2, 3, 4, 5), (2, 1, 3, 4, 5), 0),
++])
++def test_index_put_5d(dst_shape, val_shape, dim):
++    device = 'npu'
++    dst = torch.zeros(dst_shape, device=device, dtype=torch.float32)
++    value = torch.arange(int(torch.tensor(val_shape).prod()), device=device, dtype=torch.float32).reshape(val_shape)
++    index = torch.randperm(dst_shape[dim], device=device, dtype=torch.int64)[:val_shape[dim]]
++
++    ref = torch_index_put_eager(dst, value, index, dim)
++
++    index_put_5d_kernel[(1,)](
++        value, index, dst,
++        dst_dim0=dst_shape[0], dst_dim1=dst_shape[1], dst_dim2=dst_shape[2], dst_dim3=dst_shape[3], dst_dim4=dst_shape[4],
++        val_dim0=val_shape[0], val_dim1=val_shape[1], val_dim2=val_shape[2], val_dim3=val_shape[3], val_dim4=val_shape[4],
++        put_dim=dim
++    )
++    torch.testing.assert_close(dst, ref)
+\ No newline at end of file
+
+diff --git a/ascend/examples/temp_cases/scatter_example.py b/ascend/examples/temp_cases/scatter_example.py
+@@ -0,0 +1,34 @@
++import torch
++import triton
++import triton.language as tl
++from triton.language.extra.ascend.libdevice import scatter_ub_to_out
++
++@triton.jit
++def simple_scatter_kernel(value_ptr, index_ptr, dst_ptr):
++    # index tile shape: [2,2]
++    y0_local = tl.arange(0, 2)[:, None]  # [0,1] rows
++    x1_local = tl.arange(0, 2)[None, :]  # [0,1] cols
++    mask = (y0_local < 2) & (x1_local < 2)
++    
++    value_tile = tl.load(value_ptr + y0_local*2 + x1_local, mask)
++    index_tile = tl.load(index_ptr + y0_local*2 + x1_local, mask)
++    
++    scatter_ub_to_out(
++        ptr=dst_ptr,
++        value=value_tile,
++        index_tile=index_tile,
++        index_boundary=4,
++        dim=0,
++        num_dims=2,
++        dst_stride=(2, 1),
++        index_tile_shape=(2, 2),
++        index_shape=(2, 2),
++        offsets=(0, 0)
++    )
++
++dst = torch.zeros((4,2), device='npu', dtype=torch.float32)
++value = torch.tensor([[1.,2.], [3.,4.]], device='npu')
++index = torch.tensor([[1,2], [3,0]], device='npu')
++
++simple_scatter_kernel[(1,)](value, index, dst)
++print("Scatter result:", dst)  # ref:[[0.,4.], [1.,0.], [0.,2.], [3.,0.]]
+\ No newline at end of file
+
+diff --git a/ascend/examples/temp_cases/scatter_example_n.py b/ascend/examples/temp_cases/scatter_example_n.py
+@@ -0,0 +1,237 @@
++import torch
++import triton
++import triton.language as tl
++from triton.language.extra.ascend.libdevice import scatter_ub_to_out
++
++import pytest
++
++def torch_scatter(dst, value, index, dim):
++    out = dst.clone()
++    out.scatter_(dim, index, value)
++    return out
++
++# 1D
++@triton.jit
++def scatter_1d_kernel(value_ptr, index_ptr, dst_ptr, dst_dim0: tl.constexpr):
++    i = tl.arange(0, dst_dim0)
++    mask = i < dst_dim0
++    val = tl.load(value_ptr + i, mask=mask)
++    idx = tl.load(index_ptr + i, mask=mask)
++    scatter_ub_to_out(
++        ptr=dst_ptr,
++        value=val,
++        index_tile=idx,
++        index_boundary=dst_dim0,
++        dim=0,
++        num_dims=1,
++        dst_stride=(1,),
++        index_tile_shape=(dst_dim0,),
++        index_shape=(dst_dim0,),
++        offsets=(0,)
++    )
++
++
++# 2D
++@triton.jit
++def scatter_2d_kernel(value_ptr, index_ptr, dst_ptr,
++                      dst_dim0: tl.constexpr, dst_dim1: tl.constexpr,
++                      val_dim0: tl.constexpr, val_dim1: tl.constexpr,
++                      dim: tl.constexpr):
++    y = tl.arange(0, val_dim0)[:, None]
++    x = tl.arange(0, val_dim1)[None, :]
++    mask = (y < val_dim0) & (x < val_dim1)
++    val = tl.load(value_ptr + y * val_dim1 + x, mask=mask)
++    idx = tl.load(index_ptr + y * val_dim1 + x, mask=mask)
++    scatter_ub_to_out(
++        ptr=dst_ptr,
++        value=val,
++        index_tile=idx,
++        index_boundary=(dst_dim0 if dim == 0 else dst_dim1),
++        dim=dim,
++        num_dims=2,
++        dst_stride=(dst_dim1, 1),
++        index_tile_shape=(val_dim0, val_dim1),
++        index_shape=(val_dim0, val_dim1),
++        offsets=(0, 0)
++    )
++
++
++# 3D
++@triton.jit
++def scatter_3d_kernel(value_ptr, index_ptr, dst_ptr,
++                      d0: tl.constexpr, d1: tl.constexpr, d2: tl.constexpr,
++                      v0: tl.constexpr, v1: tl.constexpr, v2: tl.constexpr,
++                      dim: tl.constexpr):
++    a = tl.arange(0, v0)[:, None, None]
++    b = tl.arange(0, v1)[None, :, None]
++    c = tl.arange(0, v2)[None, None, :]
++    mask = (a < v0) & (b < v1) & (c < v2)
++    val = tl.load(value_ptr + a * (v1 * v2) + b * v2 + c, mask=mask)
++    idx = tl.load(index_ptr + a * (v1 * v2) + b * v2 + c, mask=mask)
++    scatter_ub_to_out(
++        ptr=dst_ptr,
++        value=val,
++        index_tile=idx,
++        index_boundary=(d0 if dim == 0 else (d1 if dim == 1 else d2)),
++        dim=dim,
++        num_dims=3,
++        dst_stride=(d1 * d2, d2, 1),
++        index_tile_shape=(v0, v1, v2),
++        index_shape=(v0, v1, v2),
++        offsets=(0, 0, 0)
++    )
++
++
++# 4D
++@triton.jit
++def scatter_4d_kernel(value_ptr, index_ptr, dst_ptr,
++                      d0: tl.constexpr, d1: tl.constexpr, d2: tl.constexpr, d3: tl.constexpr,
++                      v0: tl.constexpr, v1: tl.constexpr, v2: tl.constexpr, v3: tl.constexpr,
++                      dim: tl.constexpr):
++    n = tl.arange(0, v0)[:, None, None, None]
++    z = tl.arange(0, v1)[None, :, None, None]
++    y = tl.arange(0, v2)[None, None, :, None]
++    x = tl.arange(0, v3)[None, None, None, :]
++    mask = (n < v0) & (z < v1) & (y < v2) & (x < v3)
++    val = tl.load(value_ptr + n * (v1*v2*v3) + z * (v2*v3) + y * v3 + x, mask=mask)
++    idx = tl.load(index_ptr + n * (v1*v2*v3) + z * (v2*v3) + y * v3 + x, mask=mask)
++    scatter_ub_to_out(
++        ptr=dst_ptr,
++        value=val,
++        index_tile=idx,
++        index_boundary=(d0 if dim == 0 else (d1 if dim == 1 else (d2 if dim == 2 else d3))),
++        dim=dim,
++        num_dims=4,
++        dst_stride=(d1*d2*d3, d2*d3, d3, 1),
++        index_tile_shape=(v0, v1, v2, v3),
++        index_shape=(v0, v1, v2, v3),
++        offsets=(0, 0, 0, 0)
++    )
++
++
++# 5D
++@triton.jit
++def scatter_5d_kernel(value_ptr, index_ptr, dst_ptr,
++                      d0: tl.constexpr, d1: tl.constexpr, d2: tl.constexpr, d3: tl.constexpr, d4: tl.constexpr,
++                      v0: tl.constexpr, v1: tl.constexpr, v2: tl.constexpr, v3: tl.constexpr, v4: tl.constexpr,
++                      dim: tl.constexpr):
++    b = tl.arange(0, v0)[:, None, None, None, None]
++    c = tl.arange(0, v1)[None, :, None, None, None]
++    d = tl.arange(0, v2)[None, None, :, None, None]
++    h = tl.arange(0, v3)[None, None, None, :, None]
++    w = tl.arange(0, v4)[None, None, None, None, :]
++    mask = (b < v0) & (c < v1) & (d < v2) & (h < v3) & (w < v4)
++    val = tl.load(value_ptr + b*(v1*v2*v3*v4) + c*(v2*v3*v4) + d*(v3*v4) + h*v4 + w, mask=mask)
++    idx = tl.load(index_ptr + b*(v1*v2*v3*v4) + c*(v2*v3*v4) + d*(v3*v4) + h*v4 + w, mask=mask)
++    scatter_ub_to_out(
++        ptr=dst_ptr,
++        value=val,
++        index_tile=idx,
++        index_boundary=(d0 if dim == 0 else (d1 if dim == 1 else (d2 if dim == 2 else (d3 if dim == 3 else d4)))),
++        dim=dim,
++        num_dims=5,
++        dst_stride=(d1*d2*d3*d4, d2*d3*d4, d3*d4, d4, 1),
++        index_tile_shape=(v0, v1, v2, v3, v4),
++        index_shape=(v0, v1, v2, v3, v4),
++        offsets=(0, 0, 0, 0, 0)
++    )
++
++
++@pytest.mark.parametrize("dst_len,val_len", [(8, 8), (8, 4)])
++def test_scatter_1d(dst_len, val_len):
++    device = 'npu'
++    dst = torch.zeros((dst_len,), device=device, dtype=torch.float32)
++    value = torch.arange(val_len, device=device, dtype=torch.float32)
++    index = torch.randint(0, dst_len, (val_len,), device=device, dtype=torch.int64)
++    ref = torch_scatter(dst, value, index)
++    scatter_1d_kernel[(1,)](value, index, dst, dst_dim0=dst_len)
++    print("triton res:", dst)
++    print("torch res:", ref)
++    torch.testing.assert_close(dst, ref)
++
++
++@pytest.mark.parametrize("dst_shape,val_shape,dim", [
++    ((4, 3), (2, 3), 0),
++    # ((3, 5), (3, 2), 1),
++])
++def test_scatter_2d(dst_shape, val_shape, dim):
++    device = 'npu'
++    dst = torch.zeros(dst_shape, device=device, dtype=torch.float32)
++    value = torch.arange(int(torch.tensor(val_shape).prod()), device=device, dtype=torch.float32).reshape(val_shape)
++    index = torch.randint(0, dst_shape[dim], val_shape, device=device, dtype=torch.int64)
++    ref = torch_scatter(dst, value, index, dim)
++    scatter_2d_kernel[(1,)](
++        value, index, dst,
++        dst_dim0=dst_shape[0], dst_dim1=dst_shape[1],
++        val_dim0=val_shape[0], val_dim1=val_shape[1],
++        dim=dim
++    )
++    print("triton res:", dst)
++    print("torch res:", ref)
++    torch.testing.assert_close(dst, ref)
++
++
++@pytest.mark.parametrize("dst_shape,val_shape,dim", [
++    ((4, 3, 2), (2, 3, 2), 0),
++    # ((3, 5, 4), (3, 2, 4), 1),
++    # ((3, 4, 6), (3, 4, 2), 2),
++])
++def test_scatter_3d(dst_shape, val_shape, dim):
++    device = 'npu'
++    dst = torch.zeros(dst_shape, device=device, dtype=torch.float32)
++    value = torch.arange(int(torch.tensor(val_shape).prod()), device=device, dtype=torch.float32).reshape(val_shape)
++    index = torch.randint(0, dst_shape[dim], val_shape, device=device, dtype=torch.int64)
++    ref = torch_scatter(dst, value, index, dim)
++    scatter_3d_kernel[(1,)](
++        value, index, dst,
++        d0=dst_shape[0], d1=dst_shape[1], d2=dst_shape[2],
++        v0=val_shape[0], v1=val_shape[1], v2=val_shape[2],
++        dim=dim
++    )
++    print("triton res:", dst)
++    print("torch res:", ref)
++    torch.testing.assert_close(dst, ref)
++
++
++@pytest.mark.parametrize("dst_shape,val_shape,dim", [
++    ((2, 3, 4, 5), (2, 3, 2, 5), 2),
++    # ((2, 3, 4, 5), (2, 2, 4, 5), 1),
++    # ((2, 3, 4, 5), (1, 3, 4, 5), 0),
++])
++def test_scatter_4d(dst_shape, val_shape, dim):
++    device = 'npu'
++    dst = torch.zeros(dst_shape, device=device, dtype=torch.float32)
++    value = torch.arange(int(torch.tensor(val_shape).prod()), device=device, dtype=torch.float32).reshape(val_shape)
++    index = torch.randint(0, dst_shape[dim], val_shape, device=device, dtype=torch.int64)
++    ref = torch_scatter(dst, value, index, dim)
++    scatter_4d_kernel[(1,)](
++        value, index, dst,
++        d0=dst_shape[0], d1=dst_shape[1], d2=dst_shape[2], d3=dst_shape[3],
++        v0=val_shape[0], v1=val_shape[1], v2=val_shape[2], v3=val_shape[3],
++        dim=dim
++    )
++    print("triton res:", dst)
++    print("torch res:", ref)
++    torch.testing.assert_close(dst, ref)
++
++
++@pytest.mark.parametrize("dst_shape,val_shape,dim", [
++    ((2, 2, 3, 4, 5), (2, 2, 3, 2, 5), 3),
++    # ((2, 2, 3, 4, 5), (2, 2, 2, 4, 5), 2),
++    # ((2, 2, 3, 4, 5), (2, 1, 3, 4, 5), 1),
++])
++def test_scatter_5d(dst_shape, val_shape, dim):
++    device = 'npu'
++    dst = torch.zeros(dst_shape, device=device, dtype=torch.float32)
++    value = torch.arange(int(torch.tensor(val_shape).prod()), device=device, dtype=torch.float32).reshape(val_shape)
++    index = torch.randint(0, dst_shape[dim], val_shape, device=device, dtype=torch.int64)
++    ref = torch_scatter(dst, value, index, dim)
++    scatter_5d_kernel[(1,)](
++        value, index, dst,
++        d0=dst_shape[0], d1=dst_shape[1], d2=dst_shape[2], d3=dst_shape[3], d4=dst_shape[4],
++        v0=val_shape[0], v1=val_shape[1], v2=val_shape[2], v3=val_shape[3], v4=val_shape[4],
++        dim=dim
++    )
++    print("triton res:", dst)
++    print("torch res:", ref)
++    torch.testing.assert_close(dst, ref)
+\ No newline at end of file
+
+diff --git a/ascend/examples/temp_cases/test_gather_out_to_ub.py b/ascend/examples/temp_cases/test_gather_out_to_ub.py
+@@ -0,0 +1,48 @@
++import torch
++from torch import empty_strided
++from torch._dynamo.testing import rand_strided
++import triton
++import triton.language as tl
++import triton.language.extra.ascend.libdevice as libdevice
++
++
++@triton.jit
++def triton_unk_fused_gather_0(
++    in_ptr0, in_ptr1, out_ptr0,
++    y0_numel, x1_numel, Y0BLOCK: tl.constexpr,
++    Y0BLOCK_SUB: tl.constexpr, X1BLOCK_SUB: tl.constexpr
++    ):
++    y0_offset = tl.program_id(0) * Y0BLOCK
++    base_y0 = tl.arange(0, Y0BLOCK_SUB)
++    loops_y0 = (Y0BLOCK + Y0BLOCK_SUB - 1) // Y0BLOCK_SUB
++    base_x1 = tl.arange(0, X1BLOCK_SUB)
++    loops_x1 = (x1_numel + X1BLOCK_SUB - 1) // X1BLOCK_SUB
++    for loop_y0 in range(loops_y0):
++        y0 = y0_offset + (loop_y0 * Y0BLOCK_SUB) + base_y0[:, None]
++        y0_mask = y0 < min(Y0BLOCK+y0_offset, y0_numel)
++        for loop_x1 in range(loops_x1):
++            x1 = (loop_x1 * X1BLOCK_SUB) + base_x1[None, :]
++            x1_mask = x1 < x1_numel
++            tmp0 = tl.load(in_ptr0 + (x1+1080*y0), y0_mask & x1_mask)
++            tmp1 = tl.load(in_ptr0 + (x1+1080*tmp0), y0_mask & x1_mask)
++            tmp2 = libdevice.gather_out_to_ub(
++                in_ptr1, tmp1, 1920, 0, (1080, 1), (y0_numel, x1_numel),
++                (y0_offset + (loop_y0 * Y0BLOCK_SUB), (loop_x1 * X1BLOCK_SUB)))
++            tl.store(out_ptr0 + (x1 + 1080*y0), tmp2, y0_mask & x1_mask)
++
++
++def eager_func(input, indices):
++    return torch.ops.aten.gather(input, 0, indices)
++
++arg0_1 = torch.randint(0, 1920, (1920, 1080), device='npu')
++arg1_1 = rand_strided((1920, 1080), (1080, 1), device='npu', dtype=torch.float32)
++print(">> arg0_1 shape:", arg0_1.shape, "stride:", arg0_1.stride())
++print(">> arg1_1 shape:", arg1_1.shape, "stride:", arg1_1.stride())
++torch_ref = eager_func(arg1_1, arg0_1)
++print(">> torch_ref shape:", torch_ref.shape, "stride:", torch_ref.stride())
++print(">> torch_ref:", torch_ref)
++buf0 = empty_strided((1920, 1080), (1080, 1), device='npu', dtype=torch.float32)
++triton_unk_fused_gather_0[(56,)](arg0_1, arg1_1, buf0, 1920, 1080, 34, 16, 1080)
++
++torch.testing.assert_close(buf0, torch_ref)
++print("Test passed!")
+
+diff --git a/ascend/examples/temp_cases/test_scatter_ub_to_out.py b/ascend/examples/temp_cases/test_scatter_ub_to_out.py
+@@ -0,0 +1,79 @@
++import torch
++from torch import empty_strided
++from torch._dynamo.testing import rand_strided
++import triton
++import triton.language as tl
++import triton.language.extra.ascend.libdevice as libdevice
++
++
++@triton.jit
++def triton_unk_fused_scatter_0(
++    value_ptr, index_ptr, dst_ptr,
++    y0_numel, x1_numel, Y0BLOCK: tl.constexpr,
++    Y0BLOCK_SUB: tl.constexpr, X1BLOCK_SUB: tl.constexpr
++):
++    """
++    沿dim=0执行Scatter操作, 将value按index scatter到dst中
++    dst[index[i][j]][j] = value[i][j]
++    """
++    # 当前Program处理的Y维度全局偏移
++    y0_offset = tl.program_id(0) * Y0BLOCK
++    # 构造Y/X维度的局部索引基值（子Tile大小）
++    base_y0 = tl.arange(0, Y0BLOCK_SUB)
++    loops_y0 = (Y0BLOCK + Y0BLOCK_SUB - 1) // Y0BLOCK_SUB  # Y维度循环次数
++    base_x1 = tl.arange(0, X1BLOCK_SUB)
++    loops_x1 = (x1_numel + X1BLOCK_SUB - 1) // X1BLOCK_SUB  # X维度循环次数
++
++    for loop_y0 in range(loops_y0):
++        # 计算Y维度全局索引（当前子Tile）
++        y0 = y0_offset + (loop_y0 * Y0BLOCK_SUB) + base_y0[:, None]
++        y0_mask = y0 < min(Y0BLOCK + y0_offset, y0_numel)  # Y维度越界mask
++        
++        for loop_x1 in range(loops_x1):
++            # 计算X维度全局索引（当前子Tile）
++            x1 = (loop_x1 * X1BLOCK_SUB) + base_x1[None, :]
++            x1_mask = x1 < x1_numel  # X维度越界mask
++            tile_mask = y0_mask & x1_mask
++
++            # 1. 加载当前Tile的value（UB中）
++            value_tile = tl.load(value_ptr + (x1 + 1080 * y0), tile_mask)
++            # 2. 加载当前Tile的index（UB中）
++            index_tile = tl.load(index_ptr + (x1 + 1080 * y0), tile_mask)
++
++            # 3. 调用scatter_ub_to_out：将value_tile按index_tile scatter到dst（GM）
++            libdevice.scatter_ub_to_out(
++                ptr=dst_ptr,                  # 目标张量（GM）
++                value=value_tile,             # 待scatter的value tile（UB）
++                index_tile=index_tile,             # 索引tile（UB）
++                index_boundary=1920,          # 目标张量dim=0的大小（索引上界）
++                dim=0,                        # 沿dim=0 scatter
++                num_dims=2,
++                dst_stride=(1080, 1),         # 目标张量的步长
++                index_tile_shape=(Y0BLOCK_SUB, X1BLOCK_SUB),  # 索引tile的shape
++                index_shape=(y0_numel, x1_numel),  # 原始索引张量的shape
++                offsets=(y0_offset + (loop_y0 * Y0BLOCK_SUB), (loop_x1 * X1BLOCK_SUB))  # 当前Tile的偏移
++            )
++
++
++def eager_func(dst, value, indices):
++    return torch.ops.aten.scatter(dst, 0, indices, value)
++
++
++dst = torch.zeros((1920, 1080), device='npu', dtype=torch.float32)
++value = rand_strided((1920, 1080), (1080, 1), device='npu', dtype=torch.float32)
++indices = torch.randint(0, 1920, (1920, 1080), device='npu')
++print(">> dst shape:", dst.shape, "stride:", dst.stride())
++print(">> value shape:", value.shape, "stride:", value.stride())
++print(">> indices shape:", indices.shape, "stride:", indices.stride())
++torch_ref = eager_func(dst.clone(), value, indices)
++print(">> torch_ref shape:", torch_ref.shape, "stride:", torch_ref.stride())
++print(">> torch_ref:", torch_ref)
++buf0 = empty_strided((1920, 1080), (1080, 1), device='npu', dtype=torch.float32)
++
++triton_unk_fused_scatter_0[(56,)](
++    value, indices, buf0, 
++    1920, 1080, 34, 16, 1080
++)
++
++torch.testing.assert_close(buf0, torch_ref, rtol=1e-3, atol=1e-3)
++print("Scatter test passed!")
+\ No newline at end of file
+
+diff --git a/ascend/triton-adapter/include/TritonToLinalg/TritonOpConverter.h b/ascend/triton-adapter/include/TritonToLinalg/TritonOpConverter.h
+@@ -586,6 +586,16 @@ private:
+   static constexpr llvm::StringRef funcNameBase = "triton_embedding_gather";
+ };
+ 
++class IndexPutConverter : public OpConversionPattern<triton::IndexPutOp> {
++public:
++  using OpConversionPattern<triton::IndexPutOp>::OpConversionPattern;
++  LogicalResult
++  matchAndRewrite(triton::IndexPutOp op, OpAdaptor adaptor,
++                  ConversionPatternRewriter &rewriter) const override;
++private:
++  static constexpr llvm::StringRef funcNameBase = "triton_index_put";
++};
++
+ class GatherOutToUbConverter : public OpConversionPattern<triton::GatherOutToUbOp> {
+ public:
+   using OpConversionPattern<triton::GatherOutToUbOp>::OpConversionPattern;
+@@ -596,6 +606,16 @@ private:
+   static constexpr llvm::StringRef funcNameBase = "triton__gather_out_to_ub";
+ };
+ 
++class ScatterUbToOutConverter : public OpConversionPattern<triton::ScatterUbToOutOp> {
++public:
++  using OpConversionPattern<triton::ScatterUbToOutOp>::OpConversionPattern;
++  LogicalResult
++  matchAndRewrite(triton::ScatterUbToOutOp op, OpAdaptor adaptor,
++                  ConversionPatternRewriter &rewriter) const override;
++private:
++  static constexpr llvm::StringRef funcNameBase = "triton_scatter_ub_to_out";
++};
++
+ class IndirectLoadConverter : public OpConversionPattern<triton::IndirectLoadOp> {
+ public:
+   using OpConversionPattern<triton::IndirectLoadOp>::OpConversionPattern;
+
+diff --git a/ascend/triton-adapter/lib/TritonToLinalg/TritonOpConverter.cpp b/ascend/triton-adapter/lib/TritonToLinalg/TritonOpConverter.cpp
+@@ -2170,6 +2170,48 @@ EmbeddingGatherConverter::matchAndRewrite(triton::EmbeddingGatherOp op, OpAdapto
+   return success();
+ }
+ 
++LogicalResult
++IndexPutConverter::matchAndRewrite(triton::IndexPutOp op, OpAdaptor adaptor,
++                                   ConversionPatternRewriter &rewriter) const
++{
++  auto loc = op.getLoc();
++
++  auto moduleOp = op->getParentOfType<ModuleOp>();
++  rewriter.setInsertionPoint(moduleOp.getBody(),
++                             std::prev(moduleOp.getBody()->end()));
++
++  auto funcName = generateUniqueFuncName(moduleOp, funcNameBase);
++
++  auto ptr = adaptor.getPtr();
++  auto index = op.getIndex();
++  auto value = op.getValue();
++  auto dim = op.getDim();
++  auto dstShape = op.getDstShape();
++  auto dstOffset = adaptor.getDstOffset();
++
++  // convert !tt.ptr<f32> to memref<?xf32>
++  auto ptrTy = dyn_cast<MemRefType>(ptr.getType());
++  if (!ptrTy) {
++      return rewriter.notifyMatchFailure(op, "expected MemRefType for ptr");
++  }
++  SmallVector<Type> inputTypes({ptrTy, index.getType(), value.getType(),
++                                dim.getType()});
++  inputTypes.append(dstShape.getTypes().begin(), dstShape.getTypes().end());
++  inputTypes.append(dstOffset.getTypes().begin(), dstOffset.getTypes().end());
++  auto libFnType = rewriter.getFunctionType(inputTypes, {});
++  auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
++  SymbolTable::setSymbolVisibility(funcOp, SymbolTable::Visibility::Private);
++
++  rewriter.setInsertionPoint(op);
++  SmallVector<Value> inputVals({ptr, index, value, dim});
++  inputVals.append(dstShape.begin(), dstShape.end());
++  inputVals.append(dstOffset.begin(), dstOffset.end());
++  rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
++                                TypeRange({}), inputVals);
++  rewriter.eraseOp(op);
++  return success();
++}
++
+ LogicalResult
+ GatherOutToUbConverter::matchAndRewrite(triton::GatherOutToUbOp op, OpAdaptor adaptor,
+                                         ConversionPatternRewriter &rewriter) const
+@@ -2223,6 +2265,58 @@ GatherOutToUbConverter::matchAndRewrite(triton::GatherOutToUbOp op, OpAdaptor ad
+   return success();
+ }
+ 
++LogicalResult
++ScatterUbToOutConverter::matchAndRewrite(triton::ScatterUbToOutOp op, OpAdaptor adaptor,
++                                         ConversionPatternRewriter &rewriter) const
++{
++  auto loc = op.getLoc();
++
++  auto moduleOp = op->getParentOfType<ModuleOp>();
++  rewriter.setInsertionPoint(moduleOp.getBody(),
++                             std::prev(moduleOp.getBody()->end()));
++
++  auto funcName = generateUniqueFuncName(moduleOp, funcNameBase);
++
++  auto ptr = adaptor.getPtr();
++  auto value = op.getValue();
++  auto indexTile = op.getIndexTile();
++  auto indexBoundary = op.getIndexBoundary();
++  auto dim = op.getDim();
++  auto numDims = op.getNumDims();
++  auto dstStride = op.getDstStride();
++  auto indexTileShape = op.getIndexTileShape();
++  auto indexShape = op.getIndexShape();
++  auto offsets = op.getOffsets();
++
++  // convert !tt.ptr<f32> to memref<?xf32>
++  auto ptrTy = dyn_cast<MemRefType>(ptr.getType());
++  if (!ptrTy) {
++      return rewriter.notifyMatchFailure(op, "expected MemRefType for ptr");
++  }
++
++  SmallVector<Type> inputTypes({ptrTy, value.getType(), indexTile.getType(),
++                                indexBoundary.getType(), dim.getType(), numDims.getType()});
++  inputTypes.append(dstStride.getTypes().begin(), dstStride.getTypes().end());
++  inputTypes.append(indexTileShape.getTypes().begin(), indexTileShape.getTypes().end());
++  inputTypes.append(indexShape.getTypes().begin(), indexShape.getTypes().end());
++  inputTypes.append(offsets.getTypes().begin(), offsets.getTypes().end());
++
++  auto libFnType = rewriter.getFunctionType(inputTypes, {});
++  auto funcOp = rewriter.create<func::FuncOp>(loc, funcName.str(), libFnType);
++  SymbolTable::setSymbolVisibility(funcOp, SymbolTable::Visibility::Private);
++
++  rewriter.setInsertionPoint(op);
++  SmallVector<Value> inputVals({ptr, value, indexTile, indexBoundary, dim, numDims});
++  inputVals.append(dstStride.begin(), dstStride.end());
++  inputVals.append(indexTileShape.begin(), indexTileShape.end());
++  inputVals.append(indexShape.begin(), indexShape.end());
++  inputVals.append(offsets.begin(), offsets.end());
++  rewriter.create<func::CallOp>(loc, funcOp.getSymNameAttr(),
++                                TypeRange({}), inputVals);
++  rewriter.eraseOp(op);
++  return success();
++}
++
+ LogicalResult
+ IndirectLoadConverter::matchAndRewrite(triton::IndirectLoadOp op, OpAdaptor adaptor,
+                                        ConversionPatternRewriter &rewriter) const
+
+diff --git a/ascend/triton-adapter/lib/TritonToLinalg/TritonToLinalgPass.cpp b/ascend/triton-adapter/lib/TritonToLinalg/TritonToLinalgPass.cpp
+@@ -82,7 +82,9 @@ inline bool isSIMTOp(Operation *op)
+ {
+   return isa<
+       triton::EmbeddingGatherOp,
++      triton::IndexPutOp,
+       triton::GatherOutToUbOp,
++      triton::ScatterUbToOutOp,
+       triton::IndirectLoadOp,
+       triton::IndirectStoreOp
+       >(op);
+@@ -666,6 +668,7 @@ void TritonToLinalgPass::populateTritonToLinalgConversionPatterns(
+   patterns.add<TTOpConverters::YieldConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::GatherConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::EmbeddingGatherConverter>(patterns.getContext());
++  patterns.add<TTOpConverters::IndexPutConverter>(patterns.getContext());
+ 
+   patterns.add<TTOpConverters::DeviceAssertConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::DevicePrintConverter>(patterns.getContext());
+@@ -677,6 +680,7 @@ void TritonToLinalgPass::populateTritonToLinalgConversionPatterns(
+   patterns.add<TTOpConverters::IndirectLoadConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::IndirectStoreConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::GatherOutToUbConverter>(patterns.getContext());
++  patterns.add<TTOpConverters::ScatterUbToOutConverter>(patterns.getContext());
+   patterns.add<TTOpConverters::IndexSelectSimdConverter>(patterns.getContext());
+ 
+   if (!this->namedOps) {
+@@ -736,6 +740,8 @@ void TritonToLinalgPass::annotateTensorKindForModule(ModuleOp moduleOp) {
+                                 triton::LoadOp>(func);
+     // OUTPUT tensors
+     this->walkAndMarkTensorKind<TensorKind::OUTPUT,
++                                triton::IndexPutOp,
++                                triton::ScatterUbToOutOp,
+                                 triton::IndirectStoreOp,
+                                 triton::StoreOp>(func);
+     // INPUT_OUTPUT tensors
+
+diff --git a/triton_patch/include/triton/Dialect/Triton/IR/TritonOps.td b/triton_patch/include/triton/Dialect/Triton/IR/TritonOps.td
+@@ -392,6 +392,51 @@ def TT_EmbeddingGatherOp : TT_Op<"embedding_gather", [
+     // let hasCanonicalizer = 1;
+ }
+ 
++//
++// IndexPut Op
++//
++def TT_IndexPutOp : TT_Op<"index_put", [
++  MemoryEffects<[MemWrite<GlobalMemory>]>,
++  SameVariadicOperandSize,
++]> {
++    let summary = "Scatter store to a tensor pointer with embedding semantics";
++
++    let description = [{
++        Index put values from a tensor into a destination tensor.
++
++        The operation takes:
++        - ptr: pointer type, the destination tensor pointer (in GM)
++        - index: tensor, a index to scatter (in UB)
++        - value: tensor, a value to store (in UB)
++        - dim: int, the dimension to scatter along
++        - dst_shape: tuple of int, the shape of destination tensor
++        - dst_offset: tuple of int, the offsets of each dimension for destination tensor
++
++        Constraints:
++        - `ptr` and `value` must have the same rank.
++        - `ptr.dtype` only supports `float16`, `bfloat16`, `float32` currently.
++        - `index` must be an integer tensor, and must be 1D.
++        - `value` support 2~5D tensors.
++        - `dim` must be valid (0 <= dim < rank(value) - 1).
++    }];
++
++    let arguments = (
++      ins TT_Ptr:$ptr,
++          TT_Tensor:$index,
++          TT_Tensor:$value,
++          TT_Int:$dim,
++          Variadic<AnyTypeOf<[I32, I64]>>:$dstShape,
++          Variadic<AnyTypeOf<[I32, I64]>>:$dstOffset
++    );
++
++    let assemblyFormat = [{
++      $ptr `:` type($ptr) `,` $index `:` type($index) `,`
++      $value `:` type($value) `,` $dim `:` type($dim) `,`
++     `[` $dstShape `:` type($dstShape) `]` `,` `[` $dstOffset `:` type($dstOffset) `]`
++      attr-dict
++    }];
++}
++
+ //
+ // GatherOutToUb Op
+ //
+@@ -425,8 +470,8 @@ def TT_GatherOutToUbOp : TT_Op<"gather_out_to_ub", [
+         - `index_tile` must be an integer tensor, with rank between 1 and 5.
+         - `dim` must be valid (0 <= dim < rank(index_tile)).
+         - `other` must be a scalar value.
+-        - For every dimension `i` not equal to `dim`, `index.size[i]` <= `src.size[i]`.
+-        - The output shape is the same as `index.shape`. If `index` is None, \
++        - For every dimension `i` not equal to `dim`, `index_tile.size[i]` <= `src.size[i]`.
++        - The output shape is the same as `index_tile.shape`. If `index_tile` is None, \
+             the output tensor will be an empty tensor with the same shape as `index_tile`.
+     }];
+ 
+@@ -452,6 +497,63 @@ def TT_GatherOutToUbOp : TT_Op<"gather_out_to_ub", [
+     }];
+ }
+ 
++//
++// ScatterUbToOut Op
++//
++def TT_ScatterUbToOutOp : TT_Op<"scatter_ub_to_out", [
++  MemoryEffects<[MemWrite<GlobalMemory>]>,
++  SameVariadicOperandSize,
++]> {
++    let summary = "scatter store from a tensor pointer with the embedding semantics";
++
++    let description = [{
++        Scatter a tile from Unified Buffer (UB) into a destination tensor in Global Memory (GM)
++        along a specified dimension, with index-boundary checking.
++
++        The operation takes:
++        - ptr: pointer type, the destination tensor pointer (in GM)
++        - value: tensor, a tile value to store (in UB)
++        - index_tile: tensor, a tile index to scatter (in UB)
++        - index_boundary: int, the upper boundary for index values
++        - dim: int, the dimension to scatter along
++        - num_dims: int, the number of dimensions of destination tensor
++        - dst_stride: tuple of int, the stride of each dimension of destination tensor
++        - index_tile_shape: tuple of int, the shape of index tile tensor
++        - index_shape: tuple of int, the shape of origin index tensor
++        - offsets: tuple of int, the offsets of each dimension for index tensor
++
++        Constraints:
++        - `ptr` and `index_tile` must have the same rank.
++        - `ptr.dtype` only supports `float16`, `bfloat16`, `float32` currently.
++        - `index_tile` must be an integer tensor, with rank between 1 and 5.
++        - `dim` must be valid (0 <= dim < rank(index_tile)).
++        - For every dimension `i` not equal to `dim`, `index_tile.size[i]` <= `ptr.size[i]`.
++        - The output shape is the same as `index_tile.shape`. If `index_tile` is None, \
++            the output tensor will be an empty tensor with the same shape as `index`.
++    }];
++
++    let arguments = (
++      ins TT_Ptr:$ptr,
++          TT_Tensor:$value,
++          TT_Tensor:$indexTile,
++          TT_Int:$indexBoundary,
++          TT_Int:$dim,
++          TT_Int:$numDims,
++          Variadic<AnyTypeOf<[I32, I64]>>:$dstStride,
++          Variadic<AnyTypeOf<[I32, I64]>>:$indexTileShape,
++          Variadic<AnyTypeOf<[I32, I64]>>:$indexShape,
++          Variadic<AnyTypeOf<[I32, I64]>>:$offsets
++    );
++
++    let assemblyFormat = [{
++      $ptr `:` type($ptr) `,` $value `:` type($value) `,` `,` $indexTile `:` type($indexTile) `,`
++      $indexBoundary `:` type($indexBoundary) `,` $dim `:` type($dim) `,` $numDims `:` type($numDims) `,` 
++     `[` $dstStride `:` type($dstStride) `]` `,` `[` $indexTileShape `:` type($indexTileShape) `]` `,`
++     `[` $indexShape `:` type($indexShape) `]` `,` `[` $offsets `:` type($offsets) `]`
++      attr-dict
++    }];
++}
++
+ def TT_IndexSelectSimdOp : TT_Op<"index_select_simd", [
+   MemoryEffects<[MemRead<GlobalMemory>]>,
+   DeclareOpInterfaceMethods<InferTypeOpInterface>,
+
+diff --git a/triton_patch/python/src/ir.cc b/triton_patch/python/src/ir.cc
+@@ -1811,6 +1811,16 @@ void init_triton_ir(py::module &&m) {
+                 return self.create<EmbeddingGatherOp>(
+                           resType, src, idx, bound_val, blksiz_val, offsets, numels);
+             })
++      .def("create_index_put",
++           [](TritonOpBuilder &self, Value &ptr, Value &index,
++              Value &value, const int32_t dim,
++              std::vector<Value> &dstShape, std::vector<Value> &dstOffset) -> void {
++                // dim need to be i32 type
++                auto dimI32Ty = self.getBuilder().getI32Type();
++                auto dim_val = self.create<arith::ConstantIntOp>(dim, dimI32Ty);
++
++                self.create<IndexPutOp>(ptr, index, value, dim_val, dstShape, dstOffset);
++            })
+       .def("create_gather_out_to_ub",
+            [](TritonOpBuilder &self, Value &src, Value &indexTile, const int64_t indexBoundary,
+               const int32_t dim, std::vector<Value> &srcStride, std::vector<Value> &indexShape,
+@@ -1829,6 +1839,22 @@ void init_triton_ir(py::module &&m) {
+                 return self.create<GatherOutToUbOp>(resType, src, indexTile, bound_val, dim_val,
+                                                     srcStride, indexShape, offsets, other.value_or(Value()));
+             })
++      .def("create_scatter_ub_to_out",
++           [](TritonOpBuilder &self, Value &ptr, Value &value, Value &indexTile,
++              const int64_t indexBoundary, const int32_t dim, const int32_t num_dims,
++              std::vector<Value> &dstStride, std::vector<Value> &indexTileShape,
++              std::vector<Value> &indexShape, std::vector<Value> &offsets) -> void {
++                auto idxTy = cast<RankedTensorType>(indexTile.getType());
++                auto idxBitWidth = idxTy.getElementType().getIntOrFloatBitWidth();
++                auto bound_val = self.create<arith::ConstantIntOp>(indexBoundary, idxBitWidth);
++                // dim need to be i32 type
++                auto dimI32Ty = self.getBuilder().getI32Type();
++                auto dim_val = self.create<arith::ConstantIntOp>(dim, dimI32Ty);
++                auto num_dims_val = self.create<arith::ConstantIntOp>(num_dims, dimI32Ty);
++
++                self.create<ScatterUbToOutOp>(ptr, value, indexTile, bound_val, dim_val, num_dims_val,
++                                              dstStride, indexTileShape, indexShape, offsets);
++            })
+       // Add sort
+       .def("create_sort",
+            [](TritonOpBuilder &self, Value src, int64_t dim, bool descending) -> Value {
+
+diff --git a/triton_patch/python/triton_patch/language/core.py b/triton_patch/python/triton_patch/language/core.py
+@@ -21,7 +21,7 @@
+ # THE SOFTWARE.
+ 
+ import os
+-from typing import List, Sequence, Optional, Union
++from typing import List, Sequence, Optional, Union, Tuple
+ 
+ from triton._C.libtriton import ir
+ from triton.language import semantic as real_semantic
+@@ -645,6 +645,81 @@ def index_select(src: tensor, idx: tensor, bound, lstdim_blksiz, offsets, numels
+     return semantic.embedding_gather(src, idx, bound, lstdim_blksiz, offsets, numels, _builder)
+ 
+ 
++@builtin
++def index_put(
++    ptr: tensor,
++    index: tensor,
++    value: tensor,
++    dim: int,
++    dst_shape: tuple,
++    dst_offset: tuple,
++    _builder=None
++):
++    """
++    Index put values from a tensor into a destination tensor.
++
++    Index put operation for different tensor ranks:
++    1. 2D index scatter (dim=0 scatters along rows):
++        out[index[i]][j] = value[i][j] if dim == 0
++        out[i][index[j]] = value[i][j] if dim == 1
++    2. 3D index scatter (dim=0 scatters along the 0th dimension):
++        out[index[i]][j][k] = value[i][j][k] if dim == 0
++        out[i][index[j]][k] = value[i][j][k] if dim == 1
++        out[i][j][index[k]] = value[i][j][k] if dim == 2
++
++    :param ptr: pointer type, the destination tensor pointer (in GM)
++    :param index: tensor, a index to scatter (in UB)
++    :param value: tensor, a value to store (in UB)
++    :param dim: int, the dimension to scatter along
++    :param dst_shape: tuple of int, the shape of destination tensor
++    :param dst_offset: tuple of int, the offsets of each dimension for destination tensor
++
++    Constraints
++    ***********
++    - `ptr` and `value` must have the same rank.
++    - `ptr.dtype` only supports `float16`, `bfloat16`, `float32` currently.
++    - `index` must be an integer tensor, and must be 1D.
++    - `value` support 2~5D tensors.
++    - `dim` must be valid (0 <= dim < rank(value) - 1).
++
++    Example
++    *******
++    .. code-block:: python
++
++        import torch
++        import triton
++        import triton.language as tl
++        from triton.language.extra.ascend.libdevice import index_put
++
++        @triton.jit
++        def simple_index_put_kernel(value_ptr, index_ptr, dst_ptr):
++            # index tile shape: [2]
++            index_local = tl.arange(0, 2)
++            x1_local = tl.arange(0, 2)[None, :]  # shape=(1,2)
++
++            index_tile = tl.load(index_ptr + index_local)
++            value_tile = tl.load(value_ptr + index_local[:, None]*2 + x1_local)
++
++            index_put(
++                ptr=dst_ptr,
++                index=index_tile,
++                value=value_tile,
++                dim=0,
++                dst_shape=(4, 2),
++                dst_offset=(0, 0)
++            )
++
++        dst = torch.zeros((4,2), device='npu', dtype=torch.float32)
++        value = torch.tensor([[1.,2.], [3.,4.]], device='npu')
++        index = torch.tensor([2, 0], device='npu')
++
++        simple_index_put_kernel[(1,)](value, index, dst)
++        print("IndexPut result:", dst) # ref:[[3.,4.], [0.,0.], [1.,2.], [0.,0.]]
++    """
++    dim = _constexpr_to_value(dim)
++    return semantic.index_put(ptr, index, value, dim, dst_shape, dst_offset, _builder)
++
++
+ @builtin
+ def gather_out_to_ub(
+     src: tensor,
+@@ -689,8 +764,8 @@ def gather_out_to_ub(
+     - `index_tile` must be an integer tensor, with rank between 1 and 5.
+     - `dim` must be valid (0 <= dim < rank(index_tile)).
+     - `other` must be a scalar value.
+-    - For every dimension `i` not equal to `dim`, `index.size[i]` <= `src.size[i]`.
+-    - The output shape is the same as `index.shape`. If `index` is None, \
++    - For every dimension `i` not equal to `dim`, `index_tile.size[i]` <= `src.size[i]`.
++    - The output shape is the same as `index_tile.shape`. If `index_tile` is None, \
+         the output tensor will be an empty tensor with the same shape as `index_tile`.
+ 
+     Example
+@@ -740,6 +815,104 @@ def gather_out_to_ub(
+     )
+ 
+ 
++@builtin
++def scatter_ub_to_out(
++    ptr: tensor,
++    value: tensor,
++    index_tile: tensor,
++    index_boundary: int,
++    dim: int,
++    num_dims: int,
++    dst_stride: tuple,
++    index_tile_shape: tuple,
++    index_shape: tuple,
++    offsets: tuple,
++    _builder=None
++):
++    """
++    Scatter a tile from Unified Buffer (UB) into a destination tensor in Global Memory (GM)
++    along a specified dimension, with index-boundary checking.
++
++    Scatter operation for different tensor ranks:
++    1. 1D index scatter:
++        out[index[i]] = value[i]
++    2. 2D index scatter (dim=0 scatters along rows):
++        out[index[i][j]][j] = value[i][j] if dim == 0
++        out[i][index[i][j]] = value[i][j] if dim == 1
++    3. 3D index scatter (dim=0 scatters along the 0th dimension):
++        out[index[i][j][k]][j][k] = value[i][j][k] if dim == 0
++        out[i][index[i][j][k]][k] = value[i][j][k] if dim == 1
++        out[i][j][index[i][j][k]] = value[i][j][k] if dim == 2
++
++    :param ptr: pointer type, the destination tensor pointer (in GM)
++    :param value: tensor, a tile value to store (in UB)
++    :param index_tile: tensor, a tile index to scatter (in UB)
++    :param index_boundary: int, the upper boundary for index values
++    :param dim: int, the dimension to scatter along
++    :param num_dims: int, the number of dimensions of the destination tensor
++    :param dst_stride: tuple of int, the stride of each dimension of destination tensor
++    :param index_tile_shape: tuple of int, the shape of index tile tensor
++    :param index_shape: tuple of int, the shape of origin index tensor
++    :param offsets: tuple of int, the offsets of each dimension for index tensor
++
++    Constraints
++    ***********
++    - `ptr`, `index_tile` and `value` must have the same rank.
++    - `ptr.dtype` only supports `float16`, `bfloat16`, `float32` currently.
++    - `index_tile` must be an integer tensor, with rank between 1 and 5.
++    - `dim` must be valid (0 <= dim < rank(index_tile)).
++    - For every dimension `i` not equal to `dim`, `index_tile.size[i]` <= `ptr.size[i]`.
++    - The output shape is the same as `index_tile.shape`. If `index_tile` is None, \
++        the output tensor will be an empty tensor with the same shape as `index_tile`.
++
++    Example
++    *******
++    .. code-block:: python
++
++        import torch
++        import triton
++        import triton.language as tl
++        from triton.language.extra.ascend.libdevice import scatter_ub_to_out
++
++        @triton.jit
++        def simple_scatter_kernel(value_ptr, index_ptr, dst_ptr):
++            # index tile shape: [2,2]
++            y0_local = tl.arange(0, 2)[:, None]  # [0,1] rows
++            x1_local = tl.arange(0, 2)[None, :]  # [0,1] cols
++            mask = (y0_local < 2) & (x1_local < 2)
++            
++            value_tile = tl.load(value_ptr + y0_local*2 + x1_local, mask)
++            index_tile = tl.load(index_ptr + y0_local*2 + x1_local, mask)
++            
++            scatter_ub_to_out(
++                ptr=dst_ptr,
++                value=value_tile,
++                index_tile=index_tile,
++                index_boundary=4,
++                dim=0,
++                num_dims=2,
++                dst_stride=(2, 1),
++                index_tile_shape=(2, 2),
++                index_shape=(2, 2),
++                offsets=(0, 0)
++            )
++
++        dst = torch.zeros((4,2), device='npu', dtype=torch.float32)
++        value = torch.tensor([[1.,2.], [3.,4.]], device='npu')
++        index = torch.tensor([[1,2], [3,0]], device='npu')
++
++        simple_scatter_kernel[(1,)](value, index, dst)
++        print("Scatter result:", dst)  # ref:[[0.,4.], [1.,0.], [0.,2.], [3.,0.]]
++    """
++    dim = _constexpr_to_value(dim)
++    num_dims = _constexpr_to_value(num_dims)
++    index_boundary = _constexpr_to_value(index_boundary)
++    return semantic.scatter_ub_to_out(
++        ptr, value, index_tile, index_boundary, dim, num_dims,
++        dst_stride, index_tile_shape, index_shape, offsets, _builder
++    )
++
++
+ @builtin
+ def index_select_simd(
+     src,
+
+diff --git a/triton_patch/python/triton_patch/language/semantic.py b/triton_patch/python/triton_patch/language/semantic.py
+@@ -1061,6 +1061,68 @@ def embedding_gather(src: tl.tensor, idx: tl.tensor, bound: int, blksiz: int, of
+     return wrap_tensor(ret, src.dtype.element_ty, ret_shape)
+ 
+ 
++def index_put(
++    ptr: tl.tensor,
++    index: tl.tensor,
++    value: tl.tensor,
++    dim: int,
++    dst_shape: Tuple,
++    dst_offset: Tuple,
++    builder: ir.builder
++):
++    """
++    Index put values from a tensor into a destination tensor.
++
++    Index put operation for different tensor ranks:
++    1. 2D index scatter (dim=0 scatters along rows):
++        out[index[i]][j] = value[i][j] if dim == 0
++        out[i][index[j]] = value[i][j] if dim == 1
++    2. 3D index scatter (dim=0 scatters along the 0th dimension):
++        out[index[i]][j][k] = value[i][j][k] if dim == 0
++        out[i][index[j]][k] = value[i][j][k] if dim == 1
++        out[i][j][index[k]] = value[i][j][k] if dim == 2
++    
++    Args:
++    - ptr: pointer type, the destination tensor pointer (in GM)
++    - index: tensor, a index to scatter (in UB)
++    - value: tensor, a value to store (in UB)
++    - dim: int, the dimension to scatter along
++    - dst_shape: tuple of int, the shape of destination tensor
++    - dst_offset: tuple of int, the offsets of each dimension for destination tensor
++
++    Constraints:
++    - `ptr` and `value` must have the same rank.
++    - `ptr.dtype` only supports `float16`, `bfloat16`, `float32` currently.
++    - `index` must be an integer tensor, and must be 1D.
++    - `value` support 2~5D tensors.
++    - `dim` must be valid (0 <= dim < rank(value) - 1).
++    """
++    assert index.dtype.is_int(), "index must be an integer tensor"
++    if not ptr.dtype.element_ty.is_floating():
++        raise ValueError(f"Expected dtype fp16/fp32/bf16, but got {ptr.dtype.element_ty}")
++    if not isinstance(dim, int):
++        raise ValueError("dim must be of type tl.constexpr")
++
++    v_rank = len(value.shape)
++    idx_rank = len(index.shape)
++    if idx_rank != 1:
++        raise ValueError(f"index rank must be 1, got index rank={idx_rank}")
++    if v_rank < 2 or v_rank > 5:
++        raise ValueError(f"value rank must be in [2, 5], got value rank={v_rank}")
++    if dim < 0 or dim >= v_rank - 1:
++        raise ValueError(f"dim must satisfy 0<=dim<len(dst_shape)-1 (len(dst_shape)-1={v_rank-1}), got dim={dim}")
++
++    require_i64 = index.dtype.is_int64()
++    dst_shape = [_convert_elem_to_ir_value(builder, elem, require_i64) for elem in dst_shape]
++    dst_offset = [_convert_elem_to_ir_value(builder, elem, require_i64) for elem in dst_offset]
++
++    if len(dst_shape) != v_rank or len(dst_offset) != v_rank:
++        raise ValueError(f"len(dst_shape)==len(dst_offset)==value.rank required, "
++                         f"got {len(dst_shape)}, {len(dst_offset)}, {v_rank}")
++
++    return tl.tensor(builder.create_index_put(ptr.handle, index.handle, value.handle, dim, dst_shape, dst_offset), tl.void)
++
++
+ def gather_out_to_ub(
+     src: tl.tensor,
+     index_tile: tl.tensor,
+@@ -1104,14 +1166,16 @@ def gather_out_to_ub(
+     if not src.dtype.element_ty.is_floating():
+         raise ValueError(f"Expected dtype fp16/fp32/bf16, but got {src.dtype.element_ty}")
+ 
++    if not isinstance(index_boundary, int):
++        raise ValueError("index_boundary must be of type tl.constexpr")
++    if not isinstance(dim, int):
++        raise ValueError("dim must be of type tl.constexpr")
++
+     idx_rank = len(index_tile.shape)
+     if idx_rank < 1 or idx_rank > 5:
+         raise ValueError(f"index_tile rank must be in [1, 5], got rank={idx_rank}")
+     if dim < 0 or dim >= idx_rank:
+         raise ValueError(f"dim must satisfy 0<=dim<index_tile.rank (index_tile.rank={idx_rank}), got dim={dim}")
+-    if len(src_stride) != idx_rank or len(index_shape) != idx_rank or len(offsets) != idx_rank:
+-        raise ValueError(f"len(src_stride)==len(index_shape)==len(offsets)==index_tile.rank required, "
+-                         f"got {len(src_stride)}, {len(index_shape)}, {len(offsets)}, {idx_rank}")
+ 
+     if other is not None:
+         other = cast(other, src.dtype.element_ty, _builder)
+@@ -1122,6 +1186,10 @@ def gather_out_to_ub(
+     index_shape = [_convert_elem_to_ir_value(_builder, elem, False) for elem in index_shape]
+     offsets = [_convert_elem_to_ir_value(_builder, elem, False) for elem in offsets]
+ 
++    if len(src_stride) != idx_rank or len(index_shape) != idx_rank or len(offsets) != idx_rank:
++        raise ValueError(f"len(src_stride)==len(index_shape)==len(offsets)==index_tile.rank required, "
++                         f"got {len(src_stride)}, {len(index_shape)}, {len(offsets)}, {idx_rank}")
++
+     ret = _builder.create_gather_out_to_ub(
+         src.handle,
+         index_tile.handle,
+@@ -1134,3 +1202,85 @@ def gather_out_to_ub(
+     )
+     ret_shape = [_unwrap_if_constexpr(s) for s in index_tile.shape]
+     return wrap_tensor(ret, src.dtype.element_ty, ret_shape)
++
++
++def scatter_ub_to_out(
++    ptr: tl.tensor,
++    value: tl.tensor,
++    index_tile: tl.tensor,
++    index_boundary: int,
++    dim: int,
++    num_dims: int,
++    dst_stride: tuple,
++    index_tile_shape: tuple,
++    index_shape: tuple,
++    offsets: tuple,
++    _builder=None
++):
++    """
++    Scatter a tile from Unified Buffer (UB) into a destination tensor in Global Memory (GM)
++    along a specified dimension, with index-boundary checking.
++
++    Args:
++    - ptr: pointer type, the destination tensor pointer (in GM)
++    - value: tensor, a tile value to store (in UB)
++    - index_tile: tensor, a tile index to scatter (in UB)
++    - index_boundary: int, the upper boundary for index values
++    - dim: int, the dimension to scatter along
++    - num_dims: int, the number of dimensions of destination tensor
++    - dst_stride: tuple of int, the stride of each dimension of destination tensor
++    - index_tile_shape: tuple of int, the shape of index tile tensor
++    - index_shape: tuple of int, the shape of origin index tensor
++    - offsets: tuple of int, the offsets of each dimension for index tensor
++
++    Constraints:
++    - `ptr` and `index_tile` must have the same rank.
++    - `ptr.dtype` only supports `float16`, `bfloat16`, `float32` currently.
++    - `index_tile` must be an integer tensor, with rank between 1 and 5.
++    - `dim` must be valid (0 <= dim < rank(index_tile)).
++    - For every dimension `i` not equal to `dim`, `index_tile.size[i]` <= `ptr.size[i]`.
++    - The output shape is the same as `index_tile.shape`. If `index_tile` is None, \
++        the output tensor will be an empty tensor with the same shape as `index`.
++
++    """
++    assert index_tile.dtype.is_int(), "index_tile must be an integer tensor"
++    if not ptr.dtype.element_ty.is_floating():
++        raise ValueError(f"Expected dtype fp16/fp32/bf16, but got {ptr.dtype.element_ty}")
++
++    if not isinstance(index_boundary, int):
++        raise ValueError("index_boundary must be of type tl.constexpr")
++    if not isinstance(dim, int):
++        raise ValueError("dim must be of type tl.constexpr")
++
++    idx_rank = len(index_tile.shape)
++    if idx_rank < 1 or idx_rank > 5:
++        raise ValueError(f"index_tile rank must be in [1, 5], got rank={idx_rank}")
++    if dim < 0 or dim >= idx_rank:
++        raise ValueError(f"dim must satisfy 0<=dim<index_tile.rank (index_tile.rank={idx_rank}), got dim={dim}")
++
++    require_i64 = index_tile.dtype.is_int64()
++    dst_stride = [_convert_elem_to_ir_value(_builder, elem, require_i64) for elem in dst_stride]
++    # index shape and offsets are always i32
++    index_tile_shape = [_convert_elem_to_ir_value(_builder, elem, False) for elem in index_tile_shape]
++    index_shape = [_convert_elem_to_ir_value(_builder, elem, False) for elem in index_shape]
++    offsets = [_convert_elem_to_ir_value(_builder, elem, False) for elem in offsets]
++
++    if len(dst_stride) != idx_rank or len(index_shape) != idx_rank or len(offsets) != idx_rank:
++        raise ValueError(f"len(dst_stride)==len(index_shape)==len(offsets)==index_tile.rank required, "
++                         f"got {len(dst_stride)}, {len(index_shape)}, {len(offsets)}, {idx_rank}")
++
++    return tl.tensor(
++        _builder.create_scatter_ub_to_out(
++            ptr.handle,
++            value.handle,
++            index_tile.handle,
++            index_boundary,
++            dim,
++            num_dims,
++            dst_stride,
++            index_tile_shape,
++            index_shape,
++            offsets
++        ),
++        tl.void
++    )
+\ No newline at end of file
+
+diff --git a/triton_patch/python/triton_patch/testing.py b/triton_patch/python/triton_patch/testing.py
+@@ -651,6 +651,9 @@ from .triton_patch.language.core import (
+     insert_slice,
+     index_select_simd,
+     index_select,
++    index_put,
++    gather_out_to_ub,
++    scatter_ub_to_out,
+     gather_out_to_ub,
+     extract_slice,
+     trans,
+@@ -731,7 +734,6 @@ language.argmax = argmax
+ language.argmin = argmin
+ language.gather = gather
+ language.dot_scaled = core_dot_scaled
+-language.index_select = index_select
+ language.insert_slice = insert_slice
+ language.extract_slice = extract_slice
+ language.get_element = get_element
+@@ -854,4 +856,7 @@ language.extra.ascend.libdevice.fdiv = language.math.fdiv
+ language.extra.ascend.libdevice.fma = language.math.fma
+ language.extra.ascend.libdevice.abs = language.math.abs
+ language.extra.ascend.libdevice.index_select_simd = index_select_simd
++language.extra.ascend.libdevice.index_select = index_select
++language.extra.ascend.libdevice.index_put = index_put
+ language.extra.ascend.libdevice.gather_out_to_ub = gather_out_to_ub
++language.extra.ascend.libdevice.scatter_ub_to_out = scatter_ub_to_out

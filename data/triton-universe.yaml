@@ -3,9 +3,9 @@
 
 lane: triton
 generated_by: scripts/compute_core_prs.py
-total: 217
-captured: 87
-skipped: 130
+total: 373
+captured: 145
+skipped: 228
 prs:
 - id: pr-flashinfer-1025
   captured: true
@@ -37,6 +37,11 @@ prs:
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-flashinfer-2709
   captured: true
+- id: pr-flashinfer-3191
+  captured: true
+- id: pr-flashinfer-3324
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-flashinfer-982
   captured: true
 - id: pr-flashinfer-983
@@ -90,10 +95,15 @@ prs:
   captured: false
   skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
     fetch_pr_diff.SKIP_GLOBS)
+- id: pr-sglang-10183
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-10275
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-10403
+  captured: true
+- id: pr-sglang-10567
   captured: true
 - id: pr-sglang-10579
   captured: false
@@ -111,6 +121,9 @@ prs:
 - id: pr-sglang-11611
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-11816
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-12078
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -126,6 +139,13 @@ prs:
 - id: pr-sglang-13162
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-13327
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-13561
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([XPU]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
 - id: pr-sglang-13617
   captured: false
   skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([ROCM]);
@@ -160,13 +180,31 @@ prs:
 - id: pr-sglang-14350
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-14357
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-14668
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-14829
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-15022
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-15049
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-15100
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-15151
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-15522
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-15531
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-15539
@@ -174,8 +212,14 @@ prs:
 - id: pr-sglang-15551
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-15569
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-15712
   captured: true
+- id: pr-sglang-15815
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-15948
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -196,17 +240,34 @@ prs:
 - id: pr-sglang-16892
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-17133
+  captured: true
 - id: pr-sglang-17235
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-17449
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-17503
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-18184
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-18423
   captured: false
   skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([AMD]);
     SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-sglang-18500
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-18782
+  captured: true
+- id: pr-sglang-18882
+  captured: true
 - id: pr-sglang-19174
+  captured: true
+- id: pr-sglang-19189
   captured: true
 - id: pr-sglang-19433
   captured: false
@@ -218,10 +279,18 @@ prs:
   captured: true
 - id: pr-sglang-19652
   captured: true
+- id: pr-sglang-19672
+  captured: true
 - id: pr-sglang-19718
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-19835
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-20040
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-20214
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-20305
@@ -254,16 +323,97 @@ prs:
   captured: true
 - id: pr-sglang-22323
   captured: true
+- id: pr-sglang-22921
+  captured: true
+- id: pr-sglang-23019
+  captured: true
+- id: pr-sglang-23686
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-24069
+  captured: true
+- id: pr-sglang-24160
+  captured: true
+- id: pr-sglang-24490
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-24562
+  captured: true
+- id: pr-sglang-24884
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-24986
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-25286
+  captured: true
+- id: pr-sglang-25333
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-25379
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-25406
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-25570
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-25655
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-25977
+  captured: true
+- id: pr-sglang-26134
+  captured: true
+- id: pr-sglang-26318
+  captured: true
+- id: pr-sglang-26496
+  captured: true
+- id: pr-sglang-26517
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
+- id: pr-sglang-26588
+  captured: true
+- id: pr-sglang-26665
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-27228
+  captured: true
+- id: pr-sglang-27329
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-27581
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([AMD]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-sglang-27617
+  captured: true
+- id: pr-sglang-3161
+  captured: true
+- id: pr-sglang-3272
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-3730
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-3888
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-3963
+  captured: true
 - id: pr-sglang-3987
   captured: true
 - id: pr-sglang-4012
   captured: true
+- id: pr-sglang-4014
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
+- id: pr-sglang-4064
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-4215
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -274,12 +424,40 @@ prs:
 - id: pr-sglang-5086
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-5716
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-5740
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-5801
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-5833
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
+- id: pr-sglang-5839
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-5850
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-5859
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-5900
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-6042
   captured: false
   skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
     fetch_pr_diff.SKIP_GLOBS)
 - id: pr-sglang-6081
   captured: true
+- id: pr-sglang-6111
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-6226
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -290,6 +468,8 @@ prs:
 - id: pr-sglang-6369
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-6509
+  captured: true
 - id: pr-sglang-6627
   captured: true
 - id: pr-sglang-6641
@@ -309,16 +489,36 @@ prs:
 - id: pr-sglang-6853
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-6885
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-6890
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-6939
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-6958
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-6966
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-6970
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-6974
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-7004
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-7013
+  captured: true
 - id: pr-sglang-7023
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-7029
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-7093
@@ -342,6 +542,12 @@ prs:
 - id: pr-sglang-7391
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-7445
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-7631
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-sglang-7667
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -361,6 +567,8 @@ prs:
 - id: pr-sglang-8898
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-sglang-9251
+  captured: true
 - id: pr-sglang-9473
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -369,6 +577,10 @@ prs:
 - id: pr-sglang-9660
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-11698
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([Kernel]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
 - id: pr-vllm-12185
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -390,6 +602,10 @@ prs:
   captured: true
 - id: pr-vllm-13867
   captured: true
+- id: pr-vllm-14071
+  captured: true
+- id: pr-vllm-14221
+  captured: true
 - id: pr-vllm-14245
   captured: true
 - id: pr-vllm-14253
@@ -397,8 +613,13 @@ prs:
 - id: pr-vllm-14555
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-15099
+  captured: true
 - id: pr-vllm-15492
   captured: true
+- id: pr-vllm-15589
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-15720
   captured: false
   skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([ROCM]);
@@ -432,6 +653,10 @@ prs:
 - id: pr-vllm-16902
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-17328
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
 - id: pr-vllm-17484
   captured: true
 - id: pr-vllm-17871
@@ -441,22 +666,46 @@ prs:
   captured: false
   skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([Bugfix]);
     SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-18275
+  captured: true
 - id: pr-vllm-18762
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-18864
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-19067
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([BugFix]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
 - id: pr-vllm-19168
   captured: true
 - id: pr-vllm-19561
   captured: true
+- id: pr-vllm-19636
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
+- id: pr-vllm-19767
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([torch.compile]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-20037
+  captured: true
+- id: pr-vllm-20059
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-20087
   captured: true
 - id: pr-vllm-20308
   captured: true
 - id: pr-vllm-20332
   captured: true
+- id: pr-vllm-20401
+  captured: true
+- id: pr-vllm-20466
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-20841
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -465,6 +714,8 @@ prs:
 - id: pr-vllm-21088
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-21093
+  captured: true
 - id: pr-vllm-21188
   captured: true
 - id: pr-vllm-21197
@@ -472,20 +723,47 @@ prs:
 - id: pr-vllm-21229
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-21367
+  captured: true
 - id: pr-vllm-21412
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-21968
+  captured: true
+- id: pr-vllm-22035
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-22208
+  captured: true
 - id: pr-vllm-22314
+  captured: true
+- id: pr-vllm-22320
   captured: true
 - id: pr-vllm-22368
   captured: true
 - id: pr-vllm-22421
   captured: true
+- id: pr-vllm-22537
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
+- id: pr-vllm-22556
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
+- id: pr-vllm-22668
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-22703
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-22758
   captured: true
+- id: pr-vllm-22771
+  captured: true
+- id: pr-vllm-23006
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-23122
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -495,22 +773,55 @@ prs:
     SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
 - id: pr-vllm-23424
   captured: true
+- id: pr-vllm-23445
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-23666
   captured: true
+- id: pr-vllm-23678
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-23734
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-24577
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-24794
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
+- id: pr-vllm-26315
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-26322
   captured: true
 - id: pr-vllm-26534
   captured: true
+- id: pr-vllm-27457
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([Performance]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
 - id: pr-vllm-27532
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-27814
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-28306
+  captured: true
 - id: pr-vllm-28346
+  captured: true
+- id: pr-vllm-28479
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-28701
   captured: true
 - id: pr-vllm-28775
   captured: true
+- id: pr-vllm-29084
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-29125
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -534,15 +845,28 @@ prs:
   captured: true
 - id: pr-vllm-30887
   captured: true
+- id: pr-vllm-30973
+  captured: true
 - id: pr-vllm-30974
   captured: true
 - id: pr-vllm-30976
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-31052
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-31380
   captured: false
   skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([Bugfix]);
     SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-31406
+  captured: true
+- id: pr-vllm-31415
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-31448
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-31465
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -550,24 +874,61 @@ prs:
   captured: true
 - id: pr-vllm-31777
   captured: true
+- id: pr-vllm-31827
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-31916
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-32060
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-32183
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-32195
+  captured: true
+- id: pr-vllm-32564
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
 - id: pr-vllm-32795
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-32944
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([ROCm]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-33230
+  captured: true
+- id: pr-vllm-33284
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
 - id: pr-vllm-33529
   captured: true
+- id: pr-vllm-33892
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
+- id: pr-vllm-34270
+  captured: true
+- id: pr-vllm-34285
+  captured: true
 - id: pr-vllm-34597
+  captured: true
+- id: pr-vllm-35246
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([ROCm]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-36185
   captured: true
 - id: pr-vllm-36458
   captured: false
   skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([XPU]);
     SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
 - id: pr-vllm-36518
+  captured: true
+- id: pr-vllm-36540
   captured: true
 - id: pr-vllm-36599
   captured: false
@@ -579,11 +940,21 @@ prs:
 - id: pr-vllm-37199
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-37787
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([Bugfix]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-37826
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([ROCm]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
 - id: pr-vllm-37940
   captured: true
 - id: pr-vllm-37948
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-38065
+  captured: true
 - id: pr-vllm-38427
   captured: false
   skipped_reason: Triton PR outside the three in-policy sub-scopes
@@ -598,3 +969,67 @@ prs:
   captured: false
   skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([XPU]);
     SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-39904
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-40033
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-40327
+  captured: true
+- id: pr-vllm-41119
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([ROCm]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-41979
+  captured: true
+- id: pr-vllm-42080
+  captured: true
+- id: pr-vllm-42095
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-42175
+  captured: true
+- id: pr-vllm-42201
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-42527
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-42650
+  captured: true
+- id: pr-vllm-42855
+  captured: true
+- id: pr-vllm-42885
+  captured: true
+- id: pr-vllm-42952
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([XPU]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-43083
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-43108
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes
+- id: pr-vllm-43149
+  captured: true
+- id: pr-vllm-43330
+  captured: true
+- id: pr-vllm-43646
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([XPU]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-43679
+  captured: false
+  skipped_reason: Triton PR tagged for a non-Blackwell vendor backend in title ([ROCm]);
+    SM100 metadata is incidental Triton backend coverage, not Blackwell kernel authorship
+- id: pr-vllm-43727
+  captured: false
+  skipped_reason: all changed_paths are tests/benchmarks/docs (empty bundle after
+    fetch_pr_diff.SKIP_GLOBS)
+- id: pr-vllm-43731
+  captured: true
+- id: pr-vllm-44220
+  captured: false
+  skipped_reason: Triton PR outside the three in-policy sub-scopes

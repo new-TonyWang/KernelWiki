@@ -1,0 +1,54 @@
+origin_url: https://github.com/vllm-project/vllm/pull/17484
+upstream_repo: vllm-project/vllm
+upstream_sha: afcb3f88
+license: inherits-from-upstream
+retrieved_at: '2026-06-10'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-17484
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 323810663861f79d14cf62ae7be7e2bfc8c40e34ba7bda68d0419dbe900856ae
+- local_path: key-files/vllm/attention/backends/cpu_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/cpu_mla.py
+  sha256: daf840cae6716c789e1d9bca03530bacbf976a78be35c77b8e11b85f89cc3523
+- local_path: key-files/vllm/attention/backends/flashmla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/flashmla.py
+  sha256: dfc4e97494359a7b935db529a7411afe4605e9e51fd8f84a0bcf4a88a93a2007
+- local_path: key-files/vllm/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/mla/common.py
+  sha256: 2fb2a61141743c7f4cae621e55047f1de841232d7f85566c342267007a77fcdb
+- local_path: key-files/vllm/attention/backends/rocm_aiter_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/rocm_aiter_mla.py
+  sha256: 654332ee37659d6a4c3c9b3ac1d01bfffd3a361cd73d1e88b99421986ca5d0b6
+- local_path: key-files/vllm/attention/backends/triton_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/triton_mla.py
+  sha256: 68bf984c22cbd86f291a87e5fea90a55481a66f0cf5f9d5a84b7dd1f17a58769
+- local_path: key-files/vllm/v1/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/common.py
+  sha256: 92c1da79f83489412e982b5be8b18bf72c544315a4f28173c9bd5e36bda92596
+- local_path: key-files/vllm/v1/attention/backends/mla/flashmla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/flashmla.py
+  sha256: e69ce786dd5201b4dc5ee1ca8f1edf16619a1d4b8b3920e6cf93c674ef78d99a
+- local_path: key-files/vllm/v1/attention/backends/mla/triton_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/triton_mla.py
+  sha256: 2546e27e8fa3e103a17c609964bbb6722210626f4002e68698660b3035532539
