@@ -10,13 +10,11 @@ tags:
 - persistent-kernel
 - loop-unrolling
 - avoid-scalar-lowering
-- elementwise
 evidence_level: measured
 applies_to:
 - ascend910b
 - ascend910b2c
 - triton-ascend
-- elementwise
 source:
 - path: sources/experience/hw-probes/ascend910b2c-manual-loop-persistent-tiling.md
   anchor: Ascend 910B2C Manual Multi-Tile Loop and Persistent Blocks
@@ -33,8 +31,6 @@ techniques:
 - persistent-kernel
 - loop-unrolling
 - avoid-scalar-lowering
-kernel_types:
-- elementwise
 confidence: experimental
 aliases:
 - manual loop
@@ -82,8 +78,14 @@ aliases:
 - vector cores
 - 48 cores
 - 48 blocks
-- elementwise tiling
+- general kernel tiling
 - streaming kernel
+- any kernel
+- all kernels
+- non-elementwise kernel
+- GEMM kernel
+- attention kernel
+- reduction kernel
 - high block count
 - too many blocks
 - overlaunch
@@ -140,27 +142,25 @@ artifacts:
   summary_csv: artifacts/experience/hw-probes/ascend910b2c-manual-loop-persistent-tiling/profile/round11_manual_loop/analysis/summary.csv
 related:
 - skill-ascend-vector-core-partition
-- routing-ascend-elementwise
-- skill-triton-ascend-elementwise
 ---
 # Ascend Triton Manual Multi-Tile Loop and Persistent Blocks
 
 ## Search keywords
 
-optimize, optimization, performance, speedup, faster, tune, tuning, improve performance, optimize kernel, optimize triton, optimize ascend, performance optimization, manual loop, loop, for loop, static loop, multi tile loop, tile loop, multiple tiles, persistent, persistent blocks, persistent kernel, persistent tiling, strided loop, grid stride, scalar overhead, scalar time, scalar ratio, control overhead, scheduler overhead, dispatch overhead, launch overhead, launch blocks, block count, program count, fewer blocks, reduce blocks, overlaunch, high block count, too many blocks, logical tile, physical blocks, loop factor, `LOOP_TILES`, `NUM_BLOCKS`, `MAX_ITERS`, `VECTOR_CORE_COUNT`, vector cores, 48 cores, 48 blocks, elementwise tiling, streaming kernel, amortize overhead, Triton Ascend elementwise, Ascend 910B2C.
+optimize, optimization, performance, speedup, faster, tune, tuning, improve performance, optimize kernel, optimize triton, optimize ascend, performance optimization, manual loop, loop, for loop, static loop, multi tile loop, tile loop, multiple tiles, persistent, persistent blocks, persistent kernel, persistent tiling, strided loop, grid stride, scalar overhead, scalar time, scalar ratio, control overhead, scheduler overhead, dispatch overhead, launch overhead, launch blocks, block count, program count, fewer blocks, reduce blocks, overlaunch, high block count, too many blocks, logical tile, physical blocks, loop factor, `LOOP_TILES`, `NUM_BLOCKS`, `MAX_ITERS`, `VECTOR_CORE_COUNT`, vector cores, 48 cores, 48 blocks, kernel tiling, streaming kernel, amortize overhead, Triton Ascend kernels, Ascend 910B2C, any kernel type.
 
-中文关键词：优化，性能优化，提速，加速，变快，调优，算子优化，kernel 优化，triton 优化，ascend 优化，手动循环，多块循环，tile 循环，多个 tile，持久化，持久化块，持久化 kernel，常驻块，strided loop，grid stride，减少 block，减少 program，block 数量，program 数量，发射块数，启动开销，调度开销，标量开销，控制开销，scalar 比例，逻辑 tile，物理核数，向量核，48 核，分核，元素级算子，高 block 数，block 太多，摊销开销。
+中文关键词：优化，性能优化，提速，加速，变快，调优，算子优化，kernel 优化，任何 kernel，任意 kernel，通用 kernel，非元素级算子，GEMM 优化，attention 优化，reduction 优化，triton 优化，ascend 优化，手动循环，多块循环，tile 循环，多个 tile，持久化，持久化块，持久化 kernel，常驻块，strided loop，grid stride，减少 block，减少 program，block 数量，program 数量，发射块数，启动开销，调度开销，标量开销，控制开销，scalar 比例，逻辑 tile，物理核数，向量核，48 核，分核，元素级算子，高 block 数，block 太多，摊销开销。
 
 ## When to use
 
-Use this skill for Triton-Ascend elementwise or streaming kernels when profiling shows many logical programs and a high scalar/control ratio. The goal is to keep a correctness-safe logical tile size while reducing the number of launched programs.
+Use this skill for any Triton-Ascend kernel type when profiling shows many logical programs/blocks and a high scalar/control ratio. The goal is to keep a correctness-safe logical work tile while reducing the number of launched programs. The tile body can be elementwise, reduction-like, attention/GEMM sub-work, or any other per-tile computation that can be repeated independently.
 
 Typical symptoms:
 
 - thousands of logical tiles/programs for one large tensor;
 - scalar/control time tracks program count more than element count;
 - increasing `BLOCK` or reducing block count helps, but a huge tile risks UB/register pressure or precision changes;
-- the kernel is vector/elementwise rather than CUBE/GEMM heavy.
+- each logical tile can be processed independently or with a well-defined reduction/accumulation boundary; this is a scheduling/tiling transformation, not an elementwise-only trick.
 
 ## Pattern A: contiguous multi-tile loop
 
@@ -235,7 +235,7 @@ Every logical tile must be processed exactly once:
 - guard tails with `active = tile_id < num_tiles` and combine with the element mask;
 - keep dtype materialization and numerical boundaries unchanged; this optimization changes scheduling, not math semantics.
 
-For `Inf`/`NaN`-prone elementwise kernels, use exact equality or explicit finite/non-finite masks in addition to max-absolute-difference summaries, because `Inf - Inf` can become `NaN` even when tensors are equal.
+For `Inf`/`NaN`-prone kernels, use exact equality or explicit finite/non-finite masks in addition to max-absolute-difference summaries, because `Inf - Inf` can become `NaN` even when tensors are equal.
 
 ## Measurement checklist
 
@@ -250,12 +250,12 @@ For every candidate loop factor or persistent variant, record:
 
 The optimization is successful only if total device time improves, not merely scalar time.
 
-## Case study: large bf16 elementwise workload on Ascend 910B2C
+## Case study: large bf16 high-block-count workload on Ascend 910B2C
 
 Workload characteristics:
 
-- dtype: bf16;
-- shape: `15x255x1x1x256x8`;
+- example dtype: bf16;
+- example shape: `15x255x1x1x256x8`;
 - elements: `7,833,600`;
 - logical `TILE_SIZE=4096`;
 - logical tile count: `1913`;
@@ -290,4 +290,4 @@ Findings:
 
 ## Takeaway
 
-Manual multi-tile loops and persistent blocks are a measured Ascend/Triton-Ascend way to amortize scalar/control overhead in high-block-count streaming kernels. Preserve the per-tile math and precision semantics, then sweep loop count or persistent block count around the hardware vector parallelism instead of blindly minimizing the number of launched programs.
+Manual multi-tile loops and persistent blocks are a measured Ascend/Triton-Ascend way to amortize scalar/control overhead in high-block-count kernels of any type. Preserve the per-tile math, synchronization/reduction boundaries, and precision semantics, then sweep loop count or persistent block count around the hardware vector parallelism instead of blindly minimizing the number of launched programs.

@@ -2,7 +2,7 @@
 
 ## Summary
 
-When an elementwise or streaming kernel launches far more programs/blocks than the physical vector-core count, scalar/control overhead can dominate. A common fix is to decouple **logical tiles** from **launch blocks**:
+When any kernel launches far more programs/blocks than the physical core count, scalar/control overhead can dominate. A common fix is to decouple **logical tiles** from **launch blocks**:
 
 - Keep a convenient logical `TILE_SIZE` for vector work and UB/register pressure.
 - Launch fewer programs.
@@ -12,14 +12,14 @@ This reduces repeated per-program overhead such as `program_id`, offset generati
 
 ## When to consider it
 
-Use this pattern when profiling shows:
+Use this pattern for any kernel type when profiling shows:
 
-1. **High scalar/control ratio** in a simple elementwise/streaming kernel.
+1. **High scalar/control ratio** in a high-block-count kernel.
 2. **Large logical block count**, e.g. thousands of Triton programs for one tensor.
-3. **Vector/MTE work per logical tile is not enough** to amortize per-program overhead.
+3. **Per-tile work is not enough** to amortize per-program overhead.
 4. Increasing `BLOCK` or reducing block count improves performance, but simply making `BLOCK` huge risks UB pressure, register pressure, lower occupancy, or correctness/parity issues.
 
-Do not use it blindly for compute-heavy kernels where every program already has enough work, or for small tensors where launching too many persistent blocks would create idle work.
+Do not use it blindly for kernels where every program already has enough work, or for small tensors where launching too many persistent blocks would create idle work.
 
 ## Terminology
 
@@ -130,7 +130,7 @@ For Ascend 910B2C, the project-local KernelWiki hardware page records:
 - 2 VEC per AI Core
 - 48 VEC total
 
-For vector-heavy kernels, a useful first choice is:
+For kernels whose logical tiles primarily occupy vector-side work, a useful first choice is:
 
 ```python
 VECTOR_CORE_COUNT = 48
@@ -194,7 +194,7 @@ For every candidate loop factor or persistent variant, collect:
 
 The important question is not only whether scalar time decreases, but whether total device time decreases.
 
-## Case study: large bf16 elementwise workload on Ascend 910B2C
+## Case study: large bf16 high-block-count workload on Ascend 910B2C
 
 Workload:
 
@@ -245,4 +245,4 @@ Findings:
 
 ## Takeaway
 
-Manual multi-tile loops and persistent blocks are a general way to reduce scalar/control overhead in high-block-count streaming kernels. They are especially useful when profiling shows scalar time tracking block count more strongly than element count. The best configuration is hardware- and workload-dependent, so it must be selected by measurement.
+Manual multi-tile loops and persistent blocks are a general way to reduce scalar/control overhead in high-block-count kernels of any type. They are especially useful when profiling shows scalar time tracking block count more strongly than element count. The best configuration is hardware- and workload-dependent, so it must be selected by measurement.
