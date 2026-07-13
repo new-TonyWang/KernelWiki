@@ -32,16 +32,17 @@ def _search_one_root(query: str, root: Path, regex: bool, top_k: int) -> list[tu
         cmd = ["rg", "--follow", "--line-number", "--color", "never",
                "-m", str(max(top_k * 5, 20)),
                "--glob", "!.git/"]
-        cmd.append(query if regex else "-F")
-        if not regex:
-            cmd.append(query)
+        if regex:
+            cmd.extend(["--", query])
+        else:
+            cmd.extend(["-F", "--", query])
         cmd.append(str(root))
     else:
         cmd = ["grep", "-r", "-n", "--exclude-dir=.git"]
         if not regex:
-            cmd.extend(["-F", query])
+            cmd.extend(["-F", "-e", query])
         else:
-            cmd.append(query)
+            cmd.extend(["-e", query])
         cmd.append(str(root))
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
     if result.returncode not in (0, 1):

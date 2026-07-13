@@ -41,7 +41,7 @@ except ImportError:
 def grep_source(pattern: str, scope: str, glob: str | None = None,
                 max_results: int = 50) -> str:
     """Ripgrep a pattern under a scope directory. Returns matching lines."""
-    cmd = ["rg", "--no-heading", "--line-number", "-m", str(max_results), pattern, scope]
+    cmd = ["rg", "--no-heading", "--line-number", "-m", str(max_results), "--", pattern, scope]
     if glob:
         cmd.extend(["--glob", glob])
     try:
@@ -232,7 +232,7 @@ def run_on_gpu(command: str, timeout: int = 180) -> str:
     output = result.stdout
     if len(output) > 8000:
         output = output[:8000] + "\n... (truncated)"
-    if result.returncode not in (0, 139):
+    if result.returncode != 0:
         output += f"\n(exit code: {result.returncode})"
         if result.stderr:
             stderr = result.stderr.replace("bash: warning: setlocale: LC_ALL: cannot change locale (en_US.UTF-8)\n", "")
@@ -251,7 +251,12 @@ def sync_to_gpu() -> str:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
     except subprocess.TimeoutExpired:
         return "(error: rsync timed out)"
-    return result.stdout[-2000:] if result.stdout else "(no output)"
+    output = result.stdout[-2000:] if result.stdout else ""
+    if result.returncode != 0:
+        output += f"\n(exit code: {result.returncode})"
+        if result.stderr and result.stderr.strip():
+            output += f"\nstderr: {result.stderr[:3000]}"
+    return output if output.strip() else "(no output)"
 
 
 def sync_from_gpu(remote_subpath: str = "") -> str:
@@ -264,7 +269,12 @@ def sync_from_gpu(remote_subpath: str = "") -> str:
         result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=60)
     except subprocess.TimeoutExpired:
         return "(error: rsync timed out)"
-    return result.stdout[-2000:] if result.stdout else "(no output)"
+    output = result.stdout[-2000:] if result.stdout else ""
+    if result.returncode != 0:
+        output += f"\n(exit code: {result.returncode})"
+        if result.stderr and result.stderr.strip():
+            output += f"\nstderr: {result.stderr[:3000]}"
+    return output if output.strip() else "(no output)"
 
 
 TOOL_REGISTRY = {
