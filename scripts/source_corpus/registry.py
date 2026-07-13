@@ -150,6 +150,19 @@ def resolve_corpus_path(path_str: str) -> Path:
             if var in variables:
                 result = result.replace(f"{{{{{var}}}}}", variables[var])
         return Path(result)
+    # Strip leading "corpus/" prefix to avoid double-prefixing
+    if path_str.startswith("corpus/"):
+        stripped = path_str[len("corpus/"):]
+        # Retry source-id matching with the stripped path
+        for entry in entries:
+            sid = entry.get("source_id", "")
+            if stripped.startswith(sid + "/") or stripped == sid:
+                remaining = stripped[len(sid):].lstrip("/")
+                resolved = entry.resolved_path(variables)
+                if resolved:
+                    return resolved / remaining if remaining else resolved
+        # Fall back to corpus-relative with stripped prefix
+        return SOURCE_CORPUS_ROOT / stripped
     # Format 3: relative to corpus/
     return SOURCE_CORPUS_ROOT / path_str
 

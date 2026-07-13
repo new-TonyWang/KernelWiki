@@ -14,9 +14,15 @@ A structured, multi-vendor knowledge base of GPU kernel optimization (currently 
 ## Install as a Claude Code Skill
 
 ```bash
+git lfs install                  # required once per machine
 git clone git@github.com:DongyunZou/KernelWiki.git ~/.claude/skills/KernelWiki
-pip install -r ~/.claude/skills/KernelWiki/requirements.txt
+cd ~/.claude/skills/KernelWiki && git lfs pull   # fetch corpus LFS objects
+pip install -r requirements.txt
 ```
+
+> **Note:** The source corpus (`corpus/nvidia/`) is stored via Git LFS.
+> Without `git lfs pull`, corpus files will be LFS pointer stubs and
+> `source_search` / `source_read` will not return results.
 
 That's it. The skill auto-registers (because `SKILL.md` lives at the clone root), and the query scripts auto-resolve the wiki root to their own directory — no environment variable required.
 
