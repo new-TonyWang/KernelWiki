@@ -1,0 +1,36 @@
+origin_url: local high-block-count elementwise tuning task
+upstream_repo: local/test-kernel-opt-task-scaffold-skill
+license: proprietary
+retrieved_at: '2026-07-11'
+asset_mode: extracted
+files:
+- local_path: docs/manual_loop_persistent_tiling.md
+  role: approach-notes
+  mode: extracted
+  sha256: 7e0cc5a36c7f1d795722b5aed0bc9195ec830ecb5584481149cb4f01ab02c554
+  heading_path: sanitized core optimization note
+- local_path: profile/round11_manual_loop/scripts/manual_loop_case024.py
+  role: upstream-file
+  mode: verbatim
+  sha256: 6cc391c3929b7ab80dd5690633f03bb1f0bc1594b45063dee58300699f39bb07
+  upstream_path: profile/round11_manual_loop/scripts/manual_loop_case024.py
+- local_path: profile/round11_manual_loop/analysis/summary.csv
+  role: bench-record
+  mode: verbatim
+  sha256: 61d9b56b9dee6a13862ebd0b2a7cd2a829b99a78889342308e7b64f140756c55
+  upstream_path: profile/round11_manual_loop/analysis/summary.csv
+- local_path: profile/round11_manual_loop/REPORT.md
+  role: bench-record
+  mode: verbatim
+  sha256: 6240342abd618db93a77e6d0b766292b271893977c8bd3c5680361726ba20e40
+  upstream_path: profile/round11_manual_loop/REPORT.md
+- local_path: profile/round11_case024_ablation/scripts/ablate_case024.py
+  role: upstream-file
+  mode: verbatim
+  sha256: ec2d33e09924968af421e8e1a596bda9387cd233635116d7fcc2b70a1a1d131c
+  upstream_path: profile/round11_case024_ablation/scripts/ablate_case024.py
+- local_path: profile/round11_case024_ablation/analysis/summary.csv
+  role: bench-record
+  mode: verbatim
+  sha256: e2abc4e26c8ccdc27852b220cecc47fe1947c0c7d93e133302d2e2e33ea49e25
+  upstream_path: profile/round11_case024_ablation/analysis/summary.csv
