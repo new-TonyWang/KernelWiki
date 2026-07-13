@@ -1,3 +1,6 @@
+> [!WARNING]
+> The `master` branch is deprecated. Use the `main` branch for all future work.
+
 # KernelWiki — Blackwell & Hopper Kernel Optimization Knowledge Base
 > [!IMPORTANT]
 > This skill is maintained as a standalone submodule of
