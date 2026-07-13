@@ -47,5 +47,21 @@
       {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
       {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
     ]
+  },
+  {
+    "name": "wiki_query compact as string rejected",
+    "request": {"jsonrpc":"2.0","id":16,"method":"tools/call","params":{"name":"wiki_query","arguments":{"query":["test"],"compact":"false"}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
+  },
+  {
+    "name": "wiki_query non-string query item rejected",
+    "request": {"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"wiki_query","arguments":{"query":[123]}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
   }
 ]

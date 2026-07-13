@@ -10,6 +10,13 @@ from pathlib import Path
 
 from _wiki_root import WIKI_ROOT
 
+_WIKI_ROOT_RESOLVED = WIKI_ROOT.resolve()
+
+
+def _is_within_root(path):
+    """Check that a resolved path is within WIKI_ROOT."""
+    return path.resolve().is_relative_to(_WIKI_ROOT_RESOLVED)
+
 
 # ---------------------------------------------------------------------------
 # Page lookup
@@ -22,10 +29,14 @@ def find_page(lookup):
       1. Path-style lookup (contains '/' or ends with '.md')
       2. Exact id match
       3. Alias match (frontmatter 'aliases' list, case-insensitive)
+      4. ID prefix match (lookup + '-' is a prefix of the page id)
+
+    All candidate files are verified to resolve within WIKI_ROOT
+    (defends against symlink escapes).
     """
     if "/" in lookup or lookup.endswith(".md"):
         p = (WIKI_ROOT / lookup).resolve()
-        if p.is_relative_to(WIKI_ROOT.resolve()) and p.exists():
+        if p.is_relative_to(_WIKI_ROOT_RESOLVED) and p.exists():
             return p
 
     lookup_lower = lookup.lower()
@@ -37,6 +48,9 @@ def find_page(lookup):
         if not base.exists():
             continue
         for md in base.rglob("*.md"):
+            # Symlink containment: skip files that resolve outside WIKI_ROOT
+            if not _is_within_root(md):
+                continue
             try:
                 content = md.read_text(encoding="utf-8")
             except Exception:

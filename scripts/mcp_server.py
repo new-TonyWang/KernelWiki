@@ -217,6 +217,19 @@ def _clamp_int(val, lo, hi, default, name="parameter"):
     return max(lo, min(hi, val))
 
 
+def _validate_bool(val, name, default=False):
+    """Validate optional boolean parameter.
+
+    Accepts only JSON booleans (True/False) and None. Rejects strings,
+    integers, and other types to prevent 'false' being truthy.
+    """
+    if val is None:
+        return default
+    if not isinstance(val, bool):
+        raise InvalidParams(f"{name} must be a boolean, got {type(val).__name__}")
+    return val
+
+
 def _validate_str(val, name, allowed=None, max_len=200):
     """Validate optional string parameter."""
     if val is None:
@@ -242,11 +255,13 @@ def handle_wiki_query(params):
         query_list = [query_list]
     if not isinstance(query_list, list):
         raise InvalidParams("query must be a list of strings")
-    query_list = [str(q) for q in query_list]
+    for q in query_list:
+        if not isinstance(q, str):
+            raise InvalidParams("each query item must be a string")
 
     limit = _clamp_int(params.get("limit"), 1, MAX_RESULTS, 10, "limit")
-    compact = bool(params.get("compact", False))
-    has_code = bool(params.get("has_code", False))
+    compact = _validate_bool(params.get("compact"), "compact", False)
+    has_code = _validate_bool(params.get("has_code"), "has_code", False)
 
     filter_params = {
         "type": _validate_str(params.get("type"), "type"),
@@ -316,14 +331,17 @@ def handle_wiki_get_page(params):
         raise InvalidParams("lookup is required")
     lookup = _safe_lookup(lookup)
 
-    body_only = bool(params.get("body_only", False))
-    frontmatter_only = bool(params.get("frontmatter_only", False))
-    include_code = bool(params.get("include_code", False))
-    follow_sources = bool(params.get("follow_sources", False))
+    body_only = _validate_bool(params.get("body_only"), "body_only", False)
+    frontmatter_only = _validate_bool(params.get("frontmatter_only"), "frontmatter_only", False)
+    include_code = _validate_bool(params.get("include_code"), "include_code", False)
+    follow_sources = _validate_bool(params.get("follow_sources"), "follow_sources", False)
 
     page_path = find_page(lookup)
     if not page_path:
         raise PageNotFound(f"No page found for '{lookup}'")
+    # Belt-and-suspenders: verify returned path is within WIKI_ROOT
+    if not page_path.resolve().is_relative_to(WIKI_ROOT.resolve()):
+        raise PathOutsideRoot()
 
     content = page_path.read_text(encoding="utf-8")
     fm, body = split_frontmatter(content)
@@ -461,14 +479,16 @@ def handle_wiki_grep(params):
     scope = _validate_str(params.get("scope"), "scope",
                            allowed={"wiki", "sources", "all", "artifacts"}) or "all"
     context = _clamp_int(params.get("context"), 0, 10, 1, "context")
-    any_match = bool(params.get("any_match", False))
+    any_match = _validate_bool(params.get("any_match"), "any_match", False)
     limit = _clamp_int(params.get("limit"), 1, MAX_GREP_HITS, 20, "limit")
 
     ext_set = None
-    ext_str = params.get("ext")
-    if ext_str and isinstance(ext_str, str):
+    ext_raw = params.get("ext")
+    if ext_raw is not None:
+        if not isinstance(ext_raw, str):
+            raise InvalidParams("ext must be a string")
         ext_set = {"." + e.strip().lstrip(".").lower()
-                    for e in ext_str.split(",") if e.strip()}
+                    for e in ext_raw.split(",") if e.strip()} or None
 
     results, total_matching = search_wiki(
         patterns, scope=scope, context=context, any_match=any_match,

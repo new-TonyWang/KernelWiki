@@ -42,5 +42,13 @@
       {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "PATH_OUTSIDE_ROOT"},
       {"path": ".result.isError", "op": "eq", "expected": true}
     ]
+  },
+  {
+    "name": "wiki_get_page include_code as string rejected",
+    "request": {"jsonrpc":"2.0","id":25,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{"lookup":"hw-tcgen05-mma","include_code":"false"}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
   }
 ]

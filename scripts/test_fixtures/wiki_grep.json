@@ -49,5 +49,21 @@
       {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
       {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
     ]
+  },
+  {
+    "name": "wiki_grep any_match as string rejected",
+    "request": {"jsonrpc":"2.0","id":36,"method":"tools/call","params":{"name":"wiki_grep","arguments":{"patterns":["test"],"any_match":"false"}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
+  },
+  {
+    "name": "wiki_grep ext as non-string rejected",
+    "request": {"jsonrpc":"2.0","id":37,"method":"tools/call","params":{"name":"wiki_grep","arguments":{"patterns":["test"],"ext":123}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
   }
 ]
