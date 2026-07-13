@@ -160,6 +160,17 @@ def entry_for_corpus_path(abs_path: Path) -> SourceEntry | None:
     return None
 
 
+def _scan_manifest_placeholders() -> set[str]:
+    """Return all {{PLACEHOLDER}} names found in MANIFEST.yaml paths."""
+    if not SOURCE_CORPUS_MANIFEST.exists():
+        return set()
+    try:
+        content = SOURCE_CORPUS_MANIFEST.read_text(encoding="utf-8")
+    except Exception:
+        return set()
+    return set(PLACEHOLDER_RE.findall(content))
+
+
 def load_localize_variables() -> dict[str, str]:
     """Load localize.yaml variables for resolving tier-2 paths."""
     config_path = SOURCE_CORPUS_ROOT / "localize.yaml"
@@ -173,9 +184,13 @@ def load_localize_variables() -> dict[str, str]:
     derived = dict(config.get("derived", {}) or {})
     env_config = config.get("env", {}) or {}
     if env_config.get("inherit", False):
-        for key in list(vars_) + list(derived):
+        # Import env vars for placeholder names used in the manifest
+        # that aren't already defined in vars_ or derived
+        known_keys = set(vars_) | set(derived)
+        manifest_placeholders = _scan_manifest_placeholders()
+        for key in manifest_placeholders - known_keys:
             env_val = os.environ.get(key)
-            if env_val and key not in vars_ and key not in derived:
+            if env_val:
                 vars_[key] = env_val
     resolved = dict(vars_)
     for key, val in derived.items():
