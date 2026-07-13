@@ -158,7 +158,7 @@ more stable and accepts the PR head sha as ref.
     filename = row.get("filename", "")
     if not filename:
         return None
-    ref = row.get("sha") or upstream_sha
+    ref = upstream_sha or row.get("sha")
     owner, name = repo.split("/", 1)
     url = (
         "https://api.gitcode.com/api/v5/repos/"

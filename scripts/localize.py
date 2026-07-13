@@ -42,9 +42,18 @@ def load_config():
     # Resolve environment variables if inherit is true
     env_config = config.get("env", {}) or {}
     if env_config.get("inherit", False):
-        for key in list(vars_) + list(derived):
+        # Scan manifest for placeholder names not already in vars_/derived
+        known_keys = set(vars_) | set(derived)
+        manifest_placeholders = set()
+        if MANIFEST_PATH.exists():
+            try:
+                manifest_text = MANIFEST_PATH.read_text(encoding="utf-8")
+                manifest_placeholders = set(PLACEHOLDER_RE.findall(manifest_text))
+            except Exception:
+                pass
+        for key in manifest_placeholders - known_keys:
             env_val = os.environ.get(key)
-            if env_val and key not in vars_ and key not in derived:
+            if env_val:
                 vars_[key] = env_val
 
     # Resolve derived variables (may reference vars)

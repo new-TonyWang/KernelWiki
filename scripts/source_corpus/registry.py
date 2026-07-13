@@ -113,6 +113,14 @@ def find_entries(scope: str | None = None, manifest_path: Path | None = None) ->
     return entries
 
 
+def _is_safe_corpus_input(path_str: str) -> bool:
+    """Reject absolute paths and parent-directory traversal."""
+    if path_str.startswith("/"):
+        return False
+    parts = Path(path_str).parts
+    return ".." not in parts
+
+
 def resolve_corpus_path(path_str: str) -> Path:
     """Resolve a corpus path. Handles multiple formats:
 
@@ -120,7 +128,11 @@ def resolve_corpus_path(path_str: str) -> Path:
        in manifest, resolve entry, append remaining relative path
     2. {{PLACEHOLDER}}/relative: substitute via localize.yaml
     3. nvidia/cuda-official/...: relative to corpus/
+
+    Rejects absolute paths and parent-directory traversal segments.
     """
+    if not _is_safe_corpus_input(path_str):
+        raise ValueError(f"path rejected — absolute or traversal: {path_str}")
     # Format 1: try matching against manifest source_ids
     variables = load_localize_variables()
     for entry in load_manifest():

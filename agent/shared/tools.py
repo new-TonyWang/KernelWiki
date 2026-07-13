@@ -137,8 +137,16 @@ def build_provenance_tool() -> str:
 
 
 def read_file(path: str, max_lines: int = 500) -> str:
-    """Read a file and return its contents (truncated if too long)."""
+    """Read a file and return its contents (truncated if too long).
+    Only allows paths under the project root."""
     p = Path(path)
+    if not p.is_absolute():
+        p = PROJECT_ROOT / p
+    p = p.resolve()
+    try:
+        p.relative_to(PROJECT_ROOT.resolve())
+    except ValueError:
+        return f"(error: read rejected — path outside project root: {path})"
     if not p.exists():
         return f"(file not found: {path})"
     try:
