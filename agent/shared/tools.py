@@ -41,9 +41,10 @@ except ImportError:
 def grep_source(pattern: str, scope: str, glob: str | None = None,
                 max_results: int = 50) -> str:
     """Ripgrep a pattern under a scope directory. Returns matching lines."""
-    cmd = ["rg", "--no-heading", "--line-number", "-m", str(max_results), "--", pattern, scope]
+    cmd = ["rg", "--no-heading", "--line-number", "-m", str(max_results)]
     if glob:
         cmd.extend(["--glob", glob])
+    cmd.extend(["--", pattern, scope])
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
     except FileNotFoundError:
