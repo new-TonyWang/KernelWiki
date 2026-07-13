@@ -154,8 +154,8 @@ def resolve_corpus_path(path_str: str) -> Path:
     if path_str.startswith("corpus/"):
         stripped = path_str[len("corpus/"):]
         # Retry source-id matching with the stripped path
-        for entry in entries:
-            sid = entry.get("source_id", "")
+        for entry in load_manifest():
+            sid = entry.source_id
             if stripped.startswith(sid + "/") or stripped == sid:
                 remaining = stripped[len(sid):].lstrip("/")
                 resolved = entry.resolved_path(variables)
