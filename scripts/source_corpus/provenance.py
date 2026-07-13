@@ -28,15 +28,22 @@ def _read_frontmatter(path: Path) -> dict[str, Any]:
     return yaml.safe_load(text[4:end]) or {}
 
 
+_KNOWLEDGE_SUBDIRS = ("wiki", "sources")
+
+
 def _iter_knowledge_entries(root: Path) -> list[Path]:
     out: list[Path] = []
-    for path in root.rglob("*.md"):
-        rel = path.relative_to(root)
-        if rel.parts[0] in SKIP_DIRS:
+    for subdir_name in _KNOWLEDGE_SUBDIRS:
+        subdir = root / subdir_name
+        if not subdir.is_dir():
             continue
-        if path.name in SKIP_NAMES or path.name.startswith("_"):
-            continue
-        out.append(path)
+        for path in subdir.rglob("*.md"):
+            rel = path.relative_to(root)
+            if rel.parts[0] in SKIP_DIRS:
+                continue
+            if path.name in SKIP_NAMES or path.name.startswith("_"):
+                continue
+            out.append(path)
     return out
 
 
