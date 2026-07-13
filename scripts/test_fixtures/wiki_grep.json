@@ -1,0 +1,53 @@
+[
+  {
+    "name": "wiki_grep basic search",
+    "request": {"jsonrpc":"2.0","id":30,"method":"tools/call","params":{"name":"wiki_grep","arguments":{"patterns":["tcgen05"],"scope":"wiki","limit":3}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": true},
+      {"path": ".result.content[0].text | fromjson .returned", "op": "gte", "expected": 1},
+      {"path": ".result.content[0].text | fromjson .total_hits", "op": "gte", "expected": 1}
+    ]
+  },
+  {
+    "name": "wiki_grep truncation accounting (limit=1 with many matches)",
+    "request": {"jsonrpc":"2.0","id":31,"method":"tools/call","params":{"name":"wiki_grep","arguments":{"patterns":["tcgen05"],"scope":"wiki","limit":1}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": true},
+      {"path": ".result.content[0].text | fromjson .returned", "op": "eq", "expected": 1},
+      {"path": ".result.content[0].text | fromjson .total_hits", "op": "gte", "expected": 2},
+      {"path": ".result.content[0].text | fromjson .truncated", "op": "eq", "expected": true}
+    ]
+  },
+  {
+    "name": "wiki_grep invalid regex",
+    "request": {"jsonrpc":"2.0","id":32,"method":"tools/call","params":{"name":"wiki_grep","arguments":{"patterns":["[invalid"]}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "REGEX_ERROR"}
+    ]
+  },
+  {
+    "name": "wiki_grep missing patterns",
+    "request": {"jsonrpc":"2.0","id":33,"method":"tools/call","params":{"name":"wiki_grep","arguments":{}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
+  },
+  {
+    "name": "wiki_grep invalid scope enum",
+    "request": {"jsonrpc":"2.0","id":34,"method":"tools/call","params":{"name":"wiki_grep","arguments":{"patterns":["test"],"scope":"invalid_scope"}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
+  },
+  {
+    "name": "wiki_grep unknown tool",
+    "request": {"jsonrpc":"2.0","id":35,"method":"tools/call","params":{"name":"nonexistent_tool","arguments":{}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
+  }
+]

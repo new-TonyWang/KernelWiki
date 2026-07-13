@@ -1,0 +1,54 @@
+[
+  {
+    "name": "initialize",
+    "request": {"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"0.1"}}},
+    "checks": [
+      {"path": ".result.protocolVersion", "op": "eq", "expected": "2024-11-05"},
+      {"path": ".result.serverInfo.name", "op": "eq", "expected": "kernel-wiki"},
+      {"path": ".result.capabilities.tools", "op": "exists"}
+    ]
+  },
+  {
+    "name": "notifications/initialized (no response)",
+    "request": {"jsonrpc":"2.0","method":"notifications/initialized"},
+    "expect_no_response": true
+  },
+  {
+    "name": "tools/list returns 3 tools",
+    "request": {"jsonrpc":"2.0","id":2,"method":"tools/list"},
+    "checks": [
+      {"path": ".result.tools | length", "op": "eq", "expected": 3},
+      {"path": ".result.tools[0].name", "op": "eq", "expected": "wiki_query"},
+      {"path": ".result.tools[1].name", "op": "eq", "expected": "wiki_get_page"},
+      {"path": ".result.tools[2].name", "op": "eq", "expected": "wiki_grep"}
+    ]
+  },
+  {
+    "name": "ping",
+    "request": {"jsonrpc":"2.0","id":3,"method":"ping"},
+    "checks": [
+      {"path": ".result", "op": "eq", "expected": {}}
+    ]
+  },
+  {
+    "name": "unknown method returns -32601",
+    "request": {"jsonrpc":"2.0","id":4,"method":"nonexistent/method"},
+    "checks": [
+      {"path": ".error.code", "op": "eq", "expected": -32601}
+    ]
+  },
+  {
+    "name": "malformed JSON returns parse error",
+    "request_raw": "not valid json{{{",
+    "checks": [
+      {"path": ".error.code", "op": "eq", "expected": -32700}
+    ]
+  },
+  {
+    "name": "non-object request returns invalid request",
+    "request_raw": "[1,2,3]",
+    "checks": [
+      {"path": ".error.code", "op": "eq", "expected": -32600}
+    ]
+  }
+]

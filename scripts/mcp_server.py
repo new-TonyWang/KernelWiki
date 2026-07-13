@@ -17,6 +17,39 @@ import os
 import traceback
 from pathlib import Path
 
+
+# ---------------------------------------------------------------------------
+# Domain error types
+# ---------------------------------------------------------------------------
+
+class DomainError(Exception):
+    """Typed domain error with an uppercase error code."""
+
+    def __init__(self, code, message):
+        self.code = code
+        self.message = message
+        super().__init__(message)
+
+
+class PathOutsideRoot(DomainError):
+    def __init__(self, message="path traversal blocked"):
+        super().__init__("PATH_OUTSIDE_ROOT", message)
+
+
+class RegexError(DomainError):
+    def __init__(self, message):
+        super().__init__("REGEX_ERROR", message)
+
+
+class PageNotFound(DomainError):
+    def __init__(self, message):
+        super().__init__("PAGE_NOT_FOUND", message)
+
+
+class InvalidParams(DomainError):
+    def __init__(self, message):
+        super().__init__("INVALID_PARAMS", message)
+
 # Redirect stderr early so service module imports that might print
 # (e.g. _wiki_root.py on error) don't corrupt the JSON-RPC channel.
 _original_stderr = sys.stderr
@@ -146,19 +179,19 @@ TOOLS = [
 def _safe_lookup(lookup_str):
     """Validate that a page lookup doesn't escape WIKI_ROOT.
 
-    Returns the sanitized lookup string, or raises ValueError.
+    Returns the sanitized lookup string, or raises PathOutsideRoot/InvalidParams.
     """
     if not isinstance(lookup_str, str) or not lookup_str.strip():
-        raise ValueError("lookup must be a non-empty string")
+        raise InvalidParams("lookup must be a non-empty string")
     lookup_str = lookup_str.strip()
     # Block obvious traversal attempts
     if "\0" in lookup_str:
-        raise ValueError("null bytes not allowed in lookup")
+        raise InvalidParams("null bytes not allowed in lookup")
     # For path-style lookups, validate containment
     if "/" in lookup_str or lookup_str.endswith(".md"):
         candidate = (WIKI_ROOT / lookup_str).resolve()
         if not candidate.is_relative_to(WIKI_ROOT.resolve()):
-            raise ValueError("path traversal blocked")
+            raise PathOutsideRoot()
     return lookup_str
 
 
@@ -169,18 +202,18 @@ def _safe_lookup(lookup_str):
 def _clamp_int(val, lo, hi, default, name="parameter"):
     """Clamp an integer parameter to [lo, hi], using default if None.
 
-    Raises ValueError for clearly wrong types (strings that aren't numeric).
+    Raises InvalidParams for clearly wrong types (strings that aren't numeric).
     """
     if val is None:
         return default
     if isinstance(val, bool):
-        raise ValueError(f"{name} must be an integer, got boolean")
+        raise InvalidParams(f"{name} must be an integer, got boolean")
     if isinstance(val, str):
-        raise ValueError(f"{name} must be an integer, got string")
+        raise InvalidParams(f"{name} must be an integer, got string")
     try:
         val = int(val)
     except (TypeError, ValueError):
-        raise ValueError(f"{name} must be an integer")
+        raise InvalidParams(f"{name} must be an integer")
     return max(lo, min(hi, val))
 
 
@@ -189,12 +222,12 @@ def _validate_str(val, name, allowed=None, max_len=200):
     if val is None:
         return None
     if not isinstance(val, str):
-        raise ValueError(f"{name} must be a string")
+        raise InvalidParams(f"{name} must be a string")
     val = val.strip()
     if len(val) > max_len:
-        raise ValueError(f"{name} too long (max {max_len} chars)")
+        raise InvalidParams(f"{name} too long (max {max_len} chars)")
     if allowed and val not in allowed:
-        raise ValueError(f"{name} must be one of: {', '.join(allowed)}")
+        raise InvalidParams(f"{name} must be one of: {', '.join(allowed)}")
     return val or None
 
 
@@ -208,7 +241,7 @@ def handle_wiki_query(params):
     if isinstance(query_list, str):
         query_list = [query_list]
     if not isinstance(query_list, list):
-        raise ValueError("query must be a list of strings")
+        raise InvalidParams("query must be a list of strings")
     query_list = [str(q) for q in query_list]
 
     limit = _clamp_int(params.get("limit"), 1, MAX_RESULTS, 10, "limit")
@@ -280,7 +313,7 @@ def handle_wiki_get_page(params):
     """Handle wiki_get_page tool call."""
     lookup = params.get("lookup")
     if not lookup:
-        raise ValueError("lookup is required")
+        raise InvalidParams("lookup is required")
     lookup = _safe_lookup(lookup)
 
     body_only = bool(params.get("body_only", False))
@@ -290,7 +323,7 @@ def handle_wiki_get_page(params):
 
     page_path = find_page(lookup)
     if not page_path:
-        return _make_error_response("not_found", f"No page found for '{lookup}'")
+        raise PageNotFound(f"No page found for '{lookup}'")
 
     content = page_path.read_text(encoding="utf-8")
     fm, body = split_frontmatter(content)
@@ -318,7 +351,8 @@ def handle_wiki_get_page(params):
         if ad_path and ad_path.resolve().is_relative_to(WIKI_ROOT.resolve()) and ad_path.is_dir():
             files = load_artifact_files(ad_path,
                                          max_files=MAX_ARTIFACT_FILES,
-                                         max_file_size=MAX_FILE_SIZE)
+                                         max_file_size=MAX_FILE_SIZE,
+                                         containment_root=WIKI_ROOT)
             result["artifact_dir"] = ad
             result["artifact_dir_fallback"] = is_fallback
             result["artifact_files"] = [
@@ -411,18 +445,18 @@ def handle_wiki_grep(params):
     """Handle wiki_grep tool call."""
     patterns = params.get("patterns")
     if not patterns or not isinstance(patterns, list):
-        raise ValueError("patterns must be a non-empty list of regex strings")
+        raise InvalidParams("patterns must be a non-empty list of regex strings")
     if len(patterns) > 20:
-        raise ValueError("too many patterns (max 20)")
+        raise InvalidParams("too many patterns (max 20)")
 
     # Validate regex patterns
     for p in patterns:
         if not isinstance(p, str):
-            raise ValueError("each pattern must be a string")
+            raise InvalidParams("each pattern must be a string")
         try:
             re.compile(p)
         except re.error as e:
-            raise ValueError(f"invalid regex {p!r}: {e}")
+            raise RegexError(f"invalid regex {p!r}: {e}")
 
     scope = _validate_str(params.get("scope"), "scope",
                            allowed={"wiki", "sources", "all", "artifacts"}) or "all"
@@ -436,16 +470,16 @@ def handle_wiki_grep(params):
         ext_set = {"." + e.strip().lstrip(".").lower()
                     for e in ext_str.split(",") if e.strip()}
 
-    results = search_wiki(
+    results, total_matching = search_wiki(
         patterns, scope=scope, context=context, any_match=any_match,
         exts=ext_set, limit=limit, per_file_limit=MAX_GREP_PER_FILE,
     )
 
     envelope = {
         "ok": True,
-        "total_hits": len(results),
+        "total_hits": total_matching,
         "returned": len(results),
-        "truncated": False,
+        "truncated": total_matching > len(results),
         "data": results,
     }
     return _make_text_response(envelope)
@@ -542,14 +576,14 @@ def handle_request(msg):
         handler = TOOL_HANDLERS.get(tool_name)
         if not handler:
             return _jsonrpc_result(req_id, _make_error_response(
-                "unknown_tool", f"Unknown tool: {tool_name}"))
+                "INVALID_PARAMS", f"Unknown tool: {tool_name}"))
         try:
             result = handler(tool_args)
-        except ValueError as e:
-            result = _make_error_response("invalid_params", str(e))
+        except DomainError as e:
+            result = _make_error_response(e.code, e.message)
         except Exception as e:
             _log(f"Tool error in {tool_name}: {traceback.format_exc()}")
-            result = _make_error_response("internal_error",
+            result = _make_error_response("INTERNAL_ERROR",
                                            "Internal server error")
         return _jsonrpc_result(req_id, result)
 

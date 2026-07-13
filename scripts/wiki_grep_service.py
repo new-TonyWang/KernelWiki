@@ -110,7 +110,9 @@ def search_wiki(patterns, scope="all", context=1, any_match=False,
     limit:     max files reported
     per_file_limit: max hits per file
 
-    Returns list of dicts: {path_rel, hits: [{line_no, snippet}]}
+    Returns (matched_files, total_matching_files) where matched_files is
+    a list of dicts (up to *limit*) and total_matching_files is the count
+    of ALL files that matched (before truncation).
     Raises re.error if patterns are invalid.
     """
     compiled = []
@@ -118,19 +120,20 @@ def search_wiki(patterns, scope="all", context=1, any_match=False,
         compiled.append(re.compile(p, re.IGNORECASE))
 
     matched_files = []
+    total_matching_files = 0
     for path in iter_files(scope, exts=exts):
         hits = grep_file(path, compiled, context, any_match)
         if hits:
-            hit_dicts = [
-                {"line_no": ln, "snippet": sn}
-                for ln, sn in hits[:per_file_limit]
-            ]
-            matched_files.append({
-                "path_rel": str(path.relative_to(WIKI_ROOT)),
-                "hits": hit_dicts,
-                "total_hits": len(hits),
-            })
-            if len(matched_files) >= limit:
-                break
+            total_matching_files += 1
+            if len(matched_files) < limit:
+                hit_dicts = [
+                    {"line_no": ln, "snippet": sn}
+                    for ln, sn in hits[:per_file_limit]
+                ]
+                matched_files.append({
+                    "path_rel": str(path.relative_to(WIKI_ROOT)),
+                    "hits": hit_dicts,
+                    "total_hits": len(hits),
+                })
 
-    return matched_files
+    return matched_files, total_matching_files

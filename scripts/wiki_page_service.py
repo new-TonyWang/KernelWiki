@@ -16,11 +16,21 @@ from _wiki_root import WIKI_ROOT
 # ---------------------------------------------------------------------------
 
 def find_page(lookup):
-    """Find a page by id or by relative path. Returns Path or None."""
+    """Find a page by id, alias, or relative path. Returns Path or None.
+
+    Matching order:
+      1. Path-style lookup (contains '/' or ends with '.md')
+      2. Exact id match
+      3. Alias match (frontmatter 'aliases' list, case-insensitive)
+    """
     if "/" in lookup or lookup.endswith(".md"):
         p = (WIKI_ROOT / lookup).resolve()
         if p.is_relative_to(WIKI_ROOT.resolve()) and p.exists():
             return p
+
+    lookup_lower = lookup.lower()
+    alias_match = None
+    prefix_match = None
 
     for subdir in ["wiki", "sources"]:
         base = WIKI_ROOT / subdir
@@ -38,9 +48,23 @@ def find_page(lookup):
                 fm = yaml.safe_load(m.group(1))
             except yaml.YAMLError:
                 continue
-            if isinstance(fm, dict) and fm.get("id") == lookup:
+            if not isinstance(fm, dict):
+                continue
+            page_id = fm.get("id", "")
+            # Exact id match — return immediately
+            if page_id == lookup:
                 return md
-    return None
+            # Alias match (case-insensitive) — first match wins
+            if alias_match is None:
+                for a in (fm.get("aliases") or []):
+                    if str(a).lower() == lookup_lower:
+                        alias_match = md
+                        break
+            # ID prefix match — lookup is a prefix of the page id
+            if prefix_match is None and page_id.startswith(lookup + "-"):
+                prefix_match = md
+
+    return alias_match or prefix_match
 
 
 # ---------------------------------------------------------------------------
@@ -144,17 +168,26 @@ def load_page(lookup):
     }
 
 
-def load_artifact_files(ad_path, max_files=100, max_file_size=512000):
+def load_artifact_files(ad_path, max_files=100, max_file_size=512000,
+                        containment_root=None):
     """Load artifact files from a bundle directory.
+
+    containment_root: if set, each file's resolved path must be within this root
+                      (defends against symlink escapes).
 
     Returns list of dicts: {rel_path, content, size, truncated}
     """
     if not ad_path or not ad_path.is_dir():
         return []
 
+    resolved_root = containment_root.resolve() if containment_root else None
+
     files = []
     for f in sorted(ad_path.rglob("*")):
         if not f.is_file() or f.suffix.lower() not in ARTIFACT_EXTS:
+            continue
+        # Per-file symlink containment check
+        if resolved_root and not f.resolve().is_relative_to(resolved_root):
             continue
         if len(files) >= max_files:
             break

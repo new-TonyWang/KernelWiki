@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Smoke test for KernelWiki MCP server.
-# Sends JSON-RPC 2.0 messages to the server and validates responses.
+# Smoke test for KernelWiki MCP server using JSON fixture transcripts.
+#
+# Each fixture file in test_fixtures/*.json contains an array of test cases
+# with request/check pairs. All requests are sent in a single server session
+# to verify server-stays-alive behavior across errors.
 #
 # Usage: bash scripts/test_mcp_smoke.sh
 # Exit code 0 = all tests pass, non-zero = failures.
@@ -8,184 +11,213 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PASS=0
-FAIL=0
-TOTAL=0
-
-# Helper: send a single JSON-RPC message and capture the response
-send_msg() {
-    local msg="$1"
-    printf '%s\n' "$msg" | python3 "$SCRIPT_DIR/mcp_server.py" 2>/dev/null
-}
-
-# Helper: check that a response line matches expectations via jq
-check() {
-    local test_name="$1"
-    local response="$2"
-    local jq_filter="$3"
-    local expected="$4"
-    TOTAL=$((TOTAL + 1))
-
-    local actual
-    actual=$(echo "$response" | python3 -c "
-import sys, json
-for line in sys.stdin:
-    line = line.strip()
-    if not line: continue
-    msg = json.loads(line)
-    # Navigate using the jq-like path
-    result = msg
-    for key in '''$jq_filter'''.strip('.').split('.'):
-        if key.startswith('['):
-            result = result[int(key.strip('[]'))]
-        else:
-            result = result[key]
-    print(result)
-    break
-" 2>/dev/null || echo "__ERROR__")
-
-    if [ "$actual" = "$expected" ]; then
-        echo "  PASS: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  FAIL: $test_name (expected '$expected', got '$actual')"
-        FAIL=$((FAIL + 1))
-    fi
-}
-
-# Helper: check a field inside the MCP tool result's text content
-check_tool_result() {
-    local test_name="$1"
-    local response="$2"
-    local field="$3"
-    local expected="$4"
-    TOTAL=$((TOTAL + 1))
-
-    local actual
-    actual=$(echo "$response" | python3 -c "
-import sys, json
-for line in sys.stdin:
-    line = line.strip()
-    if not line: continue
-    msg = json.loads(line)
-    content_text = msg['result']['content'][0]['text']
-    envelope = json.loads(content_text)
-    # Navigate the field path
-    result = envelope
-    for key in '''$field'''.strip('.').split('.'):
-        if key.startswith('['):
-            result = result[int(key.strip('[]'))]
-        elif key.isdigit():
-            result = result[int(key)]
-        else:
-            result = result[key]
-    print(result)
-    break
-" 2>/dev/null || echo "__ERROR__")
-
-    if [ "$actual" = "$expected" ]; then
-        echo "  PASS: $test_name"
-        PASS=$((PASS + 1))
-    else
-        echo "  FAIL: $test_name (expected '$expected', got '$actual')"
-        FAIL=$((FAIL + 1))
-    fi
-}
+FIXTURE_DIR="$SCRIPT_DIR/test_fixtures"
 
 echo "=== KernelWiki MCP Server Smoke Tests ==="
 echo
 
-# --- Test 1: initialize ---
-echo "Test: initialize"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"smoke-test","version":"0.1"}}}')
-check "protocol version" "$RESP" ".result.protocolVersion" "2024-11-05"
-check "server name" "$RESP" ".result.serverInfo.name" "kernel-wiki"
+exec python3 - "$FIXTURE_DIR" "$SCRIPT_DIR/mcp_server.py" <<'PYEOF'
+import json, sys, subprocess, os, glob
 
-# --- Test 2: tools/list ---
-echo "Test: tools/list"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":2,"method":"tools/list"}')
-TOTAL=$((TOTAL + 1))
-TOOL_COUNT=$(echo "$RESP" | python3 -c "
-import sys, json
-for line in sys.stdin:
-    msg = json.loads(line.strip())
-    print(len(msg['result']['tools']))
-    break
-" 2>/dev/null || echo "0")
-if [ "$TOOL_COUNT" = "3" ]; then
-    echo "  PASS: 3 tools registered"
-    PASS=$((PASS + 1))
-else
-    echo "  FAIL: expected 3 tools, got $TOOL_COUNT"
-    FAIL=$((FAIL + 1))
-fi
 
-# --- Test 3: wiki_query ---
-echo "Test: wiki_query"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"wiki_query","arguments":{"query":["tcgen05"],"limit":5,"compact":true}}}')
-check_tool_result "query ok" "$RESP" ".ok" "True"
-check_tool_result "query has results" "$RESP" ".truncated" "True"
+def navigate(obj, path):
+    """Navigate a jq-like path through a JSON object.
 
-# --- Test 4: wiki_get_page ---
-echo "Test: wiki_get_page"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{"lookup":"hw-tcgen05-mma","body_only":true}}}')
-check_tool_result "get_page ok" "$RESP" ".ok" "True"
-check_tool_result "get_page title" "$RESP" ".data.title" "tcgen05.mma — Blackwell MMA Instruction"
+    Supports:
+      .key.subkey          - dict access
+      .key[0]              - array index
+      .key | length        - array/dict length
+      .key | fromjson .sub - parse JSON string then navigate
+    """
+    if " | " in path:
+        parts = path.split(" | ", 1)
+        obj = navigate(obj, parts[0])
+        rest = parts[1]
+        if rest == "length":
+            return len(obj)
+        if rest.startswith("fromjson"):
+            obj = json.loads(obj)
+            remainder = rest[len("fromjson"):].strip()
+            if remainder:
+                return navigate(obj, remainder)
+            return obj
+        raise ValueError(f"unknown pipe op: {rest}")
 
-# --- Test 5: wiki_get_page not found ---
-echo "Test: wiki_get_page (not found)"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{"lookup":"nonexistent-page-xyz"}}}')
-check_tool_result "not_found error" "$RESP" ".ok" "False"
-check_tool_result "not_found code" "$RESP" ".error_code" "not_found"
+    if path.startswith("."):
+        path = path[1:]
+    if not path:
+        return obj
 
-# --- Test 6: wiki_grep ---
-echo "Test: wiki_grep"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"wiki_grep","arguments":{"patterns":["tcgen05"],"scope":"wiki","limit":3}}}')
-check_tool_result "grep ok" "$RESP" ".ok" "True"
+    tokens = []
+    current = ""
+    i = 0
+    while i < len(path):
+        c = path[i]
+        if c == ".":
+            if current:
+                tokens.append(current)
+                current = ""
+        elif c == "[":
+            if current:
+                tokens.append(current)
+                current = ""
+            end = path.index("]", i)
+            tokens.append(("index", int(path[i+1:end])))
+            i = end
+        else:
+            current += c
+        i += 1
+    if current:
+        tokens.append(current)
 
-# --- Test 7: path traversal ---
-echo "Test: path traversal protection"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{"lookup":"../../etc/passwd"}}}')
-check_tool_result "traversal blocked" "$RESP" ".error_code" "invalid_params"
+    for tok in tokens:
+        if isinstance(tok, tuple) and tok[0] == "index":
+            obj = obj[tok[1]]
+        else:
+            obj = obj[tok]
+    return obj
 
-# --- Test 8: invalid regex ---
-echo "Test: invalid regex"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"wiki_grep","arguments":{"patterns":["[invalid"]}}}')
-check_tool_result "invalid regex error" "$RESP" ".error_code" "invalid_params"
 
-# --- Test 9: unknown tool ---
-echo "Test: unknown tool"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"nonexistent_tool","arguments":{}}}')
-check_tool_result "unknown tool error" "$RESP" ".error_code" "unknown_tool"
+def main():
+    fixture_dir = sys.argv[1]
+    server_script = sys.argv[2]
 
-# --- Test 10: unknown method ---
-echo "Test: unknown method"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":10,"method":"nonexistent/method"}')
-TOTAL=$((TOTAL + 1))
-ERR_CODE=$(echo "$RESP" | python3 -c "
-import sys, json
-for line in sys.stdin:
-    msg = json.loads(line.strip())
-    print(msg.get('error', {}).get('code', 'none'))
-    break
-" 2>/dev/null || echo "none")
-if [ "$ERR_CODE" = "-32601" ]; then
-    echo "  PASS: unknown method returns -32601"
-    PASS=$((PASS + 1))
-else
-    echo "  FAIL: expected error code -32601, got $ERR_CODE"
-    FAIL=$((FAIL + 1))
-fi
+    # Collect all test cases from fixture files
+    test_cases = []
+    for fpath in sorted(glob.glob(os.path.join(fixture_dir, "*.json"))):
+        with open(fpath) as f:
+            cases = json.load(f)
+        for case in cases:
+            case["_fixture"] = os.path.basename(fpath)
+            test_cases.append(case)
 
-# --- Test 11: ping ---
-echo "Test: ping"
-RESP=$(send_msg '{"jsonrpc":"2.0","id":11,"method":"ping"}')
-check "ping response" "$RESP" ".result" "{}"
+    # Build the input to send to the server (one line per request)
+    input_lines = []
+    for case in test_cases:
+        if "request_raw" in case:
+            input_lines.append(case["request_raw"])
+        else:
+            input_lines.append(json.dumps(case["request"]))
 
-# --- Summary ---
-echo
-echo "=== Results: $PASS passed, $FAIL failed, $TOTAL total ==="
-if [ "$FAIL" -gt 0 ]; then
-    exit 1
-fi
-echo "All smoke tests passed."
+    stdin_data = "\n".join(input_lines) + "\n"
+
+    # Run the server
+    proc = subprocess.run(
+        [sys.executable, server_script],
+        input=stdin_data, capture_output=True, text=True,
+        timeout=60,
+        env={**os.environ, "MCP_LOG_FILE": "/dev/null"},
+    )
+
+    # Parse response lines
+    resp_lines = [l.strip() for l in proc.stdout.strip().split("\n") if l.strip()]
+    responses = []
+    for line in resp_lines:
+        try:
+            responses.append(json.loads(line))
+        except json.JSONDecodeError:
+            responses.append({"_parse_error": line})
+
+    # Match responses to test cases
+    resp_idx = 0
+    results = []
+
+    for case in test_cases:
+        name = case.get("name", "unnamed")
+        fixture = case.get("_fixture", "?")
+        expect_no_response = case.get("expect_no_response", False)
+
+        if expect_no_response:
+            results.append((f"[{fixture}] {name}", True, "no response expected"))
+            continue
+
+        if resp_idx >= len(responses):
+            results.append((f"[{fixture}] {name}", False, "no response received (server died?)"))
+            continue
+
+        resp = responses[resp_idx]
+        resp_idx += 1
+
+        if "_parse_error" in resp:
+            results.append((f"[{fixture}] {name}", False,
+                            f"unparseable response: {resp['_parse_error'][:100]}"))
+            continue
+
+        checks = case.get("checks", [])
+        all_ok = True
+        fail_detail = None
+        for chk in checks:
+            path = chk["path"]
+            op = chk["op"]
+            expected = chk.get("expected")
+
+            try:
+                val = navigate(resp, path)
+            except Exception as e:
+                all_ok = False
+                fail_detail = f"path {path}: {e}"
+                break
+
+            if op == "eq":
+                if val != expected:
+                    all_ok = False
+                    fail_detail = f"path {path}: expected {expected!r}, got {val!r}"
+                    break
+            elif op == "neq":
+                if val == expected:
+                    all_ok = False
+                    fail_detail = f"path {path}: expected != {expected!r}, got {val!r}"
+                    break
+            elif op == "gte":
+                if not (isinstance(val, (int, float)) and val >= expected):
+                    all_ok = False
+                    fail_detail = f"path {path}: expected >= {expected}, got {val!r}"
+                    break
+            elif op == "lte":
+                if not (isinstance(val, (int, float)) and val <= expected):
+                    all_ok = False
+                    fail_detail = f"path {path}: expected <= {expected}, got {val!r}"
+                    break
+            elif op == "contains":
+                if expected not in str(val):
+                    all_ok = False
+                    fail_detail = f"path {path}: expected to contain {expected!r}"
+                    break
+            elif op == "exists":
+                pass
+            else:
+                all_ok = False
+                fail_detail = f"unknown op: {op}"
+                break
+
+        results.append((f"[{fixture}] {name}", all_ok, fail_detail or "ok"))
+
+    # Verify server-stays-alive: we should have gotten responses for all
+    # non-notification cases
+    expected_resp_count = sum(1 for c in test_cases if not c.get("expect_no_response", False))
+    if resp_idx < expected_resp_count:
+        results.append(("server-stays-alive", False,
+                        f"expected {expected_resp_count} responses, got {resp_idx}"))
+    else:
+        results.append(("server-stays-alive", True, "ok"))
+
+    # Print results
+    pass_count = 0
+    fail_count = 0
+    for name, passed, detail in results:
+        if passed:
+            print(f"  PASS: {name}")
+            pass_count += 1
+        else:
+            print(f"  FAIL: {name} ({detail})")
+            fail_count += 1
+
+    print()
+    print(f"=== Results: {pass_count} passed, {fail_count} failed, {pass_count + fail_count} total ===")
+    if fail_count > 0:
+        sys.exit(1)
+    print("All smoke tests passed.")
+
+
+main()
+PYEOF

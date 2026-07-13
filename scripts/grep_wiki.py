@@ -45,7 +45,7 @@ def main():
     if args.ext:
         ext_set = {"." + e.strip().lstrip(".").lower() for e in args.ext.split(",") if e.strip()}
 
-    results = search_wiki(
+    results, _total = search_wiki(
         args.patterns, scope=args.only, context=args.context,
         any_match=args.any, exts=ext_set, limit=args.limit,
         per_file_limit=5,

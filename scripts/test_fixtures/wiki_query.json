@@ -1,0 +1,51 @@
+[
+  {
+    "name": "wiki_query basic keyword search",
+    "request": {"jsonrpc":"2.0","id":10,"method":"tools/call","params":{"name":"wiki_query","arguments":{"query":["tcgen05"],"limit":5,"compact":true}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": true},
+      {"path": ".result.content[0].text | fromjson .returned", "op": "lte", "expected": 5},
+      {"path": ".result.content[0].text | fromjson .total_hits", "op": "gte", "expected": 1}
+    ]
+  },
+  {
+    "name": "wiki_query with no results",
+    "request": {"jsonrpc":"2.0","id":11,"method":"tools/call","params":{"name":"wiki_query","arguments":{"query":["zzz_nonexistent_term_xyz"]}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": true},
+      {"path": ".result.content[0].text | fromjson .total_hits", "op": "eq", "expected": 0},
+      {"path": ".result.content[0].text | fromjson .returned", "op": "eq", "expected": 0}
+    ]
+  },
+  {
+    "name": "wiki_query limit clamping (string rejected)",
+    "request": {"jsonrpc":"2.0","id":12,"method":"tools/call","params":{"name":"wiki_query","arguments":{"query":["test"],"limit":"abc"}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
+  },
+  {
+    "name": "wiki_query limit clamping (boolean rejected)",
+    "request": {"jsonrpc":"2.0","id":13,"method":"tools/call","params":{"name":"wiki_query","arguments":{"query":["test"],"limit":true}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
+  },
+  {
+    "name": "wiki_query with null params",
+    "request": {"jsonrpc":"2.0","id":14,"method":"tools/call","params":{"name":"wiki_query","arguments":null}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": true}
+    ]
+  },
+  {
+    "name": "wiki_query invalid confidence enum",
+    "request": {"jsonrpc":"2.0","id":15,"method":"tools/call","params":{"name":"wiki_query","arguments":{"confidence":"bogus"}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
+  }
+]

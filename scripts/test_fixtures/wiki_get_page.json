@@ -1,0 +1,46 @@
+[
+  {
+    "name": "wiki_get_page by exact id",
+    "request": {"jsonrpc":"2.0","id":20,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{"lookup":"hw-tcgen05-mma","body_only":true}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": true},
+      {"path": ".result.content[0].text | fromjson .data.title", "op": "eq", "expected": "tcgen05.mma — Blackwell MMA Instruction"},
+      {"path": ".result.content[0].text | fromjson .total_hits", "op": "eq", "expected": 1},
+      {"path": ".result.content[0].text | fromjson .returned", "op": "eq", "expected": 1}
+    ]
+  },
+  {
+    "name": "wiki_get_page by prefix id (hw-tcgen05)",
+    "request": {"jsonrpc":"2.0","id":21,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{"lookup":"hw-tcgen05"}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": true},
+      {"path": ".result.content[0].text | fromjson .data.id", "op": "eq", "expected": "hw-tcgen05-mma"}
+    ]
+  },
+  {
+    "name": "wiki_get_page not found",
+    "request": {"jsonrpc":"2.0","id":22,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{"lookup":"nonexistent-page-xyz"}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "PAGE_NOT_FOUND"},
+      {"path": ".result.isError", "op": "eq", "expected": true}
+    ]
+  },
+  {
+    "name": "wiki_get_page missing lookup param",
+    "request": {"jsonrpc":"2.0","id":23,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "INVALID_PARAMS"}
+    ]
+  },
+  {
+    "name": "wiki_get_page path traversal",
+    "request": {"jsonrpc":"2.0","id":24,"method":"tools/call","params":{"name":"wiki_get_page","arguments":{"lookup":"../../etc/passwd"}}},
+    "checks": [
+      {"path": ".result.content[0].text | fromjson .ok", "op": "eq", "expected": false},
+      {"path": ".result.content[0].text | fromjson .error_code", "op": "eq", "expected": "PATH_OUTSIDE_ROOT"},
+      {"path": ".result.isError", "op": "eq", "expected": true}
+    ]
+  }
+]

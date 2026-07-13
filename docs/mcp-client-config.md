@@ -11,7 +11,7 @@ Add to your project's `.mcp.json` (or `~/.claude/mcp.json` for global):
 ```json
 {
   "mcpServers": {
-    "kernel-wiki": {
+    "kernelwiki": {
       "command": "python3",
       "args": ["scripts/mcp_server.py"],
       "cwd": "/path/to/KernelWiki"
@@ -23,13 +23,36 @@ Add to your project's `.mcp.json` (or `~/.claude/mcp.json` for global):
 Or use the CLI:
 
 ```bash
-claude mcp add kernel-wiki -- python3 scripts/mcp_server.py
+claude mcp add kernelwiki -- python3 scripts/mcp_server.py
+```
+
+For VS Code integration, add to `.vscode/settings.json`:
+
+```json
+{
+  "claude.mcpServers": {
+    "kernelwiki": {
+      "command": "python3",
+      "args": ["scripts/mcp_server.py"],
+      "cwd": "/path/to/KernelWiki"
+    }
+  }
+}
 ```
 
 ## Codex CLI
 
 ```bash
-codex mcp add kernel-wiki -- python3 /path/to/KernelWiki/scripts/mcp_server.py
+codex mcp add kernelwiki -- python3 scripts/mcp_server.py
+```
+
+Or add to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.kernelwiki]
+command = "python3"
+args = ["scripts/mcp_server.py"]
+cwd = "/path/to/KernelWiki"
 ```
 
 ## Claude Desktop
@@ -39,7 +62,7 @@ Add to `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "kernel-wiki": {
+    "kernelwiki": {
       "command": "python3",
       "args": ["/path/to/KernelWiki/scripts/mcp_server.py"],
       "env": {
@@ -72,17 +95,17 @@ Search the knowledge base by keywords and filters.
 - `language` (string): Filter by language/DSL
 - `architecture` (string): Filter by architecture
 - `symptom` (string): Filter by pattern symptom
-- `confidence` (string): Filter by confidence level
+- `confidence` (string): Filter by confidence level (verified, source-reported, inferred, experimental)
 - `has_code` (boolean): Only pages with source code artifacts
 - `limit` (integer, 1-200, default 10): Max results
 - `compact` (boolean): Compact output format
 
 ### wiki_get_page
 
-Retrieve a page by id or path.
+Retrieve a page by id, alias, or path.
 
 **Parameters:**
-- `lookup` (string, required): Page id or relative path
+- `lookup` (string, required): Page id, alias, or relative path
 - `body_only` (boolean): Return only body text
 - `frontmatter_only` (boolean): Return only YAML frontmatter
 - `include_code` (boolean): Include artifact bundle files
@@ -107,22 +130,32 @@ All tool responses are JSON with this envelope:
 ```json
 {
   "ok": true,
-  "data": { ... },
+  "data": { "..." : "..." },
   "total_hits": 42,
   "returned": 10,
   "truncated": true
 }
 ```
 
-Error responses:
+Error responses use uppercase domain error codes:
 
 ```json
 {
   "ok": false,
-  "error_code": "not_found",
+  "error_code": "PAGE_NOT_FOUND",
   "message": "No page found for 'xyz'"
 }
 ```
+
+**Domain error codes:**
+
+| Code | Meaning |
+|------|---------|
+| `PATH_OUTSIDE_ROOT` | Lookup path escapes the wiki root |
+| `REGEX_ERROR` | Invalid regex pattern |
+| `PAGE_NOT_FOUND` | No page matches the lookup |
+| `INVALID_PARAMS` | Missing/invalid parameter or unknown tool |
+| `INTERNAL_ERROR` | Unexpected server error |
 
 ## Output Budgets
 
@@ -138,5 +171,10 @@ Error responses:
 
 1. **Server doesn't start**: Ensure `BLACKWELL_WIKI_ROOT` points to a valid wiki root (must contain `data/tags.yaml` and `wiki/`).
 2. **No output**: The server uses newline-delimited JSON over stdio. Stderr is redirected; set `MCP_LOG_FILE` to see logs.
-3. **Path traversal errors**: The server blocks any `lookup` that would resolve outside `WIKI_ROOT`.
-4. **Test the server**: Run `bash scripts/test_mcp_smoke.sh` to verify the server works.
+3. **Path traversal errors**: The server blocks any `lookup` that would resolve outside `WIKI_ROOT`. Error code: `PATH_OUTSIDE_ROOT`.
+4. **Invalid regex**: Malformed regex patterns return `REGEX_ERROR` with a description of the problem.
+5. **Test the server**: Run `bash scripts/test_mcp_smoke.sh` to verify the server works (25 fixture-based tests).
+6. **Manual probe**: Send a single JSON-RPC message to verify:
+   ```bash
+   echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | python3 scripts/mcp_server.py 2>/dev/null
+   ```
