@@ -18,8 +18,8 @@ from _wiki_root import WIKI_ROOT
 def find_page(lookup):
     """Find a page by id or by relative path. Returns Path or None."""
     if "/" in lookup or lookup.endswith(".md"):
-        p = WIKI_ROOT / lookup
-        if p.exists():
+        p = (WIKI_ROOT / lookup).resolve()
+        if p.is_relative_to(WIKI_ROOT.resolve()) and p.exists():
             return p
 
     for subdir in ["wiki", "sources"]:

@@ -166,14 +166,21 @@ def _safe_lookup(lookup_str):
 # Input validation helpers
 # ---------------------------------------------------------------------------
 
-def _clamp_int(val, lo, hi, default):
-    """Clamp an integer parameter to [lo, hi], using default if None."""
+def _clamp_int(val, lo, hi, default, name="parameter"):
+    """Clamp an integer parameter to [lo, hi], using default if None.
+
+    Raises ValueError for clearly wrong types (strings that aren't numeric).
+    """
     if val is None:
         return default
+    if isinstance(val, bool):
+        raise ValueError(f"{name} must be an integer, got boolean")
+    if isinstance(val, str):
+        raise ValueError(f"{name} must be an integer, got string")
     try:
         val = int(val)
     except (TypeError, ValueError):
-        return default
+        raise ValueError(f"{name} must be an integer")
     return max(lo, min(hi, val))
 
 
@@ -204,7 +211,7 @@ def handle_wiki_query(params):
         raise ValueError("query must be a list of strings")
     query_list = [str(q) for q in query_list]
 
-    limit = _clamp_int(params.get("limit"), 1, MAX_RESULTS, 10)
+    limit = _clamp_int(params.get("limit"), 1, MAX_RESULTS, 10, "limit")
     compact = bool(params.get("compact", False))
     has_code = bool(params.get("has_code", False))
 
@@ -308,7 +315,7 @@ def handle_wiki_get_page(params):
 
     if include_code and fm:
         ad, ad_path, is_fallback = resolve_artifact_dir(page_path, fm)
-        if ad_path and ad_path.is_dir():
+        if ad_path and ad_path.resolve().is_relative_to(WIKI_ROOT.resolve()) and ad_path.is_dir():
             files = load_artifact_files(ad_path,
                                          max_files=MAX_ARTIFACT_FILES,
                                          max_file_size=MAX_FILE_SIZE)
@@ -323,6 +330,9 @@ def handle_wiki_get_page(params):
 
     envelope = {
         "ok": True,
+        "total_hits": 1,
+        "returned": 1,
+        "truncated": False,
         "data": result,
     }
     return _make_text_response(envelope)
@@ -416,9 +426,9 @@ def handle_wiki_grep(params):
 
     scope = _validate_str(params.get("scope"), "scope",
                            allowed={"wiki", "sources", "all", "artifacts"}) or "all"
-    context = _clamp_int(params.get("context"), 0, 10, 1)
+    context = _clamp_int(params.get("context"), 0, 10, 1, "context")
     any_match = bool(params.get("any_match", False))
-    limit = _clamp_int(params.get("limit"), 1, MAX_GREP_HITS, 20)
+    limit = _clamp_int(params.get("limit"), 1, MAX_GREP_HITS, 20, "limit")
 
     ext_set = None
     ext_str = params.get("ext")
