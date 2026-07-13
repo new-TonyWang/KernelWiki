@@ -74,12 +74,21 @@ def load_vendor_registry():
         _VENDOR_REGISTRY = {}
         return _VENDOR_REGISTRY
     reg = {}
+    ambiguous = set()
     for v in raw.get("vendors", []):
         vid = v.get("id", "")
         for arch in v.get("architectures", []):
-            reg[arch.lower()] = vid
+            key = arch.lower()
+            if key in reg and reg[key] != vid:
+                ambiguous.add(key)
+            reg[key] = vid
         for cs in v.get("compute_stack", []):
-            reg[cs.lower()] = vid
+            key = cs.lower()
+            if key in reg and reg[key] != vid:
+                ambiguous.add(key)
+            reg[key] = vid
+    for key in ambiguous:
+        del reg[key]
     _VENDOR_REGISTRY = reg
     return reg
 

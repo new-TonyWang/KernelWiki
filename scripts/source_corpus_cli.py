@@ -160,7 +160,11 @@ def cmd_read(args):
         if resolved is None or not Path(resolved).exists():
             print(f"Error: corpus path not available for {sid}")
             return 1
-        target = Path(resolved) / args.path
+        root = Path(resolved).resolve()
+        target = (root / args.path).resolve()
+        if not target.is_relative_to(root):
+            print(f"Error: path rejected — outside corpus root: {args.path}")
+            return 1
         if not target.exists():
             print(f"Error: {args.path} not found in {sid}")
             return 1
