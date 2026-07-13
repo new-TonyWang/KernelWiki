@@ -459,9 +459,13 @@ def _make_text_response(envelope):
     """Build MCP tools/call response content from an envelope dict."""
     text = json.dumps(envelope, ensure_ascii=False)
     if len(text) > MAX_RESPONSE_CHARS:
-        text = text[:MAX_RESPONSE_CHARS]
-        envelope_trunc = {"ok": True, "truncated": True,
-                          "message": "Response truncated to budget limit"}
+        envelope_trunc = {
+            "ok": True,
+            "truncated": True,
+            "total_hits": envelope.get("total_hits", 0),
+            "returned": 0,
+            "message": "Response truncated to budget limit",
+        }
         text = json.dumps(envelope_trunc, ensure_ascii=False)
     return {"content": [{"type": "text", "text": text}], "isError": False}
 
