@@ -177,8 +177,11 @@ def map_experience(src_rel, src_root):
         target = REPO_ROOT / "sources" / "experience" / category / f"{Path(slug).stem}.md"
         return target, "experience", f"exp-{Path(slug).stem}"
     else:
-        # Artifact file
-        target = REPO_ROOT / "artifacts" / "experience" / category / slug / filename
+        # Artifact file — preserve any nested subdirectories after the slug
+        sub_parts = parts[3:]  # everything after 80-experience/category/slug
+        if not sub_parts:
+            sub_parts = [filename]
+        target = REPO_ROOT / "artifacts" / "experience" / category / slug / Path(*sub_parts)
         return target, None, None  # Not a page
 
 

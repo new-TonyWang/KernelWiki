@@ -125,7 +125,7 @@ def fetch_gitcode_pr(repo, number):
     if not isinstance(data, dict):
         return None
     user = data.get("user") if isinstance(data.get("user"), dict) else {}
-    base = data.get("base") if isinstance(data.get("base"), dict) else {}
+    head = data.get("head") if isinstance(data.get("head"), dict) else {}
     return {
         "number": data.get("number", number),
         "title": data.get("title", ""),
@@ -136,7 +136,7 @@ def fetch_gitcode_pr(repo, number):
         "merge_commit_sha": "",
         "body": data.get("body") or "",
         "_status": "closed" if data.get("state") == "closed" else str(data.get("state") or "open"),
-        "_base_sha": base.get("sha", ""),
+        "_base_sha": head.get("sha", ""),
     }
 
 
