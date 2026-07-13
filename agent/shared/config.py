@@ -23,7 +23,7 @@ REMOTE_HOST = os.environ.get("KP_REMOTE_HOST",
 REMOTE_DIR = os.environ.get("KP_REMOTE_DIR",
              os.environ.get("KB_REMOTE_DIR", "/tmp/kb-agent"))
 REMOTE_CUDA_PATH = os.environ.get("KP_REMOTE_CUDA_PATH",
-                   os.environ.get("KB_REMOTE_CUDA_PATH", "/usr/local/cuda"))
+                   os.environ.get("KB_REMOTE_CUDA_PATH", "/usr/local/cuda/bin"))
 REMOTE_PYLIB = os.environ.get("KP_REMOTE_PYLIB",
                os.environ.get("KB_REMOTE_PYLIB", "python3"))
 

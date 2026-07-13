@@ -12,8 +12,8 @@ pip install openai pyyaml click
 ## Usage
 
 ```bash
-# Set the LLM endpoint (default: http://localhost:4000)
-export KP_OPENAI_BASE_URL="http://localhost:4000"
+# Set the LLM endpoint (default: http://localhost:4000/v1)
+export KP_OPENAI_BASE_URL="http://localhost:4000/v1"
 export KP_OPENAI_API_KEY="sk-dummy"
 export KP_OPENAI_MODEL="gpt-4o"     # or claude-sonnet-4-20250514, etc.
 
@@ -38,7 +38,7 @@ python -m agent.openai_path.main tasks/build-warp-primitives.yaml
 
 | Variable | Default | Description |
 |---|---|---|
-| KP_OPENAI_BASE_URL | http://localhost:4000 | LLM API endpoint |
+| KP_OPENAI_BASE_URL | http://localhost:4000/v1 | LLM API endpoint |
 | KP_OPENAI_API_KEY | sk-dummy | API key |
 | KP_OPENAI_MODEL | gpt-4o | Model name |
 | KP_MAX_AGENT_TURNS | 50 | Max tool-call rounds |

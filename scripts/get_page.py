@@ -24,6 +24,10 @@ try:
     from source_corpus.registry import resolve_corpus_path  # noqa: E402
 except ImportError:
     resolve_corpus_path = None
+try:
+    from source_corpus.reader import read_by_anchor  # noqa: E402
+except ImportError:
+    read_by_anchor = None
 
 
 def main():
@@ -101,9 +105,19 @@ def main():
                 except (ValueError, Exception):
                     pass
             if src_page:
-                src_content = src_page.read_text(encoding="utf-8")
-                _, src_body = split_frontmatter(src_content)
-                excerpt = (src_body or "")[:500].strip()
+                anchor_str = detail if detail and detail != lookup else ""
+                if anchor_str and read_by_anchor:
+                    try:
+                        _, _, anchor_text, _ = read_by_anchor(src_page, anchor_str)
+                        excerpt = anchor_text[:500].strip()
+                    except Exception:
+                        src_content = src_page.read_text(encoding="utf-8")
+                        _, src_body = split_frontmatter(src_content)
+                        excerpt = (src_body or "")[:500].strip()
+                else:
+                    src_content = src_page.read_text(encoding="utf-8")
+                    _, src_body = split_frontmatter(src_content)
+                    excerpt = (src_body or "")[:500].strip()
                 print(f"### {lookup}")
                 try:
                     print(f"`{src_page.relative_to(WIKI_ROOT)}`")

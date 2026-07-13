@@ -81,6 +81,10 @@ try:
         from source_corpus.registry import resolve_corpus_path as _resolve_corpus_path
     except ImportError:
         _resolve_corpus_path = None
+    try:
+        from source_corpus.reader import read_by_anchor as _read_by_anchor
+    except ImportError:
+        _read_by_anchor = None
 except SystemExit:
     # _wiki_root.py calls sys.exit(2) on failure — catch it
     sys.stderr = _original_stderr
@@ -421,8 +425,19 @@ def _collect_source_excerpts(fm):
             except (ValueError, Exception):
                 pass
         if src_page:
-            src_content = src_page.read_text(encoding="utf-8")
-            _, src_body = split_frontmatter(src_content)
+            anchor_str = detail if detail else ""
+            if anchor_str and _read_by_anchor:
+                try:
+                    _, _, anchor_text, _ = _read_by_anchor(src_page, anchor_str)
+                    excerpt = anchor_text[:500].strip()
+                except Exception:
+                    src_content = src_page.read_text(encoding="utf-8")
+                    _, src_body = split_frontmatter(src_content)
+                    excerpt = ((src_body or "")[:500]).strip()
+            else:
+                src_content = src_page.read_text(encoding="utf-8")
+                _, src_body = split_frontmatter(src_content)
+                excerpt = ((src_body or "")[:500]).strip()
             try:
                 display_path = str(src_page.relative_to(WIKI_ROOT))
             except ValueError:
@@ -430,7 +445,7 @@ def _collect_source_excerpts(fm):
             entry = {
                 "id": lookup_str,
                 "path": display_path,
-                "excerpt": ((src_body or "")[:500]).strip(),
+                "excerpt": excerpt,
             }
         else:
             entry = {"id": lookup_str, "path": None, "excerpt": None}
