@@ -81,6 +81,8 @@ def grep_file(path, compiled_patterns, context, any_match):
 
     Returns list of (line_no_1based, context_snippet_str) tuples.
     """
+    if not _is_within_root(path):
+        return []
     try:
         lines = path.read_text(encoding="utf-8").splitlines()
     except Exception:

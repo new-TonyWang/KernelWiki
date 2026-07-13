@@ -90,6 +90,8 @@ def load_vendor_registry():
 
 def load_frontmatter(path):
     """Parse YAML frontmatter from a markdown file.  Returns (fm_dict, body_str) or (None, None)."""
+    if not _is_within_root(path):
+        return None, None
     try:
         content = path.read_text(encoding="utf-8")
     except Exception:
@@ -315,11 +317,15 @@ def filter_pages(pages, params):
             candidate_dirs = []
             ad = fm.get("artifact_dir")
             if ad:
-                candidate_dirs.append(WIKI_ROOT / ad)
+                ad_path = WIKI_ROOT / ad
+                if _is_within_root(ad_path):
+                    candidate_dirs.append(ad_path)
 
             explicit_artifact_files = []
             for art in flatten_meta_values(fm.get("artifacts")):
                 art_path = WIKI_ROOT / art
+                if not _is_within_root(art_path):
+                    continue
                 if art_path.is_file():
                     explicit_artifact_files.append(art_path)
                     candidate_dirs.append(art_path.parent)
@@ -339,16 +345,16 @@ def filter_pages(pages, params):
 
             has_any = False
             for f in explicit_artifact_files:
-                if f.suffix.lower() in CODE_EXTS:
+                if _is_within_root(f) and f.suffix.lower() in CODE_EXTS:
                     has_any = True
                     break
             for cand in candidate_dirs:
                 if has_any:
                     break
-                if not cand.is_dir():
+                if not cand.is_dir() or not _is_within_root(cand):
                     continue
                 for f in cand.rglob("*"):
-                    if f.is_file() and f.suffix.lower() in CODE_EXTS:
+                    if f.is_file() and _is_within_root(f) and f.suffix.lower() in CODE_EXTS:
                         has_any = True
                         break
                 if has_any:
