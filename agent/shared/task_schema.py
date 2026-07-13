@@ -10,7 +10,10 @@ REQUIRED_FIELDS = {
     "task_id", "task_type", "target_path", "hardware",
     "upstream_scope", "references", "success_criteria",
 }
-VALID_TASK_TYPES = {"build-skill", "probe-api", "build-pattern", "introspect-hardware"}
+VALID_TASK_TYPES = {
+    "build-skill", "probe-api", "build-pattern", "introspect-hardware",
+    "build-hardware-feature", "build-classical-algo", "extend-hardware-feature",
+}
 
 
 def load_task(path: Path) -> dict:

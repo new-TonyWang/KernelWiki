@@ -77,6 +77,10 @@ try:
         load_artifact_files, ARTIFACT_EXTS,
     )
     from wiki_grep_service import search_wiki
+    try:
+        from source_corpus.registry import resolve_corpus_path as _resolve_corpus_path
+    except ImportError:
+        _resolve_corpus_path = None
 except SystemExit:
     # _wiki_root.py calls sys.exit(2) on failure — catch it
     sys.stderr = _original_stderr
@@ -401,7 +405,7 @@ def _collect_source_excerpts(fm):
     excerpts = []
     seen = set()
 
-    def _resolve_and_append(lookup_str, detail=None):
+    def _resolve_and_append(lookup_str, detail=None, corpus_lookup=None):
         src_page = None
         if "/" in lookup_str or lookup_str.endswith(".md"):
             p = (WIKI_ROOT / lookup_str).resolve()
@@ -409,12 +413,23 @@ def _collect_source_excerpts(fm):
                 src_page = p
         if src_page is None:
             src_page = find_page(lookup_str)
+        if src_page is None and corpus_lookup and _resolve_corpus_path:
+            try:
+                cp = _resolve_corpus_path(corpus_lookup)
+                if cp.is_file():
+                    src_page = cp
+            except (ValueError, Exception):
+                pass
         if src_page:
             src_content = src_page.read_text(encoding="utf-8")
             _, src_body = split_frontmatter(src_content)
+            try:
+                display_path = str(src_page.relative_to(WIKI_ROOT))
+            except ValueError:
+                display_path = str(src_page)
             entry = {
                 "id": lookup_str,
-                "path": str(src_page.relative_to(WIKI_ROOT)),
+                "path": display_path,
                 "excerpt": ((src_body or "")[:500]).strip(),
             }
         else:
@@ -449,12 +464,16 @@ def _collect_source_excerpts(fm):
         if not isinstance(src, dict) or not src.get("source_id"):
             continue
         label = src["source_id"]
+        corpus_path = label
+        if src.get("path"):
+            corpus_path = label + "/" + str(src["path"])
         detail = " / ".join(str(x) for x in (src.get("path"), src.get("anchor")) if x)
         key = ("source-ref", label, detail)
         if key in seen:
             continue
         seen.add(key)
-        _resolve_and_append(str(label), detail=detail or None)
+        _resolve_and_append(str(label), detail=detail or None,
+                            corpus_lookup=str(corpus_path))
 
     return excerpts
 

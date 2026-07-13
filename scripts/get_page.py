@@ -20,6 +20,10 @@ from _wiki_root import WIKI_ROOT  # noqa: E402
 from wiki_page_service import (  # noqa: E402
     find_page, split_frontmatter, resolve_artifact_dir, ARTIFACT_EXTS,
 )
+try:
+    from source_corpus.registry import resolve_corpus_path  # noqa: E402
+except ImportError:
+    resolve_corpus_path = None
 
 
 def main():
@@ -70,8 +74,11 @@ def main():
         for src in fm.get("source_refs", []) or []:
             if isinstance(src, dict) and src.get("source_id"):
                 label = src.get("source_id")
+                corpus_path = label
+                if src.get("path"):
+                    corpus_path = label + "/" + str(src["path"])
                 detail = " / ".join(str(x) for x in (src.get("path"), src.get("anchor")) if x)
-                source_entries.append(("source-ref", label, detail))
+                source_entries.append(("source-ref", corpus_path, detail))
 
         seen = set()
         for kind, lookup, detail in source_entries:
@@ -86,12 +93,22 @@ def main():
                     src_page = p
             if src_page is None:
                 src_page = find_page(str(lookup))
+            if src_page is None and kind == "source-ref" and resolve_corpus_path:
+                try:
+                    cp = resolve_corpus_path(str(lookup))
+                    if cp.is_file():
+                        src_page = cp
+                except (ValueError, Exception):
+                    pass
             if src_page:
                 src_content = src_page.read_text(encoding="utf-8")
                 _, src_body = split_frontmatter(src_content)
                 excerpt = (src_body or "")[:500].strip()
                 print(f"### {lookup}")
-                print(f"`{src_page.relative_to(WIKI_ROOT)}`")
+                try:
+                    print(f"`{src_page.relative_to(WIKI_ROOT)}`")
+                except ValueError:
+                    print(f"`{src_page}`")
                 if detail and detail != lookup:
                     print(f"anchor/detail: {detail}")
                 print()

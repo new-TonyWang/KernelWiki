@@ -2,6 +2,41 @@
 
 > Auto-generated. Do not edit manually.
 
+<a id="ascendtriton-ascend"></a>
+## Ascend/triton-ascend
+28 PRs
+
+| PR | Title | Date | Techniques | Tags |
+|-----|-------|------|------------|------|
+| [#903](../sources/prs/triton-ascend/PR-903.md) | feat(ascend extension): introduce ascend language extension and add al.scope | 2025-12-11 |  | ai-core |
+| [#905](../sources/prs/triton-ascend/PR-905.md) | Fix location for al.scope | 2025-12-11 |  | ai-core, ub |
+| [#888](../sources/prs/triton-ascend/PR-888.md) | feat: add enable_select_analysis compilation options | 2025-12-10 |  | ai-core |
+| [#898](../sources/prs/triton-ascend/PR-898.md) | fix : fix security issue | 2025-12-10 |  | ai-core |
+| [#813](../sources/prs/triton-ascend/PR-813.md) | [WIP]feat(op): support libdevice op for index_put, gather_out_to_ub, scatter_ub_to_out | 2025-11-26 |  | ai-core, ub |
+| [#790](../sources/prs/triton-ascend/PR-790.md) | feat: Add al.scope | 2025-11-20 |  | ai-core, ub |
+| [#778](../sources/prs/triton-ascend/PR-778.md) | feat: Add al.scope syntax in triton extension | 2025-11-19 |  | ai-core |
+| [#779](../sources/prs/triton-ascend/PR-779.md) | feat(triton): flipOp dim argument pass | 2025-11-19 |  | ai-core |
+| [#751](../sources/prs/triton-ascend/PR-751.md) | fix(triton op): add block check for cdiv, int tensor go to div-ceil-cast branch | 2025-11-14 |  | ai-core |
+| [#717](../sources/prs/triton-ascend/PR-717.md) | add math ops mlir | 2025-11-11 |  | ai-core, fp8 |
+| [#613](../sources/prs/triton-ascend/PR-613.md) | fix: relax multibuffer constraint | 2025-10-24 |  | ai-core |
+| [#591](../sources/prs/triton-ascend/PR-591.md) | feat(gather_load): add tt.gather_load op | 2025-10-20 |  | ai-core |
+| [#592](../sources/prs/triton-ascend/PR-592.md) | feat(gather_load): add tl.gather_load implementation | 2025-10-20 |  | ai-core |
+| [#577](../sources/prs/triton-ascend/PR-577.md) | feat(atomic): relax dtype restrictions for atomic operations | 2025-10-16 |  | ai-core |
+| [#579](../sources/prs/triton-ascend/PR-579.md) | feat(atomic): relax dtype restrictions for atomic operations | 2025-10-16 |  | ai-core |
+| [#551](../sources/prs/triton-ascend/PR-551.md) | test(sglang): add hint | 2025-10-10 | kernel-fusion | ai-core, attention, decode |
+| [#537](../sources/prs/triton-ascend/PR-537.md) | feat(triton): flipOp dim argument pass | 2025-10-01 |  | ai-core |
+| [#532](../sources/prs/triton-ascend/PR-532.md) | Support tie_break_left arg for argmin/argmax and reduce | 2025-09-29 |  | ai-core |
+| [#381](../sources/prs/triton-ascend/PR-381.md) | [HINTS] support tl.hint from triton-ascend by flagtree hints (temp) | 2025-09-18 |  | ai-core |
+| [#320](../sources/prs/triton-ascend/PR-320.md) | fix(op): modify error message for fma int type, modify error message for cdiv float type | 2025-08-30 |  | ai-core |
+| [#265](../sources/prs/triton-ascend/PR-265.md) | feat(triton): add explicit block sync interface | 2025-08-15 |  | ai-core |
+| [#263](../sources/prs/triton-ascend/PR-263.md) | feat(triton): add explicit block sync interface | 2025-08-14 |  | ai-core |
+| [#217](../sources/prs/triton-ascend/PR-217.md) | feat(cast): add overflow_mode to tl.cast | 2025-07-29 |  | ai-core |
+| [#177](../sources/prs/triton-ascend/PR-177.md) | Support tl.multi_buffer(x, 2) | 2025-07-17 |  | ai-core |
+| [#90](../sources/prs/triton-ascend/PR-90.md) | feat(tutorials): Add tutorials for Hstu Attention, including forward and backward operators. | 2025-06-23 |  | ai-core, attention |
+| [#50](../sources/prs/triton-ascend/PR-50.md) | feat(guides): added tutorials for gather and gather_sorted | 2025-06-09 |  | ai-core |
+| [#28](../sources/prs/triton-ascend/PR-28.md) | test(test): Add some invalid dtype tests for generalization cases | 2025-05-30 |  | ai-core, ub |
+| [#3](../sources/prs/triton-ascend/PR-3.md) | fix(language): explicitly throw unexpected dtype error for reduction ops | 2025-05-23 |  | ai-core |
+
 <a id="nvidiacutlass"></a>
 ## NVIDIA/cutlass
 70 PRs
@@ -885,6 +920,144 @@
 | [#144248](../sources/prs/pytorch/PR-144248.md) | [inductor][cpu] Fix bmm b_index for dynamic expressions in inductor autotuner | 2025-01-06 |  | gemm |
 | [#144209](../sources/prs/pytorch/PR-144209.md) | Update torch-xpu-ops commit pin | 2025-01-05 |  | gemm |
 | [#6331](../sources/prs/pytorch/PR-6331.md) | Fix the c2-onnx exporter bug on Gemm | 2018-04-06 |  | gemm |
+
+<a id="sgl-projectsgl-kernel-npu"></a>
+## sgl-project/sgl-kernel-npu
+131 PRs
+
+| PR | Title | Date | Techniques | Tags |
+|-----|-------|------|------------|------|
+| [#542](../sources/prs/sgl-kernel-npu/PR-542.md) | use common fla in default | 2026-06-04 |  | ai-core |
+| [#538](../sources/prs/sgl-kernel-npu/PR-538.md) | bugfix: swiglu_quant precision ok | 2026-06-02 |  | ai-core |
+| [#532](../sources/prs/sgl-kernel-npu/PR-532.md) | add a5 mxfp8 for dispatch normal | 2026-06-01 |  | ai-core, fp8, moe |
+| [#533](../sources/prs/sgl-kernel-npu/PR-533.md) | feat: PTO chunk gdn support H=12, 8 | 2026-06-01 |  | ai-core |
+| [#535](../sources/prs/sgl-kernel-npu/PR-535.md) | bugfix:precision ok | 2026-06-01 |  | ai-core |
+| [#515](../sources/prs/sgl-kernel-npu/PR-515.md) | DeepEP: expand moe specifications | 2026-05-26 |  | ai-core, moe, ub |
+| [#517](../sources/prs/sgl-kernel-npu/PR-517.md) | feat: pto mega-gdn support dynamic num heads | 2026-05-26 |  | ai-core |
+| [#511](../sources/prs/sgl-kernel-npu/PR-511.md) | fix insert slice | 2026-05-21 |  | ai-core |
+| [#507](../sources/prs/sgl-kernel-npu/PR-507.md) | Add triton and native swiglu-silu-clamp-mul | 2026-05-20 |  | ai-core |
+| [#503](../sources/prs/sgl-kernel-npu/PR-503.md) | Add interleave mode for split qkv norm rope | 2026-05-19 |  | ai-core |
+| [#478](../sources/prs/sgl-kernel-npu/PR-478.md) | The deep ep low-latency mode supports the CCU offload function. | 2026-05-15 |  | ai-core, moe, quantization |
+| [#473](../sources/prs/sgl-kernel-npu/PR-473.md) | revise interface for ta3.21 | 2026-05-13 |  | ai-core |
+| [#467](../sources/prs/sgl-kernel-npu/PR-467.md) | Adaptation of the Deepep A5 normal and low-latency operators. | 2026-05-10 |  | ai-core, moe |
+| [#466](../sources/prs/sgl-kernel-npu/PR-466.md) | imporove perfmance for fused gdn gating | 2026-05-09 | kernel-fusion | ai-core, kernel-fusion |
+| [#462](../sources/prs/sgl-kernel-npu/PR-462.md) | feat: pto-isa gdn mega kernel | 2026-05-06 |  | ai-core |
+| [#449](../sources/prs/sgl-kernel-npu/PR-449.md) | bugfix: Add activation  setting to torch_causal_conv1d_update_npu | 2026-04-27 |  | ai-core |
+| [#447](../sources/prs/sgl-kernel-npu/PR-447.md) | add fused_qkvzba_split_reshape_cat_contiguous_kernel | 2026-04-26 | kernel-fusion | ai-core, kernel-fusion |
+| [#445](../sources/prs/sgl-kernel-npu/PR-445.md) | Add conv1d update mtp triton kernel. Adapt speculative decoding for update | 2026-04-21 |  | ai-core |
+| [#442](../sources/prs/sgl-kernel-npu/PR-442.md) | feat: add apply_token_bitmask operator | 2026-04-15 |  | ai-core, tma |
+| [#443](../sources/prs/sgl-kernel-npu/PR-443.md) | Add new attention and normalization kernels | 2026-04-15 | kernel-fusion | ai-core, attention, cube-unit |
+| [#441](../sources/prs/sgl-kernel-npu/PR-441.md) | fix remain safety problems | 2026-04-13 |  | ai-core, gemv, moe |
+| [#440](../sources/prs/sgl-kernel-npu/PR-440.md) | Fix overflowing risk | 2026-04-12 |  | ai-core |
+| [#436](../sources/prs/sgl-kernel-npu/PR-436.md) | Fix low_latency dispatch&combine checks with bs condition | 2026-04-11 |  | ai-core, moe |
+| [#437](../sources/prs/sgl-kernel-npu/PR-437.md) | fix some safty problem | 2026-04-11 |  | ai-core, gemm, moe |
+| [#438](../sources/prs/sgl-kernel-npu/PR-438.md) | Fix security issues | 2026-04-11 |  | ai-core, vector-unit |
+| [#439](../sources/prs/sgl-kernel-npu/PR-439.md) | Fix the security issues, such as division by zero. | 2026-04-11 | kernel-fusion | ai-core, kernel-fusion |
+| [#434](../sources/prs/sgl-kernel-npu/PR-434.md) | Enhance the generality of kernels merge_16x16_to_64x64_inverse_kernel_reorder_all_masked and _layer_norm_fwd_1pass_kernel_npu | 2026-04-09 |  | ai-core |
+| [#435](../sources/prs/sgl-kernel-npu/PR-435.md) | The A3 normal operator is modified to support a maximum of 128K long sequences. | 2026-04-09 |  | ai-core, moe |
+| [#429](../sources/prs/sgl-kernel-npu/PR-429.md) | move fused_gdn_gating_kernel_without_sigmoid from sglang to sgl-kerne… | 2026-04-08 | kernel-fusion | ai-core, kernel-fusion |
+| [#431](../sources/prs/sgl-kernel-npu/PR-431.md) | add rmsnorm_without_weight kernel | 2026-04-08 |  | ai-core |
+| [#432](../sources/prs/sgl-kernel-npu/PR-432.md) | LoRA: Implementing kernels using CUBE computation unit | 2026-04-08 |  | ai-core, cube-unit, gemm |
+| [#426](../sources/prs/sgl-kernel-npu/PR-426.md) | Fix license from CANN | 2026-04-07 |  | ai-core |
+| [#428](../sources/prs/sgl-kernel-npu/PR-428.md) | Fix conv1d update state shift | 2026-04-07 |  | ai-core |
+| [#421](../sources/prs/sgl-kernel-npu/PR-421.md) | [deepep] fix notify use ub exceeds the limit | 2026-04-02 |  | ai-core, ub |
+| [#422](../sources/prs/sgl-kernel-npu/PR-422.md) | adpat move_intermediate_cache for sglang prefix + mtp | 2026-04-02 |  | ai-core |
+| [#420](../sources/prs/sgl-kernel-npu/PR-420.md) | add Conv1d prefill ops | 2026-04-01 |  | ai-core, prefill, ub |
+| [#415](../sources/prs/sgl-kernel-npu/PR-415.md) | Add and update kernel for Wan | 2026-03-31 |  | ai-core |
+| [#413](../sources/prs/sgl-kernel-npu/PR-413.md) | add split_qkv_tp_rmsnorm_rope ops | 2026-03-28 |  | ai-core |
+| [#407](../sources/prs/sgl-kernel-npu/PR-407.md) | add kernel conv1d_update | 2026-03-24 |  | ai-core, ub |
+| [#405](../sources/prs/sgl-kernel-npu/PR-405.md) | for qwen3-next:add kernel fused split qkvgate gemma rmsnorm rope | 2026-03-23 | kernel-fusion | ai-core, gemm, kernel-fusion |
+| [#406](../sources/prs/sgl-kernel-npu/PR-406.md) | fix(mamba): clamp negative gather indices in causal_conv1d final_states | 2026-03-23 |  | ai-core |
+| [#404](../sources/prs/sgl-kernel-npu/PR-404.md) | add split_qkv_rmsnorm_rope_pos_cache_half_npu test case and fix graph capture bug | 2026-03-21 |  | ai-core |
+| [#403](../sources/prs/sgl-kernel-npu/PR-403.md) | feat: add mamba cache state update | 2026-03-20 |  | ai-core, gated-delta-net, ub |
+| [#399](../sources/prs/sgl-kernel-npu/PR-399.md) | add recurrent_gated_delta_rule kernel | 2026-03-16 |  | ai-core, gated-delta-net |
+| [#397](../sources/prs/sgl-kernel-npu/PR-397.md) | deepep support different fuse_mode for dispatch_ffn_combine | 2026-03-12 |  | ai-core |
+| [#396](../sources/prs/sgl-kernel-npu/PR-396.md) | add dispatch_ffn_combine kernel for deepep | 2026-03-11 | epilogue-fusion | ai-core, epilogue-fusion, l0c |
+| [#393](../sources/prs/sgl-kernel-npu/PR-393.md) | add fused scale shift kernel | 2026-03-09 | kernel-fusion | ai-core, kernel-fusion |
+| [#394](../sources/prs/sgl-kernel-npu/PR-394.md) | add kernel fused qkvzba split reshape cat | 2026-03-09 | kernel-fusion | ai-core, kernel-fusion |
+| [#390](../sources/prs/sgl-kernel-npu/PR-390.md) | [feat] add Split qkv rms norm half rope op | 2026-03-04 |  | ai-core |
+| [#389](../sources/prs/sgl-kernel-npu/PR-389.md) | Supports batched causal_conv1d | 2026-03-03 |  | ai-core |
+| [#385](../sources/prs/sgl-kernel-npu/PR-385.md) | [WIP] Fix bs zero for deepep | 2026-02-28 | kernel-fusion | ai-core, kernel-fusion, moe |
+| [#387](../sources/prs/sgl-kernel-npu/PR-387.md) | Change hccl Init and SetCcTiling interface to V2 version to avoid compile warnings | 2026-02-28 |  | ai-core, moe |
+| [#384](../sources/prs/sgl-kernel-npu/PR-384.md) | LoRA: Implementing kernels using CUBE computation unit | 2026-02-27 |  | ai-core, cube-unit, gemm |
+| [#383](../sources/prs/sgl-kernel-npu/PR-383.md) | Fix the bug that the layout kernel crashed when the num of experts is no less than 384 | 2026-02-26 |  | ai-core |
+| [#382](../sources/prs/sgl-kernel-npu/PR-382.md) | GLM5 optimize | 2026-02-24 | kernel-fusion | ai-core, kernel-fusion |
+| [#378](../sources/prs/sgl-kernel-npu/PR-378.md) | Update layernorm_gated.py | 2026-02-15 |  | ai-core |
+| [#372](../sources/prs/sgl-kernel-npu/PR-372.md) | Add scripts for building CMake files | 2026-02-11 |  | ai-core |
+| [#373](../sources/prs/sgl-kernel-npu/PR-373.md) | GLM | 2026-02-11 | kernel-fusion | ai-core, kernel-fusion |
+| [#371](../sources/prs/sgl-kernel-npu/PR-371.md) | feat:[fused_sigmoid_gating_delta_rule_update_npu_kernel] support kda feature--to be aligned with sgl-kernel, for model kimi-linear | 2026-02-10 | kernel-fusion | ai-core, kernel-fusion |
+| [#370](../sources/prs/sgl-kernel-npu/PR-370.md) | revise causal_conv1d: bugfix and enhance accuracy for model kimilinear | 2026-02-09 |  | ai-core |
+| [#364](../sources/prs/sgl-kernel-npu/PR-364.md) | Fix the bug that total expert num greater than 256 or local expert num is less than 8 | 2026-02-04 |  | ai-core, moe |
+| [#362](../sources/prs/sgl-kernel-npu/PR-362.md) | adapt ant moving to A2 single machine | 2026-02-03 |  | ai-core, moe |
+| [#357](../sources/prs/sgl-kernel-npu/PR-357.md) | [fix] Handle transposed w13_weight | 2026-02-02 |  | ai-core |
+| [#355](../sources/prs/sgl-kernel-npu/PR-355.md) | fix the hanging bug | 2026-01-30 |  | ai-core, moe |
+| [#344](../sources/prs/sgl-kernel-npu/PR-344.md) | Add scripts for building CMake files | 2026-01-23 |  | ai-core |
+| [#329](../sources/prs/sgl-kernel-npu/PR-329.md) | The environment variable DEEPEP_HCCL_BUFFSIZE is added | 2026-01-20 | kernel-fusion | ai-core, kernel-fusion, moe |
+| [#332](../sources/prs/sgl-kernel-npu/PR-332.md) | Add AscendC triangular inverse | 2026-01-20 |  | ai-core, gated-delta-net |
+| [#327](../sources/prs/sgl-kernel-npu/PR-327.md) | Deepep adapt custom cann installation path | 2026-01-19 |  | ai-core |
+| [#323](../sources/prs/sgl-kernel-npu/PR-323.md) | remove the limit that A2 internode only support topk 8 | 2026-01-16 |  | ai-core, moe |
+| [#317](../sources/prs/sgl-kernel-npu/PR-317.md) | add dfx for operator FusedDeepMoe | 2026-01-15 | kernel-fusion | ai-core, kernel-fusion, moe |
+| [#316](../sources/prs/sgl-kernel-npu/PR-316.md) | fix bmm transpose in cann 8.5 | 2026-01-14 |  | ai-core |
+| [#313](../sources/prs/sgl-kernel-npu/PR-313.md) | support the situation that topk maybe -1 on machine A3 | 2026-01-13 |  | ai-core, moe |
+| [#310](../sources/prs/sgl-kernel-npu/PR-310.md) | support add_gemma_rms_norm | 2026-01-09 |  | ai-core, gemm |
+| [#306](../sources/prs/sgl-kernel-npu/PR-306.md) | optimize gdn gating and fused_qkvzba_split_reshape_cat | 2026-01-07 | kernel-fusion | ai-core, kernel-fusion |
+| [#291](../sources/prs/sgl-kernel-npu/PR-291.md) | fix notify magic auto-increment bug | 2025-12-30 |  | ai-core |
+| [#290](../sources/prs/sgl-kernel-npu/PR-290.md) | split_qkv_rmsnorm_rope bugfix | 2025-12-29 |  | ai-core |
+| [#287](../sources/prs/sgl-kernel-npu/PR-287.md) | Fix the performance degradation issue of the single-wheel operation in Ant Moving. | 2025-12-27 |  | ai-core, moe |
+| [#282](../sources/prs/sgl-kernel-npu/PR-282.md) | modify split_qkv_rmsnorm_rope | 2025-12-26 |  | ai-core |
+| [#283](../sources/prs/sgl-kernel-npu/PR-283.md) | Support build with cann 8.5 | 2025-12-26 |  | ai-core |
+| [#284](../sources/prs/sgl-kernel-npu/PR-284.md) | LoRA: Optimization LoRA kernels and refactoring | 2025-12-26 |  | ai-core, gemm |
+| [#280](../sources/prs/sgl-kernel-npu/PR-280.md) | Fix the issue of HCCL buffer tiling verification failure during one round of testing. | 2025-12-25 |  | ai-core, moe |
+| [#270](../sources/prs/sgl-kernel-npu/PR-270.md) | Add swiglu_oai_triton for GPTOSS | 2025-12-23 |  | ai-core |
+| [#267](../sources/prs/sgl-kernel-npu/PR-267.md) | Add the long-sequence ant migration feature for the prefill combine operator. | 2025-12-22 |  | ai-core, moe, prefill |
+| [#263](../sources/prs/sgl-kernel-npu/PR-263.md) | Add Shmem Implementations for MoE Decode Operators with Buffer | 2025-12-20 |  | ai-core, decode, moe |
+| [#260](../sources/prs/sgl-kernel-npu/PR-260.md) | Optimize sinks attention for prefix cache | 2025-12-19 |  | ai-core, attention |
+| [#250](../sources/prs/sgl-kernel-npu/PR-250.md) | add shmem implementation for low_latency moe | 2025-12-11 |  | ai-core, moe |
+| [#233](../sources/prs/sgl-kernel-npu/PR-233.md) | Add swiglu_oai for GPT-OSS | 2025-12-04 |  | ai-core |
+| [#232](../sources/prs/sgl-kernel-npu/PR-232.md) | [Feat] add chunk_gated_delta_rule triton support | 2025-12-03 |  | ai-core, gated-delta-net |
+| [#221](../sources/prs/sgl-kernel-npu/PR-221.md) | normal_dispatch num_recv_tokens_per_expert_list support prefixSum | 2025-12-02 |  | ai-core |
+| [#216](../sources/prs/sgl-kernel-npu/PR-216.md) | add sinks_attenton for GPT-OSS | 2025-12-01 |  | ai-core, attention |
+| [#196](../sources/prs/sgl-kernel-npu/PR-196.md) | Add alloc_extend_kernel | 2025-11-20 |  | ai-core |
+| [#200](../sources/prs/sgl-kernel-npu/PR-200.md) | add catlass ops demo | 2025-11-20 |  | ai-core |
+| [#201](../sources/prs/sgl-kernel-npu/PR-201.md) | Support run normal mode deepep on a single A2 machine | 2025-11-20 |  | ai-core, moe |
+| [#188](../sources/prs/sgl-kernel-npu/PR-188.md) | fix cann version check | 2025-11-15 |  | ai-core, moe |
+| [#184](../sources/prs/sgl-kernel-npu/PR-184.md) | Add triton decode attention kernels | 2025-11-14 |  | ai-core, attention, decode |
+| [#180](../sources/prs/sgl-kernel-npu/PR-180.md) | Support device with different counts of AICore (FusedDeepMoe operator) | 2025-11-13 | kernel-fusion | ai-core, gemm, kernel-fusion |
+| [#182](../sources/prs/sgl-kernel-npu/PR-182.md) | support long cat on a3 | 2025-11-13 |  | ai-core, moe |
+| [#177](../sources/prs/sgl-kernel-npu/PR-177.md) | calculate dispatch normal input parameters using npu instead of cpu | 2025-11-12 |  | ai-core, moe |
+| [#176](../sources/prs/sgl-kernel-npu/PR-176.md) | deepep low_latency d&c support a2 single server | 2025-11-11 |  | ai-core, moe |
+| [#171](../sources/prs/sgl-kernel-npu/PR-171.md) | add layout to ops2 directory | 2025-11-07 |  | ai-core |
+| [#162](../sources/prs/sgl-kernel-npu/PR-162.md) | [bugfix] swiglu quant | 2025-11-05 |  | ai-core |
+| [#163](../sources/prs/sgl-kernel-npu/PR-163.md) | support kvcacheio | 2025-11-05 |  | ai-core |
+| [#160](../sources/prs/sgl-kernel-npu/PR-160.md) | support shallow fused topk=-1 | 2025-11-04 | kernel-fusion | ai-core, kernel-fusion, moe |
+| [#157](../sources/prs/sgl-kernel-npu/PR-157.md) | add_norm_bias and split_qkv_norm_rope for qwen3 | 2025-10-31 |  | ai-core |
+| [#154](../sources/prs/sgl-kernel-npu/PR-154.md) | [Kernel] add Flash-Linear-Attention/layernorm_gated Triton op | 2025-10-29 |  | ai-core, attention |
+| [#155](../sources/prs/sgl-kernel-npu/PR-155.md) | impl fused_swiglu_quant with group_list for deepep-low-latency | 2025-10-29 | kernel-fusion | ai-core, kernel-fusion |
+| [#148](../sources/prs/sgl-kernel-npu/PR-148.md) | add op transfer_kv_dim_exchange | 2025-10-27 |  | ai-core |
+| [#149](../sources/prs/sgl-kernel-npu/PR-149.md) | add a2 dispatch layout and update its test | 2025-10-27 |  | ai-core |
+| [#145](../sources/prs/sgl-kernel-npu/PR-145.md) | Synchronize code | 2025-10-23 |  | ai-core |
+| [#135](../sources/prs/sgl-kernel-npu/PR-135.md) | support cachemode int8_nzcache with bf16 in mla_preprocess | 2025-10-21 |  | ai-core, mla |
+| [#132](../sources/prs/sgl-kernel-npu/PR-132.md) | support topk=-1 | 2025-10-20 | kernel-fusion | ai-core, gemm, kernel-fusion |
+| [#129](../sources/prs/sgl-kernel-npu/PR-129.md) | Delete left useless code [FusedDeepMoe Operator] | 2025-10-18 | kernel-fusion | ai-core, gemm, kernel-fusion |
+| [#123](../sources/prs/sgl-kernel-npu/PR-123.md) | Support different token hidden sizes and gmm hidden sizes [FusedDeepMoe Operator] | 2025-10-14 | kernel-fusion | ai-core, gemm, kernel-fusion |
+| [#117](../sources/prs/sgl-kernel-npu/PR-117.md) | Fix the severe performance degradation issue of the top9 dispatch in normal mode compared to top8. | 2025-09-30 |  | ai-core |
+| [#118](../sources/prs/sgl-kernel-npu/PR-118.md) | [FusedDeepMoe] Support EPLB | 2025-09-30 | kernel-fusion | ai-core, kernel-fusion, moe |
+| [#116](../sources/prs/sgl-kernel-npu/PR-116.md) | EPLB for fused_deep_moe | 2025-09-29 | kernel-fusion | ai-core, gemm, kernel-fusion |
+| [#95](../sources/prs/sgl-kernel-npu/PR-95.md) | [Feature] Add diagnostic modules to dispatch and combine | 2025-09-16 |  | ai-core, moe |
+| [#86](../sources/prs/sgl-kernel-npu/PR-86.md) | Compilation warnings pending cleanup | 2025-09-12 |  | ai-core, mla |
+| [#87](../sources/prs/sgl-kernel-npu/PR-87.md) | [Feature] add fla and mamba kernels | 2025-09-12 | kernel-fusion | ai-core, kernel-fusion |
+| [#82](../sources/prs/sgl-kernel-npu/PR-82.md) | mlapo fit different hidden state dim | 2025-09-10 |  | ai-core, mla |
+| [#77](../sources/prs/sgl-kernel-npu/PR-77.md) | [feat] add batch_matmul_transpose op | 2025-09-06 |  | ai-core |
+| [#68](../sources/prs/sgl-kernel-npu/PR-68.md) | Solve the mlapo operator's precision anomaly in acl graph | 2025-09-02 |  | ai-core, mla |
+| [#66](../sources/prs/sgl-kernel-npu/PR-66.md) | normal_dispatch enable quant | 2025-09-01 |  | ai-core |
+| [#43](../sources/prs/sgl-kernel-npu/PR-43.md) | alloc_extend for tokens slots alloc | 2025-08-26 |  | ai-core |
+| [#51](../sources/prs/sgl-kernel-npu/PR-51.md) | Fusion operator for MLA Preprocess | 2025-08-26 | kernel-fusion | ai-core, kernel-fusion, l0c |
+| [#35](../sources/prs/sgl-kernel-npu/PR-35.md) | MTP build tree op and verify tree op | 2025-08-20 |  | ai-core |
+| [#37](../sources/prs/sgl-kernel-npu/PR-37.md) | add notify dispatch kernel for prefill stage | 2025-08-20 |  | ai-core, prefill |
+| [#34](../sources/prs/sgl-kernel-npu/PR-34.md) | add dispatch normal kernel for prefill moe stage | 2025-08-18 |  | ai-core, moe, prefill |
+| [#33](../sources/prs/sgl-kernel-npu/PR-33.md) | support normal dispatch and combine | 2025-08-16 |  | ai-core, moe |
+| [#29](../sources/prs/sgl-kernel-npu/PR-29.md) | [feat] Add assign cache op | 2025-08-14 |  | ai-core |
+| [#16](../sources/prs/sgl-kernel-npu/PR-16.md) | support shared expert | 2025-08-01 |  | ai-core |
 
 <a id="sgl-projectsglang"></a>
 ## sgl-project/sglang
