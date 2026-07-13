@@ -6,7 +6,7 @@ vendor: ascend
 probe_slug: ascend910b2c-manual-loop-persistent-tiling
 status: verified
 kind: local-benchmark
-trigger: manual loop/persistent tiling ablation for high-block-count elementwise workload
+trigger: manual loop/persistent tiling ablation for high-block-count kernel workload
 evidence_level: measured
 clock_policy: unknown
 measured_on:
@@ -26,8 +26,6 @@ techniques:
 - persistent-kernel
 - loop-unrolling
 - avoid-scalar-lowering
-kernel_types:
-- elementwise
 tags:
 - triton-ascend
 - tiling-optimization
@@ -35,7 +33,6 @@ tags:
 - persistent-kernel
 - loop-unrolling
 - avoid-scalar-lowering
-- elementwise
 confidence: experimental
 artifact_dir: artifacts/experience/hw-probes/ascend910b2c-manual-loop-persistent-tiling
 artifacts:
@@ -46,7 +43,7 @@ artifacts:
   case024_ablation_script: artifacts/experience/hw-probes/ascend910b2c-manual-loop-persistent-tiling/profile/round11_case024_ablation/scripts/ablate_case024.py
   case024_ablation_summary: artifacts/experience/hw-probes/ascend910b2c-manual-loop-persistent-tiling/profile/round11_case024_ablation/analysis/summary.csv
 conclusions:
-  workload: "Large bf16 elementwise workload, shape 15x255x1x1x256x8, 7,833,600 elements, TILE_SIZE=4096, 1913 logical tiles."
+  workload: "Large bf16 high-block-count workload, shape 15x255x1x1x256x8, 7,833,600 elements, TILE_SIZE=4096, 1913 logical tiles."
   baseline_variant: loop1
   baseline_launch_blocks: 1913
   baseline_event_us: 195.120
@@ -60,15 +57,15 @@ conclusions:
   warning: "loop32 regressed to 166.690 us despite fewer launch blocks, so loop factor must be measured rather than minimized blindly."
 open_questions:
 - Clock policy and full production coverage were not recorded in this artifact; treat absolute timings as local benchmark evidence.
-- Evidence is centered on one large elementwise workload; use it as a tuning pattern and re-measure for other shapes/dtypes.
+- Evidence is centered on one large high-block-count workload; use it as a tuning pattern and re-measure for other shapes/dtypes.
 ---
 # Ascend 910B2C Manual Multi-Tile Loop and Persistent Blocks
 
-This source record localizes a manual-loop/persistent-block tiling note and related profiling code artifacts for a high-block-count elementwise workload.
+This source record localizes a manual-loop/persistent-block tiling note and related profiling code artifacts for a high-block-count kernel workload.
 
-The captured manual (`artifacts/experience/hw-probes/ascend910b2c-manual-loop-persistent-tiling/docs/manual_loop_persistent_tiling.md`) documents a Triton-Ascend pattern for reducing scalar/control overhead when an elementwise or streaming kernel launches far more logical programs than the physical vector-core count.
+The captured manual (`artifacts/experience/hw-probes/ascend910b2c-manual-loop-persistent-tiling/docs/manual_loop_persistent_tiling.md`) documents a Triton-Ascend pattern for reducing scalar/control overhead when any kernel launches far more logical programs/blocks than the physical core count.
 
-Key measured result for the large bf16 elementwise workload on Ascend 910B2C:
+Key measured result for the large bf16 high-block-count workload on Ascend 910B2C:
 
 | Variant | Launch blocks | Event us | Prof duration us | Scalar us | Scalar ratio | Exact equal |
 |---|---:|---:|---:|---:|---:|---|
