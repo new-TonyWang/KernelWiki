@@ -271,11 +271,10 @@ def filter_pages(pages, params):
                 vendor_values.append(path_vendor)
 
             reg = load_vendor_registry()
-            for k in ("architectures", "languages", "tags", "hardware_features", "kernel_types"):
-                for value in fm.get(k) or []:
-                    inferred_vendor = reg.get(str(value).lower())
-                    if inferred_vendor:
-                        vendor_values.append(inferred_vendor)
+            for value in fm.get("architectures") or []:
+                inferred_vendor = reg.get(str(value).lower())
+                if inferred_vendor:
+                    vendor_values.append(inferred_vendor)
 
             if f_vendor not in set(vendor_values):
                 continue

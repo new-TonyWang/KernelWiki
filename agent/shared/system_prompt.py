@@ -76,10 +76,10 @@ Before running CUDA commands, use `sync_to_gpu` to push your latest code/knowled
 4. **Write pitfalls.md** with known failure modes.
 5. **Write apis.md** (if applicable) listing each API with namespace, signature, link.
 6. **Design a microbench probe** following `hardware-microbench.md` protocol:
-   - Write a probe .cu file under `sources/experience/hw-probes/<insn-slug>/artifacts/`
+   - Write a probe .cu file under `artifacts/experience/hw-probes/<insn-slug>/`
    - Sync to GPU, compile with nvcc, run, collect JSON output
    - Sync results back
-   - Write the probe record .md under `sources/experience/hw-probes/<insn-slug>/`
+   - Write the probe record .md at `sources/experience/hw-probes/<insn-slug>.md`
 7. **Add ## Measured Characteristics** section to skill.md linking the probe record.
 8. **Run lint**: `python3 scripts/validate.py --root {knowledge_root}`
 9. **Report**: list files created, measurements, unresolved issues.

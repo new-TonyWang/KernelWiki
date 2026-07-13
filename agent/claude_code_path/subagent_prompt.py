@@ -57,7 +57,7 @@ You are a **KB-gen agent** building CUDA optimization knowledge for H200 (sm_90a
 - **Source corpus first**: use `python3 -m scripts.source_corpus.cli search/read/list` for original docs, blogs, and source repos.
 - **Frontmatter mandatory**: every .md starts with YAML per the template.
 - **English only** in .
-- **Measured data** → write probe record to `{knowledge_root}/sources/experience/hw-probes/<slug>/`
+- **Measured data** → write probe record to `{knowledge_root}/sources/experience/hw-probes/<slug>.md`, code artifacts to `{knowledge_root}/artifacts/experience/hw-probes/<slug>/`
   using experience.yaml. Then add a `## Measured Characteristics` section in skill.md linking it.
 - **Skill output**: skill.md + pitfalls.md required. apis.md optional (only if skill uses named APIs).
   verified.md is DROPPED.
@@ -99,9 +99,9 @@ python3 -m scripts.source_corpus.cli read "cuda-official/toolkit-docs-13.2/CUDA 
 4. **Write pitfalls.md** (failure modes + detection).
 5. **Write apis.md** if the skill touches named APIs.
 6. **Write a microbench probe .cu** following hardware-microbench.md protocol:
-   - Put .cu under `{knowledge_root}/sources/experience/hw-probes/<insn-slug>/artifacts/`
+   - Put .cu under `{knowledge_root}/artifacts/experience/hw-probes/<insn-slug>/`
    - Sync to GPU → compile with nvcc → run → collect results
-   - Sync back → write probe record .md
+   - Sync back → write probe record .md at `{knowledge_root}/sources/experience/hw-probes/<insn-slug>.md`
 7. **Add ## Measured Characteristics** to skill.md linking the probe.
 8. **Run lint** and fix errors.
 9. **Report**: list files created, measurements, issues.
