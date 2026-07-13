@@ -409,7 +409,7 @@ def _collect_source_excerpts(fm):
     excerpts = []
     seen = set()
 
-    def _resolve_and_append(lookup_str, detail=None, corpus_lookup=None):
+    def _resolve_and_append(lookup_str, detail=None, corpus_lookup=None, anchor=None):
         src_page = None
         if "/" in lookup_str or lookup_str.endswith(".md"):
             p = (WIKI_ROOT / lookup_str).resolve()
@@ -425,7 +425,7 @@ def _collect_source_excerpts(fm):
             except (ValueError, Exception):
                 pass
         if src_page:
-            anchor_str = detail if detail else ""
+            anchor_str = anchor or ""
             if anchor_str and _read_by_anchor:
                 try:
                     _, _, anchor_text, _ = _read_by_anchor(src_page, anchor_str)
@@ -473,7 +473,7 @@ def _collect_source_excerpts(fm):
         if key in seen:
             continue
         seen.add(key)
-        _resolve_and_append(str(lookup), detail=anchor or None)
+        _resolve_and_append(str(lookup), detail=anchor or None, anchor=anchor or None)
 
     for src in fm.get("source_refs", []) or []:
         if not isinstance(src, dict) or not src.get("source_id"):
@@ -487,8 +487,10 @@ def _collect_source_excerpts(fm):
         if key in seen:
             continue
         seen.add(key)
+        src_anchor = src.get("anchor", "")
         _resolve_and_append(str(label), detail=detail or None,
-                            corpus_lookup=str(corpus_path))
+                            corpus_lookup=str(corpus_path),
+                            anchor=src_anchor or None)
 
     return excerpts
 

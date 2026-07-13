@@ -67,14 +67,14 @@ def main():
         print("## Cited Sources (excerpts)")
         print()
 
-        source_entries = []
+        source_entries = []  # (kind, lookup, detail, anchor)
         for src_id in fm.get("sources", []) or []:
-            source_entries.append(("source-id", src_id, src_id))
+            source_entries.append(("source-id", src_id, src_id, ""))
         for src in fm.get("source", []) or []:
             if isinstance(src, dict) and src.get("path"):
-                source_entries.append(("source-path", src.get("path"), src.get("anchor", "")))
+                source_entries.append(("source-path", src.get("path"), src.get("anchor", ""), src.get("anchor", "")))
             elif isinstance(src, str):
-                source_entries.append(("source-path", src, ""))
+                source_entries.append(("source-path", src, "", ""))
         for src in fm.get("source_refs", []) or []:
             if isinstance(src, dict) and src.get("source_id"):
                 label = src.get("source_id")
@@ -82,10 +82,11 @@ def main():
                 if src.get("path"):
                     corpus_path = label + "/" + str(src["path"])
                 detail = " / ".join(str(x) for x in (src.get("path"), src.get("anchor")) if x)
-                source_entries.append(("source-ref", corpus_path, detail))
+                anchor = src.get("anchor", "")
+                source_entries.append(("source-ref", corpus_path, detail, anchor))
 
         seen = set()
-        for kind, lookup, detail in source_entries:
+        for kind, lookup, detail, anchor in source_entries:
             key = (kind, lookup, detail)
             if key in seen:
                 continue
@@ -105,7 +106,7 @@ def main():
                 except (ValueError, Exception):
                     pass
             if src_page:
-                anchor_str = detail if detail and detail != lookup else ""
+                anchor_str = anchor or ""
                 if anchor_str and read_by_anchor:
                     try:
                         _, _, anchor_text, _ = read_by_anchor(src_page, anchor_str)

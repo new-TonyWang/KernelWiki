@@ -293,9 +293,10 @@ def filter_pages(pages, params):
                 continue
 
         if f_language:
-            langs = set(fm.get("languages") or [])
-            tags = set(fm.get("tags") or [])
-            if f_language not in langs and f_language not in tags:
+            langs = {l.lower() for l in (fm.get("languages") or [])}
+            tags = {t.lower() for t in (fm.get("tags") or [])}
+            lang_variants = {v.lower() for v in expand_keyword(f_language)}
+            if not (lang_variants & langs) and not (lang_variants & tags):
                 continue
 
         if f_architecture:
