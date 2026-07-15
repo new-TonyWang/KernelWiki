@@ -79,6 +79,72 @@ Searchable frontmatter is intentionally redundant for recall: pages may carry
 new explicit `artifacts:` paths; source paths and code artifacts remain
 separated (`sources/experience/...` vs `artifacts/experience/...`).
 
+## MCP Tool Server (for Agent Integration)
+
+KernelWiki ships an MCP (Model Context Protocol) stdio server for agent-to-agent integration. Any MCP-compatible client (Claude Code, Codex, etc.) can query the knowledge base via JSON-RPC 2.0 over stdin/stdout, with no external SDK dependency.
+
+**Start the server:**
+
+```bash
+python3 scripts/mcp_server.py
+```
+
+**Configure in Claude Code** (`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "kernel-wiki": {
+      "command": "python3",
+      "args": ["<path-to-KernelWiki>/scripts/mcp_server.py"],
+      "env": {"MCP_LOG_FILE": "/tmp/kernel-wiki-mcp.log"}
+    }
+  }
+}
+```
+
+The server exposes three tools, with the same query capabilities as the CLI scripts:
+
+### `wiki_query` — keyword search with filters
+
+All filters are optional and combinable.
+
+| Parameter | Type | Values / Examples | Description |
+|-----------|------|-------------------|-------------|
+| `query` | `string[]` | `["flash", "attention"]` | Free-text keyword list |
+| `type` | `string` | `kernel`, `technique`, `hardware`, `pattern`, `language`, `migration`, `pr`, `blog`, `doc`, `contest`, `skill`, `experience`, `api-definition`, `operator-routing`, `algorithm`, `code-walkthrough`, `pitfall` | Filter by page type |
+| `tag` | `string` | `nvfp4`, `tcgen05`, `wgmma`, `tma`, … | Filter by tag (80+ tags); supports aliases (`UMMA` → `tcgen05`) |
+| `vendor` | `string` | `nvidia`, `ascend`, `biren`, `all` | Filter by vendor; auto-inferred when omitted |
+| `repo` | `string` | `cutlass`, `sglang`, `vllm`, `flashinfer`, `pytorch`, `DeepGEMM` | Filter by source repo (partial match) |
+| `language` | `string` | `cuda-cpp`, `ptx`, `triton`, `cute-dsl`, `ascendc`, `triton-ascend`, `tilelang` | Filter by DSL/language; supports aliases |
+| `architecture` | `string` | `sm100`, `sm90`, `ascend910b`, `ascend910c` | Filter by architecture; supports aliases (`B200` → `sm100`, `H100` → `sm90`, `910B` → `ascend910b`) |
+| `symptom` | `string` | `low-sm-utilization`, `memory-bound`, `register-pressure`, `compute-bound`, `tail-effect`, `pipeline-stalls` | Filter by performance symptom |
+| `confidence` | `string` | `verified`, `source-reported`, `inferred`, `experimental` | Filter by confidence level |
+| `has_code` | `boolean` | `true` / `false` | Only return pages with source code artifacts |
+| `limit` | `integer` | `1`–`200`, default `10` | Max number of results |
+| `compact` | `boolean` | `true` / `false` | One-line compact output per result |
+
+### `wiki_get_page` — retrieve a page by id or path
+
+| Parameter | Type | Values / Examples | Description |
+|-----------|------|-------------------|-------------|
+| `lookup` | `string` | `"kernel-flash-attention-4"`, `"pr-vllm-1234"`, `"wiki/nvidia/kernels/flash-attention-4.md"` | **(required)** Page id or relative path |
+| `body_only` | `boolean` | `true` / `false` | Return only the markdown body text |
+| `frontmatter_only` | `boolean` | `true` / `false` | Return only the YAML frontmatter metadata |
+| `include_code` | `boolean` | `true` / `false` | Include artifact bundle files (code, diffs) |
+| `follow_sources` | `boolean` | `true` / `false` | Include excerpts from cited source pages |
+
+### `wiki_grep` — regex text search
+
+| Parameter | Type | Values / Examples | Description |
+|-----------|------|-------------------|-------------|
+| `patterns` | `string[]` | `["tcgen05\\.fence"]` | **(required)** Regex pattern(s); all must match unless `any_match` is true |
+| `scope` | `string` | `wiki`, `sources`, `artifacts`, `all` (default: `all`) | Search scope |
+| `context` | `integer` | `0`–`10`, default `1` | Context lines around each match |
+| `any_match` | `boolean` | `true` / `false` | Match if ANY pattern matches (default: all must) |
+| `limit` | `integer` | `1`–`100`, default `20` | Max files reported |
+| `ext` | `string` | `"cu,cuh,py"` | Comma-separated extra file extensions (without dots) |
+
 ## Companion Docs
 
 - [`SKILL.md`](SKILL.md) — Skill entry point: when to engage, 5 navigation paths, output contract.

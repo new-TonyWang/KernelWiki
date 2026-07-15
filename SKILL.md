@@ -62,14 +62,22 @@ python3 scripts/query.py --repo cutlass --limit 20
 python3 scripts/query.py --symptom tail-effect --compact
 ```
 
-Filters: `--type`, `--tag`, `--repo`, `--language`, `--architecture`,
-`--symptom`, `--confidence`, `--vendor`, `--limit`, `--compact`,
-`--paths-only`. `--vendor` accepts `nvidia`, `ascend`, `biren`, or `all`;
-when omitted it is auto-inferred from architecture/language/keywords where
-possible. `--tag`, `--language`, and `--architecture` accept aliases —
-`--tag UMMA` matches `tcgen05`, `--architecture B200` matches `sm100`,
-`--architecture 910B` matches `ascend910b`, `--language ascend c` matches
-`ascendc`, etc.
+Filters (all optional, combinable):
+
+| Filter | Values / Examples | Description |
+|--------|-------------------|-------------|
+| `--type` | `kernel`, `technique`, `hardware`, `pattern`, `language`, `migration`, `pr`, `blog`, `doc`, `contest`, `skill`, `experience`, `api-definition`, `operator-routing`, `algorithm`, `code-walkthrough`, `pitfall` | Filter by page type |
+| `--tag` | `nvfp4`, `tcgen05`, `wgmma`, `tma`, `flash-attention`, … (80+ tags in `data/tags.yaml`) | Filter by tag; supports aliases (`UMMA` → `tcgen05`) |
+| `--vendor` | `nvidia`, `ascend`, `biren`, `all` | Filter by vendor; auto-inferred from keywords/architecture when omitted |
+| `--repo` | `cutlass`, `sglang`, `vllm`, `flashinfer`, `pytorch`, `DeepGEMM` | Filter by source repo (partial match) |
+| `--language` | `cuda-cpp`, `ptx`, `triton`, `cute-dsl`, `ascendc`, `triton-ascend`, `tilelang` | Filter by DSL/language; supports aliases (`ascend c` → `ascendc`) |
+| `--architecture` | `sm100`, `sm90`, `ascend910b`, `ascend910c` | Filter by architecture; supports aliases (`B200` → `sm100`, `H100` → `sm90`, `910B` → `ascend910b`) |
+| `--symptom` | `low-sm-utilization`, `memory-bound`, `register-pressure`, `compute-bound`, `tail-effect`, `pipeline-stalls` | Filter by performance symptom (pattern pages) |
+| `--confidence` | `verified`, `source-reported`, `inferred`, `experimental` | Filter by confidence level |
+| `--has-code` | _(flag, no value)_ | Only return pages with associated source code artifacts |
+| `--limit` | Integer, default `10`, max `200` | Max number of results |
+| `--compact` | _(flag, no value)_ | One-line compact output per result |
+| `--paths-only` | _(flag, no value)_ | Print only file paths, no metadata |
 
 ### Path 2: Fetch a specific page by id or path
 
