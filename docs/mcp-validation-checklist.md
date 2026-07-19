@@ -7,7 +7,8 @@ This checklist is a handoff artifact for FUT-1 (live end-to-end agent validation
 - [ ] Python 3.9+ installed
 - [ ] PyYAML installed (`pip install pyyaml`)
 - [ ] Wiki root accessible (contains `data/tags.yaml` and `wiki/`)
-- [ ] Smoke tests pass: `bash scripts/test_mcp_smoke.sh` (25 tests)
+- [ ] stdio smoke tests pass: `bash scripts/test_mcp_smoke.sh`
+- [ ] HTTP smoke tests pass: `bash scripts/test_mcp_http_smoke.sh`
 
 ## Registration Commands
 
@@ -23,6 +24,38 @@ claude mcp add kernelwiki -- python3 scripts/mcp_server.py
 codex mcp add kernelwiki -- python3 scripts/mcp_server.py
 ```
 
+### Codex CLI remote HTTP
+
+Start the remote server:
+
+```bash
+BLACKWELL_WIKI_ROOT="$PWD" MCP_LOG_FILE=/tmp/kernelwiki-mcp.log \
+  python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+```
+
+Register from another machine:
+
+```bash
+codex mcp add kernelwiki-remote --url http://SERVER_HOST:8765/mcp
+```
+
+With bearer-token auth:
+
+```bash
+export KERNELWIKI_MCP_TOKEN='replace-with-a-long-random-token'
+codex mcp add kernelwiki-remote \
+  --url http://SERVER_HOST:8765/mcp \
+  --bearer-token-env-var KERNELWIKI_MCP_TOKEN
+```
+
+With dynamic SQLite token CRUD:
+
+```bash
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 add laptop
+MCP_TOKEN_DB=data/mcp_tokens.sqlite3 MCP_ADMIN_TOKEN='admin-secret' \
+  python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+```
+
 ### Claude Desktop
 
 Add to `claude_desktop_config.json` (see `docs/mcp-client-config.md` for full snippet).
@@ -31,6 +64,14 @@ Add to `claude_desktop_config.json` (see `docs/mcp-client-config.md` for full sn
 
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | python3 scripts/mcp_server.py 2>/dev/null
+```
+
+HTTP equivalent:
+
+```bash
+curl -sS http://127.0.0.1:8765/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
 ```
 
 Expected response (abbreviated):
@@ -102,6 +143,28 @@ Expected: `{"ok":false,"error_code":"PAGE_NOT_FOUND","message":"No page found fo
 4. **Page retrieval**: Request a specific page — verify content returned
 5. **Grep**: Request a regex search — verify matches returned
 
+## Remote HTTP Validation
+
+1. **Start**: `python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765`
+2. **Health**: `curl -fsS http://SERVER_HOST:8765/healthz`
+3. **Tool discovery**: POST `tools/list` to `http://SERVER_HOST:8765/mcp`
+4. **Client registration**: `codex mcp add kernelwiki-remote --url http://SERVER_HOST:8765/mcp`
+5. **Auth path**: If `MCP_AUTH_TOKEN` is set, verify missing `Authorization` returns HTTP 401 and `Authorization: Bearer <token>` succeeds
+6. **Network path**: From a second machine, repeat health and `tools/list`
+
+## Dynamic Token CRUD Validation
+
+1. **Create DB token**: `python3 scripts/mcp_token_admin.py --db /tmp/kw-tokens.sqlite add laptop`
+2. **Start with DB**: `MCP_TOKEN_DB=/tmp/kw-tokens.sqlite MCP_ADMIN_TOKEN=admin python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765`
+3. **Read/list**: `python3 scripts/mcp_token_admin.py --db /tmp/kw-tokens.sqlite list` and `GET /admin/tokens` with admin bearer
+4. **Auth works**: Call `POST /mcp` with the created token and verify success
+5. **Update/disable**: Disable the token by CLI or `PATCH /admin/tokens/{id}` and verify the same token returns HTTP 401 without restarting the server
+6. **Enable**: Re-enable and verify the same token succeeds
+7. **Rotate**: Rotate the token, verify old token fails and new token succeeds
+8. **Create new live token**: Add another token while the server is running and verify it succeeds immediately
+9. **Delete**: Delete a token and verify it fails immediately
+10. **No secret leakage**: Confirm list/get responses do not include plaintext token values; only add/rotate responses do
+
 ## Claude Desktop Validation
 
 1. **Setup**: Add config to `claude_desktop_config.json` per docs
@@ -118,6 +181,13 @@ Expected: `{"ok":false,"error_code":"PAGE_NOT_FOUND","message":"No page found fo
 - [ ] Malformed JSON returns parse error -32700
 - [ ] Non-object request returns invalid request -32600
 - [ ] ping returns empty result `{}`
+- [ ] HTTP `POST /mcp` accepts single JSON-RPC requests and batches
+- [ ] HTTP `GET /healthz` returns server and wiki root metadata
+- [ ] HTTP bearer-token mode rejects unauthenticated requests with 401
+- [ ] SQLite token DB mode validates tokens dynamically without restart
+- [ ] Token CLI supports create/list/get/update/enable/disable/rotate/delete
+- [ ] HTTP admin API supports create/list/get/update/rotate/delete when `MCP_ADMIN_TOKEN` is set
+- [ ] Plaintext token values are stored hashed and only printed on create/rotate
 
 ## Security
 

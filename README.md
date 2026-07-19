@@ -81,7 +81,10 @@ separated (`sources/experience/...` vs `artifacts/experience/...`).
 
 ## MCP Tool Server (for Agent Integration)
 
-KernelWiki ships an MCP (Model Context Protocol) stdio server for agent-to-agent integration. Any MCP-compatible client (Claude Code, Codex, etc.) can query the knowledge base via JSON-RPC 2.0 over stdin/stdout, with no external SDK dependency.
+KernelWiki ships MCP (Model Context Protocol) servers for agent-to-agent integration. Any MCP-compatible client (Claude Code, Codex, etc.) can query the knowledge base through:
+
+- local stdio JSON-RPC: `scripts/mcp_server.py`
+- remote Streamable HTTP: `scripts/mcp_http_server.py`
 
 **Start the server:**
 
@@ -101,6 +104,44 @@ python3 scripts/mcp_server.py
     }
   }
 }
+```
+
+**Start the remote HTTP server:**
+
+```bash
+BLACKWELL_WIKI_ROOT="$PWD" MCP_LOG_FILE=/tmp/kernel-wiki-mcp.log \
+  python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+```
+
+Register a remote HTTP MCP in Codex:
+
+```bash
+codex mcp add kernelwiki-remote --url http://SERVER_HOST:8765/mcp
+```
+
+Optional bearer-token auth:
+
+```bash
+MCP_AUTH_TOKEN='replace-with-a-long-random-token' \
+  python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+```
+
+Dynamic SQLite-backed tokens can be changed while the MCP service is running:
+
+```bash
+# Create the first token; copy the printed token value.
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 add laptop
+
+# Start the server against the same DB.
+MCP_TOKEN_DB=data/mcp_tokens.sqlite3 MCP_ADMIN_TOKEN='admin-secret' \
+  python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+
+# CRUD without restarting the server:
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 list
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 add ci-runner
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 disable 1
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 rotate 2
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 delete 1 -y
 ```
 
 The server exposes three tools, with the same query capabilities as the CLI scripts:

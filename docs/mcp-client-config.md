@@ -2,7 +2,12 @@
 
 ## Overview
 
-The KernelWiki MCP server exposes 3 tools (`wiki_query`, `wiki_get_page`, `wiki_grep`) over stdio JSON-RPC 2.0. No external dependencies beyond Python 3.9+ and PyYAML.
+The KernelWiki MCP server exposes 3 tools (`wiki_query`, `wiki_get_page`, `wiki_grep`) through two transports:
+
+- **stdio JSON-RPC 2.0** via `scripts/mcp_server.py` for local agent integrations.
+- **Streamable HTTP** via `scripts/mcp_http_server.py` for remote deployment.
+
+No external dependencies beyond Python 3.9+ and PyYAML.
 
 ## Claude Code
 
@@ -55,6 +60,41 @@ args = ["scripts/mcp_server.py"]
 cwd = "/path/to/KernelWiki"
 ```
 
+### Codex CLI remote HTTP
+
+On the server machine:
+
+```bash
+cd /path/to/KernelWiki
+python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+```
+
+On the client machine:
+
+```bash
+codex mcp add kernelwiki-remote --url http://SERVER_HOST:8765/mcp
+```
+
+If bearer-token authentication is enabled on the server:
+
+```bash
+# Server
+MCP_AUTH_TOKEN='replace-with-a-long-random-token' \
+  python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+
+# Client
+export KERNELWIKI_MCP_TOKEN='replace-with-a-long-random-token'
+codex mcp add kernelwiki-remote \
+  --url http://SERVER_HOST:8765/mcp \
+  --bearer-token-env-var KERNELWIKI_MCP_TOKEN
+```
+
+For untrusted networks, put the HTTP server behind HTTPS (for example nginx or
+Caddy) and use an `https://.../mcp` URL.
+
+For tokens that can be added, disabled, rotated, or deleted without restarting
+the server, use the SQLite token DB mode documented below.
+
 ## Claude Desktop
 
 Add to `claude_desktop_config.json`:
@@ -73,12 +113,212 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
+## Remote HTTP Server
+
+Start a stateless Streamable HTTP MCP endpoint:
+
+```bash
+cd /path/to/KernelWiki
+BLACKWELL_WIKI_ROOT=/path/to/KernelWiki \
+MCP_LOG_FILE=/tmp/kernelwiki-mcp.log \
+python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+```
+
+Useful endpoints:
+
+- `GET /healthz` — health/readiness probe.
+- `POST /mcp` — JSON-RPC MCP endpoint.
+
+Manual probe:
+
+```bash
+curl -sS http://SERVER_HOST:8765/healthz
+
+curl -sS http://SERVER_HOST:8765/mcp \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
+```
+
+### systemd example
+
+Create `/etc/systemd/system/kernelwiki-mcp.service`:
+
+```ini
+[Unit]
+Description=KernelWiki MCP HTTP Server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/KernelWiki
+Environment=BLACKWELL_WIKI_ROOT=/path/to/KernelWiki
+Environment=MCP_LOG_FILE=/var/log/kernelwiki-mcp.log
+# Optional authentication:
+# Environment=MCP_AUTH_TOKEN=replace-with-a-long-random-token
+# Dynamic token DB:
+# Environment=MCP_TOKEN_DB=/var/lib/kernelwiki/mcp_tokens.sqlite3
+# Environment=MCP_ADMIN_TOKEN=replace-with-a-long-random-admin-token
+ExecStart=/usr/bin/python3 /path/to/KernelWiki/scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## Dynamic Token Management
+
+For production remote access, prefer SQLite-backed tokens over one static
+`MCP_AUTH_TOKEN`.  The MCP server checks the database on each authenticated
+request, so changes take effect while the service is running.
+
+### CLI CRUD
+
+Initialize and create the first token:
+
+```bash
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 init
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 add laptop
+```
+
+The `add` and `rotate` commands print the token secret exactly once. Store it
+in your client environment or secret manager.
+
+Start the MCP HTTP server with the token DB:
+
+```bash
+MCP_TOKEN_DB=data/mcp_tokens.sqlite3 \
+python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+```
+
+Manage tokens without restarting the MCP server:
+
+```bash
+# 查
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 list
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 get 1
+
+# 增
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 add ci-runner --note "CI access"
+
+# 改
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 update 1 --name laptop-new --note "renamed"
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 disable 1
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 enable 1
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 rotate 1
+
+# 删
+python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 delete 1 -y
+```
+
+Client registration with a DB token is the same bearer-token flow:
+
+```bash
+export KERNELWIKI_MCP_TOKEN='<token printed by add/rotate>'
+codex mcp add kernelwiki-remote \
+  --url http://SERVER_HOST:8765/mcp \
+  --bearer-token-env-var KERNELWIKI_MCP_TOKEN
+```
+
+If you pass both `MCP_TOKEN_DB` and `MCP_AUTH_TOKEN`, the server inserts
+`MCP_AUTH_TOKEN` into the DB once as `env-bootstrap` if that name does not
+already exist. This helps migrate from static-token mode to DB-token mode.
+
+### HTTP Admin CRUD API
+
+Enable the admin API by setting `MCP_ADMIN_TOKEN` in addition to `MCP_TOKEN_DB`:
+
+```bash
+MCP_TOKEN_DB=data/mcp_tokens.sqlite3 \
+MCP_ADMIN_TOKEN='replace-with-a-long-random-admin-token' \
+python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+```
+
+Then manage tokens over HTTP:
+
+```bash
+ADMIN='replace-with-a-long-random-admin-token'
+
+# 查
+curl -sS -H "Authorization: Bearer $ADMIN" \
+  http://SERVER_HOST:8765/admin/tokens
+
+# 增
+curl -sS -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"ci-runner","note":"CI access"}' \
+  http://SERVER_HOST:8765/admin/tokens
+
+# 改
+curl -sS -X PATCH -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' \
+  -d '{"enabled":false,"note":"temporarily disabled"}' \
+  http://SERVER_HOST:8765/admin/tokens/1
+
+# 轮换 token secret
+curl -sS -H "Authorization: Bearer $ADMIN" \
+  -H 'Content-Type: application/json' \
+  -d '{}' \
+  http://SERVER_HOST:8765/admin/tokens/1/rotate
+
+# 删
+curl -sS -X DELETE -H "Authorization: Bearer $ADMIN" \
+  http://SERVER_HOST:8765/admin/tokens/1
+```
+
+Notes:
+
+- Token values are stored as salted PBKDF2 hashes; plaintext tokens are only
+  shown on `add`/`rotate`.
+- `list`/`GET /admin/tokens` never reveals token secrets.
+- Keep `MCP_ADMIN_TOKEN` separate from client MCP tokens and expose it only on
+  trusted networks or behind HTTPS.
+
+Enable it:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable --now kernelwiki-mcp
+sudo systemctl status kernelwiki-mcp
+```
+
+### nginx reverse proxy example
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name kernelwiki.example.com;
+
+    ssl_certificate /etc/letsencrypt/live/kernelwiki.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/kernelwiki.example.com/privkey.pem;
+
+    location /mcp {
+        proxy_pass http://127.0.0.1:8765/mcp;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /healthz {
+        proxy_pass http://127.0.0.1:8765/healthz;
+    }
+}
+```
+
 ## Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `BLACKWELL_WIKI_ROOT` | Auto-detected from script location | Override wiki root path |
 | `MCP_LOG_FILE` | `/dev/null` | Path to write server logs (stderr is redirected) |
+| `MCP_HTTP_HOST` | `127.0.0.1` | HTTP bind host for `scripts/mcp_http_server.py` |
+| `MCP_HTTP_PORT` | `8765` | HTTP bind port |
+| `MCP_HTTP_PATH` | `/mcp` | HTTP MCP endpoint path |
+| `MCP_AUTH_TOKEN` | unset | Optional bearer token required by HTTP clients |
+| `MCP_TOKEN_DB` | unset | Optional SQLite DB path for dynamic bearer tokens |
+| `MCP_ADMIN_TOKEN` | unset | Optional admin bearer token for HTTP token CRUD API |
 
 ## Available Tools
 
@@ -170,11 +410,18 @@ Error responses use uppercase domain error codes:
 ## Troubleshooting
 
 1. **Server doesn't start**: Ensure `BLACKWELL_WIKI_ROOT` points to a valid wiki root (must contain `data/tags.yaml` and `wiki/`).
-2. **No output**: The server uses newline-delimited JSON over stdio. Stderr is redirected; set `MCP_LOG_FILE` to see logs.
+2. **No output**: The stdio server uses newline-delimited JSON over stdio. Stderr is redirected; set `MCP_LOG_FILE` to see logs.
 3. **Path traversal errors**: The server blocks any `lookup` that would resolve outside `WIKI_ROOT`. Error code: `PATH_OUTSIDE_ROOT`.
 4. **Invalid regex**: Malformed regex patterns return `REGEX_ERROR` with a description of the problem.
-5. **Test the server**: Run `bash scripts/test_mcp_smoke.sh` to verify the server works (25 fixture-based tests).
-6. **Manual probe**: Send a single JSON-RPC message to verify:
+5. **Test the stdio server**: Run `bash scripts/test_mcp_smoke.sh` to verify the server works.
+6. **Test the HTTP server**: Run `bash scripts/test_mcp_http_smoke.sh`.
+7. **Manual stdio probe**: Send a single JSON-RPC message to verify:
    ```bash
    echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | python3 scripts/mcp_server.py 2>/dev/null
+   ```
+8. **Manual HTTP probe**:
+   ```bash
+   curl -sS http://127.0.0.1:8765/mcp \
+     -H 'Content-Type: application/json' \
+     -d '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}'
    ```
