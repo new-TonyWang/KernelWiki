@@ -173,6 +173,8 @@ For production remote access, prefer SQLite-backed tokens over one static
 `MCP_AUTH_TOKEN`.  The MCP server checks the database on each authenticated
 request, so changes take effect while the service is running.
 
+完整增删改查用法见 [`docs/mcp-token-management.md`](mcp-token-management.md)。
+
 ### CLI CRUD
 
 Initialize and create the first token:

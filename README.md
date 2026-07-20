@@ -144,6 +144,9 @@ python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 rotate 2
 python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 delete 1 -y
 ```
 
+Full token CRUD usage is documented in
+[`docs/mcp-token-management.md`](docs/mcp-token-management.md).
+
 The server exposes three tools, with the same query capabilities as the CLI scripts:
 
 ### `wiki_query` — keyword search with filters
