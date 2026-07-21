@@ -1,0 +1,13 @@
+diff --git a/test/registered/8-gpu-models/test_mistral_large3.py b/test/registered/8-gpu-models/test_mistral_large3.py
+index eaf415289150..68b7ca7d20af 100644
+--- a/test/registered/8-gpu-models/test_mistral_large3.py
++++ b/test/registered/8-gpu-models/test_mistral_large3.py
+@@ -88,7 +88,7 @@ def test_mistral_large3_all_variants(self):
+         run_combined_tests(
+             models=variants,
+             test_name="Mistral-Large-3",
+-            accuracy_params=AccuracyTestParams(dataset="gsm8k", baseline_accuracy=0.90),
++            accuracy_params=AccuracyTestParams(dataset="gsm8k", baseline_accuracy=0.85),
+             performance_params=PerformanceTestParams(
+                 profile_dir="performance_profiles_mistral_large3",
+             ),

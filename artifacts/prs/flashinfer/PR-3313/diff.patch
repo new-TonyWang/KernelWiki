@@ -1,0 +1,59 @@
+diff --git a/csrc/trtllm_batched_gemm_runner.cu b/csrc/trtllm_batched_gemm_runner.cu
+index 82f1bdd0f7..ad5302f398 100644
+--- a/csrc/trtllm_batched_gemm_runner.cu
++++ b/csrc/trtllm_batched_gemm_runner.cu
+@@ -147,7 +147,9 @@ TrtllmGenBatchedGemmRunner::TrtllmGenBatchedGemmRunner(
+             << ", mEltwiseActType: " << (int64_t)mOptions.eltwiseActType
+             << ", mTransposeMmaOutput: " << mOptions.transposeMmaOutput
+             << ", mRouteAct: " << mOptions.routeAct << ", mFusedAct: " << mOptions.fusedAct
+-            << ", mIsStaticBatch: " << mOptions.staticBatch << ", mTileSize: " << mOptions.tileSize;
++            << ", mIsStaticBatch: " << mOptions.staticBatch << ", mTileSize: " << mOptions.tileSize
++            << ", mUsePerTokenScaling: " << mOptions.usePerTokenScaling
++            << ", mUsePerChannelScaling: " << mOptions.usePerChannelScaling;
+   FLASHINFER_CHECK(!mPassingConfigIndices.empty(), error_msg.str());
+ }
+ 
+diff --git a/csrc/trtllm_fused_moe_kernel_launcher.cu b/csrc/trtllm_fused_moe_kernel_launcher.cu
+index 873f7d47e1..d7ec42a6c6 100644
+--- a/csrc/trtllm_fused_moe_kernel_launcher.cu
++++ b/csrc/trtllm_fused_moe_kernel_launcher.cu
+@@ -427,11 +427,14 @@ class FusedMoeLauncher {
+ 
+   void prepare_moe_common(int64_t& moe_tactic) {
+     using RunnerType = tensorrt_llm::kernels::trtllmgen_moe::MoE::Runner;
++    // FIXME(siyuan): check llama4 routing after the fp4 FC1 kernels with bf16 scale factors were
++    // generated
+     bool usePerTokenScalingGemm1 =
+-        per_token_scales.has_value() ||
+-        static_cast<RoutingMethodType>(this->routing_method_type) == RoutingMethodType::Llama4;
+-    bool usePerTokenScalingGemm2 =
+-        per_token_scales.has_value() && this->mDtypeAct != btg::Dtype::Bfloat16;
++        per_token_scales.has_value() /* ||
++        static_cast<RoutingMethodType>(this->routing_method_type) == RoutingMethodType::Llama4*/
++        ;
++    // FIXME(siyuan): currently only nvfp4 x nvfp4 uses per-token scaling in both FC1 and FC2
++    bool usePerTokenScalingGemm2 = per_token_scales.has_value() && mDtypeAct == btg::Dtype::E2m1;
+     // For FP8 block-scale (E4m3 activations, E4m3 weights) with DeepSeek FP8, use the
+     // weights-only Runner constructor to match the original kernel path and numerics.
+     if (this->mDtypeAct == btg::Dtype::E4m3 && this->mDtypeWeights == btg::Dtype::E4m3 &&
+diff --git a/tests/moe/test_trtllm_gen_fused_moe.py b/tests/moe/test_trtllm_gen_fused_moe.py
+index 231db811d8..fda8daee7e 100644
+--- a/tests/moe/test_trtllm_gen_fused_moe.py
++++ b/tests/moe/test_trtllm_gen_fused_moe.py
+@@ -3542,6 +3542,7 @@ def test_topk_routing(
+     "moe_impl",
+     [
+         pytest.param(FP8PerTensorMoe(), id="FP8_Tensor"),
++        pytest.param(FP4Moe(quant_mode=QuantMode.FP4_NVFP4_NVFP4), id="FP4_MoE"),
+     ],
+ )
+ @pytest.mark.parametrize(
+@@ -3557,7 +3558,7 @@ def test_topk_routing(
+                 "routed_scaling": 2.5,
+                 "has_routing_bias": True,
+                 "routing_method_type": RoutingMethodType.Llama4,
+-                "compatible_moe_impls": [FP8PerTensorMoe],
++                "compatible_moe_impls": [FP4Moe, FP8PerTensorMoe],
+                 "compatible_intermediate_size": [1024, 2048],
+                 "enable_autotune": True,
+             },

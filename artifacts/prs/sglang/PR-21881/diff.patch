@@ -1,0 +1,17 @@
+diff --git a/python/sglang/srt/configs/model_config.py b/python/sglang/srt/configs/model_config.py
+index e90ee3881e87..67cce0e63c87 100644
+--- a/python/sglang/srt/configs/model_config.py
++++ b/python/sglang/srt/configs/model_config.py
+@@ -1071,8 +1071,10 @@ def _verify_quantization(self) -> None:
+                     f"supported in ROCm."
+                 )
+             if self.quantization not in optimized_quantization_methods:
+-                # Don't warn for MXFP4 on SM100 since it has optimized kernels
+-                if not (self.quantization == "mxfp4" and is_sm100_supported()):
++                # Don't warn for MXFP4/MXFP8 on SM100 since they have optimized kernels
++                if not (
++                    self.quantization in ["mxfp4", "mxfp8"] and is_sm100_supported()
++                ):
+                     logger.warning(
+                         "%s quantization is not fully "
+                         "optimized yet. The speed can be slower than "

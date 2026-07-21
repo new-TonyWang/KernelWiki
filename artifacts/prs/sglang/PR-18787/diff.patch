@@ -1,0 +1,13 @@
+diff --git a/python/sglang/srt/utils/common.py b/python/sglang/srt/utils/common.py
+index 3bae1b955b9e..66136007b57d 100644
+--- a/python/sglang/srt/utils/common.py
++++ b/python/sglang/srt/utils/common.py
+@@ -245,7 +245,7 @@ def _check_cuda_device_version(
+ is_blackwell_supported = is_blackwell = lru_cache(maxsize=1)(
+     partial(
+         _check_cuda_device_version,
+-        device_capability_majors=[10, 12],
++        device_capability_majors=[10, 11, 12],
+         cuda_version=(12, 8),
+     )
+ )

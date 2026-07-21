@@ -1,0 +1,479 @@
+diff --git a/benchmarks/README.md b/benchmarks/README.md
+index 8c059fdcfc..b5fb4e69bc 100644
+--- a/benchmarks/README.md
++++ b/benchmarks/README.md
+@@ -259,7 +259,7 @@ The output CSV will contain detailed metrics including:
+ | `--tp_rank`              | Tensor-parallel rank                                                                                        |
+ | `--ep_size`              | Expert-parallel world size                                                                                  |
+ | `--ep_rank`              | Expert-parallel rank                                                                                        |
+-| `--gated_act`            | Gated activation function: `swiglu` (default) or `geglu`                                                   |
++| `--activation-type`      | Activation function: `Swiglu` (default), `Geglu`, `SwigluStep` (clipped SwiGLU, limit=7.0), `Relu2`, etc.  |
+ | `--autotune`             | Enable autotune for supported operation                                                                     |
+ 
+ ### MOE Routing Method Compatibility
+diff --git a/benchmarks/routines/moe.py b/benchmarks/routines/moe.py
+index 075fde70f1..c873318b40 100644
+--- a/benchmarks/routines/moe.py
++++ b/benchmarks/routines/moe.py
+@@ -76,6 +76,19 @@ def _activation_kwarg(fn, activation_type: ActivationType) -> dict:
+     return {}
+ 
+ 
++def is_gated_activation(activation_type: ActivationType) -> bool:
++    """Whether the activation splits FC1 output into gate/up halves (FC1 weight has 2*intermediate
++    rows). SwigluStep's clamp limit defaults to 7.0 (the Step-3 model value) in the kernel, so no
++    swiglu_limit tensor needs to be passed.
++    """
++    return activation_type in (
++        ActivationType.Swiglu,
++        ActivationType.Geglu,
++        ActivationType.SwigluBias,
++        ActivationType.SwigluStep,
++    )
++
++
+ def run_moe_test(args):
+     """
+     Run a MOE test.
+@@ -872,7 +885,7 @@ def testCutlassFusedMoe(args):
+ 
+     # Create base tensors
+     activation_type = args.activation_type
+-    is_gated = activation_type in (ActivationType.Swiglu, ActivationType.Geglu)
++    is_gated = is_gated_activation(activation_type)
+     w1_rows = (2 if is_gated else 1) * intermediate_size
+ 
+     torch.manual_seed(args.random_seed)
+@@ -1165,7 +1178,7 @@ def run_cutlass(
+         num_experts,
+         top_k,
+         median_time,
+-        is_gated=args.activation_type in (ActivationType.Swiglu, ActivationType.Geglu),
++        is_gated=is_gated,
+     )
+     tb_per_sec = calculate_moe_kernel_bandwidth(
+         num_tokens,
+@@ -1181,7 +1194,7 @@ def run_cutlass(
+         routing_logits_dtype=router_logits.dtype,
+         active_experts=int(selected_experts.unique().numel()),
+         verbose=args.verbose,
+-        is_gated=args.activation_type in (ActivationType.Swiglu, ActivationType.Geglu),
++        is_gated=is_gated,
+     )
+ 
+     print_perf_metrics(backend, median_time, std_time, tflops, tb_per_sec)
+diff --git a/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh b/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+index 532686900b..b3d636bebc 100644
+--- a/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
++++ b/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+@@ -2027,6 +2027,24 @@ struct SwigluBiasAdaptor {
+   }
+ };
+ 
++// SwiGLU variant used by Step-3.5/3.7-Flash: out = min(silu(gate), limit) * clamp(up, -limit,
++// limit). limit defaults to 7.0 (the Step-3.x model value) when no per-expert swiglu_limit is
++// supplied.
++struct SwigluStepAdaptor {
++  constexpr static bool IS_GLU = true;
++  float alpha = 1.0f;
++  float beta = 0.0f;
++  float limit = 7.0f;
++
++  template <class T>
++  __device__ T operator()(T const& gate, T const& linear) const {
++    cutlass::epilogue::thread::SiLu<T> fn{};
++    T gate_clamped = cutlass::minimum<T>{}(fn(gate), limit);
++    T linear_clamped = cutlass::maximum<T>{}(cutlass::minimum<T>{}(linear, limit), -limit);
++    return gate_clamped * linear_clamped;
++  }
++};
++
+ // ============================== Gated Activation =================================
+ constexpr static int ACTIVATION_THREADS_PER_BLOCK = 256;
+ 
+@@ -2074,7 +2092,11 @@ __global__ void doGatedActivationKernel(ActivationOutputType* output,
+   ActFn fn{};
+   fn.alpha = gate_alpha;
+   fn.beta = gate_bias;
+-  fn.limit = gate_limit;
++  // Keep the activation's compile-time default limit (e.g. 7.0 for SwigluStep) unless the caller
++  // supplied a per-expert swiglu_limit tensor.
++  if (activation_type.swiglu_limit) {
++    fn.limit = gate_limit;
++  }
+   for (int64_t elem_index = start_offset; elem_index < num_elems_in_col; elem_index += stride) {
+     auto linear_value = arrayConvert<GemmResultElem, ComputeElem>(gemm_result_vec[elem_index]);
+     // BF16 isn't supported, use FP32 for activation function
+@@ -2101,6 +2123,8 @@ void doGatedActivation(ActivationOutputType* output, GemmOutputType const* gemm_
+                                             GLUAdaptor<cutlass::epilogue::thread::GELU>>
+              : activation_type == ActivationType::SwigluBias
+                  ? &doGatedActivationKernel<ActivationOutputType, GemmOutputType, SwigluBiasAdaptor>
++             : activation_type == ActivationType::SwigluStep
++                 ? &doGatedActivationKernel<ActivationOutputType, GemmOutputType, SwigluStepAdaptor>
+                  : nullptr;
+   TLLM_CHECK_WITH_INFO(fn != nullptr, "Invalid activation type");
+   fn<<<blocks, threads, 0, stream>>>(output, gemm_result, expert_first_token_offset, inter_size,
+@@ -2213,7 +2237,11 @@ __global__ __launch_bounds__(ACTIVATION_THREADS_PER_BLOCK) void doActivationKern
+     ActFn fn{};
+     fn.alpha = gate_alpha;
+     fn.beta = gate_beta;
+-    fn.limit = gate_limit;
++    // Keep the activation's compile-time default limit (e.g. 7.0 for SwigluStep) unless the caller
++    // supplied a per-expert swiglu_limit tensor.
++    if (activation_params.swiglu_limit) {
++      fn.limit = gate_limit;
++    }
+     for (int64_t elem_index = start_offset; elem_index < num_elems_in_col; elem_index += stride) {
+       auto fc1_value =
+           arrayConvert<GemmResultElem, ComputeElem>(gemm_result_vec[elem_index + gated_off_vec]);
+@@ -2330,6 +2358,10 @@ void doActivation(T* output, GemmOutputType const* gemm_result, float const* fp8
+               T, GemmOutputType, ScaleBiasType, IdentityAdaptor<cutlass::epilogue::thread::Relu2>,
+               decltype(block_scaling_type)::value, decltype(disableFP4QuantFastMathTag)::value,
+               decltype(nvfp4_4over6_config_tag)>,  // Relu2
++          &doActivationKernel<T, GemmOutputType, ScaleBiasType, SwigluStepAdaptor,
++                              decltype(block_scaling_type)::value,
++                              decltype(disableFP4QuantFastMathTag)::value,
++                              decltype(nvfp4_4over6_config_tag)>,  // SwigluStep
+           &doActivationKernel<T, GemmOutputType, ScaleBiasType,
+                               IdentityAdaptor<cutlass::epilogue::thread::Identity>,
+                               decltype(block_scaling_type)::value,
+diff --git a/csrc/fused_moe/cutlass_backend/flashinfer_cutlass_fused_moe_binding.cu b/csrc/fused_moe/cutlass_backend/flashinfer_cutlass_fused_moe_binding.cu
+index 3fa75095d2..fdf8dbb6da 100644
+--- a/csrc/fused_moe/cutlass_backend/flashinfer_cutlass_fused_moe_binding.cu
++++ b/csrc/fused_moe/cutlass_backend/flashinfer_cutlass_fused_moe_binding.cu
+@@ -345,18 +345,21 @@ class FusedMoeRunner : public tvm::ffi::ModuleObj {
+       CHECK_INPUT_AND_TYPE(swiglu_alpha.value(), dl_float32);
+       TVM_FFI_ICHECK_EQ(swiglu_alpha.value().size(0), num_experts_on_rank)
+           << "swiglu_alpha must have num_experts_on_rank elements.";
+-      base_activation_type = ActivationType::SwigluBias;
+     }
+     if (swiglu_beta.has_value()) {
+       CHECK_INPUT_AND_TYPE(swiglu_beta.value(), dl_float32);
+       TVM_FFI_ICHECK_EQ(swiglu_beta.value().size(0), num_experts_on_rank)
+           << "swiglu_beta must have num_experts_on_rank elements.";
+-      base_activation_type = ActivationType::SwigluBias;
+     }
+     if (swiglu_limit.has_value()) {
+       CHECK_INPUT_AND_TYPE(swiglu_limit.value(), dl_float32);
+       TVM_FFI_ICHECK_EQ(swiglu_limit.value().size(0), num_experts_on_rank)
+           << "swiglu_limit must have num_experts_on_rank elements.";
++    }
++    // Swiglu + swiglu_alpha/beta/limit selects the SwigluBias kernel; other gated activations
++    // (e.g. SwigluStep) keep their own kernel.
++    if (base_activation_type == ActivationType::Swiglu &&
++        (swiglu_alpha.has_value() || swiglu_beta.has_value() || swiglu_limit.has_value())) {
+       base_activation_type = ActivationType::SwigluBias;
+     }
+     auto activation_params = ActivationParams(
+@@ -511,18 +514,21 @@ class FusedMoeRunner : public tvm::ffi::ModuleObj {
+       CHECK_INPUT_AND_TYPE(swiglu_alpha.value(), dl_float32);
+       TVM_FFI_ICHECK_EQ(swiglu_alpha.value().size(0), num_experts_on_rank)
+           << "swiglu_alpha must have num_experts_on_rank elements.";
+-      base_activation_type = ActivationType::SwigluBias;
+     }
+     if (swiglu_beta.has_value()) {
+       CHECK_INPUT_AND_TYPE(swiglu_beta.value(), dl_float32);
+       TVM_FFI_ICHECK_EQ(swiglu_beta.value().size(0), num_experts_on_rank)
+-      "swiglu_beta must have num_experts_on_rank elements.";
+-      base_activation_type = ActivationType::SwigluBias;
++          << "swiglu_beta must have num_experts_on_rank elements.";
+     }
+     if (swiglu_limit.has_value()) {
+       CHECK_INPUT_AND_TYPE(swiglu_limit.value(), dl_float32);
+       TVM_FFI_ICHECK_EQ(swiglu_limit.value().size(0), num_experts_on_rank)
+           << "swiglu_limit must have num_experts_on_rank elements.";
++    }
++    // Swiglu + swiglu_alpha/beta/limit selects the SwigluBias kernel; other gated activations
++    // (e.g. SwigluStep) keep their own kernel.
++    if (base_activation_type == ActivationType::Swiglu &&
++        (swiglu_alpha.has_value() || swiglu_beta.has_value() || swiglu_limit.has_value())) {
+       base_activation_type = ActivationType::SwigluBias;
+     }
+     auto activation_params = ActivationParams(
+@@ -1054,7 +1060,7 @@ class FusedMoeRunner : public tvm::ffi::ModuleObj {
+       TVM_FFI_ICHECK(quant_scales.has_value())
+           << "Expecting quant scales for W4A8_MXFP4_MXFP8 quantization";
+       TVM_FFI_ICHECK_EQ(quant_scales.value().size(), 4)
+-      "Expecting 4 quant scales for W4A8_MXFP4_MXFP8 quantization";
++          << "Expecting 4 quant scales for W4A8_MXFP4_MXFP8 quantization";
+ 
+       auto const& fc1_weight_block = quant_scales.value()[0];
+       auto const& fc1_global = quant_scales.value()[1];
+diff --git a/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/common.h b/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/common.h
+index 865e4fffd4..38726ead51 100644
+--- a/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/common.h
++++ b/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/common.h
+@@ -27,6 +27,7 @@ enum class ActivationType {
+   Geglu,
+   SwigluBias,
+   Relu2,
++  SwigluStep,
+   Identity,
+   InvalidType
+ };
+diff --git a/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/moe_gemm_kernels.h b/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/moe_gemm_kernels.h
+index f91a235c8f..7828963bf0 100644
+--- a/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/moe_gemm_kernels.h
++++ b/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/moe_gemm_kernels.h
+@@ -236,7 +236,8 @@ struct TmaWarpSpecializedGroupedGemmInput {
+ 
+ constexpr bool isGatedActivation(ActivationType activation_type) {
+   return activation_type == ActivationType::Swiglu || activation_type == ActivationType::Geglu ||
+-         activation_type == ActivationType::SwigluBias;
++         activation_type == ActivationType::SwigluBias ||
++         activation_type == ActivationType::SwigluStep;
+ }
+ 
+ template <typename T,                          /*The type used for activations/scales/compute*/
+diff --git a/flashinfer/tllm_enums.py b/flashinfer/tllm_enums.py
+index b26d38f9d7..d302bd1d99 100644
+--- a/flashinfer/tllm_enums.py
++++ b/flashinfer/tllm_enums.py
+@@ -37,8 +37,9 @@ class ActivationType(IntEnum):
+     Geglu = 4
+     SwigluBias = 5
+     Relu2 = 6
+-    Identity = 7
+-    InvalidType = 8
++    SwigluStep = 7
++    Identity = 8
++    InvalidType = 9
+ 
+ 
+ class DtypeTrtllmGen(IntEnum):
+diff --git a/include/flashinfer/trtllm/fused_moe/runner.h b/include/flashinfer/trtllm/fused_moe/runner.h
+index 2548b36903..37e6a0dc55 100644
+--- a/include/flashinfer/trtllm/fused_moe/runner.h
++++ b/include/flashinfer/trtllm/fused_moe/runner.h
+@@ -165,8 +165,9 @@ enum class ActivationType : int64_t {
+   Geglu = 4,
+   SwigluBias = 5,
+   Relu2 = 6,
+-  Identity = 7,
+-  InvalidType = 8,  // Must be last
++  SwigluStep = 7,
++  Identity = 8,
++  InvalidType = 9,  // Must be last
+ };
+ 
+ inline std::string serializeActivationType(ActivationType activationType) {
+@@ -187,6 +188,8 @@ inline std::string serializeActivationType(ActivationType activationType) {
+       return "Relu2";
+     case ActivationType::Identity:
+       return "Identity";
++    case ActivationType::SwigluStep:
++      return "SwigluStep";
+     default:
+       return "InvalidActivationType";  // TODO throw error
+   };
+@@ -194,7 +197,8 @@ inline std::string serializeActivationType(ActivationType activationType) {
+ 
+ inline bool isGatedActivation(ActivationType activationType) {
+   return activationType == ActivationType::Swiglu || activationType == ActivationType::Geglu ||
+-         activationType == ActivationType::SwigluBias;
++         activationType == ActivationType::SwigluBias ||
++         activationType == ActivationType::SwigluStep;
+ }
+ 
+ }  // namespace MoE
+diff --git a/tests/moe/test_trtllm_cutlass_fused_moe.py b/tests/moe/test_trtllm_cutlass_fused_moe.py
+index 6b7d5a6da9..1c83d03dd0 100644
+--- a/tests/moe/test_trtllm_cutlass_fused_moe.py
++++ b/tests/moe/test_trtllm_cutlass_fused_moe.py
+@@ -173,7 +173,9 @@ def compute_routing(
+     return routing_weights, selected_experts
+ 
+ 
+-def torch_moe_nvfp4(a, w1, w2, topk, topk_weight, topk_ids, activation_type):
++def torch_moe_nvfp4(
++    a, w1, w2, topk, topk_weight, topk_ids, activation_type, swiglu_limit=None
++):
+     B, D = a.shape
+     a = a.view(B, -1, D).repeat(1, topk, 1).reshape(-1, D)
+     out = torch.zeros(B * topk, w2.shape[1], dtype=a.dtype, device=a.device)
+@@ -191,6 +193,20 @@ def act(weight, mask):
+             w1_expert, w3_expert = weight[m // 2 :, :], weight[: m // 2, :]
+             return F.silu(a[mask] @ w1_expert.t()) * (a[mask] @ w3_expert.t())
+ 
++    elif activation_type == ActivationType.SwigluStep:
++        # Step-3 clipped SwiGLU: min(silu(gate), limit) * clamp(up, -limit, limit).
++        # Matches vLLM's SwigluStepAndMul reference (limit defaults to 7.0).
++        assert swiglu_limit is not None, "SwigluStep requires swiglu_limit"
++        limit = float(swiglu_limit)
++
++        def act(weight, mask):
++            m = weight.shape[0]
++            assert m % 2 == 0
++            w1_expert, w3_expert = weight[m // 2 :, :], weight[: m // 2, :]
++            gate = F.silu(a[mask] @ w1_expert.t()).clamp(max=limit)
++            up = (a[mask] @ w3_expert.t()).clamp(min=-limit, max=limit)
++            return gate * up
++
+     elif activation_type == ActivationType.Relu2:
+ 
+         def act(weight, mask):
+@@ -300,6 +316,7 @@ def compute_with_experts(
+     alpha=None,
+     beta=None,
+     limit=None,
++    activation_type=ActivationType.Swiglu,
+ ):
+     results = torch.zeros_like(x)
+     for expert_id in range(num_experts):
+@@ -314,7 +331,20 @@ def compute_with_experts(
+         w3_expert, w1_expert = torch.chunk(w31_expert, 2, dim=0)
+ 
+         expert_inputs = x[batch_idx]
+-        if alpha is not None and limit is not None and beta is not None:
++        if activation_type == ActivationType.SwigluStep:
++            # Step-3 clipped SwiGLU: min(silu(gate), limit) * clamp(up, -limit, limit).
++            # Defaults to the kernel's default limit (7.0) when not otherwise specified.
++            # swiglu_limit is per-expert, so index by expert_id when a tensor/list is given.
++            if limit is None:
++                step_limit = 7.0
++            elif hasattr(limit, "__getitem__"):
++                step_limit = limit[expert_id]
++            else:
++                step_limit = limit
++            x1 = F.silu(expert_inputs @ w1_expert.t()).clamp(max=step_limit)
++            x2 = (expert_inputs @ w3_expert.t()).clamp(min=-step_limit, max=step_limit)
++            inter = x1 * x2
++        elif alpha is not None and limit is not None and beta is not None:
+             # SwiGLUBias
+             x1 = expert_inputs @ w1_expert.t()
+             x1 = x1.clamp_(min=None, max=limit)
+@@ -353,7 +383,14 @@ def compute_with_experts(
+ @pytest.mark.parametrize("num_experts", NUM_EXPERTS)
+ @pytest.mark.parametrize("top_k", TOP_K_VALUES)
+ @pytest.mark.parametrize("intermediate_size", INTERMEDIATE_SIZES)
+-def test_moe(batch_size, hidden_size, num_experts, top_k, intermediate_size):
++@pytest.mark.parametrize(
++    "activation_type",
++    [ActivationType.Swiglu, ActivationType.SwigluStep],
++    ids=["swiglu", "swiglustep"],
++)
++def test_moe(
++    batch_size, hidden_size, num_experts, top_k, intermediate_size, activation_type
++):
+     # Skip invalid configurations
+     if top_k > num_experts:
+         pytest.skip(
+@@ -361,7 +398,12 @@ def test_moe(batch_size, hidden_size, num_experts, top_k, intermediate_size):
+         )
+ 
+     torch.manual_seed(42)
+-    x = torch.randn(batch_size, hidden_size, dtype=torch.float16).cuda() / 5
++    # SwigluStep clamps silu(gate) and up at limit=7.0. Use larger (seeded, deterministic)
++    # activations for that case so the clamp actually engages — this validates the clamp math
++    # and the default-limit (Option B) behavior, not just the activation wiring. Standard SwiGLU
++    # keeps the usual small inputs.
++    x_scale = 3.5 if activation_type == ActivationType.SwigluStep else 1.0 / 5
++    x = torch.randn(batch_size, hidden_size, dtype=torch.float16).cuda() * x_scale
+     router_logits = torch.randn(batch_size, num_experts, dtype=torch.float32).cuda()
+     w31_weight = (
+         torch.randn(
+@@ -378,7 +420,13 @@ def test_moe(batch_size, hidden_size, num_experts, top_k, intermediate_size):
+ 
+     routing_weights, selected_experts = compute_routing(router_logits, top_k)
+     ref_output = compute_with_experts(
+-        num_experts, x, w31_weight, w2_weight, selected_experts, routing_weights
++        num_experts,
++        x,
++        w31_weight,
++        w2_weight,
++        selected_experts,
++        routing_weights,
++        activation_type=activation_type,
+     )
+     flash_output = torch.empty_like(ref_output)
+     flash_output = fused_moe.cutlass_fused_moe(
+@@ -390,6 +438,7 @@ def test_moe(batch_size, hidden_size, num_experts, top_k, intermediate_size):
+         flash_output.dtype,
+         output=flash_output,
+         quant_scales=None,
++        activation_type=activation_type,
+     )
+ 
+     torch.testing.assert_close(ref_output, flash_output[0], rtol=1e-2, atol=1e-2)
+@@ -401,8 +450,20 @@ def test_moe(batch_size, hidden_size, num_experts, top_k, intermediate_size):
+ @pytest.mark.parametrize("top_k", TOP_K_VALUES)
+ @pytest.mark.parametrize("intermediate_size", INTERMEDIATE_SIZES)
+ @pytest.mark.parametrize("otype, wtype", [(torch.float16, torch.float8_e4m3fn)])
++@pytest.mark.parametrize(
++    "activation_type",
++    [ActivationType.Swiglu, ActivationType.SwigluStep],
++    ids=["swiglu", "swiglustep"],
++)
+ def test_moe_fp8(
+-    batch_size, hidden_size, num_experts, top_k, intermediate_size, otype, wtype
++    batch_size,
++    hidden_size,
++    num_experts,
++    top_k,
++    intermediate_size,
++    otype,
++    wtype,
++    activation_type,
+ ):
+     # Skip invalid configurations
+     if top_k > num_experts:
+@@ -447,6 +508,7 @@ def test_moe_fp8(
+         w2_dequantized,
+         selected_experts,
+         routing_weights,
++        activation_type=activation_type,
+     )
+     flash_output = torch.empty_like(ref_output)
+     # For fp8, the hidden_state expects quantized.
+@@ -469,6 +531,7 @@ def test_moe_fp8(
+         otype,
+         quant_scales=quant_scales,
+         output=flash_output,
++        activation_type=activation_type,
+     )
+     torch.testing.assert_close(ref_output, flash_output, rtol=1e-1, atol=1e-1)
+ 
+@@ -485,8 +548,8 @@ def test_moe_fp8(
+ @pytest.mark.parametrize("quantized_input", [False, True])
+ @pytest.mark.parametrize(
+     "activation_type",
+-    [ActivationType.Swiglu, ActivationType.Relu2],
+-    ids=["swiglu", "relu2"],
++    [ActivationType.Swiglu, ActivationType.SwigluStep, ActivationType.Relu2],
++    ids=["swiglu", "swiglustep", "relu2"],
+ )
+ @pytest.mark.parametrize("use_4over6", [False, True])
+ @pytest.mark.skipif(
+@@ -519,9 +582,15 @@ def test_moe_nvfp4(
+     n = intermediate_size
+     k = hidden_size
+ 
+-    w1_n = 2 * n if activation_type == ActivationType.Swiglu else n
++    gated = activation_type in (ActivationType.Swiglu, ActivationType.SwigluStep)
++    w1_n = 2 * n if gated else n
+     w1 = torch.randn((e, w1_n, k), device="cuda", dtype=otype) / 10
+ 
++    # SwigluStep clamps to a per-expert limit. We intentionally do NOT pass swiglu_limit here so
++    # that the kernel's default (7.0, the Step-3 model value) is exercised; the reference below
++    # uses the same 7.0. Passing an explicit per-expert tensor reuses the SwigluBias limit path.
++    swiglu_limit = None
++
+     sf_w1_2n = round_up(w1_n, 128)
+     sf_w1_k = round_up(k // quant_blocksize, 4)
+     w1_blockscale = torch.empty(
+@@ -598,6 +667,7 @@ def test_moe_nvfp4(
+         input_sf=input_sf,
+         output=flash_output,
+         activation_type=activation_type,
++        swiglu_limit=swiglu_limit,
+     )
+ 
+     # Ref check
+@@ -641,6 +711,7 @@ def test_moe_nvfp4(
+         routing_weights,
+         selected_experts,
+         activation_type,
++        swiglu_limit=7.0 if activation_type == ActivationType.SwigluStep else None,
+     )
+     torch.testing.assert_close(ref_output, flash_output, rtol=2e-1, atol=2e-1)
+ 

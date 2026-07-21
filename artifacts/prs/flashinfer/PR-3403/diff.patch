@@ -1,0 +1,101 @@
+diff --git a/flashinfer/gemm/gemm_base.py b/flashinfer/gemm/gemm_base.py
+index 7e02312b7a..2f5861eaa0 100755
+--- a/flashinfer/gemm/gemm_base.py
++++ b/flashinfer/gemm/gemm_base.py
+@@ -4180,6 +4180,9 @@ def _cute_dsl_gemm_mxfp8_requirement(
+ 
+ # Shared helpers for CuTe DSL block-scaled GEMM runners (mxfp8 & mxfp4/nvfp4)
+ _SM100_MMA_TILER_MN_CANDIDATES = [
++    (128, 8),
++    (128, 16),
++    (128, 32),
+     (128, 64),
+     (256, 64),
+     (128, 128),
+@@ -5320,6 +5323,27 @@ def get_valid_tactics(
+                 c_cutlass_dtype,
+                 a.device,
+             )
++
++            if m == 1:
++                if n <= 1024:
++                    allowed_tiles = {(256, 64)}
++                elif n >= 8192:
++                    allowed_tiles = {(128, 128)}
++                else:
++                    allowed_tiles = {(128, 64)}
++                sm100_base = [t for t in sm100_base if t[0] in allowed_tiles]
++            elif m in (8, 16):
++                allowed_tiles = {
++                    (128, 8),
++                    (128, 16),
++                    (128, 32),
++                    (256, 8),
++                    (256, 16),
++                    (256, 32),
++                }
++
++                sm100_base = [t for t in sm100_base if t[0] in allowed_tiles and t[2]]
++
+             valid_tactics = [(*t, "sm100", None) for t in sm100_base]
+ 
+             # --- SM103 tactics (only on SM103) ---
+diff --git a/flashinfer/gemm/kernels/dense_blockscaled_gemm_sm100.py b/flashinfer/gemm/kernels/dense_blockscaled_gemm_sm100.py
+index e176cd36f9..98bb2aa6b2 100644
+--- a/flashinfer/gemm/kernels/dense_blockscaled_gemm_sm100.py
++++ b/flashinfer/gemm/kernels/dense_blockscaled_gemm_sm100.py
+@@ -1959,7 +1959,7 @@ def is_valid_mma_tiler_and_cluster_shape(
+         # Skip invalid mma tile shape
+         if mma_tiler_mn[0] not in [128, 256]:
+             is_valid = False
+-        if mma_tiler_mn[1] not in [64, 128, 192, 256]:
++        if mma_tiler_mn[1] not in [8, 16, 32, 64, 128, 192, 256]:
+             is_valid = False
+         # Skip illegal cluster shape
+         if cluster_shape_mn[0] % (2 if mma_tiler_mn[0] == 256 else 1) != 0:
+@@ -2082,6 +2082,9 @@ def can_implement(
+             m, n, k, l, ab_dtype, c_dtype, a_major, b_major, c_major
+         ):
+             can_implement = False
++
++        if mma_tiler_mn[1] < 64 and (n > mma_tiler_mn[1] or cluster_shape_mn[1] > 1):
++            can_implement = False
+         return can_implement
+ 
+     # fully dynamic shape
+diff --git a/flashinfer/gemm/kernels/utils.py b/flashinfer/gemm/kernels/utils.py
+index 96f9a5d183..00027f64e1 100644
+--- a/flashinfer/gemm/kernels/utils.py
++++ b/flashinfer/gemm/kernels/utils.py
+@@ -17,6 +17,9 @@
+ from ...fused_moe.utils import last_positive_power_of_2
+ 
+ _SM100_MMA_TILER_MN_CANDIDATES = [
++    (128, 8),
++    (128, 16),
++    (128, 32),
+     (128, 64),
+     (256, 64),
+     (128, 128),
+@@ -91,6 +94,8 @@ def _compute_tactic_for_m(rep_m, n, real_k, sm_count, m_aligned):
+     best_score = -1.0
+ 
+     for tile_m, tile_n in _SM100_MMA_TILER_MN_CANDIDATES:
++        if tile_n < 64 and prob_n > tile_n:
++            continue
+         n_tiles = (prob_n + tile_n - 1) // tile_n
+         n_eff = prob_n / (n_tiles * tile_n)
+         tile_area_factor = ((tile_m * tile_n) / max_tile_area) ** 0.5
+diff --git a/tests/gemm/test_mm_fp4.py b/tests/gemm/test_mm_fp4.py
+index 5a634e34ef..a93737cc0c 100644
+--- a/tests/gemm/test_mm_fp4.py
++++ b/tests/gemm/test_mm_fp4.py
+@@ -109,7 +109,7 @@ def _test_mm_fp4(
+ 
+ 
+ # TODO: Consdier splitting this function up for the various backends
+-@pytest.mark.parametrize("m", [1, 48, 128, 256, 512])
++@pytest.mark.parametrize("m", [1, 2, 4, 8, 16, 32, 48, 64, 128, 256, 512])
+ @pytest.mark.parametrize("n", [128, 256, 512])
+ @pytest.mark.parametrize("k", [128, 256, 512])
+ @pytest.mark.parametrize("res_dtype", [torch.bfloat16, torch.float16])

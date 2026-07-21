@@ -1,0 +1,12 @@
+diff --git a/python/sglang/srt/model_executor/model_runner.py b/python/sglang/srt/model_executor/model_runner.py
+index be98332524df..a1614e06b86e 100644
+--- a/python/sglang/srt/model_executor/model_runner.py
++++ b/python/sglang/srt/model_executor/model_runner.py
+@@ -2305,6 +2305,7 @@ def _dummy_run(self, batch_size: int):
+             encoder_len_fill_value=0,
+             num_tokens_per_bs=num_tokens_per_bs,
+             cache_loc_dtype=torch.int64,
++            enable_mamba_track=False,
+         )
+         buffers.num_token_non_padded[...] = num_tokens
+ 

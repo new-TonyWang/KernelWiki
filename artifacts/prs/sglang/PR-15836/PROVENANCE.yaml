@@ -1,0 +1,29 @@
+origin_url: https://github.com/sgl-project/sglang/pull/15836
+upstream_repo: sgl-project/sglang
+upstream_sha: 0fee6bc6
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-15836
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 70612ead7651f996c3dfa285cc39c61b9c4816f95d5c17309741bdae7980e537
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/per_tensor_quant_fp8.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/per_tensor_quant_fp8.cuh
+  sha256: 87621c18eed0bedde4a39079a2f803c46417d409b2d30779f19ee8485b22b737
+- local_path: key-files/python/sglang/jit_kernel/per_tensor_quant_fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/per_tensor_quant_fp8.py
+  sha256: f6152079685262c5c45f1b129a60b93bd47cf4af4b125865050c5426fe48f1c4
+- local_path: key-files/python/sglang/srt/layers/quantization/fp8_kernel.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/quantization/fp8_kernel.py
+  sha256: 7ce188c5ec2fb59b6fccb57383a48dc7f196bacf2197ed29ae7be4a16755dcbb

@@ -1,0 +1,34 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/3032
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: bf9b1dac
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-3032
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: db14f466c19785936a7e43e564db7ab3d5e34e2a07e486baf54eea4493cdf1ec
+- local_path: key-files/csrc/fused_moe/cutlass_backend/flashinfer_cutlass_fused_moe_binding.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fused_moe/cutlass_backend/flashinfer_cutlass_fused_moe_binding.cu
+  sha256: 4b433f0eff220b889744ba646cab3579f47aeae8d62c0b621d9dcab07aeed671
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/moe_gemm_kernels.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/moe_gemm_kernels.h
+  sha256: f58bc8a08b64932bf893bac9f9c02a1a64e40f018897b501de5c8b829e2280d8
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/moe_kernels.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/include/moe_kernels.h
+  sha256: cb3fb75682a0beb8f1d170f3917c040f3991d853b23ed794d827456607b71d9b
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_gemm_template_dispatch.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_gemm_template_dispatch.h
+  sha256: 04dd86ef7a2e95e44d11d7c58cdc065fed070b5f7ff3129715256f255b350001

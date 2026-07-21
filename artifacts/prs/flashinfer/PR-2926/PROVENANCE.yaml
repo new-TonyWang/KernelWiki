@@ -1,0 +1,24 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/2926
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: d47f3275
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-2926
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 3050b0f6dc5b632a1033daf209eef1d3f71bbb3b11971479a80aa88ce2c6b1e3
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/cutlass_extensions/include/cutlass_extensions/epilogue_helpers.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/cutlass_extensions/include/cutlass_extensions/epilogue_helpers.h
+  sha256: 7a8f17c6a8db00ea689ecebed46cccdd18ed82e938a2502bf1b4d7cec661e8ee
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_gemm_template_dispatch.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_gemm_template_dispatch.h
+  sha256: 75f87cf0b8e310a98569f68f121ab5fef2db19922799fe30015d77b6f8a2af1e
