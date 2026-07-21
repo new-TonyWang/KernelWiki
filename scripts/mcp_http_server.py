@@ -146,15 +146,27 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
     # Quota + audit
     # ------------------------------------------------------------------
 
-    def _check_quota(self) -> bool:
+    def _check_preauth_rate(self) -> bool:
+        """Rate-limit by source address before authentication runs.
+
+        Verifying a bearer token is deliberately expensive (PBKDF2 over every
+        enabled token), so an unauthenticated caller spraying wrong tokens
+        would otherwise buy unbounded server CPU with no credential at all.
+        """
+        return self._check_quota(identity=f"peer:{self.client_address[0]}",
+                                 enforce_quota=False)
+
+    def _check_quota(self, identity: str | None = None,
+                     enforce_quota: bool = True) -> bool:
         """Enforce the per-identity request rate and extraction quota."""
         limiter = self.server.limiter
         if limiter is None:
             return True
-        allowed, retry_after, reason = limiter.check(self.identity)
+        identity = identity or self.identity
+        allowed, retry_after, reason = limiter.check(identity, enforce_quota=enforce_quota)
         if allowed:
             return True
-        self._audit("quota_block", reason=reason)
+        self._audit("quota_block", reason=reason, blocked_identity=identity)
         self._send_json(
             HTTPStatus.TOO_MANY_REQUESTS,
             {"error": "rate_limited", "message": reason},
@@ -337,7 +349,9 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
             )
             return
         if path.startswith("/admin/tokens"):
-            if not self._check_origin_or_forbid() or not self._check_admin_auth():
+            if not self._check_origin_or_forbid() or not self._check_preauth_rate():
+                return
+            if not self._check_admin_auth():
                 return
             self._handle_admin_get(path)
             return
@@ -361,7 +375,9 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         path = self.path.split("?", 1)[0]
         if path.rstrip("/").startswith("/admin/tokens"):
-            if not self._check_origin_or_forbid() or not self._check_admin_auth():
+            if not self._check_origin_or_forbid() or not self._check_preauth_rate():
+                return
+            if not self._check_admin_auth():
                 return
             payload = self._read_json_body()
             if isinstance(payload, tuple):
@@ -373,7 +389,9 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
         if path != self.server.mcp_path:
             self._send_plain(HTTPStatus.NOT_FOUND, "not found\n")
             return
-        if not self._check_origin_or_forbid() or not self._check_mcp_auth():
+        if not self._check_origin_or_forbid() or not self._check_preauth_rate():
+            return
+        if not self._check_mcp_auth():
             return
         if not self._check_quota():
             return

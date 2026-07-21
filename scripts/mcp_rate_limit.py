@@ -46,10 +46,12 @@ class RateLimiter:
         while window and (window[0][0] if keyed else window[0]) < cutoff:
             window.popleft()
 
-    def check(self, identity: str) -> tuple[bool, int, str]:
+    def check(self, identity: str, *, enforce_quota: bool = True) -> tuple[bool, int, str]:
         """Return (allowed, retry_after_seconds, reason).
 
-        Charges one request against the per-minute budget when allowed.
+        Charges one request against the per-minute budget when allowed. Pass
+        ``enforce_quota=False`` for the pre-authentication check, where only
+        the request rate is meaningful because no identity is established yet.
         """
         now = time.monotonic()
         with self._lock:
@@ -62,7 +64,7 @@ class RateLimiter:
                         f"rate limit exceeded: {self.rpm} requests/minute"
                     )
 
-            if self.quota_bytes:
+            if enforce_quota and self.quota_bytes:
                 spend = self._spend.setdefault(identity, deque())
                 self._evict(spend, now - self.quota_window, keyed=True)
                 used = sum(n for _, n in spend)
