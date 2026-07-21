@@ -1,0 +1,29 @@
+origin_url: https://github.com/deepseek-ai/DeepGEMM/pull/88
+upstream_repo: deepseek-ai/DeepGEMM
+upstream_sha: 891f35ad
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-DeepGEMM-88
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: effe3193daec36843b8d15363957483c9f751b5edb00ab44a15f7a139e0f3b18
+- local_path: key-files/deep_gemm/include/deep_gemm/fp8_gemm.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/fp8_gemm.cuh
+  sha256: af7393e5688d5a44086ce6319ea8be6110d6b4a427c7d9ebb34e311a32ef1fd0
+- local_path: key-files/deep_gemm/include/deep_gemm/scheduler.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/scheduler.cuh
+  sha256: f05d50cc7fbb4eca26fc23417982b452dd611bd37ac7a98d36e84f9ef724ce22
+- local_path: key-files/deep_gemm/jit_kernels/gemm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/jit_kernels/gemm.py
+  sha256: 80871737cf9771fe7497ee6c5786cdbee3975990efbb3502785bb19a99971149

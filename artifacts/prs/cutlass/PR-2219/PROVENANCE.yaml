@@ -1,0 +1,24 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/2219
+upstream_repo: NVIDIA/cutlass
+upstream_sha: ade6376f
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-2219
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: fe87180c8979c8eb71f3f42cdd7cd76c97305972d6037dab05ca0d6385af34f4
+- local_path: key-files/include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_cooperative.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_cooperative.hpp
+  sha256: 529096eb1300b6d92ba8d490509093703d7582ac7546f3f8a247b98bbf3d54fa
+- local_path: key-files/include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_pingpong.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_pingpong.hpp
+  sha256: e803f990e8fb4d5dc013f851f6a5c8434b6a05e8bbd7a4d67632a4026e9c4d2a

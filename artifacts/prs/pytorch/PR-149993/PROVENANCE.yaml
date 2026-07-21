@@ -1,0 +1,20 @@
+origin_url: https://github.com/pytorch/pytorch/pull/149993
+upstream_repo: pytorch/pytorch
+upstream_sha: 697cd9bb
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-pytorch-149993
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: cbcd563ce3092d31cb759509eeebd3bf1c6f6a8d8e6d716304a15f89406dc619
+- local_path: key-files/torch/_inductor/codegen/cpp_wrapper_gpu.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: torch/_inductor/codegen/cpp_wrapper_gpu.py
+  sha256: ac5f0065a83a1299b22010dbfb56d3ee0240f4c84d9982b966f878b3765c4492
+captured_via_relaxed_allowlist: true

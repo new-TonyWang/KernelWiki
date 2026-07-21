@@ -1,0 +1,39 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/2790
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 2052fd38
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-2790
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 839d93e19c21494136b619ce707cf64b9745f9321a2d173c169848ef6f4a6607
+- local_path: key-files/examples/92_blackwell_moe_gemm/92_blackwell_moe_gemm_blockscaled_rcgrouped.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/92_blackwell_moe_gemm/92_blackwell_moe_gemm_blockscaled_rcgrouped.cu
+  sha256: 0c8a998f78c0bcb6020a7038c801c908df3733c4571fbb0e850ea3df65f62e7f
+- local_path: key-files/include/cutlass/gemm/collective/builders/sm100_blockscaled_umma_builder.inl
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/builders/sm100_blockscaled_umma_builder.inl
+  sha256: c1f67ed5fef152bf8d5010e8ae1a4082911c3febdbdfd2f660b3d730f66e9489
+- local_path: key-files/include/cutlass/gemm/collective/collective_mma.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/collective_mma.hpp
+  sha256: d2dbedff13703f457607e0c3a1a65ec9fbb8515ce7816da5becc642572671841
+- local_path: key-files/include/cutlass/gemm/collective/sm100_blockscaled_mma_array_warpspecialized_rcggemm.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/sm100_blockscaled_mma_array_warpspecialized_rcggemm.hpp
+  sha256: 646c304c9e0689d25e57091ee3086642c8491d9450c6bb885556a8f58f175413
+- local_path: key-files/include/cutlass/gemm/dispatch_policy.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/dispatch_policy.hpp
+  sha256: 95fbfc361b69a17f60e34ae9a1900741cb667fc5761038c4782cfdbf2f2b7cd4

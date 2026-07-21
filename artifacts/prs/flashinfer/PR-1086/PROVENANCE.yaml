@@ -1,0 +1,29 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1086
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 4d92f008
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1086
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 0e5ab2dddecd3f45d2ef05138e2460492cab1bd6a2b498ffcd4fbb646cd0bdd5
+- local_path: key-files/csrc/group_gemm_groupwise_sm100.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_groupwise_sm100.cu
+  sha256: 4ffd4ac6947d0ca60e3197daaab9c9dffc9ff07001e77ff22dca3580b063baf3
+- local_path: key-files/csrc/group_gemm_sm100_pybind.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_sm100_pybind.cu
+  sha256: 0409b57a7049ed5f573f760085099308e2ee05e5abf0de57a01cb3481eb56558
+- local_path: key-files/include/flashinfer/gemm/group_gemm_groupwise_sm100.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/group_gemm_groupwise_sm100.cuh
+  sha256: c7a2b5f2c044a567a0f1a02555d578057c89c5b294bf15d37fb03dd999a57fba

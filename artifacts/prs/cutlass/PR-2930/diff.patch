@@ -1,0 +1,13 @@
+diff --git a/test/examples/CuTeDSL/sm_100a/test_dense_blockscaled_gemm_persistent_prefetch.py b/test/examples/CuTeDSL/sm_100a/test_dense_blockscaled_gemm_persistent_prefetch.py
+index 623f98144c..825c1697eb 100644
+--- a/test/examples/CuTeDSL/sm_100a/test_dense_blockscaled_gemm_persistent_prefetch.py
++++ b/test/examples/CuTeDSL/sm_100a/test_dense_blockscaled_gemm_persistent_prefetch.py
+@@ -47,7 +47,7 @@
+ )
+ 
+ import cutlass
+-
++pytestmark = [pytest.mark.arch(["100a"])]
+ 
+ @pytest.mark.invalid_case(
+     lambda: not Sm100BlockScaledPersistentDenseGemmKernel.can_implement(

@@ -1,0 +1,34 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/2172
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 6c6b7855
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-2172
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: bdd849d506201ee0c43a81926a58fb9d8c27d142b3471f94c4232fce203c9271
+- local_path: key-files/include/cutlass/gemm/kernel/sm90_gemm_array_tma_warpspecialized_cooperative.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm90_gemm_array_tma_warpspecialized_cooperative.hpp
+  sha256: 7e49a2a937a0ec199660ffdb306d43ede3a353d88a62914cbedd2d7d832d9d22
+- local_path: key-files/include/cutlass/gemm/kernel/sm90_gemm_array_tma_warpspecialized_pingpong.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm90_gemm_array_tma_warpspecialized_pingpong.hpp
+  sha256: 36d8ec074f1abd7f7316853a5a176cecf760a25533ca757215406c7eaaa7188e
+- local_path: key-files/include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_pingpong.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_pingpong.hpp
+  sha256: 0bd45425f33599cfae7feb5d4c37bc2036fab285c592d6807fd336a7e16b86bb
+- local_path: key-files/include/cutlass/gemm/kernel/tile_scheduler_params.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/tile_scheduler_params.h
+  sha256: 846c22c716e65df9b05fb6d3b36f56c07633f3124929e05247f80b24551481e9

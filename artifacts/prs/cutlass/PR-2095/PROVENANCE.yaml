@@ -1,0 +1,34 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/2095
+upstream_repo: NVIDIA/cutlass
+upstream_sha: df18f5e4
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-2095
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 2efa5af2d851ba28288083fab60fc0e9395eb252e5d666531ded3b2254b15594
+- local_path: key-files/examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling.cu
+  sha256: dd81a9e978ef6988c5115480e37f33f25f6ebaceafe8f5ec5aa87569b6110820
+- local_path: key-files/examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/67_hopper_fp8_warp_specialized_gemm_with_groupwise_scaling.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/67_hopper_fp8_warp_specialized_gemm_with_groupwise_scaling.cu
+  sha256: d7286d4beb3814f57321cfcf4962c98a9727631c61718c5dae47d944329dbd1e
+- local_path: key-files/examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/reference/host/gemm_with_groupwise_scaling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/reference/host/gemm_with_groupwise_scaling.h
+  sha256: e2302f1b294f07d024bb0bd93749ad66836d0e0999bf40b8b9a3dcb8c1854183
+- local_path: key-files/include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  sha256: 10c1a717e51ddcd63510bbd3954587f3b14cc463266c91a7dde969b7983a5b7b

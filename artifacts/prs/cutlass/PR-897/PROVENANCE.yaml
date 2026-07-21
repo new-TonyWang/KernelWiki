@@ -1,0 +1,54 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/897
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 15d9d31f
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-897
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 150ccfa34ed26d10c89bb9f66f9394610a6cff1d3fdb3a00ba42200d006bd48f
+- local_path: key-files/examples/51_hopper_gett/51_hopper_gett.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/51_hopper_gett/51_hopper_gett.cu
+  sha256: 17908e8723a40d939c5e3f74c92de689235e6a251bd89bcab2cbec40f5ecc8e4
+- local_path: key-files/examples/51_hopper_gett/gett_kernel.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/51_hopper_gett/gett_kernel.cuh
+  sha256: 5212254804be2dfd03edf0b24a4a808b8a8e7c2cadc6749b9facd1052ae2a649
+- local_path: key-files/include/cute/atom/copy_traits_sm90_tma.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cute/atom/copy_traits_sm90_tma.hpp
+  sha256: d6bc24a873b2f035ffe3921aadb4476980b0a85aabacc153387a0db1e0954b26
+- local_path: key-files/include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  sha256: caea65fb523a6a61024cce84a3b162de928a70541bedc797dda2297f1dff306c
+- local_path: key-files/include/cutlass/gemm/gemm.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/gemm.h
+  sha256: d0ef143a41b50f1fcd152d6cdce1d5f4125be910a3e16dce78c24a6e1f1bf303
+- local_path: key-files/tools/util/include/cutlass/util/gett_commandline.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: tools/util/include/cutlass/util/gett_commandline.hpp
+  sha256: 785fe09acd931659f2501e086bb1522503d98207d74684ef336861bc3d3f3832
+- local_path: key-files/tools/util/include/cutlass/util/print_error.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: tools/util/include/cutlass/util/print_error.hpp
+  sha256: 172bd0133f4796c4aae0cae34056c4994492593161f4f2174f568ea5ec12fba8
+- local_path: key-files/tools/util/include/cutlass/util/reference/device/gett.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: tools/util/include/cutlass/util/reference/device/gett.hpp
+  sha256: 9ee8a92bffd4f0b3efe32502a77a807850e41d75e8dc14f2e72b698970e6449c
