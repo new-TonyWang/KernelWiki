@@ -1,0 +1,1564 @@
+diff --git a/python/sglang/jit_kernel/benchmark/bench_dsv4_fp4_indexer.py b/python/sglang/jit_kernel/benchmark/bench_dsv4_fp4_indexer.py
+new file mode 100644
+index 000000000000..a593bbfc8427
+--- /dev/null
++++ b/python/sglang/jit_kernel/benchmark/bench_dsv4_fp4_indexer.py
+@@ -0,0 +1,174 @@
++from __future__ import annotations
++
++import sys
++
++import torch
++import triton
++
++from sglang.benchmark.bench_utils import run_bench
++from sglang.jit_kernel.benchmark.utils import get_benchmark_range
++from sglang.srt.utils import is_sm100_supported
++from sglang.test.ci.ci_register import register_cuda_ci
++
++register_cuda_ci(est_time=5, suite="base-b-kernel-benchmark-1-gpu-large")
++
++try:
++    import deep_gemm
++    from deep_gemm.utils import per_token_cast_to_fp4
++except Exception:
++    deep_gemm = None
++    per_token_cast_to_fp4 = None
++
++HEAD_DIM = 128
++NUM_HEADS = 64
++BLOCK_KV = 64
++NEXT_N = 1
++
++shape_range = get_benchmark_range(
++    full_range=[(256, 8192), (256, 32768)],
++    ci_range=[(256, 8192)],
++)
++
++
++def _pack_fp8_cache(k: torch.Tensor, *, num_blocks: int) -> torch.Tensor:
++    k = k.view(num_blocks, BLOCK_KV, 1, HEAD_DIM)
++    scale = k.abs().float().amax(dim=3, keepdim=True).clamp(1.0e-4) / 448.0
++    k_fp8 = (k * (1.0 / scale)).to(torch.float8_e4m3fn)
++    buf = torch.empty(
++        (num_blocks, BLOCK_KV * (HEAD_DIM + 4)), dtype=torch.uint8, device="cuda"
++    )
++    buf[:, : BLOCK_KV * HEAD_DIM].copy_(
++        k_fp8.view(num_blocks, BLOCK_KV * HEAD_DIM).view(torch.uint8)
++    )
++    buf[:, BLOCK_KV * HEAD_DIM :].copy_(
++        scale.view(num_blocks, BLOCK_KV).view(torch.uint8)
++    )
++    return buf.view(num_blocks, BLOCK_KV, 1, HEAD_DIM + 4)
++
++
++def _pack_fp4_cache(
++    k_fp4: torch.Tensor,
++    k_sf: torch.Tensor,
++    *,
++    num_blocks: int,
++) -> torch.Tensor:
++    buf = torch.empty((num_blocks, BLOCK_KV * 68), dtype=torch.uint8, device="cuda")
++    buf[:, : BLOCK_KV * 64].view(num_blocks, BLOCK_KV, 64).copy_(
++        k_fp4.view(torch.uint8).view(num_blocks, BLOCK_KV, 64)
++    )
++    buf[:, BLOCK_KV * 64 :].view(num_blocks, BLOCK_KV, 4).copy_(
++        k_sf.contiguous().view(torch.uint8).view(num_blocks, BLOCK_KV, 4)
++    )
++    return buf.view(num_blocks, BLOCK_KV, 1, 68)
++
++
++def _make_case(batch: int, seq_len_kv: int):
++    if deep_gemm is None or per_token_cast_to_fp4 is None:
++        raise RuntimeError("DeepGEMM is required for this benchmark.")
++
++    blocks_per_seq = triton.cdiv(seq_len_kv, BLOCK_KV)
++    padded_len = blocks_per_seq * BLOCK_KV
++    num_blocks = batch * blocks_per_seq
++    num_cache_tokens = num_blocks * BLOCK_KV
++    page_table = torch.arange(num_blocks, dtype=torch.int32, device="cuda").view(
++        batch, blocks_per_seq
++    )
++    context_lens = torch.full(
++        (batch, NEXT_N), seq_len_kv, dtype=torch.int32, device="cuda"
++    )
++    schedule = deep_gemm.get_paged_mqa_logits_metadata(
++        context_lens, BLOCK_KV, deep_gemm.get_num_sms(), indices=None
++    )
++
++    q = torch.randn(
++        batch, NEXT_N, NUM_HEADS, HEAD_DIM, device="cuda", dtype=torch.bfloat16
++    )
++    k = torch.randn(num_cache_tokens, HEAD_DIM, device="cuda", dtype=torch.bfloat16)
++    weights = torch.randn(batch * NEXT_N, NUM_HEADS, device="cuda", dtype=torch.float32)
++
++    q_scale = q.abs().float().amax(dim=-1, keepdim=True).clamp(1.0e-4) / 448.0
++    q_fp8 = (q.float() / q_scale).clamp(-448.0, 448.0).to(torch.float8_e4m3fn)
++    weights_fp8 = (
++        weights.view(batch, NEXT_N, NUM_HEADS)[:, :, :, None] * q_scale
++    ).view(batch * NEXT_N, NUM_HEADS)
++    k_cache_fp8 = _pack_fp8_cache(k, num_blocks=num_blocks)
++
++    q_fp4_flat, q_sf_flat = per_token_cast_to_fp4(
++        q.view(-1, HEAD_DIM), use_ue8m0=True, gran_k=32, use_packed_ue8m0=True
++    )
++    q_fp4 = q_fp4_flat.view(batch, NEXT_N, NUM_HEADS, HEAD_DIM // 2)
++    q_sf = q_sf_flat.view(batch, NEXT_N, NUM_HEADS)
++    k_fp4, k_sf = per_token_cast_to_fp4(
++        k, use_ue8m0=True, gran_k=32, use_packed_ue8m0=True
++    )
++    k_cache_fp4 = _pack_fp4_cache(k_fp4, k_sf, num_blocks=num_blocks)
++
++    return {
++        "padded_len": padded_len,
++        "page_table": page_table,
++        "context_lens": context_lens,
++        "schedule": schedule,
++        "q_fp8": q_fp8,
++        "weights_fp8": weights_fp8,
++        "k_cache_fp8": k_cache_fp8,
++        "q_fp4": q_fp4,
++        "q_sf": q_sf,
++        "weights": weights,
++        "k_cache_fp4": k_cache_fp4,
++    }
++
++
++@triton.testing.perf_report(
++    triton.testing.Benchmark(
++        x_names=["batch", "seq_len_kv"],
++        x_vals=shape_range,
++        x_log=False,
++        line_arg="provider",
++        line_vals=["fp8", "fp4"],
++        line_names=["Default FP8 indexer", "FP4 indexer"],
++        styles=[("blue", "-"), ("green", "-")],
++        ylabel="us",
++        plot_name="dsv4-fp4-indexer-performance",
++        args={},
++    )
++)
++def benchmark(batch: int, seq_len_kv: int, provider: str):
++    case = _make_case(batch, seq_len_kv)
++    if provider == "fp8":
++        fn = lambda: deep_gemm.fp8_paged_mqa_logits(
++            case["q_fp8"],
++            case["k_cache_fp8"],
++            case["weights_fp8"],
++            case["context_lens"],
++            case["page_table"],
++            case["schedule"],
++            case["padded_len"],
++            clean_logits=False,
++            indices=None,
++        )
++    elif provider == "fp4":
++        fn = lambda: deep_gemm.fp8_fp4_paged_mqa_logits(
++            (case["q_fp4"], case["q_sf"]),
++            case["k_cache_fp4"],
++            case["weights"],
++            case["context_lens"],
++            case["page_table"],
++            case["schedule"],
++            case["padded_len"],
++            clean_logits=False,
++            logits_dtype=torch.float32,
++            indices=None,
++        )
++    else:
++        raise ValueError(f"Unknown provider: {provider}")
++    return tuple(t * 1000 for t in run_bench(fn, use_cuda_graph=False))
++
++
++if __name__ == "__main__":
++    if not is_sm100_supported():
++        print("[skip] DeepSeek V4 FP4 indexer benchmark requires SM100 CUDA.")
++        sys.exit(0)
++    if deep_gemm is None or per_token_cast_to_fp4 is None:
++        print("[skip] DeepGEMM is unavailable.")
++        sys.exit(0)
++    benchmark.run(print_data=True)
+diff --git a/python/sglang/jit_kernel/csrc/deepseek_v4/fused_norm_rope_v2.cuh b/python/sglang/jit_kernel/csrc/deepseek_v4/fused_norm_rope_v2.cuh
+index 811dc41f1868..a9cac1754428 100644
+--- a/python/sglang/jit_kernel/csrc/deepseek_v4/fused_norm_rope_v2.cuh
++++ b/python/sglang/jit_kernel/csrc/deepseek_v4/fused_norm_rope_v2.cuh
+@@ -22,6 +22,20 @@ using deepseek_v4::fp8::cast_to_ue8m0;
+ using deepseek_v4::fp8::inv_scale_ue8m0;
+ using deepseek_v4::fp8::pack_fp8;
+ 
++SGL_DEVICE uint8_t quant_fp4_e2m1(float x) {
++  const float ax = fminf(fabsf(x), 6.0f);
++  uint8_t idx = 0;
++  idx += ax > 0.25f;
++  idx += ax > 0.75f;
++  idx += ax > 1.25f;
++  idx += ax > 1.75f;
++  idx += ax > 2.5f;
++  idx += ax > 3.5f;
++  idx += ax > 5.0f;
++  if (x < 0.0f && idx != 0) idx |= 0x8;
++  return idx;
++}
++
+ constexpr uint32_t kBlockSize = 256;
+ constexpr uint32_t kNumWarps = kBlockSize / device::kWarpThreads;
+ 
+@@ -205,6 +219,146 @@ INDEXER_KERNEL void fused_norm_rope_indexer(const __grid_constant__ FusedNormRop
+   }
+ }
+ 
++template <typename DType, ForwardMode kMode, int32_t kPageBits, bool kUsePDL>
++INDEXER_KERNEL void fused_norm_rope_indexer_fp4(const __grid_constant__ FusedNormRopeStoreParams params) {
++  using namespace device;
++  using enum ForwardMode;
++
++  constexpr int64_t kHeadDim = 128;
++  constexpr int64_t kRopeDim = 64;
++  constexpr int64_t kVecSize = 4;
++  constexpr uint32_t kRopeSize = kRopeDim / kVecSize;
++  constexpr int64_t kPageBytes = 68ll << kPageBits;
++  static_assert(kHeadDim == kWarpThreads * kVecSize);
++  static_assert(kRopeDim == kWarpThreads * 2);
++  static_assert(kRopeSize <= kWarpThreads);
++  using Storage = AlignedVector<DType, kVecSize>;
++  using Float4 = AlignedVector<float, kVecSize>;
++
++  const auto warp_id = threadIdx.x / kWarpThreads;
++  const auto lane_id = threadIdx.x % kWarpThreads;
++  const auto work_id = blockIdx.x * kNumWarps + warp_id;
++  const bool is_rope_lane = lane_id >= kWarpThreads - kRopeSize;
++
++  if (work_id >= params.num_tokens) return;
++
++  const auto input = static_cast<DType*>(params.input) + work_id * kHeadDim;
++  int32_t position;
++  int32_t out_loc;
++  if constexpr (kMode == CompressExtend) {
++    const auto plan = static_cast<const PlanC*>(params.handle)[work_id];
++    if (plan.is_invalid()) return;
++    position = plan.seq_len - params.compress_ratio;
++    out_loc = params.out_loc[plan.ragged_id];
++  } else if constexpr (kMode == CompressDecode) {
++    const auto plan = static_cast<const PlanD*>(params.handle)[work_id];
++    if (plan.seq_len % params.compress_ratio != 0) return;
++    position = plan.seq_len - params.compress_ratio;
++    out_loc = params.out_loc[work_id];
++  } else {
++    static_assert(host::dependent_false_v<DType>, "Unsupported Mode");
++  }
++  const auto freqs_cis = params.freqs_cis + position * kRopeDim;
++
++  PDLWaitPrimary<kUsePDL>();
++  Float4 data, freq;
++
++  {
++    Storage input_vec, weight_vec;
++    input_vec.load(input, lane_id);
++    weight_vec.load(params.weight, lane_id);
++    if (is_rope_lane) freq.load(freqs_cis, lane_id - (kWarpThreads - kRopeSize));
++
++    float sum_of_squares = 0.0f;
++#pragma unroll
++    for (int i = 0; i < kVecSize; ++i) {
++      const auto fp32_input = cast<float>(input_vec[i]);
++      sum_of_squares += fp32_input * fp32_input;
++    }
++
++    sum_of_squares = warp::reduce_sum(sum_of_squares);
++    const auto norm_factor = math::rsqrt(sum_of_squares / kHeadDim + params.eps);
++
++#pragma unroll
++    for (int i = 0; i < kVecSize; ++i) {
++      const auto fp32_input = cast<float>(input_vec[i]);
++      const auto fp32_weight = cast<float>(weight_vec[i]);
++      data[i] = fp32_input * norm_factor * fp32_weight;
++    }
++  }
++
++  if (is_rope_lane) {
++    const auto x_real = data[0];
++    const auto x_imag = data[1];
++    const auto y_real = data[2];
++    const auto y_imag = data[3];
++    const auto freq_x_real = freq[0];
++    const auto freq_x_imag = freq[1];
++    const auto freq_y_real = freq[2];
++    const auto freq_y_imag = freq[3];
++    data[0] = x_real * freq_x_real - x_imag * freq_x_imag;
++    data[1] = x_real * freq_x_imag + x_imag * freq_x_real;
++    data[2] = y_real * freq_y_real - y_imag * freq_y_imag;
++    data[3] = y_real * freq_y_imag + y_imag * freq_y_real;
++  }
++
++  {
++    {
++      const float a0 = data[0], a1 = data[1], a2 = data[2], a3 = data[3];
++      data[0] = a0 + a1;
++      data[1] = a0 - a1;
++      data[2] = a2 + a3;
++      data[3] = a2 - a3;
++    }
++    {
++      const float a0 = data[0], a1 = data[1], a2 = data[2], a3 = data[3];
++      data[0] = a0 + a2;
++      data[1] = a1 + a3;
++      data[2] = a0 - a2;
++      data[3] = a1 - a3;
++    }
++#pragma unroll
++    for (uint32_t mask = 1; mask < kWarpThreads; mask <<= 1) {
++#pragma unroll
++      for (int i = 0; i < kVecSize; ++i) {
++        const float other = __shfl_xor_sync(0xFFFFFFFFu, data[i], mask, kWarpThreads);
++        data[i] = (lane_id & mask) ? (other - data[i]) : (data[i] + other);
++      }
++    }
++    const float kHadamardScale = math::rsqrt(static_cast<float>(kHeadDim));
++#pragma unroll
++    for (int i = 0; i < kVecSize; ++i)
++      data[i] *= kHadamardScale;
++  }
++
++  {
++    float local_max = math::abs(data[0]);
++#pragma unroll
++    for (int i = 1; i < kVecSize; ++i) {
++      local_max = math::max(local_max, math::abs(data[i]));
++    }
++    local_max = warp::reduce_max<8>(local_max);
++
++    const auto scale_raw = fmaxf(1e-4f, local_max) / 6.0f;
++    const auto scale_ue8m0 = static_cast<uint8_t>(cast_to_ue8m0(scale_raw));
++    const auto inv_scale = inv_scale_ue8m0(scale_ue8m0);
++
++    const uint8_t packed0 = quant_fp4_e2m1(data[0] * inv_scale) | (quant_fp4_e2m1(data[1] * inv_scale) << 4);
++    const uint8_t packed1 = quant_fp4_e2m1(data[2] * inv_scale) | (quant_fp4_e2m1(data[3] * inv_scale) << 4);
++    const uint16_t packed = static_cast<uint16_t>(packed0) | (static_cast<uint16_t>(packed1) << 8);
++
++    const int32_t page = out_loc >> kPageBits;
++    const int32_t offset = out_loc & ((1 << kPageBits) - 1);
++    const auto page_ptr = params.kvcache + page * kPageBytes;
++    const auto value_ptr = page_ptr + offset * 64;
++    const auto scale_ptr = page_ptr + (64 << kPageBits) + offset * 4;
++
++    PDLTriggerSecondary<kUsePDL>();
++    reinterpret_cast<uint16_t*>(value_ptr)[lane_id] = packed;
++    if ((lane_id & 7) == 0) static_cast<uint8_t*>(scale_ptr)[lane_id >> 3] = scale_ue8m0;
++  }
++}
++
+ // ----------------------------------------------------------------------------
+ // FlashMLA variant: kHeadDim = 512, 1 token per *block* (256 threads).
+ // Each thread loads kVecSize=2 BF16, so 256 threads cover the full 512 elems.
+@@ -348,6 +502,12 @@ struct FusedNormRopeKernel {
+     }
+   }
+ 
++  template <ForwardMode kMode>
++  static constexpr auto select_fp4_kernel() {
++    static_assert(kIsIndexer, "FP4 fused store is only defined for the indexer");
++    return fused_norm_rope_indexer_fp4<DType, kMode, kLogPageSize, kUsePDL>;
++  }
++
+   static void forward(
+       const tvm::ffi::TensorView input,
+       const tvm::ffi::TensorView plan,
+@@ -420,6 +580,64 @@ struct FusedNormRopeKernel {
+     const auto kernel = mode == CompressExtend ? select_kernel<CompressExtend>() : select_kernel<CompressDecode>();
+     LaunchKernel(num_blocks, kBlockSize, device).enable_pdl(kUsePDL)(kernel, params);
+   }
++
++  static void forward_fp4(
++      const tvm::ffi::TensorView input,
++      const tvm::ffi::TensorView plan,
++      const tvm::ffi::TensorView weight,
++      const float eps,
++      const tvm::ffi::TensorView freqs_cis,
++      const tvm::ffi::TensorView out_loc,
++      const tvm::ffi::TensorView kvcache,
++      const bool is_decode,
++      const uint32_t compress_ratio) {
++    using namespace host;
++    using enum ForwardMode;
++
++    static_assert(kIsIndexer, "FP4 fused store is only defined for the indexer");
++    constexpr int64_t kFp4PageBytes = 68 * kPageSize;
++    const auto mode = static_cast<ForwardMode>(is_decode);
++
++    auto N = SymbolicSize{"num_tokens"};
++    auto device_ = SymbolicDevice{};
++    device_.set_options<kDLCUDA>();
++
++    TensorMatcher({N, kHeadDim}).with_dtype<DType>().with_device(device_).verify(input);
++    TensorMatcher({kHeadDim}).with_dtype<DType>().with_device(device_).verify(weight);
++    TensorMatcher({-1, kRopeDim}).with_dtype<float>().with_device(device_).verify(freqs_cis);
++    TensorMatcher({-1}).with_dtype<int32_t>().with_device(device_).verify(out_loc);
++    TensorMatcher({-1, -1}).with_strides({kFp4PageBytes, 1}).with_dtype<uint8_t>().with_device(device_).verify(kvcache);
++
++    switch (mode) {
++      case CompressExtend:
++        compress::verify_plan_c(plan, N, device_);
++        RuntimeCheck(out_loc.size(0) >= N.unwrap());
++        break;
++      case CompressDecode:
++        compress::verify_plan_d(plan, N, device_);
++        RuntimeCheck(out_loc.size(0) == N.unwrap());
++        break;
++    }
++
++    const auto num_tokens = static_cast<uint32_t>(N.unwrap());
++    if (num_tokens == 0) return;
++    const auto params = FusedNormRopeStoreParams{
++        .input = input.data_ptr(),
++        .handle = plan.data_ptr(),
++        .weight = weight.data_ptr(),
++        .freqs_cis = static_cast<const float*>(freqs_cis.data_ptr()),
++        .out_loc = static_cast<const int32_t*>(out_loc.data_ptr()),
++        .kvcache = static_cast<uint8_t*>(kvcache.data_ptr()),
++        .eps = eps,
++        .compress_ratio = compress_ratio,
++        .num_tokens = num_tokens,
++    };
++    const uint32_t num_blocks = div_ceil(num_tokens, kNumWarps);
++    const auto device = device_.unwrap();
++    const auto kernel =
++        mode == CompressExtend ? select_fp4_kernel<CompressExtend>() : select_fp4_kernel<CompressDecode>();
++    LaunchKernel(num_blocks, kBlockSize, device).enable_pdl(kUsePDL)(kernel, params);
++  }
+ };
+ 
+ }  // namespace
+diff --git a/python/sglang/jit_kernel/csrc/deepseek_v4/main_norm_rope.cuh b/python/sglang/jit_kernel/csrc/deepseek_v4/main_norm_rope.cuh
+index f8ee07ce570f..8fc8d0821d09 100644
+--- a/python/sglang/jit_kernel/csrc/deepseek_v4/main_norm_rope.cuh
++++ b/python/sglang/jit_kernel/csrc/deepseek_v4/main_norm_rope.cuh
+@@ -21,6 +21,20 @@ using deepseek_v4::fp8::cast_to_ue8m0;
+ using deepseek_v4::fp8::inv_scale_ue8m0;
+ using deepseek_v4::fp8::pack_fp8;
+ 
++SGL_DEVICE uint8_t quant_fp4_e2m1(float x) {
++  const float ax = fminf(fabsf(x), 6.0f);
++  uint8_t idx = 0;
++  idx += ax > 0.25f;
++  idx += ax > 0.75f;
++  idx += ax > 1.25f;
++  idx += ax > 1.75f;
++  idx += ax > 2.5f;
++  idx += ax > 3.5f;
++  idx += ax > 5.0f;
++  if (x < 0.0f && idx != 0) idx |= 0x8;
++  return idx;
++}
++
+ // 4 warps per block: warp-per-(token, head) work-item dispatch (Q kernel).
+ constexpr uint32_t kFusedQBlockSize = 128;
+ constexpr uint32_t kFusedQNumWarps = kFusedQBlockSize / device::kWarpThreads;
+@@ -626,4 +640,206 @@ struct FusedQIndexerRopeHadamardQuantKernel {
+   }
+ };
+ 
++struct FusedQIndexerRopeHadamardFp4QuantParams {
++  const void* __restrict__ q_input;
++  void* __restrict__ q_fp4;
++  int32_t* __restrict__ q_sf;
++  const void* __restrict__ weight;
++  float* __restrict__ weights_out;
++  float weight_scale;
++  const float* __restrict__ freqs_cis;
++  const void* __restrict__ positions;
++  uint32_t batch_size;
++  uint32_t num_heads;
++};
++
++template <typename DType, typename PosT, bool kUsePDL>
++Q_KERNEL void
++fused_q_indexer_rope_hadamard_fp4_quant(const __grid_constant__ FusedQIndexerRopeHadamardFp4QuantParams params) {
++  using namespace device;
++
++  constexpr int64_t kHeadDim = 128;
++  constexpr int64_t kRopeDim = 64;
++  constexpr int64_t kVecSize = 4;
++  constexpr uint32_t kRopeSize = kRopeDim / kVecSize;
++  static_assert(kHeadDim == kWarpThreads * kVecSize);
++  static_assert(kRopeDim == kWarpThreads * 2);
++  static_assert(kRopeSize <= kWarpThreads);
++
++  using Storage = AlignedVector<DType, kVecSize>;
++  using Float4 = AlignedVector<float, kVecSize>;
++
++  const auto warp_id = threadIdx.x / kWarpThreads;
++  const auto lane_id = threadIdx.x % kWarpThreads;
++  const auto work_id = blockIdx.x * kFusedQNumWarps + warp_id;
++  const bool is_rope_lane = lane_id >= kWarpThreads - kRopeSize;
++
++  const uint32_t total_works = params.batch_size * params.num_heads;
++  if (work_id >= total_works) return;
++
++  const uint32_t batch_id = work_id / params.num_heads;
++  const auto input_ptr = static_cast<const DType*>(params.q_input) + work_id * kHeadDim;
++  const auto position = static_cast<int32_t>(static_cast<const PosT*>(params.positions)[batch_id]);
++  const auto freqs_cis = params.freqs_cis + position * kRopeDim;
++
++  PDLWaitPrimary<kUsePDL>();
++  Float4 data, freq;
++  const auto weight_val = cast<float>(static_cast<const DType*>(params.weight)[work_id]);
++
++  {
++    Storage input_vec;
++    input_vec.load(input_ptr, lane_id);
++    if (is_rope_lane) freq.load(freqs_cis, lane_id - (kWarpThreads - kRopeSize));
++#pragma unroll
++    for (int i = 0; i < kVecSize; ++i) {
++      data[i] = cast<float>(input_vec[i]);
++    }
++  }
++
++  if (is_rope_lane) {
++    const auto x_real = data[0];
++    const auto x_imag = data[1];
++    const auto y_real = data[2];
++    const auto y_imag = data[3];
++    const auto fxr = freq[0];
++    const auto fxi = freq[1];
++    const auto fyr = freq[2];
++    const auto fyi = freq[3];
++    data[0] = x_real * fxr - x_imag * fxi;
++    data[1] = x_real * fxi + x_imag * fxr;
++    data[2] = y_real * fyr - y_imag * fyi;
++    data[3] = y_real * fyi + y_imag * fyr;
++#pragma unroll
++    for (int i = 0; i < kVecSize; ++i)
++      data[i] = cast<float>(cast<DType>(data[i]));
++  }
++
++  PDLTriggerSecondary<kUsePDL>();
++
++  {
++    {
++      const float a0 = data[0], a1 = data[1], a2 = data[2], a3 = data[3];
++      data[0] = a0 + a1;
++      data[1] = a0 - a1;
++      data[2] = a2 + a3;
++      data[3] = a2 - a3;
++    }
++    {
++      const float a0 = data[0], a1 = data[1], a2 = data[2], a3 = data[3];
++      data[0] = a0 + a2;
++      data[1] = a1 + a3;
++      data[2] = a0 - a2;
++      data[3] = a1 - a3;
++    }
++#pragma unroll
++    for (uint32_t mask = 1; mask < kWarpThreads; mask <<= 1) {
++#pragma unroll
++      for (int i = 0; i < kVecSize; ++i) {
++        const float other = __shfl_xor_sync(0xFFFFFFFFu, data[i], mask, kWarpThreads);
++        data[i] = (lane_id & mask) ? (other - data[i]) : (data[i] + other);
++      }
++    }
++    const float kHadamardScale = math::rsqrt(static_cast<float>(kHeadDim));
++#pragma unroll
++    for (int i = 0; i < kVecSize; ++i)
++      data[i] *= kHadamardScale;
++#pragma unroll
++    for (int i = 0; i < kVecSize; ++i)
++      data[i] = cast<float>(cast<DType>(data[i]));
++  }
++
++  {
++    float local_max = math::abs(data[0]);
++#pragma unroll
++    for (int i = 1; i < kVecSize; ++i) {
++      local_max = math::max(local_max, math::abs(data[i]));
++    }
++    local_max = warp::reduce_max<8>(local_max);
++    const auto scale_raw = fmaxf(1e-4f, local_max) / 6.0f;
++    const auto scale_ue8m0 = static_cast<uint8_t>(cast_to_ue8m0(scale_raw));
++    const auto inv_scale = inv_scale_ue8m0(scale_ue8m0);
++    const uint8_t packed0 = quant_fp4_e2m1(data[0] * inv_scale) | (quant_fp4_e2m1(data[1] * inv_scale) << 4);
++    const uint8_t packed1 = quant_fp4_e2m1(data[2] * inv_scale) | (quant_fp4_e2m1(data[3] * inv_scale) << 4);
++    const uint16_t packed = static_cast<uint16_t>(packed0) | (static_cast<uint16_t>(packed1) << 8);
++    auto out_row = static_cast<uint8_t*>(params.q_fp4) + work_id * (kHeadDim / 2);
++    reinterpret_cast<uint16_t*>(out_row)[lane_id] = packed;
++    if ((lane_id & 7) == 0) {
++      reinterpret_cast<uint8_t*>(params.q_sf + work_id)[lane_id >> 3] = scale_ue8m0;
++    }
++    params.weights_out[work_id] = weight_val * params.weight_scale;
++  }
++}
++
++template <typename DType, bool kUsePDL>
++struct FusedQIndexerRopeHadamardFp4QuantKernel {
++  template <typename PosT>
++  static constexpr auto kernel = fused_q_indexer_rope_hadamard_fp4_quant<DType, PosT, kUsePDL>;
++
++  static void forward(
++      const tvm::ffi::TensorView q_input,
++      const tvm::ffi::TensorView q_fp4,
++      const tvm::ffi::TensorView q_sf,
++      const tvm::ffi::TensorView weight,
++      const tvm::ffi::TensorView weights_out,
++      double weight_scale,
++      const tvm::ffi::TensorView freqs_cis,
++      const tvm::ffi::TensorView positions) {
++    using namespace host;
++    constexpr int64_t kHeadDim = 128;
++    constexpr int64_t kRopeDim = 64;
++    constexpr int64_t kFp4Dim = kHeadDim / 2;
++
++    auto B = SymbolicSize{"batch_size"};
++    auto H = SymbolicSize{"num_heads"};
++    auto device_ = SymbolicDevice{};
++    device_.set_options<kDLCUDA>();
++
++    TensorMatcher({B, H, kHeadDim})
++        .with_strides({-1, kHeadDim, 1})
++        .with_dtype<DType>()
++        .with_device(device_)
++        .verify(q_input);
++    TensorMatcher({B, H, kFp4Dim})
++        .with_strides({-1, kFp4Dim, 1})
++        .with_dtype<int8_t>()
++        .with_device(device_)
++        .verify(q_fp4);
++    TensorMatcher({B, H}).with_dtype<int32_t>().with_device(device_).verify(q_sf);
++    TensorMatcher({B, H}).with_dtype<DType>().with_device(device_).verify(weight);
++    TensorMatcher({B, H, 1}).with_dtype<float>().with_device(device_).verify(weights_out);
++    TensorMatcher({-1, kRopeDim}).with_dtype<float>().with_device(device_).verify(freqs_cis);
++    auto pos_dtype = SymbolicDType{};
++    TensorMatcher({B}).with_dtype<int32_t, int64_t>(pos_dtype).with_device(device_).verify(positions);
++
++    const auto batch_size = static_cast<uint32_t>(B.unwrap());
++    const auto num_heads = static_cast<uint32_t>(H.unwrap());
++    if (batch_size == 0) return;
++
++    const int64_t expected_q_stride = static_cast<int64_t>(num_heads) * kHeadDim;
++    const int64_t expected_fp4_stride = static_cast<int64_t>(num_heads) * kFp4Dim;
++    RuntimeCheck(q_input.stride(0) == expected_q_stride, "q_input must be contiguous");
++    RuntimeCheck(q_fp4.stride(0) == expected_fp4_stride, "q_fp4 must be contiguous");
++    RuntimeCheck(q_sf.stride(0) == static_cast<int64_t>(num_heads) && q_sf.stride(1) == 1, "q_sf must be contiguous");
++
++    const auto params = FusedQIndexerRopeHadamardFp4QuantParams{
++        .q_input = q_input.data_ptr(),
++        .q_fp4 = q_fp4.data_ptr(),
++        .q_sf = static_cast<int32_t*>(q_sf.data_ptr()),
++        .weight = weight.data_ptr(),
++        .weights_out = static_cast<float*>(weights_out.data_ptr()),
++        .weight_scale = static_cast<float>(weight_scale),
++        .freqs_cis = static_cast<const float*>(freqs_cis.data_ptr()),
++        .positions = positions.data_ptr(),
++        .batch_size = batch_size,
++        .num_heads = num_heads,
++    };
++    const auto total_works = batch_size * num_heads;
++    const auto num_blocks = div_ceil(total_works, kFusedQNumWarps);
++    const auto k_int32 = kernel<int32_t>;
++    const auto k_int64 = kernel<int64_t>;
++    const auto k = pos_dtype.is_type<int32_t>() ? k_int32 : k_int64;
++    LaunchKernel(num_blocks, kFusedQBlockSize, device_.unwrap()).enable_pdl(kUsePDL)(k, params);
++  }
++};
++
+ }  // namespace
+diff --git a/python/sglang/jit_kernel/dsv4/__init__.py b/python/sglang/jit_kernel/dsv4/__init__.py
+index 4939a73e5e8c..3e7ea2b8c4d5 100644
+--- a/python/sglang/jit_kernel/dsv4/__init__.py
++++ b/python/sglang/jit_kernel/dsv4/__init__.py
+@@ -12,6 +12,7 @@
+ from .compress_old import fused_norm_rope_inplace
+ from .elementwise import (
+     fused_k_norm_rope_flashmla,
++    fused_q_indexer_rope_hadamard_fp4_quant,
+     fused_q_indexer_rope_hadamard_quant,
+     fused_q_norm_rope,
+     fused_rope_inplace,
+@@ -38,6 +39,7 @@
+     "fused_store_cache",
+     "fused_rope_inplace",
+     "fused_q_norm_rope",
++    "fused_q_indexer_rope_hadamard_fp4_quant",
+     "fused_q_indexer_rope_hadamard_quant",
+     "fused_k_norm_rope_flashmla",
+     "make_name",
+diff --git a/python/sglang/jit_kernel/dsv4/compress.py b/python/sglang/jit_kernel/dsv4/compress.py
+index 38d696cdb2f0..9fc1e29a50b2 100644
+--- a/python/sglang/jit_kernel/dsv4/compress.py
++++ b/python/sglang/jit_kernel/dsv4/compress.py
+@@ -25,11 +25,16 @@ def _jit_compress_norm_rope_module(
+     page_size: int,
+ ) -> Module:
+     args = make_cpp_args(dtype, head_dim, rope_dim, page_size, is_arch_support_pdl())
++    cuda_wrappers = [("forward", f"FusedNormRopeKernel<{args}>::forward")]
++    if head_dim == 128:
++        cuda_wrappers.append(
++            ("forward_fp4", f"FusedNormRopeKernel<{args}>::forward_fp4")
++        )
+     return load_jit(
+         make_name(f"fused_norm_rope_v2"),
+         *args,
+         cuda_files=[f"deepseek_v4/fused_norm_rope_v2.cuh"],
+-        cuda_wrappers=[("forward", f"FusedNormRopeKernel<{args}>::forward")],
++        cuda_wrappers=cuda_wrappers,
+     )
+ 
+ 
+@@ -333,12 +338,16 @@ def compress_norm_rope_store(
+     out_loc: torch.Tensor,
+     kvcache: torch.Tensor,
+     page_size: int,
++    use_fp4: bool = False,
+ ) -> None:
++    if use_fp4:
++        assert kv.shape[-1] == 128
+     freq_cis = torch.view_as_real(freq_cis).flatten(-2)
+     module = _jit_compress_norm_rope_module(
+         kv.dtype, kv.shape[-1], freq_cis.shape[-1], page_size
+     )
+-    module.forward(
++    fn = module.forward_fp4 if use_fp4 else module.forward
++    fn(
+         kv,
+         plan[1],
+         norm_weight,
+diff --git a/python/sglang/jit_kernel/dsv4/elementwise.py b/python/sglang/jit_kernel/dsv4/elementwise.py
+index b721c841d8dc..91a5c501eb82 100644
+--- a/python/sglang/jit_kernel/dsv4/elementwise.py
++++ b/python/sglang/jit_kernel/dsv4/elementwise.py
+@@ -77,6 +77,19 @@ def _jit_main_q_indexer_rope_hadamard_quant_module(dtype: torch.dtype):
+     )
+ 
+ 
++@cache_once
++def _jit_main_q_indexer_rope_hadamard_fp4_quant_module(dtype: torch.dtype):
++    args = make_cpp_args(dtype, is_arch_support_pdl())
++    return load_jit(
++        make_name("main_q_indexer_rope_hadamard_fp4_quant"),
++        *args,
++        cuda_files=["deepseek_v4/main_norm_rope.cuh"],
++        cuda_wrappers=[
++            ("forward", f"FusedQIndexerRopeHadamardFp4QuantKernel<{args}>::forward"),
++        ],
++    )
++
++
+ def fused_rope_inplace(
+     q: torch.Tensor,
+     k: Optional[torch.Tensor],
+@@ -156,6 +169,39 @@ def fused_q_indexer_rope_hadamard_quant(
+     return q_fp8, weights_out
+ 
+ 
++def fused_q_indexer_rope_hadamard_fp4_quant(
++    q_input: torch.Tensor,
++    weight: torch.Tensor,
++    weight_scale: float,
++    freqs_cis: torch.Tensor,
++    positions: torch.Tensor,
++) -> Tuple[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
++    if _is_hip:
++        raise RuntimeError("DeepSeek V4 FP4 indexer requires the CUDA fused Q path.")
++    freqs_real = torch.view_as_real(freqs_cis).flatten(-2)
++    q_fp4 = torch.empty(
++        (*q_input.shape[:-1], q_input.shape[-1] // 2),
++        dtype=torch.int8,
++        device=q_input.device,
++    )
++    q_sf = torch.empty(q_input.shape[:-1], dtype=torch.int32, device=q_input.device)
++    weights_out = torch.empty(
++        (*q_input.shape[:-1], 1), dtype=torch.float32, device=q_input.device
++    )
++    module = _jit_main_q_indexer_rope_hadamard_fp4_quant_module(q_input.dtype)
++    module.forward(
++        q_input,
++        q_fp4,
++        q_sf,
++        weight,
++        weights_out,
++        float(weight_scale),
++        freqs_real,
++        positions,
++    )
++    return (q_fp4, q_sf), weights_out
++
++
+ def fused_k_norm_rope_flashmla(
+     kv: torch.Tensor,
+     kv_weight: torch.Tensor,
+diff --git a/python/sglang/jit_kernel/tests/deepseek_v4/test_fp4_indexer.py b/python/sglang/jit_kernel/tests/deepseek_v4/test_fp4_indexer.py
+new file mode 100644
+index 000000000000..e56e8326c1bf
+--- /dev/null
++++ b/python/sglang/jit_kernel/tests/deepseek_v4/test_fp4_indexer.py
+@@ -0,0 +1,228 @@
++from __future__ import annotations
++
++import sys
++
++import pytest
++import torch
++
++from sglang.jit_kernel.dsv4 import (
++    CompressorDecodePlan,
++    compress_norm_rope_store,
++    fused_q_indexer_rope_hadamard_fp4_quant,
++)
++from sglang.jit_kernel.hadamard import hadamard_transform
++from sglang.srt.layers.attention.dsv4.fp4_indexer import (
++    quantize_fp4_indexer_tensor,
++    store_fp4_index_k_cache,
++)
++from sglang.srt.layers.deepseek_v4_rope import (
++    apply_rotary_emb_triton,
++    precompute_freqs_cis,
++)
++from sglang.test.ci.ci_register import register_cuda_ci
++
++register_cuda_ci(est_time=60, suite="base-b-kernel-unit-1-gpu-large")
++register_cuda_ci(est_time=60, suite="nightly-kernel-1-gpu", nightly=True)
++
++HEAD_DIM = 128
++FP4_DIM = HEAD_DIM // 2
++GROUP_SIZE = 32
++SCALE_GROUPS = HEAD_DIM // GROUP_SIZE
++SCALE_BYTES = 4
++PAGE_SIZE = 64
++E2M1_MAX = 6.0
++
++
++def _ceil_ue8m0_exp_ref(x: torch.Tensor) -> torch.Tensor:
++    bits = x.to(torch.float32).contiguous().view(torch.int32)
++    exp = (bits >> 23) & 0xFF
++    mantissa = bits & 0x7FFFFF
++    exp = exp + (mantissa != 0).to(torch.int32)
++    return exp.clamp(1, 254)
++
++
++def _fp4_e2m1_code_ref(x: torch.Tensor) -> torch.Tensor:
++    ax = torch.minimum(x.abs(), torch.tensor(E2M1_MAX, device=x.device))
++    idx = torch.zeros_like(ax, dtype=torch.uint8)
++    for threshold in (0.25, 0.75, 1.25, 1.75, 2.5, 3.5, 5.0):
++        idx += (ax > threshold).to(torch.uint8)
++    sign = ((x < 0) & (idx != 0)).to(torch.uint8) * 8
++    return idx | sign
++
++
++def _ref_quantize_fp4_indexer(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
++    x = x.contiguous().view(-1, HEAD_DIM).float()
++    groups = x.view(-1, SCALE_GROUPS, GROUP_SIZE)
++    scale_raw = (groups.abs().amax(dim=-1) / E2M1_MAX).clamp_min(1.0e-4)
++    scale_exp = _ceil_ue8m0_exp_ref(scale_raw)
++    scale = (scale_exp << 23).contiguous().view(torch.float32)
++
++    scaled = (groups / scale.unsqueeze(-1)).view(-1, HEAD_DIM)
++    code = _fp4_e2m1_code_ref(scaled)
++    packed = (code[:, 0::2].to(torch.int16) | (code[:, 1::2].to(torch.int16) << 4)).to(
++        torch.uint8
++    )
++
++    packed_sf = scale_exp[:, 0].clone()
++    for group_id in range(1, SCALE_GROUPS):
++        packed_sf |= scale_exp[:, group_id] << (8 * group_id)
++    return packed, packed_sf
++
++
++def _ref_store_fp4_index_cache(
++    x_fp4: torch.Tensor,
++    x_sf: torch.Tensor,
++    loc: torch.Tensor,
++    num_pages: int,
++) -> torch.Tensor:
++    expected = torch.zeros(
++        num_pages,
++        PAGE_SIZE * (FP4_DIM + SCALE_BYTES),
++        device=x_fp4.device,
++        dtype=torch.uint8,
++    )
++    sf_shifts = torch.arange(0, 32, 8, device=x_fp4.device, dtype=torch.int32)
++    for token_id in range(x_fp4.shape[0]):
++        cache_loc = int(loc[token_id].item())
++        page = cache_loc // PAGE_SIZE
++        offset = cache_loc % PAGE_SIZE
++        expected[page, offset * FP4_DIM : (offset + 1) * FP4_DIM] = x_fp4[token_id]
++        sf_start = PAGE_SIZE * FP4_DIM + offset * SCALE_BYTES
++        expected[page, sf_start : sf_start + SCALE_BYTES] = (
++            (x_sf[token_id] >> sf_shifts) & 0xFF
++        ).to(torch.uint8)
++    return expected
++
++
++@pytest.mark.parametrize("num_tokens", [1, 7, 96])
++def test_quantize_fp4_indexer_tensor(num_tokens: int) -> None:
++    torch.manual_seed(num_tokens)
++    x = torch.randn(num_tokens, HEAD_DIM, device="cuda", dtype=torch.bfloat16)
++    x[0, :8] = torch.tensor(
++        [-8.0, -6.0, -3.0, -1.5, 0.0, 0.5, 2.0, 8.0],
++        device="cuda",
++        dtype=torch.bfloat16,
++    )
++
++    x_fp4, x_sf = quantize_fp4_indexer_tensor(x)
++    ref_fp4, ref_sf = _ref_quantize_fp4_indexer(x)
++
++    torch.testing.assert_close(x_fp4.view(torch.uint8), ref_fp4)
++    torch.testing.assert_close(x_sf, ref_sf)
++
++
++@pytest.mark.parametrize("num_tokens", [1, 16, 96])
++def test_fp4_index_cache_store_layout(num_tokens: int) -> None:
++    torch.manual_seed(num_tokens)
++    num_pages = max(1, (num_tokens + PAGE_SIZE - 1) // PAGE_SIZE)
++    x = torch.randn(num_tokens, HEAD_DIM, device="cuda", dtype=torch.bfloat16)
++    loc = torch.randperm(num_pages * PAGE_SIZE, device="cuda")[:num_tokens].to(
++        torch.int64
++    )
++    cache = torch.zeros(
++        num_pages,
++        PAGE_SIZE * (FP4_DIM + SCALE_BYTES),
++        device="cuda",
++        dtype=torch.uint8,
++    )
++
++    store_fp4_index_k_cache(x, cache, loc, page_size=PAGE_SIZE)
++
++    ref_fp4, ref_sf = _ref_quantize_fp4_indexer(x)
++    expected = _ref_store_fp4_index_cache(ref_fp4, ref_sf, loc, num_pages)
++    torch.testing.assert_close(cache, expected)
++
++
++@pytest.mark.parametrize("num_tokens", [1, 16, 96])
++def test_fp4_fused_norm_rope_store_layout(num_tokens: int) -> None:
++    torch.manual_seed(num_tokens + 100)
++    num_pages = max(1, (num_tokens + PAGE_SIZE - 1) // PAGE_SIZE)
++    compress_ratio = 4
++    kv = torch.randn(num_tokens, HEAD_DIM, device="cuda", dtype=torch.bfloat16)
++    norm_weight = torch.randn(HEAD_DIM, device="cuda", dtype=torch.bfloat16)
++    seq_lens = (
++        torch.arange(1, num_tokens + 1, device="cuda", dtype=torch.int64)
++        * compress_ratio
++    )
++    req_pool_indices = torch.arange(num_tokens, device="cuda", dtype=torch.int64)
++    plan = CompressorDecodePlan.generate_legacy(
++        compress_ratio, req_pool_indices, seq_lens
++    )
++    loc = torch.arange(num_tokens, device="cuda", dtype=torch.int32)
++    freqs_cis = precompute_freqs_cis(
++        64, int(seq_lens.max().item()) + 1, 0, 10000, 1, 32, 1
++    ).to("cuda")
++    cache = torch.zeros(
++        num_pages,
++        PAGE_SIZE * (FP4_DIM + SCALE_BYTES),
++        device="cuda",
++        dtype=torch.uint8,
++    )
++
++    compress_norm_rope_store(
++        kv.clone(),
++        plan,
++        norm_weight=norm_weight,
++        norm_eps=1.0e-6,
++        freq_cis=freqs_cis,
++        out_loc=loc,
++        kvcache=cache,
++        page_size=PAGE_SIZE,
++        use_fp4=True,
++    )
++
++    ref = kv.float()
++    ref = ref * torch.rsqrt((ref * ref).sum(dim=-1, keepdim=True) / HEAD_DIM + 1.0e-6)
++    ref = ref * norm_weight.float()
++    freqs = torch.view_as_real(freqs_cis).flatten(-2)[
++        (seq_lens - compress_ratio).long()
++    ]
++    rope = ref[:, 64:].reshape(num_tokens, 32, 2)
++    freqs = freqs.reshape(num_tokens, 32, 2)
++    rope_out = torch.empty_like(rope)
++    rope_out[..., 0] = rope[..., 0] * freqs[..., 0] - rope[..., 1] * freqs[..., 1]
++    rope_out[..., 1] = rope[..., 0] * freqs[..., 1] + rope[..., 1] * freqs[..., 0]
++    ref[:, 64:] = rope_out.reshape(num_tokens, 64)
++    ref = hadamard_transform(ref.contiguous(), scale=HEAD_DIM**-0.5)
++    ref_fp4, ref_sf = _ref_quantize_fp4_indexer(ref)
++
++    expected = _ref_store_fp4_index_cache(
++        ref_fp4,
++        ref_sf,
++        loc.to(torch.int64),
++        num_pages,
++    )
++    torch.testing.assert_close(cache, expected)
++
++
++@pytest.mark.parametrize("batch_size", [1, 5, 17])
++def test_fp4_fused_q_indexer_rope_hadamard_quant(batch_size: int) -> None:
++    torch.manual_seed(batch_size + 200)
++    num_heads = 8
++    rope_dim = 64
++    weight_scale = HEAD_DIM**-0.5 * num_heads**-0.5
++    q = torch.randn(
++        batch_size, num_heads, HEAD_DIM, device="cuda", dtype=torch.bfloat16
++    )
++    weight = torch.randn(batch_size, num_heads, device="cuda", dtype=torch.bfloat16)
++    positions = (torch.arange(batch_size, device="cuda", dtype=torch.int32) * 7) % 63
++    freqs_cis = precompute_freqs_cis(rope_dim, 64, 0, 10000, 1, 32, 1).to("cuda")
++
++    (q_fp4, q_sf), weights_out = fused_q_indexer_rope_hadamard_fp4_quant(
++        q, weight, weight_scale, freqs_cis, positions
++    )
++
++    ref = q.clone()
++    apply_rotary_emb_triton(ref[..., -rope_dim:], freqs_cis, positions=positions)
++    ref = hadamard_transform(ref.contiguous(), scale=HEAD_DIM**-0.5)
++    ref_fp4, ref_sf = _ref_quantize_fp4_indexer(ref.view(-1, HEAD_DIM))
++    ref_fp4 = ref_fp4.view(batch_size, num_heads, FP4_DIM)
++    ref_sf = ref_sf.view(batch_size, num_heads)
++
++    torch.testing.assert_close(q_fp4.view(torch.uint8), ref_fp4)
++    torch.testing.assert_close(q_sf, ref_sf)
++    torch.testing.assert_close(weights_out.squeeze(-1), weight.float() * weight_scale)
++
++
++if __name__ == "__main__":
++    sys.exit(pytest.main([__file__, "-v"]))
+diff --git a/python/sglang/srt/layers/attention/deepseek_v4_backend.py b/python/sglang/srt/layers/attention/deepseek_v4_backend.py
+index 883e38d288a1..9838b3f3177e 100644
+--- a/python/sglang/srt/layers/attention/deepseek_v4_backend.py
++++ b/python/sglang/srt/layers/attention/deepseek_v4_backend.py
+@@ -366,6 +366,9 @@ def __init__(
+             model_runner.model_config.hf_text_config, "index_topk", C4_TOPK
+         )
+ 
++        self.enable_deepseek_v4_fp4_indexer: bool = (
++            model_runner.server_args.enable_deepseek_v4_fp4_indexer
++        )
+         self.topk = model_runner.server_args.speculative_eagle_topk or 0
+         assert self.topk in [0, 1], "MTP Topk > 1 not supported for DeepSeek V4"
+         self.mtp_enabled = self.topk > 0
+diff --git a/python/sglang/srt/layers/attention/dsv4/compressor.py b/python/sglang/srt/layers/attention/dsv4/compressor.py
+index fa326592f6d8..f20de6bfb8e8 100644
+--- a/python/sglang/srt/layers/attention/dsv4/compressor.py
++++ b/python/sglang/srt/layers/attention/dsv4/compressor.py
+@@ -194,7 +194,13 @@ def forward_indexer_compressor(
+             assert isinstance(token_to_kv_pool, DeepSeekV4TokenToKVPool)
+ 
+         new_compressed_kv = compressor(x, forward_batch, attn_backend=self)
+-        if envs.SGLANG_OPT_USE_FUSED_STORE_CACHE.get():
++        if self.enable_deepseek_v4_fp4_indexer:
++            token_to_kv_pool.set_index_k_fp4(
++                layer_id=layer_id,
++                loc=self.forward_metadata.core_metadata.c4_out_loc,
++                cache_k=new_compressed_kv,
++            )
++        elif envs.SGLANG_OPT_USE_FUSED_STORE_CACHE.get():
+             token_to_kv_pool.set_index_k_fused(
+                 layer_id=layer_id,
+                 loc=self.forward_metadata.core_metadata.c4_out_loc,
+diff --git a/python/sglang/srt/layers/attention/dsv4/compressor_v2.py b/python/sglang/srt/layers/attention/dsv4/compressor_v2.py
+index 41063e3a8c40..bd5293900f51 100644
+--- a/python/sglang/srt/layers/attention/dsv4/compressor_v2.py
++++ b/python/sglang/srt/layers/attention/dsv4/compressor_v2.py
+@@ -430,9 +430,14 @@ def _forward_compress_all_in_one(
+         compress_ratio: int,
+         page_size: int,
+         out_loc: torch.Tensor,
++        use_fp4_indexer: bool = False,
+     ) -> None:
+         assert compress_ratio == 4 or compress_ratio == 128
+         assert rotate == is_indexer == (head_dim == 128)
++        if use_fp4_indexer:
++            assert is_indexer
++            assert compress_ratio == 4
++            assert head_dim == 128
+ 
+         plan = self._get_paged_compress_metadata(compress_ratio)
+         is_online = _use_online_compress(compress_ratio)
+@@ -465,6 +470,7 @@ def _forward_compress_all_in_one(
+             out_loc=out_loc,
+             kvcache=kv_cache,
+             page_size=page_size,
++            use_fp4=use_fp4_indexer,
+         )
+ 
+     def forward_unified(
+@@ -493,6 +499,9 @@ def forward_unified(
+             )
+         else:
+             out_loc = self._get_out_loc(compressor.ratio)
++            use_fp4_indexer = (
++                compressor.is_in_indexer and self.enable_deepseek_v4_fp4_indexer
++            )
+             if compressor.is_in_indexer:
+                 kv_cache = token_to_kv_pool.get_index_k_with_scale_buffer(layer_id)
+                 page_size = token_to_kv_pool.get_index_k_page_size()
+@@ -518,6 +527,7 @@ def forward_unified(
+                 compress_ratio=compressor.ratio,
+                 page_size=page_size,
+                 out_loc=out_loc,
++                use_fp4_indexer=use_fp4_indexer,
+             )
+ 
+     def _forward_unified_hip(
+diff --git a/python/sglang/srt/layers/attention/dsv4/fp4_indexer.py b/python/sglang/srt/layers/attention/dsv4/fp4_indexer.py
+new file mode 100644
+index 000000000000..64cb6bd1d679
+--- /dev/null
++++ b/python/sglang/srt/layers/attention/dsv4/fp4_indexer.py
+@@ -0,0 +1,163 @@
++from __future__ import annotations
++
++import torch
++import triton
++import triton.language as tl
++
++
++@triton.jit
++def _select_group_value(group, v0, v1, v2, v3):
++    return tl.where(
++        group == 0,
++        v0,
++        tl.where(group == 1, v1, tl.where(group == 2, v2, v3)),
++    )
++
++
++@triton.jit
++def _ceil_ue8m0_exp(x):
++    bits = x.to(tl.int32, bitcast=True)
++    exp = (bits >> 23) & 0xFF
++    mantissa = bits & 0x7FFFFF
++    exp += mantissa != 0
++    return tl.minimum(tl.maximum(exp, 1), 254)
++
++
++@triton.jit
++def _fp4_e2m1_code(x):
++    ax = tl.minimum(tl.abs(x), 6.0)
++    idx = (ax > 0.25).to(tl.uint8)
++    idx += (ax > 0.75).to(tl.uint8)
++    idx += (ax > 1.25).to(tl.uint8)
++    idx += (ax > 1.75).to(tl.uint8)
++    idx += (ax > 2.5).to(tl.uint8)
++    idx += (ax > 3.5).to(tl.uint8)
++    idx += (ax > 5.0).to(tl.uint8)
++    sign = ((x < 0) & (idx != 0)).to(tl.uint8)
++    return idx | (sign << 3)
++
++
++@triton.jit
++def _quantize_fp4_indexer_kernel(
++    x,
++    x_fp4,
++    x_sf,
++    BLOCK_N: tl.constexpr,
++    GROUP_N: tl.constexpr,
++):
++    token_id = tl.program_id(0)
++    offs = tl.arange(0, BLOCK_N)
++    values = tl.load(x + token_id * BLOCK_N + offs).to(tl.float32)
++    abs_values = tl.abs(values)
++
++    amax0 = tl.max(tl.where(offs < GROUP_N, abs_values, 0.0), axis=0)
++    amax1 = tl.max(
++        tl.where((GROUP_N <= offs) & (offs < 2 * GROUP_N), abs_values, 0.0),
++        axis=0,
++    )
++    amax2 = tl.max(
++        tl.where((2 * GROUP_N <= offs) & (offs < 3 * GROUP_N), abs_values, 0.0),
++        axis=0,
++    )
++    amax3 = tl.max(tl.where(3 * GROUP_N <= offs, abs_values, 0.0), axis=0)
++
++    sf0 = tl.maximum(amax0 / 6.0, 1.0e-4)
++    sf1 = tl.maximum(amax1 / 6.0, 1.0e-4)
++    sf2 = tl.maximum(amax2 / 6.0, 1.0e-4)
++    sf3 = tl.maximum(amax3 / 6.0, 1.0e-4)
++
++    exp0 = _ceil_ue8m0_exp(sf0)
++    exp1 = _ceil_ue8m0_exp(sf1)
++    exp2 = _ceil_ue8m0_exp(sf2)
++    exp3 = _ceil_ue8m0_exp(sf3)
++
++    packed_sf = exp0 | (exp1 << 8) | (exp2 << 16) | (exp3 << 24)
++    tl.store(x_sf + token_id, packed_sf)
++
++    pair_offsets = tl.arange(0, BLOCK_N // 2)
++    offs0 = pair_offsets * 2
++    offs1 = offs0 + 1
++    group0 = offs0 // GROUP_N
++    group1 = offs1 // GROUP_N
++    scale_exp0 = _select_group_value(group0, exp0, exp1, exp2, exp3)
++    scale_exp1 = _select_group_value(group1, exp0, exp1, exp2, exp3)
++    scale0 = (scale_exp0 << 23).to(tl.float32, bitcast=True)
++    scale1 = (scale_exp1 << 23).to(tl.float32, bitcast=True)
++
++    v0 = tl.load(x + token_id * BLOCK_N + offs0).to(tl.float32) / scale0
++    v1 = tl.load(x + token_id * BLOCK_N + offs1).to(tl.float32) / scale1
++    code0 = _fp4_e2m1_code(v0)
++    code1 = _fp4_e2m1_code(v1)
++    packed = (code0 & 0x0F) | ((code1 & 0x0F) << 4)
++    tl.store(x_fp4 + token_id * (BLOCK_N // 2) + pair_offsets, packed)
++
++
++@triton.jit
++def _store_fp4_index_k_cache_kernel(
++    k_fp4,
++    k_sf,
++    cache,
++    loc,
++    page_size: tl.constexpr,
++    cache_stride: tl.constexpr,
++    BLOCK: tl.constexpr,
++):
++    token_id = tl.program_id(0)
++    offsets = tl.arange(0, BLOCK)
++    cache_loc = tl.load(loc + token_id)
++    page = cache_loc // page_size
++    page_offset = cache_loc - page * page_size
++
++    k = tl.load(k_fp4 + token_id * BLOCK + offsets)
++    tl.store(cache + page * cache_stride + page_offset * BLOCK + offsets, k)
++
++    sf = tl.load(k_sf + token_id)
++    sf_offsets = tl.arange(0, 4)
++    sf_bytes = (sf >> (sf_offsets * 8)) & 0xFF
++    tl.store(
++        cache + page * cache_stride + page_size * BLOCK + page_offset * 4 + sf_offsets,
++        sf_bytes,
++    )
++
++
++def quantize_fp4_indexer_tensor(x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
++    assert x.shape[-1] == 128
++    x = x.contiguous().view(-1, x.shape[-1])
++    x_fp4 = torch.empty((x.shape[0], 64), device=x.device, dtype=torch.int8)
++    x_sf = torch.empty((x.shape[0],), device=x.device, dtype=torch.int32)
++    if x.shape[0] > 0:
++        _quantize_fp4_indexer_kernel[(x.shape[0],)](
++            x,
++            x_fp4,
++            x_sf,
++            BLOCK_N=128,
++            GROUP_N=32,
++        )
++    return x_fp4, x_sf
++
++
++def store_fp4_index_k_cache(
++    input: torch.Tensor,
++    cache: torch.Tensor,
++    loc: torch.Tensor,
++    *,
++    page_size: int,
++) -> None:
++    assert input.shape[-1] == 128
++    k_fp4, k_sf = quantize_fp4_indexer_tensor(input.contiguous())
++    n_tokens = input.numel() // input.shape[-1]
++    assert k_fp4.shape == (n_tokens, 64)
++    assert k_sf.shape == (n_tokens,)
++    assert cache.shape[1] == page_size * (64 + 4)
++
++    if n_tokens == 0:
++        return
++    _store_fp4_index_k_cache_kernel[(n_tokens,)](
++        k_fp4.view(torch.uint8),
++        k_sf,
++        cache,
++        loc,
++        page_size,
++        cache.stride(0),
++        BLOCK=64,
++    )
+diff --git a/python/sglang/srt/layers/attention/dsv4/indexer.py b/python/sglang/srt/layers/attention/dsv4/indexer.py
+index afde82d7a052..a9d5f812b72c 100644
+--- a/python/sglang/srt/layers/attention/dsv4/indexer.py
++++ b/python/sglang/srt/layers/attention/dsv4/indexer.py
+@@ -1,6 +1,6 @@
+ from __future__ import annotations
+ 
+-from typing import TYPE_CHECKING, Any, List, Optional, Tuple
++from typing import TYPE_CHECKING, Any, List, Optional, Tuple, TypeAlias, Union
+ 
+ import torch
+ import torch.nn as nn
+@@ -9,6 +9,7 @@
+ import triton.language as tl
+ 
+ from sglang.jit_kernel.dsv4 import (
++    fused_q_indexer_rope_hadamard_fp4_quant,
+     fused_q_indexer_rope_hadamard_quant,
+     topk_transform_512,
+     topk_transform_512_v2,
+@@ -38,6 +39,8 @@
+     FP8_DTYPE = torch.float8_e4m3fn
+     FP8_MAX = torch.finfo(FP8_DTYPE).max
+ 
++IndexerQuery: TypeAlias = Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]
++
+ 
+ _arange_cache = {}
+ 
+@@ -291,7 +294,7 @@ def _forward_prepare_multi_stream(
+         token_to_kv_pool: DeepSeekV4TokenToKVPool,
+         alt_streams: Optional[List[torch.cuda.Stream]] = None,
+         q_lora_ready: Optional[torch.cuda.Event] = None,
+-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
++    ) -> Tuple[IndexerQuery, torch.Tensor, torch.Tensor]:
+         if TYPE_CHECKING:
+             assert isinstance(self, CompressorBackendMixin)
+ 
+@@ -316,8 +319,8 @@ def _forward_prepare_multi_stream(
+ 
+         # The weight projection is small and fast; compute it on its own
+         # stream, then have the Q stream wait on it before launching the big
+-        # fused Q kernel (which folds rope + hadamard + fp8 quant + the
+-        # weight*weight_scale*q_scale step into one pass).
++        # fused Q kernel (which folds rope, hadamard, quantization, and
++        # weight scaling into one pass).
+         with torch.cuda.stream(stream_weights):
+             weights = c4_indexer.compute_weights(x, skip_scale=True)
+             weights_ready = stream_weights.record_event()
+@@ -326,10 +329,10 @@ def _forward_prepare_multi_stream(
+             if q_lora_ready is not None:
+                 stream_q.wait_event(q_lora_ready)
+             stream_q.wait_event(weights_ready)
+-            q_fp8, weights = c4_indexer.compute_q(q_lora, positions, weights)
++            q, weights = c4_indexer.compute_q(q_lora, positions, weights)
+ 
+         current_stream.wait_stream(stream_q)
+-        return q_fp8, weights, c4_indexer_kv_cache
++        return q, weights, c4_indexer_kv_cache
+ 
+     def _forward_prepare_normal(
+         self,
+@@ -340,12 +343,12 @@ def _forward_prepare_normal(
+         forward_batch: ForwardBatch,
+         token_to_kv_pool: DeepSeekV4TokenToKVPool,
+         skip_compressor: bool = False,
+-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
++    ) -> Tuple[IndexerQuery, torch.Tensor, torch.Tensor]:
+         if TYPE_CHECKING:
+             assert isinstance(self, CompressorBackendMixin)
+ 
+         weights = c4_indexer.compute_weights(x, skip_scale=True)
+-        q_fp8, weights = c4_indexer.compute_q(q_lora, positions, weights)
++        q, weights = c4_indexer.compute_q(q_lora, positions, weights)
+         if not skip_compressor:
+             self.forward_indexer_compressor(
+                 x=x,
+@@ -356,7 +359,7 @@ def _forward_prepare_normal(
+         c4_indexer_kv_cache = token_to_kv_pool.get_index_k_with_scale_buffer(
+             layer_id=c4_indexer.layer_id,
+         )
+-        return q_fp8, weights, c4_indexer_kv_cache
++        return q, weights, c4_indexer_kv_cache
+ 
+     def forward_c4_indexer(
+         self,
+@@ -387,19 +390,21 @@ def forward_c4_indexer(
+         assert isinstance(indexer_metadata, PagedIndexerMetadata)
+ 
+         if enable_multi_stream:
+-            q_fp8, weights, c4_indexer_kv_cache = self._forward_prepare_multi_stream(
+-                x=x,
+-                q_lora=q_lora,
+-                c4_indexer=c4_indexer,
+-                positions=core_metadata.positions,
+-                forward_batch=forward_batch,
+-                token_to_kv_pool=token_to_kv_pool,
+-                alt_streams=alt_streams,
+-                q_lora_ready=q_lora_ready,
++            q_indexer, weights, c4_indexer_kv_cache = (
++                self._forward_prepare_multi_stream(
++                    x=x,
++                    q_lora=q_lora,
++                    c4_indexer=c4_indexer,
++                    positions=core_metadata.positions,
++                    forward_batch=forward_batch,
++                    token_to_kv_pool=token_to_kv_pool,
++                    alt_streams=alt_streams,
++                    q_lora_ready=q_lora_ready,
++                )
+             )
+         else:
+             assert q_lora_ready is None
+-            q_fp8, weights, c4_indexer_kv_cache = self._forward_prepare_normal(
++            q_indexer, weights, c4_indexer_kv_cache = self._forward_prepare_normal(
+                 x=x,
+                 q_lora=q_lora,
+                 c4_indexer=c4_indexer,
+@@ -409,19 +414,32 @@ def forward_c4_indexer(
+                 skip_compressor=skip_compressor,
+             )
+ 
+-        assert len(q_fp8.shape) == 3
+-        q_fp8 = q_fp8.unsqueeze(1)
+         assert len(c4_indexer_kv_cache.shape) == 2
+         block_kv = 64
+         num_heads_kv = 1
+-        head_dim_with_sf = 132
++        use_fp4_indexer = c4_indexer.use_fp4_indexer
++        head_dim_with_sf = 68 if use_fp4_indexer else 132
++
++        if use_fp4_indexer:
++            q_fp4, q_sf = q_indexer
++            assert len(q_fp4.shape) == 3
++            assert len(q_sf.shape) == 2
++            q = (q_fp4.unsqueeze(1), q_sf.unsqueeze(1))
++        else:
++            assert len(q_indexer.shape) == 3
++            q = q_indexer.unsqueeze(1)
+ 
+         c4_indexer_kv_cache = c4_indexer_kv_cache.view(
+             c4_indexer_kv_cache.shape[0], block_kv, num_heads_kv, head_dim_with_sf
+         )
+         assert len(weights.shape) == 3
+         weights = weights.squeeze(2)
+-        if envs.SGLANG_OPT_USE_TILELANG_INDEXER.get():
++        if use_fp4_indexer:
++            weights = weights.float()
++            if envs.SGLANG_OPT_USE_TILELANG_INDEXER.get():
++                raise RuntimeError("DeepSeek V4 FP4 indexer requires DeepGEMM indexer.")
++            from deep_gemm import fp8_fp4_paged_mqa_logits as fn
++        elif envs.SGLANG_OPT_USE_TILELANG_INDEXER.get():
+             from sglang.srt.layers.attention.dsa.tilelang_kernel import (
+                 tilelang_fp8_paged_mqa_logits as fn,
+             )
+@@ -433,12 +451,14 @@ def forward_c4_indexer(
+             from deep_gemm import fp8_paged_mqa_logits as fn
+ 
+         _c4sl = indexer_metadata.c4_seq_lens
+-        _use_tilelang = envs.SGLANG_OPT_USE_TILELANG_INDEXER.get()
+-        _use_aiter = envs.SGLANG_OPT_USE_AITER_INDEXER.get()
++        _use_tilelang = (
++            envs.SGLANG_OPT_USE_TILELANG_INDEXER.get() and not use_fp4_indexer
++        )
++        _use_aiter = envs.SGLANG_OPT_USE_AITER_INDEXER.get() and not use_fp4_indexer
+         if _c4sl.dim() == 1 and not _use_tilelang and not _use_aiter:
+             _c4sl = _c4sl.unsqueeze(-1)
+         logits = fn(
+-            q_fp8,
++            q,
+             c4_indexer_kv_cache,
+             weights,
+             _c4sl,
+@@ -573,6 +593,9 @@ def __init__(
+         self.rotary_emb = rotary_emb
+         self.freqs_cis = freqs_cis
+         self.weight_scale: float = self.softmax_scale * self.n_heads**-0.5
++        from sglang.srt.server_args import get_global_server_args
++
++        self.use_fp4_indexer = get_global_server_args().enable_deepseek_v4_fp4_indexer
+         self.alt_streams = alt_streams
+ 
+     def compute_q(
+@@ -580,9 +603,13 @@ def compute_q(
+         q_lora: torch.Tensor,
+         positions: torch.Tensor,
+         weight: torch.Tensor,
+-    ) -> Tuple[torch.Tensor, torch.Tensor]:
++    ) -> Tuple[IndexerQuery, torch.Tensor]:
+         q, _ = self.wq_b(q_lora)
+         q = q.view(-1, self.n_local_heads, self.head_dim)
++        if self.use_fp4_indexer:
++            return fused_q_indexer_rope_hadamard_fp4_quant(
++                q.contiguous(), weight, self.weight_scale, self.freqs_cis, positions
++            )
+         return fused_q_indexer_rope_hadamard_quant(
+             q, weight, self.weight_scale, self.freqs_cis, positions
+         )
+diff --git a/python/sglang/srt/mem_cache/deepseek_v4_memory_pool.py b/python/sglang/srt/mem_cache/deepseek_v4_memory_pool.py
+index b44388f37808..57856b36d3a1 100644
+--- a/python/sglang/srt/mem_cache/deepseek_v4_memory_pool.py
++++ b/python/sglang/srt/mem_cache/deepseek_v4_memory_pool.py
+@@ -271,13 +271,17 @@ def __init__(
+             end_layer,
+         )
+         self.index_head_dim = index_head_dim
++        self.use_fp4_indexer = get_global_server_args().enable_deepseek_v4_fp4_indexer
+ 
+         self._create_buffer()
+ 
++    def get_bytes_per_token(self) -> int:
++        if self.use_fp4_indexer:
++            return self.index_head_dim // 2 + 4
++        return self.index_head_dim + 4
++
+     def _create_buffer(self):
+-        num_scales_per_token = self.index_head_dim // self.quant_block_size
+-        page_bytes = self.page_size * self.index_head_dim
+-        page_bytes += self.page_size * num_scales_per_token * 4
++        page_bytes = self.page_size * self.get_bytes_per_token()
+         with self.memory_saver_adapter.region(GPU_MEMORY_TYPE_KV_CACHE):
+             with (
+                 torch.cuda.use_mem_pool(self.custom_mem_pool)
+@@ -346,6 +350,23 @@ def set_index_fused(
+             type="indexer",
+         )
+ 
++    def set_index_fp4(
++        self,
++        layer_id: int,
++        loc: torch.Tensor,
++        cache_k: torch.Tensor,
++    ) -> None:
++        from sglang.srt.layers.attention.dsv4.fp4_indexer import (
++            store_fp4_index_k_cache,
++        )
++
++        return store_fp4_index_k_cache(
++            input=cache_k,
++            cache=self.index_k_with_scale_buffer[layer_id - self.start_layer],
++            loc=loc,
++            page_size=self.page_size,
++        )
++
+ 
+ class DeepSeekV4LayerItem(NamedTuple):
+     compress_ratio: Literal[0, 4, 128]
+@@ -814,3 +835,13 @@ def set_index_k_fused(
+         compress_ratio, compress_layer_id, _ = self.layer_mapping[layer_id]
+         assert compress_ratio == 4, f"only c4 has indexer, got {compress_ratio = }"
+         return self.c4_indexer_kv_pool.set_index_fused(compress_layer_id, loc, cache_k)
++
++    def set_index_k_fp4(
++        self,
++        layer_id: int,
++        loc: torch.Tensor,
++        cache_k: torch.Tensor,
++    ) -> None:
++        compress_ratio, compress_layer_id, _ = self.layer_mapping[layer_id]
++        assert compress_ratio == 4, f"only c4 has indexer, got {compress_ratio = }"
++        return self.c4_indexer_kv_pool.set_index_fp4(compress_layer_id, loc, cache_k)
+diff --git a/python/sglang/srt/server_args.py b/python/sglang/srt/server_args.py
+index eb4041cef7f2..696e928bf01e 100644
+--- a/python/sglang/srt/server_args.py
++++ b/python/sglang/srt/server_args.py
+@@ -753,6 +753,7 @@ class ServerArgs:
+     enable_return_hidden_states: bool = False
+     enable_return_routed_experts: bool = False
+     enable_return_indexer_topk: bool = False
++    enable_deepseek_v4_fp4_indexer: bool = False
+     scheduler_recv_interval: int = 1
+     numa_node: Optional[List[int]] = None
+     enable_deterministic_inference: bool = False
+@@ -3981,6 +3982,11 @@ def _handle_environment_variables(self):
+                     "Debug mode for CUDA graph is enabled via breakable CUDA graph. "
+                     "All operations will run eagerly through the graph capture/replay path."
+                 )
++        if self.enable_deepseek_v4_fp4_indexer and not is_sm100_supported():
++            raise ValueError(
++                "--enable-deepseek-v4-fp4-indexer requires SM100 GPUs with "
++                "DeepGEMM FP4 indexer support."
++            )
+         # FP8 W_o GEMM requires Blackwell (sm100+). Auto-disable on Hopper.
+         if is_cuda() and envs.SGLANG_OPT_FP8_WO_A_GEMM.get() and get_device_sm() < 100:
+             if envs.SGLANG_OPT_FP8_WO_A_GEMM.is_set():
+@@ -6504,6 +6510,11 @@ def add_cli_args(parser: argparse.ArgumentParser):
+             action="store_true",
+             help="Enable returning indexer topk indices of layers with indexer with responses.",
+         )
++        parser.add_argument(
++            "--enable-deepseek-v4-fp4-indexer",
++            action="store_true",
++            help="Enable the experimental FP4 C4 indexer path for DeepSeek V4. Default keeps the existing indexer implementation.",
++        )
+         parser.add_argument(
+             "--scheduler-recv-interval",
+             type=int,

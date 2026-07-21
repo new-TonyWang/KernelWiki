@@ -1,0 +1,74 @@
+diff --git a/benchmark/deepseek_v3/README.md b/benchmark/deepseek_v3/README.md
+index e4b925ab076f..ddd716560e94 100644
+--- a/benchmark/deepseek_v3/README.md
++++ b/benchmark/deepseek_v3/README.md
+@@ -33,7 +33,7 @@ Add [performance optimization options](#performance-optimization-options) as nee
+ ### Using pip
+ ```bash
+ # Installation
+-pip install "sglang[all]>=0.4.3" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer
++pip install "sglang[all]>=0.4.3" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python
+ 
+ # Launch
+ python3 -m sglang.launch_server --model deepseek-ai/DeepSeek-V3 --tp 8 --trust-remote-code
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index d29b1bb2ac7d..ba0ee5bd3f91 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -43,26 +43,26 @@ RUN python3 -m pip install --upgrade pip setuptools wheel html5lib six \
+     && cd sglang \
+     && if [ "$BUILD_TYPE" = "srt" ]; then \
+          if [ "$CUDA_VERSION" = "12.1.1" ]; then \
+-           python3 -m pip --no-cache-dir install -e "python[srt]" --find-links https://flashinfer.ai/whl/cu121/torch2.5/flashinfer/; \
++           python3 -m pip --no-cache-dir install -e "python[srt]" --find-links https://flashinfer.ai/whl/cu121/torch2.5/flashinfer-python; \
+          elif [ "$CUDA_VERSION" = "12.4.1" ]; then \
+-           python3 -m pip --no-cache-dir install -e "python[srt]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer/; \
++           python3 -m pip --no-cache-dir install -e "python[srt]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python; \
+          elif [ "$CUDA_VERSION" = "12.5.1" ]; then \
+-           python3 -m pip --no-cache-dir install -e "python[srt]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer/; \
++           python3 -m pip --no-cache-dir install -e "python[srt]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python; \
+          elif [ "$CUDA_VERSION" = "11.8.0" ]; then \
+-           python3 -m pip --no-cache-dir install -e "python[srt]" --find-links https://flashinfer.ai/whl/cu118/torch2.5/flashinfer/; \
++           python3 -m pip --no-cache-dir install -e "python[srt]" --find-links https://flashinfer.ai/whl/cu118/torch2.5/flashinfer-python; \
+            python3 -m pip install sgl-kernel -i https://docs.sglang.ai/whl/cu118; \
+          else \
+            echo "Unsupported CUDA version: $CUDA_VERSION" && exit 1; \
+          fi; \
+        else \
+          if [ "$CUDA_VERSION" = "12.1.1" ]; then \
+-           python3 -m pip --no-cache-dir install -e "python[all]" --find-links https://flashinfer.ai/whl/cu121/torch2.5/flashinfer/; \
++           python3 -m pip --no-cache-dir install -e "python[all]" --find-links https://flashinfer.ai/whl/cu121/torch2.5/flashinfer-python; \
+          elif [ "$CUDA_VERSION" = "12.4.1" ]; then \
+-           python3 -m pip --no-cache-dir install -e "python[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer/; \
++           python3 -m pip --no-cache-dir install -e "python[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python; \
+          elif [ "$CUDA_VERSION" = "12.5.1" ]; then \
+-           python3 -m pip --no-cache-dir install -e "python[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer/; \
++           python3 -m pip --no-cache-dir install -e "python[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python; \
+          elif [ "$CUDA_VERSION" = "11.8.0" ]; then \
+-           python3 -m pip --no-cache-dir install -e "python[all]" --find-links https://flashinfer.ai/whl/cu118/torch2.5/flashinfer/; \
++           python3 -m pip --no-cache-dir install -e "python[all]" --find-links https://flashinfer.ai/whl/cu118/torch2.5/flashinfer-python; \
+            python3 -m pip install sgl-kernel -i https://docs.sglang.ai/whl/cu118; \
+          else \
+            echo "Unsupported CUDA version: $CUDA_VERSION" && exit 1; \
+diff --git a/docs/start/install.md b/docs/start/install.md
+index 3f0e2d29f399..5d8b2fa000a4 100644
+--- a/docs/start/install.md
++++ b/docs/start/install.md
+@@ -6,7 +6,7 @@ You can install SGLang using any of the methods below.
+ ```
+ pip install --upgrade pip
+ pip install sgl-kernel --force-reinstall --no-deps
+-pip install "sglang[all]>=0.4.3" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer/
++pip install "sglang[all]>=0.4.3" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python
+ ```
+ 
+ Note: SGLang currently uses torch 2.5, so you need to install the flashinfer version for torch 2.5. If you want to install flashinfer separately, please refer to [FlashInfer installation doc](https://docs.flashinfer.ai/installation.html).
+@@ -24,7 +24,7 @@ cd sglang
+ 
+ pip install --upgrade pip
+ pip install sgl-kernel --force-reinstall --no-deps
+-pip install -e "python[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer/
++pip install -e "python[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python
+ ```
+ 
+ Note: SGLang currently uses torch 2.5, so you need to install the flashinfer version for torch 2.5. If you want to install flashinfer separately, please refer to [FlashInfer installation doc](https://docs.flashinfer.ai/installation.html).

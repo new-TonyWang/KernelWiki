@@ -1,0 +1,210 @@
+diff --git a/python/sglang/srt/layers/communicator.py b/python/sglang/srt/layers/communicator.py
+index 30f068595188..56d3fff292b0 100644
+--- a/python/sglang/srt/layers/communicator.py
++++ b/python/sglang/srt/layers/communicator.py
+@@ -305,6 +305,9 @@ def fetch_hidden_states(self):
+         assert self.attn_inputs_ is not None
+         return self.attn_inputs_.fetch_hidden_states()
+ 
++    def clear_attn_inputs(self) -> None:
++        self.attn_inputs_ = None
++
+     @contextmanager
+     def maybe_input_scattered(self, forward_batch: ForwardBatch):
+         flag = self.use_input_scattered(forward_batch)
+diff --git a/python/sglang/srt/layers/moe/fused_moe_triton/layer.py b/python/sglang/srt/layers/moe/fused_moe_triton/layer.py
+index 56eaf8a1e8bf..f3b188ef8b01 100644
+--- a/python/sglang/srt/layers/moe/fused_moe_triton/layer.py
++++ b/python/sglang/srt/layers/moe/fused_moe_triton/layer.py
+@@ -308,6 +308,15 @@ def __init__(
+         self.quant_method.create_moe_runner(self, self.moe_runner_config)
+         self.dispatcher = create_moe_dispatcher(self.moe_runner_config)
+ 
++        if (
++            get_moe_runner_backend().is_flashinfer_trtllm_routed()
++            or get_moe_runner_backend().is_flashinfer_trtllm()
++        ):
++            logging.warning(
++                "Setting inplace to False for FlashInfer TRTLLM MoE backend."
++            )
++            self.moe_runner_config.inplace = False
++
+         self.should_fuse_routed_scaling_factor_in_topk = (
+             isinstance(self.quant_method, ModelOptNvFp4FusedMoEMethod)
+             or (
+diff --git a/python/sglang/srt/layers/moe/moe_runner/base.py b/python/sglang/srt/layers/moe/moe_runner/base.py
+index 8412e9fba58c..6363a4de81e4 100644
+--- a/python/sglang/srt/layers/moe/moe_runner/base.py
++++ b/python/sglang/srt/layers/moe/moe_runner/base.py
+@@ -1,8 +1,10 @@
+ from __future__ import annotations
+ 
++import contextvars
+ from abc import ABC, abstractmethod
++from contextlib import contextmanager
+ from dataclasses import dataclass
+-from typing import TYPE_CHECKING, Any, Callable, Optional, Tuple, TypeGuard
++from typing import TYPE_CHECKING, Any, Callable, Generator, Optional, Tuple, TypeGuard
+ 
+ import torch
+ 
+@@ -26,6 +28,20 @@
+     )
+ 
+ 
++_moe_output_buf: contextvars.ContextVar[Optional[torch.Tensor]] = (
++    contextvars.ContextVar("moe_output_buf", default=None)
++)
++
++
++@contextmanager
++def moe_output_buffer_ctx(buf: torch.Tensor) -> Generator[None, None, None]:
++    token = _moe_output_buf.set(buf)
++    try:
++        yield
++    finally:
++        _moe_output_buf.reset(token)
++
++
+ @dataclass
+ class MoeRunnerConfig:
+     # MoE parameters
+diff --git a/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py b/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+index 01078cf1c1af..61dddd6ac548 100644
+--- a/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
++++ b/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+@@ -10,6 +10,8 @@
+ # Import to register custom ops for torch.compile compatibility
+ from sglang.srt.distributed import get_tp_group
+ from sglang.srt.distributed.device_communicators.pynccl_allocator import (
++    is_symmetric_memory_enabled,
++    is_tensor_in_symmetric_mempool,
+     use_symmetric_memory,
+ )
+ from sglang.srt.layers.dp_attention import is_allocation_symmetric
+@@ -21,6 +23,7 @@
+ from sglang.srt.layers.moe.moe_runner.base import (
+     MoeQuantInfo,
+     MoeRunnerConfig,
++    _moe_output_buf,
+     register_fused_func,
+ )
+ from sglang.srt.layers.quantization.fp8_kernel import (
+@@ -877,14 +880,29 @@ def fused_experts_none_to_flashinfer_trtllm_fp4(
+     )
+     activation_type = get_activation_type(runner_config.activation)
+ 
+-    with use_symmetric_memory(get_tp_group(), disabled=not is_allocation_symmetric()):
+-        num_tokens = hs_fp4.shape[0]
+-        hidden_size = (
+-            hs_fp4.shape[-1] * 2 if hs_fp4.dtype == torch.uint8 else hs_fp4.shape[-1]
+-        )
+-        symm_output = torch.empty(
+-            num_tokens, hidden_size, dtype=hidden_states.dtype, device=hs_fp4.device
++    num_tokens = hs_fp4.shape[0]
++    hidden_size = (
++        hs_fp4.shape[-1] * 2 if hs_fp4.dtype == torch.uint8 else hs_fp4.shape[-1]
++    )
++    _provided = _moe_output_buf.get()
++    _symm_required = is_allocation_symmetric()
++    if (
++        _provided is not None
++        and _provided.shape == (num_tokens, hidden_size)
++        and _provided.dtype == hidden_states.dtype
++        and _provided.device == hs_fp4.device
++        and (
++            not _symm_required
++            or not is_symmetric_memory_enabled()
++            or is_tensor_in_symmetric_mempool(_provided)
+         )
++    ):
++        symm_output = _provided
++    else:
++        with use_symmetric_memory(get_tp_group(), disabled=not _symm_required):
++            symm_output = torch.empty(
++                num_tokens, hidden_size, dtype=hidden_states.dtype, device=hs_fp4.device
++            )
+ 
+     if use_routed_topk:
+         assert TopKOutputChecker.format_is_standard(topk_output)
+diff --git a/python/sglang/srt/models/deepseek_v2.py b/python/sglang/srt/models/deepseek_v2.py
+index 86d93cdd20e0..8b7055f8c9c9 100644
+--- a/python/sglang/srt/models/deepseek_v2.py
++++ b/python/sglang/srt/models/deepseek_v2.py
+@@ -826,10 +826,9 @@ def forward_normal(
+             if server_args.enable_eplb
+             else None
+         )
++        defer_shared = not self.experts.moe_runner_config.inplace
+         if hidden_states.shape[0] > 0:
+-            if (
+-                not self._fuse_shared_experts_inside_sbo
+-            ):  # TODO: check if it supports mtp
++            if not defer_shared and not self._fuse_shared_experts_inside_sbo:
+                 shared_output = self._forward_shared_experts(
+                     hidden_states, gemm_output_zero_allocator
+                 )
+@@ -894,6 +893,15 @@ def _post_combine_hook(
+             # fused in biased_grouped_topk so we can skip here
+             final_hidden_states *= self.routed_scaling_factor
+ 
++        if (
++            defer_shared
++            and hidden_states.shape[0] > 0
++            and not self._fuse_shared_experts_inside_sbo
++        ):
++            shared_output = self._forward_shared_experts(
++                hidden_states, gemm_output_zero_allocator
++            )
++
+         final_hidden_states = maybe_fuse_routed_scale_and_shared_add(
+             self.experts,
+             final_hidden_states,
+@@ -1922,6 +1930,7 @@ def forward(
+         llama_4_scaling: Optional[torch.Tensor] = None,
+         prev_topk_indices: Optional[torch.Tensor] = None,
+     ) -> torch.Tensor:
++        hidden_states_orig = hidden_states
+         hidden_states, residual = self.layer_communicator.prepare_attn(
+             hidden_states,
+             residual,
+@@ -1942,6 +1951,7 @@ def forward(
+             hidden_states, topk_indices = hidden_states
+         else:
+             topk_indices = None
++        get_attn_tp_context().clear_attn_inputs()
+ 
+         hidden_states, residual = self.layer_communicator.prepare_mlp(
+             hidden_states, residual, forward_batch
+@@ -1961,13 +1971,24 @@ def forward(
+         if isinstance(self.mlp, DeepseekV2MLP):
+             gemm_output_zero_allocator = None
+ 
+-        hidden_states = self.mlp(
+-            hidden_states,
+-            forward_batch,
+-            should_allreduce_fusion,
+-            use_reduce_scatter,
+-            gemm_output_zero_allocator,
+-        )
++        if (
++            isinstance(self.mlp, DeepseekV2MoE)
++            and not self.mlp.experts.moe_runner_config.inplace
++        ):
++            from sglang.srt.layers.moe.moe_runner.base import moe_output_buffer_ctx
++
++            _mlp_ctx = moe_output_buffer_ctx(hidden_states_orig)
++        else:
++            _mlp_ctx = nullcontext()
++
++        with _mlp_ctx:
++            hidden_states = self.mlp(
++                hidden_states,
++                forward_batch,
++                should_allreduce_fusion,
++                use_reduce_scatter,
++                gemm_output_zero_allocator,
++            )
+ 
+         if not self.nsa_enable_prefill_cp and should_allreduce_fusion:
+             hidden_states._sglang_needs_allreduce_fusion = True

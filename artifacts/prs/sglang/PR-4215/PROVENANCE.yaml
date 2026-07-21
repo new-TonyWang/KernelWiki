@@ -1,0 +1,24 @@
+origin_url: https://github.com/sgl-project/sglang/pull/4215
+upstream_repo: sgl-project/sglang
+upstream_sha: e0917e6b
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-4215
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 528755e38bf1fbeb46c5d56a2ae4b125427aaa92abaee421780983913c484566
+- local_path: key-files/python/sglang/srt/layers/moe/fused_moe_triton/fused_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/fused_moe_triton/fused_moe.py
+  sha256: d006150221af6ea062f1b9fabcb0b08e58a22e0e79f10fbe52569962cfdfcc1c
+- local_path: key-files/sgl-kernel/csrc/gemm/per_token_quant_fp8.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/per_token_quant_fp8.cu
+  sha256: 8b2d67eb622097fa287eec850a1b3ec5d947178e466800d6ebbe49b18c41a06f

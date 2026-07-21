@@ -1,0 +1,49 @@
+origin_url: https://github.com/sgl-project/sglang/pull/9744
+upstream_repo: sgl-project/sglang
+upstream_sha: cd22aa27
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-9744
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 74fe11bddc21fe5a72d3566575bf690b28df872685884fbba60666ef016b2413
+- local_path: key-files/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla.py
+  sha256: 92660d2ab5b60278efbabb886957cf712724ef8698a734e2789f0da9cbf7dfd6
+- local_path: key-files/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_fused_rope_cpu.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mla_fused_rope_cpu.py
+  sha256: aaf1e28e23986c947d37a784031eb7d292bd41905482ea604935d849ff17db56
+- local_path: key-files/sgl-kernel/csrc/cpu/bmm.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cpu/bmm.cpp
+  sha256: 808d12b36e2878302fb21a64ffea0c9cf4c6c84d2609d1679eb466148ab2e653
+- local_path: key-files/sgl-kernel/csrc/cpu/gemm.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cpu/gemm.h
+  sha256: 4030acf09810d9846826145d0f7ea1416d7e352952f6e3763f672f38669ef6f4
+- local_path: key-files/sgl-kernel/csrc/cpu/gemm_fp8.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cpu/gemm_fp8.cpp
+  sha256: e23ba58437bb6e9b0511e78613a576fded42d540492837482722da6e88f65722
+- local_path: key-files/sgl-kernel/csrc/cpu/qkv_proj.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cpu/qkv_proj.cpp
+  sha256: 5bdc0585b95f3d8745b87a012048c77a743b8a346551cbe4e53fdbd026175f2e
+- local_path: key-files/sgl-kernel/csrc/cpu/torch_extension_cpu.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cpu/torch_extension_cpu.cpp
+  sha256: e313ac12a0409e0579097d403231c4c3309958183c9b620b4e0eae5c3b4dd857

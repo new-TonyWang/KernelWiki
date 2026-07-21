@@ -1,0 +1,24 @@
+origin_url: https://github.com/sgl-project/sglang/pull/10491
+upstream_repo: sgl-project/sglang
+upstream_sha: 9b876889
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-10491
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 6d6714505fc94b48333685c11a267e5f15bc616f624f6f17e7cc1ddd9494a1df
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/gemm/fp8_blockwise_gemm_sm90_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/gemm/fp8_blockwise_gemm_sm90_dispatch.cuh
+  sha256: d3e197f1d7031a64f345f54939868bf8582b4b5c2f885721a75e4d9c89227ef5
+- local_path: key-files/sgl-kernel/csrc/moe/fp8_blockwise_moe_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/fp8_blockwise_moe_kernel.cu
+  sha256: 8ff61d1d9a8d3e41a79ee5e805d67a4ce2e632da3eca7dbc2c896ff579fffa4b

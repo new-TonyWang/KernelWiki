@@ -1,0 +1,84 @@
+origin_url: https://github.com/sgl-project/sglang/pull/7772
+upstream_repo: sgl-project/sglang
+upstream_sha: da3890e8
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-7772
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 11c52139599fe35e0f36ebadbc87585807306b30b1a74c564f480c6aa8ef1509
+- local_path: key-files/sgl-kernel/csrc/common_extension.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/common_extension.cc
+  sha256: 14719d302d754ec946ed2d11c741166c7d5b171fff1e651048f00c3fa5a65b2a
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/detail/collective/mixed_input_utils.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/detail/collective/mixed_input_utils.hpp
+  sha256: 5e6c0d9a009a87677cb6958c41f8d9f371714beb0978d172ce59519bb38f8697
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/gemm/collective/builders/sm90_gmma_builder_mixed_input.inl
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/gemm/collective/builders/sm90_gmma_builder_mixed_input.inl
+  sha256: a55bf4d13931215540082d2b3e9d31f5260e284eb7246e83d5a4549095161ca0
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/gemm/collective/collective_builder_mixed_input.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/gemm/collective/collective_builder_mixed_input.hpp
+  sha256: 0a88dd2755576dba7ab85c9c175efbd2e5e41735443786c9c1f50b660e511f94
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/gemm/collective/collective_mma_array_mixed_input.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/gemm/collective/collective_mma_array_mixed_input.hpp
+  sha256: c177521617b5626ab1c1ac05312d284f815db68eac2fb348fbae08fee18c7690
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/gemm/collective/sm90_mma_array_tma_gmma_rs_warpspecialized_mixed_input_.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/gemm/collective/sm90_mma_array_tma_gmma_rs_warpspecialized_mixed_input_.hpp
+  sha256: b7846099933fd503a538ab36e969dbcb16010cb28ec4655118a2b921d5851edd
+- local_path: key-files/sgl-kernel/csrc/moe/cutlass_moe/w4a8/scaled_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/cutlass_moe/w4a8/scaled_mm_entry.cu
+  sha256: 96c8953053bd1206bbe90f57e43ca6ae5f5467e561dceba7c3bdf9cbaa08a93e
+- local_path: key-files/sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_get_group_starts.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_get_group_starts.cuh
+  sha256: 232beca323f4d0b2e6c271d2e4e1501f6c29b3fb798d9a4f1dc2f17ddbfe5284
+- local_path: key-files/sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_grouped_mm_c3x.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_grouped_mm_c3x.cu
+  sha256: 93c2e724085fb0872f807865d51309bfb0a34906cc1241ef0bcead6ef24da718
+- local_path: key-files/sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_grouped_mm_c3x.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_grouped_mm_c3x.cuh
+  sha256: d8e1cb336ee8bf116fc982670ef142e1176bd81d9cf8e6ea7188b09d9e3856d5
+- local_path: key-files/sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_moe_data.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_moe_data.cu
+  sha256: 78f4943084d7b85faa12e41634baa97a7a56d0aa189eb1d8dcbfe97691e51f57
+- local_path: key-files/sgl-kernel/include/sgl_kernel_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/include/sgl_kernel_ops.h
+  sha256: 7e5a1a9481a2a90980455f09f4f8afcf20c16a76e99452969edfb7d5293ea9c5
+- local_path: key-files/sgl-kernel/python/sgl_kernel/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/python/sgl_kernel/__init__.py
+  sha256: d3a7b243989379e47cf78a99a0204d6ab3b1e64a937ab05ae4a8bd9e27784c62
+- local_path: key-files/sgl-kernel/python/sgl_kernel/cutlass_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/python/sgl_kernel/cutlass_moe.py
+  sha256: 38a92f0897ab45242ec2e75e3faf84f8b5668abcb7a4d894c58c2de2b4f3b221

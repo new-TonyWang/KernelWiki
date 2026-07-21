@@ -1,0 +1,149 @@
+diff --git a/.github/workflows/pr-test.yml b/.github/workflows/pr-test.yml
+index ee0b10c0ec9d..0c71bf05bffa 100644
+--- a/.github/workflows/pr-test.yml
++++ b/.github/workflows/pr-test.yml
+@@ -38,8 +38,6 @@ jobs:
+         uses: actions/checkout@v4
+ 
+       - name: Install dependencies
+-        env:
+-          FLASHINFER_REPO: ${{ inputs.version == 'nightly' && 'https://flashinfer.ai/whl/nightly/cu124/torch2.5/flashinfer-python' || 'https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python' }}
+         run: |
+           bash scripts/ci_install_dependency.sh
+ 
+@@ -62,8 +60,6 @@ jobs:
+         uses: actions/checkout@v4
+ 
+       - name: Install dependencies
+-        env:
+-          FLASHINFER_REPO: ${{ inputs.version == 'nightly' && 'https://flashinfer.ai/whl/nightly/cu124/torch2.5/flashinfer-python' || 'https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python' }}
+         run: |
+           bash scripts/ci_install_dependency.sh
+ 
+@@ -82,8 +78,6 @@ jobs:
+         uses: actions/checkout@v4
+ 
+       - name: Install dependencies
+-        env:
+-          FLASHINFER_REPO: ${{ inputs.version == 'nightly' && 'https://flashinfer.ai/whl/nightly/cu124/torch2.5/flashinfer-python' || 'https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python' }}
+         run: |
+           bash scripts/ci_install_dependency.sh
+ 
+@@ -102,8 +96,6 @@ jobs:
+         uses: actions/checkout@v4
+ 
+       - name: Install dependencies
+-        env:
+-          FLASHINFER_REPO: ${{ inputs.version == 'nightly' && 'https://flashinfer.ai/whl/nightly/cu124/torch2.5/flashinfer-python' || 'https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python' }}
+         run: |
+           bash scripts/ci_install_dependency.sh
+ 
+@@ -146,8 +138,6 @@ jobs:
+         uses: actions/checkout@v4
+ 
+       - name: Install dependencies
+-        env:
+-          FLASHINFER_REPO: ${{ inputs.version == 'nightly' && 'https://flashinfer.ai/whl/nightly/cu124/torch2.5/flashinfer-python' || 'https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python' }}
+         run: |
+           bash scripts/ci_install_dependency.sh
+ 
+@@ -178,8 +168,6 @@ jobs:
+         uses: actions/checkout@v4
+ 
+       - name: Install dependencies
+-        env:
+-          FLASHINFER_REPO: ${{ inputs.version == 'nightly' && 'https://flashinfer.ai/whl/nightly/cu124/torch2.5/flashinfer-python' || 'https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python' }}
+         run: |
+           bash scripts/ci_install_dependency.sh
+ 
+@@ -216,8 +204,6 @@ jobs:
+         uses: actions/checkout@v4
+ 
+       - name: Install dependencies
+-        env:
+-          FLASHINFER_REPO: ${{ inputs.version == 'nightly' && 'https://flashinfer.ai/whl/nightly/cu124/torch2.5/flashinfer-python' || 'https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python' }}
+         run: |
+           bash scripts/ci_install_dependency.sh
+           git clone https://github.com/merrymercy/human-eval.git
+@@ -239,8 +225,6 @@ jobs:
+         uses: actions/checkout@v4
+ 
+       - name: Install dependencies
+-        env:
+-          FLASHINFER_REPO: ${{ inputs.version == 'nightly' && 'https://flashinfer.ai/whl/nightly/cu124/torch2.5/flashinfer-python' || 'https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python' }}
+         run: |
+           bash scripts/ci_install_dependency.sh
+           git clone https://github.com/merrymercy/human-eval.git
+diff --git a/.github/workflows/vllm-dependency-test.yml b/.github/workflows/vllm-dependency-test.yml
+index 2fbd37ec50dc..57ad68d527c7 100644
+--- a/.github/workflows/vllm-dependency-test.yml
++++ b/.github/workflows/vllm-dependency-test.yml
+@@ -28,8 +28,6 @@ jobs:
+         uses: actions/checkout@v4
+ 
+       - name: Install dependencies
+-        env:
+-          FLASHINFER_REPO: 'https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python'
+         run: |
+           bash scripts/ci_install_dependency.sh
+           pip install "vllm>=0.6.4.post1,<=0.7.2"
+diff --git a/docs/start/install.md b/docs/start/install.md
+index b5a40ee3a329..0a00e0bf1744 100644
+--- a/docs/start/install.md
++++ b/docs/start/install.md
+@@ -11,7 +11,7 @@ It is recommended to use uv to install the dependencies for faster installation:
+ ```bash
+ pip install --upgrade pip
+ pip install uv
+-uv pip install "sglang[all]>=0.4.5.post1" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python
++uv pip install "sglang[all]>=0.4.5.post1"
+ ```
+ 
+ **Quick Fixes to Common Problems**
+@@ -23,7 +23,7 @@ uv pip install "sglang[all]>=0.4.5.post1" --find-links https://flashinfer.ai/whl
+   1. Use `export CUDA_HOME=/usr/local/cuda-<your-cuda-version>` to set the `CUDA_HOME` environment variable.
+   2. Install FlashInfer first following [FlashInfer installation doc](https://docs.flashinfer.ai/installation.html), then install SGLang as described above.
+ 
+-- If you encounter `ImportError; cannot import name 'is_valid_list_of_images' from 'transformers.models.llama.image_processing_llama'`, try to use the specified version of `transformers` in [pyproject.toml](https://github.com/sgl-project/sglang/blob/main/python/pyproject.toml). Currently, just running `pip install transformers==4.48.3`.
++- If you encounter `ImportError; cannot import name 'is_valid_list_of_images' from 'transformers.models.llama.image_processing_llama'`, try to use the specified version of `transformers` in [pyproject.toml](https://github.com/sgl-project/sglang/blob/main/python/pyproject.toml). Currently, just running `pip install transformers==4.51.1`.
+ 
+ ## Method 2: From source
+ 
+@@ -33,7 +33,7 @@ git clone -b v0.4.5.post1 https://github.com/sgl-project/sglang.git
+ cd sglang
+ 
+ pip install --upgrade pip
+-pip install -e "python[all]" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python
++pip install -e "python[all]"
+ ```
+ 
+ Note: SGLang currently uses torch 2.5, so you need to install flashinfer for torch 2.5. If you want to install flashinfer separately, please refer to [FlashInfer installation doc](https://docs.flashinfer.ai/installation.html).
+diff --git a/scripts/ci_install_dependency.sh b/scripts/ci_install_dependency.sh
+index b7528f1d8e75..2f854573d458 100755
+--- a/scripts/ci_install_dependency.sh
++++ b/scripts/ci_install_dependency.sh
+@@ -2,9 +2,6 @@
+ # Install the dependency in CI.
+ set -euxo pipefail
+ 
+-# Use repo from environment variables, passed from GitHub Actions
+-FLASHINFER_REPO="${FLASHINFER_REPO:-https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python}"
+-
+ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ bash "${SCRIPT_DIR}/killall_sglang.sh"
+ 
+@@ -18,12 +15,11 @@ rm -rf /usr/local/lib/python3.10/dist-packages/sgl_kernel*
+ # Update pip
+ pip install --upgrade pip
+ 
+-# Install flashinfer and sgl-kernel
+-pip install flashinfer_python==0.2.3 --find-links ${FLASHINFER_REPO} --no-cache-dir
++# Install sgl-kernel
+ pip install sgl-kernel==0.0.9.post2 --no-cache-dir
+ 
+ # Install the main package
+-pip install -e "python[all]" --find-links ${FLASHINFER_REPO}
++pip install -e "python[all]"
+ 
+ # Install additional dependencies
+ pip install torch_memory_saver

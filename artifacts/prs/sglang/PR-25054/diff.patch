@@ -1,0 +1,641 @@
+diff --git a/python/sglang/srt/layers/moe/cutlass_moe.py b/python/sglang/srt/layers/moe/cutlass_moe.py
+index 16dbc74c972c..fd02d6718f08 100755
+--- a/python/sglang/srt/layers/moe/cutlass_moe.py
++++ b/python/sglang/srt/layers/moe/cutlass_moe.py
+@@ -468,7 +468,7 @@ def cutlass_moe_fp4(
+     )
+     del rep_a_fp4, rep_a_blockscale
+ 
+-    # hidden size dimension is split to one halfpytho sized tensor.
++    # hidden size dimension is split to one half sized tensor.
+     intermediate = torch.empty(
+         (m_a * num_topk, w1_fp4.shape[1] // 2), device=device, dtype=out_dtype
+     )
+diff --git a/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py b/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+index e3336636b70a..439840ad14d1 100644
+--- a/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
++++ b/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+@@ -509,18 +509,26 @@ def align_fp4_moe_weights_for_flashinfer_trtllm(layer: Module) -> None:
+     layer.intermediate_size_per_partition = intermediate_size
+ 
+ 
+-def get_activation_type(activation: str) -> int:
++def get_activation_type(activation: str, is_gated: bool = True) -> int:
+     """Map SGLang activation string to FlashInfer ActivationType int value."""
+     from flashinfer.fused_moe.core import ActivationType
+ 
+-    _ACTIVATION_STR_TO_TYPE = {
+-        "silu": ActivationType.Swiglu,
+-        "relu2": ActivationType.Relu2,
+-    }
++    if is_gated:
++        _ACTIVATION_STR_TO_TYPE = {
++            "silu": ActivationType.Swiglu,
++            "gelu": ActivationType.Geglu,
++        }
++    else:
++        _ACTIVATION_STR_TO_TYPE = {
++            "silu": ActivationType.Silu,
++            "gelu": ActivationType.Gelu,
++            "relu2": ActivationType.Relu2,
++        }
+     act = _ACTIVATION_STR_TO_TYPE.get(activation)
+     if act is None:
+         raise ValueError(
+-            f"Unsupported activation '{activation}' for TRTLLM MoE. "
++            f"Unsupported activation '{activation}' for TRTLLM MoE "
++            f"(is_gated={is_gated}). "
+             f"Expected one of {list(_ACTIVATION_STR_TO_TYPE.keys())}."
+         )
+     return act.value
+@@ -863,7 +871,7 @@ def fused_experts_none_to_flashinfer_trtllm_fp4(
+     from sglang.srt.layers.moe.topk import TopKOutputChecker
+     from sglang.srt.layers.moe.utils import RoutingMethodType
+ 
+-    _SUPPORTED_FP4_ACTIVATIONS = {"silu", "relu2"}
++    _SUPPORTED_FP4_ACTIVATIONS = {"silu", "relu2", "gelu"}
+     assert runner_config.activation in _SUPPORTED_FP4_ACTIVATIONS, (
+         f"Only {_SUPPORTED_FP4_ACTIVATIONS} are supported for FP4 MoE, "
+         f"got '{runner_config.activation}'."
+@@ -896,7 +904,9 @@ def fused_experts_none_to_flashinfer_trtllm_fp4(
+     hs_scale = hs_scale_linear.view(torch.float8_e4m3fn).reshape(
+         *hs_scale_linear.shape[:-1], -1
+     )
+-    activation_type = get_activation_type(runner_config.activation)
++    activation_type = get_activation_type(
++        runner_config.activation, is_gated=runner_config.is_gated
++    )
+ 
+     num_tokens = hs_fp4.shape[0]
+     hidden_size = (
+@@ -1070,7 +1080,9 @@ def fused_experts_none_to_flashinfer_trtllm_bf16(
+     assert (
+         runner_config.num_fused_shared_experts == 0
+     ), "Fused shared experts are not supported for flashinfer trtllm moe"
+-    activation_type = get_activation_type(runner_config.activation)
++    activation_type = get_activation_type(
++        runner_config.activation, is_gated=runner_config.is_gated
++    )
+ 
+     hidden_states = dispatch_output.hidden_states
+     topk_output = dispatch_output.topk_output
+diff --git a/python/sglang/srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8_moe.py b/python/sglang/srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8_moe.py
+index 890090f6f15c..e0f59c9f86af 100644
+--- a/python/sglang/srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8_moe.py
++++ b/python/sglang/srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8_moe.py
+@@ -400,7 +400,10 @@ def apply_weights(
+                     get_activation_type,
+                 )
+ 
+-                activation_type = get_activation_type(moe_runner_config.activation)
++                activation_type = get_activation_type(
++                    moe_runner_config.activation,
++                    is_gated=moe_runner_config.is_gated,
++                )
+                 quant_info = FlashInferTrtllmFp8MoeQuantInfo(
+                     w13_weight=layer.w13_weight,
+                     w2_weight=layer.w2_weight,
+diff --git a/python/sglang/srt/layers/quantization/fp8.py b/python/sglang/srt/layers/quantization/fp8.py
+index 8d7dfa2d3661..78d6666464d5 100644
+--- a/python/sglang/srt/layers/quantization/fp8.py
++++ b/python/sglang/srt/layers/quantization/fp8.py
+@@ -1930,7 +1930,10 @@ def apply(
+                 get_activation_type,
+             )
+ 
+-            activation_type = get_activation_type(self.moe_runner_config.activation)
++            activation_type = get_activation_type(
++                self.moe_runner_config.activation,
++                is_gated=self.moe_runner_config.is_gated,
++            )
+ 
+             quant_info = FlashInferTrtllmFp8MoeQuantInfo(
+                 w13_weight=layer.w13_weight,
+diff --git a/python/sglang/srt/layers/quantization/modelopt_quant.py b/python/sglang/srt/layers/quantization/modelopt_quant.py
+index 9afdb54968cc..e4573987eb59 100755
+--- a/python/sglang/srt/layers/quantization/modelopt_quant.py
++++ b/python/sglang/srt/layers/quantization/modelopt_quant.py
+@@ -102,7 +102,9 @@
+     # Define a minimal ActivationType enum if flashinfer is not available
+     class ActivationType(IntEnum):
+         Swiglu = 3
++        Geglu = 4
+         Relu2 = 6
++        Identity = 7
+ 
+ 
+ # Initialize logger for the module
+@@ -263,10 +265,8 @@ def slice_nvfp4_output(
+ # Supported activation schemes for the current configuration
+ ACTIVATION_SCHEMES = ["static"]
+ 
+-ACT_STR_TO_TYPE_MAP = {
+-    "silu": ActivationType.Swiglu,  # This is the default
+-    "relu2": ActivationType.Relu2,
+-}
++
++_SUPPORTED_ACT_STRS = ("silu", "relu2", "gelu")
+ 
+ 
+ class ModelOptQuantConfig(QuantizationConfig):
+@@ -1028,7 +1028,10 @@ def apply(
+                 output1_scales_gate_scalar=layer.output1_scales_gate_scalar,
+                 output2_scales_scalar=layer.output2_scales_scalar,
+                 use_routing_scales_on_input=True,
+-                activation_type=get_activation_type(self.moe_runner_config.activation),
++                activation_type=get_activation_type(
++                    self.moe_runner_config.activation,
++                    is_gated=self.moe_runner_config.is_gated,
++                ),
+             )
+ 
+             return fused_experts_none_to_flashinfer_trtllm_fp8(
+@@ -1036,15 +1039,33 @@ def apply(
+             )
+ 
+         if get_moe_runner_backend().is_flashinfer_cutlass():
+-            activation = ACT_STR_TO_TYPE_MAP[self.moe_runner_config.activation]
+-            assert (
+-                (
+-                    activation is ActivationType.Relu2
+-                    and not self.moe_runner_config.is_gated
++            from sglang.srt.layers.moe.moe_runner.flashinfer_trtllm import (
++                get_activation_type,
++            )
++
++            activation_str = self.moe_runner_config.activation
++            assert activation_str in _SUPPORTED_ACT_STRS, (
++                f"Activation {activation_str!r} is not supported for "
++                f"flashinfer cutlass fp8 moe (supported: {_SUPPORTED_ACT_STRS})."
++            )
++            activation = ActivationType(
++                get_activation_type(
++                    activation_str, is_gated=self.moe_runner_config.is_gated
+                 )
+-                or activation is ActivationType.Swiglu
+-                and self.moe_runner_config.is_gated
+-            ), "Only Relu2 non-gated or Swiglu gated are supported for flashinfer cutlass fp8 moe"
++            )
++            # FlashInfer CUTLASS MoE supports gated Swiglu/Geglu and non-gated
++            # Relu2/Identity. Non-gated Silu/Gelu are not implemented.
++            _CUTLASS_SUPPORTED = {
++                ActivationType.Swiglu,
++                ActivationType.Geglu,
++                ActivationType.Relu2,
++                ActivationType.Identity,
++            }
++            assert activation in _CUTLASS_SUPPORTED, (
++                f"Activation {activation_str!r} (is_gated="
++                f"{self.moe_runner_config.is_gated}) maps to {activation.name}, "
++                "which is not supported by flashinfer cutlass fp8 moe."
++            )
+             topk_weights, topk_ids = topk_output.topk_weights, topk_output.topk_ids
+             x_fp8, _ = scaled_fp8_quant(x, layer.w13_input_scale)
+             output_dtype = x.dtype
+@@ -1310,7 +1331,7 @@ def create_weights(
+         layer.output_size_per_partition = output_size_per_partition
+         if input_size_per_partition % 16 != 0:
+             raise ValueError(
+-                "Unsupported model when in features size is " "not multiple of 16"
++                "Unsupported model when in features size is not multiple of 16"
+             )
+ 
+         weight_dtype = (
+@@ -2021,8 +2042,8 @@ def apply(
+         activation = self.moe_runner_config.activation
+ 
+         assert (
+-            activation in ACT_STR_TO_TYPE_MAP
+-        ), f"{activation=} missing from {ACT_STR_TO_TYPE_MAP.keys()=}"
++            activation in _SUPPORTED_ACT_STRS
++        ), f"{activation=} not in supported {_SUPPORTED_ACT_STRS}"
+         moe_runner_config = self.moe_runner_config
+ 
+         # FlashInfer TRTLLM FP4 path
+@@ -2102,11 +2123,30 @@ def apply(
+             return self.runner.run(dispatch_output, quant_info)
+ 
+         if self.enable_flashinfer_cutlass_moe:
++            from sglang.srt.layers.moe.moe_runner.flashinfer_trtllm import (
++                get_activation_type,
++            )
+             from sglang.srt.layers.moe.token_dispatcher import DispatchOutputChecker
+ 
+             assert (
+                 not moe_runner_config.apply_router_weight_on_input
+             ), "apply_router_weight_on_input is not supported for Flashinfer"
++            # Resolve the FlashInfer ActivationType honoring the gated flag,
++            # then verify the CUTLASS FP4 kernel supports it.
++            fi_activation = ActivationType(
++                get_activation_type(activation, is_gated=moe_runner_config.is_gated)
++            )
++            _CUTLASS_FP4_SUPPORTED = {
++                ActivationType.Swiglu,
++                ActivationType.Geglu,
++                ActivationType.Relu2,
++                ActivationType.Identity,
++            }
++            assert fi_activation in _CUTLASS_FP4_SUPPORTED, (
++                f"Activation {activation!r} (is_gated={moe_runner_config.is_gated}) "
++                f"maps to {fi_activation.name}, which is not supported by the "
++                "flashinfer cutlass fp4 moe kernel."
++            )
+             # TRTLLM Cutlass moe takes in activations in BF16/Half/nvfp4 precision
+             # and fp4 quantized weights loaded from the checkpoint
+             x = dispatch_output.hidden_states
+@@ -2157,7 +2197,7 @@ def apply(
+                 tp_size=layer.moe_tp_size,
+                 tp_rank=layer.moe_tp_rank,
+                 tune_max_num_tokens=next_power_of_2(x.shape[0]),
+-                activation_type=ACT_STR_TO_TYPE_MAP[activation],
++                activation_type=fi_activation,
+                 enable_alltoall=get_moe_a2a_backend().is_flashinfer(),
+             )[0]
+ 
+diff --git a/python/sglang/srt/managers/scheduler.py b/python/sglang/srt/managers/scheduler.py
+index 204d3a2488a2..92f44d5fe9d8 100644
+--- a/python/sglang/srt/managers/scheduler.py
++++ b/python/sglang/srt/managers/scheduler.py
+@@ -825,7 +825,14 @@ def init_moe_gemm_config(self):
+             self.model_config.hf_config, "text_config", self.model_config.hf_config
+         )
+ 
+-        if hasattr(config_to_check, "num_experts_per_tok"):
++        # Different MoE architectures expose the per-token expert count under
++        # different attribute names (e.g. Gemma4 uses ``top_k_experts``).
++        moe_topk_attrs = (
++            "num_experts_per_tok",
++            "num_experts_per_token",
++            "top_k_experts",
++        )
++        if any(hasattr(config_to_check, attr) for attr in moe_topk_attrs):
+             initialize_moe_config(self.server_args)
+ 
+         # Initialize GEMM-related configuration for FP8 and FP4 backends.
+diff --git a/python/sglang/srt/models/gemma4_causal.py b/python/sglang/srt/models/gemma4_causal.py
+index ce6be6ef8003..190452fcd124 100644
+--- a/python/sglang/srt/models/gemma4_causal.py
++++ b/python/sglang/srt/models/gemma4_causal.py
+@@ -42,6 +42,7 @@
+ )
+ from sglang.srt.layers.logits_processor import LogitsProcessor
+ from sglang.srt.layers.moe.ep_moe.layer import get_moe_impl_class
++from sglang.srt.layers.moe.fused_moe_triton.layer import FusedMoE
+ from sglang.srt.layers.moe.topk import TopK
+ from sglang.srt.layers.quantization.base_config import QuantizationConfig
+ from sglang.srt.layers.radix_attention import RadixAttention
+@@ -1140,7 +1141,7 @@ def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
+             ("gate_up_proj", "up_proj", 1),
+         ]
+ 
+-        expert_params_mapping = [
++        fused_expert_params_mapping = [
+             # (param_name, ckpt_weight_name, shard_ids)
+             # gate_up_proj is fused [E, 2*I, H] — chunk into w1 (gate) + w3 (up)
+             ("experts.w13_weight", "experts.gate_up_proj", ("w1", "w3")),
+@@ -1148,6 +1149,23 @@ def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
+         ]
+         num_experts = self.config.num_experts
+ 
++        # Per-expert checkpoint format used by compressed-tensors / FP8
++        # (e.g. RedHatAI/*-FP8-Dynamic) and by ModelOpt NVFP4
++        # (e.g. nvidia/Gemma-4-*-NVFP4). Each expert is stored as a
++        # separate key with shape (out, in):
++        #   experts.<id>.{gate,up,down}_proj.{weight,weight_scale,
++        #                                     weight_scale_2,input_scale}
++        # `make_expert_params_mapping` emits tuples whose `weight_name` ends
++        # in a trailing dot, so the standard `name.replace(weight_name,
++        # param_name)` collapses every suffix uniformly to the fused
++        # FusedMoE params (experts.w13_*, experts.w2_*).
++        per_expert_params_mapping = FusedMoE.make_expert_params_mapping(
++            ckpt_gate_proj_name="gate_proj",
++            ckpt_down_proj_name="down_proj",
++            ckpt_up_proj_name="up_proj",
++            num_experts=num_experts,
++        )
++
+         k_eq_v_layers = self._get_k_eq_v_layers()
+ 
+         params_dict = dict(self.named_parameters())
+@@ -1201,22 +1219,41 @@ def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
+             # MoE expert weights checked first (gate_up_proj contains "up_proj"
+             # which would false-match the stacked dense MLP mapping).
+             orig_name = name
+-            for param_name, weight_name, shard_ids in expert_params_mapping:
+-                name = orig_name
+-                if weight_name not in name:
++
++            # 1) Per-expert checkpoint layout (compressed-tensors FP8 like
++            #    RedHatAI/*-FP8-Dynamic, ModelOpt NVFP4 like
++            #    nvidia/Gemma-4-*-NVFP4): experts.<id>.{gate,up,down}_proj.*
++            #    The trailing dot in `weight_name` lets a single mapping fold
++            #    weight, weight_scale, weight_scale_2, and input_scale into
++            #    their corresponding fused FusedMoE params (experts.w13_*,
++            #    experts.w2_*).
++            for (
++                param_name,
++                weight_name,
++                expert_id,
++                shard_id,
++            ) in per_expert_params_mapping:
++                if weight_name not in orig_name:
+                     continue
+-                name = name.replace(weight_name, param_name)
++                name = orig_name.replace(weight_name, param_name)
+                 if name not in params_dict:
+                     continue
+                 param = params_dict[name]
+                 weight_loader = param.weight_loader
+-                for i in range(num_experts):
+-                    chunks = loaded_weight[i].chunk(len(shard_ids), dim=0)
+-                    for chunk, sid in zip(chunks, shard_ids):
+-                        weight_loader(param, chunk, name, sid, i)
++                weight_loader(
++                    param,
++                    loaded_weight,
++                    name,
++                    shard_id=shard_id,
++                    expert_id=expert_id,
++                )
++                loaded_params.add(name)
+                 break
+             else:
+-                for param_name, weight_name, shard_id in stacked_params_mapping:
++                # 2) BF16 fused checkpoint layout: experts.gate_up_proj is a
++                #    [E, 2*I, H] tensor that needs per-expert chunking into
++                #    w1 (gate) and w3 (up).
++                for param_name, weight_name, shard_ids in fused_expert_params_mapping:
+                     name = orig_name
+                     if weight_name not in name:
+                         continue
+@@ -1225,25 +1262,42 @@ def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
+                         continue
+                     param = params_dict[name]
+                     weight_loader = param.weight_loader
+-                    weight_loader(param, loaded_weight, shard_id)
+-                    if should_dup_k_to_v:
+-                        weight_loader(param, loaded_weight, "v")
++                    for i in range(num_experts):
++                        chunks = loaded_weight[i].chunk(len(shard_ids), dim=0)
++                        for chunk, sid in zip(chunks, shard_ids):
++                            weight_loader(param, chunk, name, sid, i)
++                    loaded_params.add(name)
+                     break
+                 else:
+-                    name = orig_name
+-                    if name.endswith(".bias") and name not in params_dict:
+-                        continue
+-                    name = maybe_remap_kv_scale_name(name, params_dict)
+-                    if name is None:
+-                        continue
+-                    if name not in params_dict:
+-                        continue
+-                    param = params_dict[name]
+-                    weight_loader = getattr(
+-                        param, "weight_loader", default_weight_loader
+-                    )
+-                    weight_loader(param, loaded_weight)
+-            loaded_params.add(name)
++                    for param_name, weight_name, shard_id in stacked_params_mapping:
++                        name = orig_name
++                        if weight_name not in name:
++                            continue
++                        name = name.replace(weight_name, param_name)
++                        if name not in params_dict:
++                            continue
++                        param = params_dict[name]
++                        weight_loader = param.weight_loader
++                        weight_loader(param, loaded_weight, shard_id)
++                        if should_dup_k_to_v:
++                            weight_loader(param, loaded_weight, "v")
++                        loaded_params.add(name)
++                        break
++                    else:
++                        name = orig_name
++                        if name.endswith(".bias") and name not in params_dict:
++                            continue
++                        name = maybe_remap_kv_scale_name(name, params_dict)
++                        if name is None:
++                            continue
++                        if name not in params_dict:
++                            continue
++                        param = params_dict[name]
++                        weight_loader = getattr(
++                            param, "weight_loader", default_weight_loader
++                        )
++                        weight_loader(param, loaded_weight)
++                        loaded_params.add(name)
+         unloaded_params = params_dict.keys() - loaded_params
+         if unloaded_params:
+             param_names = set(dict(self.named_parameters()).keys())
+diff --git a/python/sglang/srt/models/gemma4_mm.py b/python/sglang/srt/models/gemma4_mm.py
+index 6d82e31cfd38..fb14dd17ab3b 100644
+--- a/python/sglang/srt/models/gemma4_mm.py
++++ b/python/sglang/srt/models/gemma4_mm.py
+@@ -33,6 +33,7 @@
+ from sglang.srt.layers.layernorm import Gemma4RMSNorm
+ from sglang.srt.layers.linear import ReplicatedLinear
+ from sglang.srt.layers.logits_processor import LogitsProcessor
++from sglang.srt.layers.moe.fused_moe_triton.layer import FusedMoE
+ from sglang.srt.layers.quantization.base_config import QuantizationConfig
+ from sglang.srt.layers.utils import PPMissingLayer
+ from sglang.srt.layers.vocab_parallel_embedding import ParallelLMHead
+@@ -817,6 +818,27 @@ def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
+             ("experts.w2_weight", "experts.down_proj", ("w2",)),
+         ]
+ 
++        # Per-expert checkpoint format used by compressed-tensors / FP8
++        # (e.g. RedHatAI/*-FP8-Dynamic) and by ModelOpt NVFP4
++        # (e.g. nvidia/Gemma-4-*-NVFP4). Each expert is stored as a
++        # separate key with shape (out, in):
++        #   experts.<id>.{gate,up,down}_proj.{weight,weight_scale,
++        #                                     weight_scale_2,input_scale}
++        # `make_expert_params_mapping` emits tuples whose `weight_name` ends
++        # in a trailing dot, so the standard `name.replace(weight_name,
++        # param_name)` collapses every suffix uniformly to the fused
++        # FusedMoE params (experts.w13_*, experts.w2_*).
++        per_expert_params_mapping = (
++            FusedMoE.make_expert_params_mapping(
++                ckpt_gate_proj_name="gate_proj",
++                ckpt_down_proj_name="down_proj",
++                ckpt_up_proj_name="up_proj",
++                num_experts=num_experts,
++            )
++            if num_experts
++            else []
++        )
++
+         params_dict = dict(self.named_parameters())
+         params_dict.update(dict(self.named_buffers()))
+         non_persistent_buffers: Set[str] = set()
+@@ -890,60 +912,44 @@ def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
+                 and int(m.group(1)) in k_eq_v_layers
+             )
+ 
+-            # Per-expert checkpoint format used by compressed-tensors / FP8
+-            # (e.g. RedHatAI/*-FP8-Dynamic). Each expert is stored as a
+-            # separate key with shape (out, in):
+-            #   experts.<id>.gate_proj.{weight,weight_scale}
+-            #   experts.<id>.up_proj.{weight,weight_scale}
+-            #   experts.<id>.down_proj.{weight,weight_scale}
+-            # These need to be folded into sglang's fused FusedMoE params:
+-            #   experts.w13_weight[_scale]  (gate->shard "w1", up->shard "w3")
+-            #   experts.w2_weight[_scale]   (down->shard "w2")
+-            per_expert_match = re.match(
+-                r"^(.*?\.moe\.experts\.)(\d+)\.(gate_proj|up_proj|down_proj)"
+-                r"\.(weight|weight_scale)$",
+-                name,
+-            )
+-            if per_expert_match:
+-                prefix = per_expert_match.group(1)
+-                expert_id = int(per_expert_match.group(2))
+-                proj = per_expert_match.group(3)
+-                suffix = per_expert_match.group(4)
+-                if proj == "gate_proj":
+-                    base, sid = "w13_weight", "w1"
+-                elif proj == "up_proj":
+-                    base, sid = "w13_weight", "w3"
+-                else:  # down_proj
+-                    base, sid = "w2_weight", "w2"
+-                if suffix == "weight_scale":
+-                    base += "_scale"
+-                fused_name = prefix + base
+-                if fused_name in params_dict:
+-                    param = params_dict[fused_name]
+-                    weight_loader = param.weight_loader
+-                    weight_loader(param, loaded_weight, fused_name, sid, expert_id)
+-                    loaded_params.add(fused_name)
+-                continue
+-
+             # MoE expert weights checked first (gate_up_proj contains "up_proj"
+             # which would false-match the stacked dense MLP mapping).
+             orig_name = name
+-            for param_name, weight_name, shard_ids in expert_params_mapping:
+-                name = orig_name
+-                if weight_name not in name:
++
++            # 1) Per-expert checkpoint layout (compressed-tensors FP8 like
++            #    RedHatAI/*-FP8-Dynamic, ModelOpt NVFP4 like
++            #    nvidia/Gemma-4-*-NVFP4): experts.<id>.{gate,up,down}_proj.*
++            #    The trailing dot in `weight_name` lets a single mapping fold
++            #    weight, weight_scale, weight_scale_2, and input_scale into
++            #    their corresponding fused FusedMoE params (experts.w13_*,
++            #    experts.w2_*).
++            for (
++                param_name,
++                weight_name,
++                expert_id,
++                shard_id,
++            ) in per_expert_params_mapping:
++                if weight_name not in orig_name:
+                     continue
+-                name = name.replace(weight_name, param_name)
++                name = orig_name.replace(weight_name, param_name)
+                 if name not in params_dict:
+                     continue
+                 param = params_dict[name]
+                 weight_loader = param.weight_loader
+-                for i in range(num_experts):
+-                    chunks = loaded_weight[i].chunk(len(shard_ids), dim=0)
+-                    for chunk, sid in zip(chunks, shard_ids):
+-                        weight_loader(param, chunk, name, sid, i)
++                weight_loader(
++                    param,
++                    loaded_weight,
++                    name,
++                    shard_id=shard_id,
++                    expert_id=expert_id,
++                )
++                loaded_params.add(name)
+                 break
+             else:
+-                for param_name, weight_name, shard_id in self.stacked_params_mapping:
++                # 2) BF16 fused checkpoint layout: experts.gate_up_proj is a
++                #    [E, 2*I, H] tensor that needs per-expert chunking into
++                #    w1 (gate) and w3 (up).
++                for param_name, weight_name, shard_ids in expert_params_mapping:
+                     name = orig_name
+                     if weight_name not in name:
+                         continue
+@@ -952,25 +958,46 @@ def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
+                         continue
+                     param = params_dict[name]
+                     weight_loader = param.weight_loader
+-                    weight_loader(param, loaded_weight, shard_id)
+-                    if should_dup_k_to_v:
+-                        weight_loader(param, loaded_weight, "v")
++                    for i in range(num_experts):
++                        chunks = loaded_weight[i].chunk(len(shard_ids), dim=0)
++                        for chunk, sid in zip(chunks, shard_ids):
++                            weight_loader(param, chunk, name, sid, i)
++                    loaded_params.add(name)
+                     break
+                 else:
+-                    name = orig_name
+-                    if name.endswith(".bias") and name not in params_dict:
+-                        continue
+-                    name = maybe_remap_kv_scale_name(name, params_dict)
+-                    if name is None:
+-                        continue
+-                    if name not in params_dict:
+-                        continue
+-                    param = params_dict[name]
+-                    weight_loader = getattr(
+-                        param, "weight_loader", default_weight_loader
+-                    )
+-                    weight_loader(param, loaded_weight)
+-            loaded_params.add(name)
++                    for (
++                        param_name,
++                        weight_name,
++                        shard_id,
++                    ) in self.stacked_params_mapping:
++                        name = orig_name
++                        if weight_name not in name:
++                            continue
++                        name = name.replace(weight_name, param_name)
++                        if name not in params_dict:
++                            continue
++                        param = params_dict[name]
++                        weight_loader = param.weight_loader
++                        weight_loader(param, loaded_weight, shard_id)
++                        if should_dup_k_to_v:
++                            weight_loader(param, loaded_weight, "v")
++                        loaded_params.add(name)
++                        break
++                    else:
++                        name = orig_name
++                        if name.endswith(".bias") and name not in params_dict:
++                            continue
++                        name = maybe_remap_kv_scale_name(name, params_dict)
++                        if name is None:
++                            continue
++                        if name not in params_dict:
++                            continue
++                        param = params_dict[name]
++                        weight_loader = getattr(
++                            param, "weight_loader", default_weight_loader
++                        )
++                        weight_loader(param, loaded_weight)
++                        loaded_params.add(name)
+         unloaded_params = params_dict.keys() - loaded_params
+         if unloaded_params:
+             param_names = set(dict(self.named_parameters()).keys())
+diff --git a/python/sglang/srt/server_args.py b/python/sglang/srt/server_args.py
+index d2aae837df32..cc5d0ef8b00a 100644
+--- a/python/sglang/srt/server_args.py
++++ b/python/sglang/srt/server_args.py
+@@ -2230,6 +2230,13 @@ def _handle_model_specific_adjustments(self):
+                 "Gemma4 only supports trtllm_mha or triton attention backend, "
+                 f"got prefill={prefill_backend}, decode={decode_backend}"
+             )
++
++            if is_sm100_supported() and self.moe_runner_backend == "auto":
++
++                self.moe_runner_backend = "flashinfer_trtllm"
++                logger.info(
++                    "Use flashinfer_trtllm as MoE runner backend on SM100 for Gemma-4 NVFP4"
++                )
+         elif model_arch == "MossVLForConditionalGeneration":
+             if self.is_attention_backend_not_set():
+                 self.prefill_attention_backend = "flashinfer"

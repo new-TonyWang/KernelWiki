@@ -1,0 +1,44 @@
+origin_url: https://github.com/sgl-project/sglang/pull/9200
+upstream_repo: sgl-project/sglang
+upstream_sha: e5638573
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-9200
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: cd86c38896a79fc5c2dca00ca18582ff611e5182a6dc36ae496c94452a182f8a
+- local_path: key-files/sgl-kernel/csrc/common_extension.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/common_extension.cc
+  sha256: 8221e78aeb29dffd9e3e36413415048a03b2846dd82d94b03e3f467852833f71
+- local_path: key-files/sgl-kernel/csrc/gemm/nvfp4_expert_quant.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/nvfp4_expert_quant.cu
+  sha256: ba199903f3fb0c4ce645b8f0b71bb0f31fdb15b858549d4d1320af23ad9932c3
+- local_path: key-files/sgl-kernel/csrc/gemm/nvfp4_quant_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/nvfp4_quant_entry.cu
+  sha256: d10ff2c69a24daa921409f303ba6589b7c4b43ef9a295884c79d8f62997eccf1
+- local_path: key-files/sgl-kernel/include/sgl_kernel_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/include/sgl_kernel_ops.h
+  sha256: b7ca29b9390ea4d1d5d49d11218af0d8395f45549a0509b96b421b6391d43fcf
+- local_path: key-files/sgl-kernel/python/sgl_kernel/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/python/sgl_kernel/__init__.py
+  sha256: 0cde2ed7183259993c38c667001311979b43780a6b6be8ff78c33b6dd4de3a41
+- local_path: key-files/sgl-kernel/python/sgl_kernel/gemm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/python/sgl_kernel/gemm.py
+  sha256: c1c4f8faf1d0f5f3a41ef34ef87b7324384ab0b43693fdaa1c6b74c2380128ac

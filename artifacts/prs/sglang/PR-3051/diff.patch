@@ -1,0 +1,44 @@
+diff --git a/.github/workflows/pr-test-sgl-kernel.yml b/.github/workflows/pr-test-sgl-kernel.yml
+index 3d9802658310..794a73f36619 100644
+--- a/.github/workflows/pr-test-sgl-kernel.yml
++++ b/.github/workflows/pr-test-sgl-kernel.yml
+@@ -40,6 +40,7 @@ jobs:
+         run: |
+           pip3 install torch==2.5.1 && pip3 install pytest && pip3 install vllm
+           pip3 uninstall sgl-kernel -y || true
++          find . -name index.lock -delete
+           cd sgl-kernel
+           git submodule deinit --all --force && git submodule sync --recursive && git submodule update --init --force --recursive
+           pip3 install .
+diff --git a/sgl-kernel/3rdparty/flashinfer b/sgl-kernel/3rdparty/flashinfer
+index a0e99a3a8201..4e8eb1879f9c 160000
+--- a/sgl-kernel/3rdparty/flashinfer
++++ b/sgl-kernel/3rdparty/flashinfer
+@@ -1 +1 @@
+-Subproject commit a0e99a3a820109763d9a757138a5cdf7bbcd1f85
++Subproject commit 4e8eb1879f9c3ba6d75511e5893183bf8f289a62
+diff --git a/sgl-kernel/setup.py b/sgl-kernel/setup.py
+index 1197611d6a2d..b9324c355431 100644
+--- a/sgl-kernel/setup.py
++++ b/sgl-kernel/setup.py
+@@ -47,6 +47,7 @@ def get_device_sm():
+     cutlass.resolve() / "tools" / "util" / "include",
+     root / "src" / "sgl-kernel" / "csrc",
+     flashinfer.resolve() / "include",
++    flashinfer.resolve() / "include" / "gemm",
+     flashinfer.resolve() / "csrc",
+ ]
+ nvcc_flags = [
+@@ -91,7 +92,12 @@ def get_device_sm():
+             "src/sgl-kernel/csrc/sampling_scaling_penalties.cu",
+             "src/sgl-kernel/csrc/sgl_kernel_ops.cu",
+             "src/sgl-kernel/csrc/rotary_embedding.cu",
++            "3rdparty/flashinfer/csrc/activation.cu",
++            "3rdparty/flashinfer/csrc/bmm_fp8.cu",
++            "3rdparty/flashinfer/csrc/group_gemm.cu",
++            "3rdparty/flashinfer/csrc/group_gemm_sm90.cu",
+             "3rdparty/flashinfer/csrc/norm.cu",
++            "3rdparty/flashinfer/csrc/sampling.cu",
+         ],
+         include_dirs=include_dirs,
+         extra_compile_args={

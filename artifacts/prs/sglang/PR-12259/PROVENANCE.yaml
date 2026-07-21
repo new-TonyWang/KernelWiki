@@ -1,0 +1,35 @@
+origin_url: https://github.com/sgl-project/sglang/pull/12259
+upstream_repo: sgl-project/sglang
+upstream_sha: '83087247'
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-12259
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 2cd107da260489fb0e8f068b431eb91c279e2b43a815eb955a854cc3e093df3b
+- local_path: key-files/python/sglang/srt/layers/moe/ep_moe/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/ep_moe/layer.py
+  sha256: 7b728c8f5f316a44abb3017215927a0491e51c73799b1673402da9c12ec82997
+- local_path: key-files/python/sglang/srt/layers/moe/moe_runner/deep_gemm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/moe_runner/deep_gemm.py
+  sha256: 8791b44abc5e88906eb07baa783a20f63d777cbd4dc32c642bda1850d725a4f5
+- local_path: key-files/python/sglang/srt/models/deepseek_v2.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/models/deepseek_v2.py
+  sha256: 5e3f86b9572048ec6333ffebd12e57a5c4540f36f57f3f0544c49c4e15c08811
+- local_path: key-files/python/sglang/srt/models/longcat_flash.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/models/longcat_flash.py
+  sha256: 8e2059c336d93f1792d0bef97a41cb9685fd8062f3f07eb582bc5039a25c82e7
+captured_via_relaxed_allowlist: true

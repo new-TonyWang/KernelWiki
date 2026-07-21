@@ -1,0 +1,66 @@
+diff --git a/python/sglang/srt/layers/attention/deepseek_v4_backend.py b/python/sglang/srt/layers/attention/deepseek_v4_backend.py
+index 883e38d288a1..e11c2d3a6b48 100644
+--- a/python/sglang/srt/layers/attention/deepseek_v4_backend.py
++++ b/python/sglang/srt/layers/attention/deepseek_v4_backend.py
+@@ -58,7 +58,7 @@
+ from sglang.srt.utils import ceil_align
+ 
+ if TYPE_CHECKING:
+-    from flash_mla.flash_mla_interface import FlashMLASchedMeta
++    from sgl_kernel.flash_mla import FlashMLASchedMeta
+ 
+     from sglang.srt.layers.radix_attention import RadixAttention
+     from sglang.srt.model_executor.model_runner import ModelRunner
+@@ -82,7 +82,7 @@ def _pad_last_dim(x: T, multiples_of: int = PAGE_INDEX_ALIGNED_SIZE) -> T:
+ 
+ 
+ def _create_flashmla_metadata():
+-    import flash_mla
++    import sgl_kernel.flash_mla as flash_mla
+ 
+     return flash_mla.get_mla_metadata()[0]
+ 
+@@ -1045,7 +1045,7 @@ def forward(
+                     extra_indices.shape[-1] % 64 == 0
+                 ), f"{extra_indices.shape=}'s last dimension is not aligned to 64"
+ 
+-            import flash_mla
++            import sgl_kernel.flash_mla as flash_mla
+ 
+             o = flash_mla.flash_mla_with_kvcache(
+                 q=q,
+diff --git a/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py b/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py
+index 3e0ee41ab71c..ec59114d9ff8 100644
+--- a/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py
++++ b/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py
+@@ -55,7 +55,7 @@
+ from sglang.srt.utils import ceil_align
+ 
+ if TYPE_CHECKING:
+-    from flash_mla.flash_mla_interface import FlashMLASchedMeta
++    from sgl_kernel.flash_mla import FlashMLASchedMeta
+ 
+     from sglang.srt.layers.radix_attention import RadixAttention
+     from sglang.srt.model_executor.model_runner import ModelRunner
+@@ -83,7 +83,7 @@ def _create_flashmla_metadata():
+ 
+     if is_hip():
+         return None
+-    import flash_mla
++    import sgl_kernel.flash_mla as flash_mla
+ 
+     return flash_mla.get_mla_metadata()[0]
+ 
+diff --git a/python/sglang/srt/layers/attention/hip_flash_mla.py b/python/sglang/srt/layers/attention/hip_flash_mla.py
+index ae6da641f939..c26705c0cbb4 100644
+--- a/python/sglang/srt/layers/attention/hip_flash_mla.py
++++ b/python/sglang/srt/layers/attention/hip_flash_mla.py
+@@ -14,7 +14,7 @@ def flash_mla_with_kvcache_entrypoint(backend: str, **kwargs):
+ 
+         backend = os.environ.get("SGLANG_HACK_FLASHMLA_BACKEND", "tilelang")
+     else:
+-        import flash_mla
++        import sgl_kernel.flash_mla as flash_mla
+ 
+     if backend == "comparison":
+         pack_ref, pack_fast_via_tester = flash_mla_with_kvcache_entrypoint(

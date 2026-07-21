@@ -1,0 +1,60 @@
+origin_url: https://github.com/sgl-project/sglang/pull/25054
+upstream_repo: sgl-project/sglang
+upstream_sha: 847cbada
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-25054
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: c67e5efbd37aadb8c549715cc1ff3e2b340105954f7693082ac75b5647b742b3
+- local_path: key-files/python/sglang/srt/layers/moe/cutlass_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/cutlass_moe.py
+  sha256: ee2594153c6a072b08586ed7e8dbfb64ab309b55999353db29717c107a1bb02d
+- local_path: key-files/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+  sha256: 12c68729411ef64e03bda4f920ea4a6c7227e7b829d8fadeb63ecc59ac486473
+- local_path: key-files/python/sglang/srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8_moe.py
+  sha256: a73439a2eff4a63c8bfba540c01c21aeac000ae397284b3a2e99b34af193d157
+- local_path: key-files/python/sglang/srt/layers/quantization/fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/quantization/fp8.py
+  sha256: a92622b3c5e70ccf70fb436b8fdc175e88a79791140ba49be71ca3189e2b4672
+- local_path: key-files/python/sglang/srt/layers/quantization/modelopt_quant.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/quantization/modelopt_quant.py
+  sha256: 0b5c7665450fa321be0baa0af2fc627d043a1b72b3ddca07d9a66f8cb955407c
+- local_path: key-files/python/sglang/srt/managers/scheduler.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/managers/scheduler.py
+  sha256: c465b61ff83fbe3e54451b3fa786385e3dc0f183a2f657546fafdafe0bcee2de
+- local_path: key-files/python/sglang/srt/models/gemma4_causal.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/models/gemma4_causal.py
+  sha256: ebfbab133bf2e638008ed13d894daab7106ddce3b29a09e71ce311a0b2d0376e
+- local_path: key-files/python/sglang/srt/models/gemma4_mm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/models/gemma4_mm.py
+  sha256: 0a8b46d7bf1310d6c23baec00d36883f757725552d3c5ad8435f569df7969d5c
+- local_path: key-files/python/sglang/srt/server_args.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/server_args.py
+  sha256: 28cce7cf36eee38004f6f6466fcc452df4173a26b49cdaa806f1d55c2be41196
+captured_via_relaxed_allowlist: true

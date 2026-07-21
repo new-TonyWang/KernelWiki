@@ -1,0 +1,43 @@
+origin_url: https://github.com/sgl-project/sglang/pull/5207
+upstream_repo: sgl-project/sglang
+upstream_sha: ebf495f0
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-5207
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 709ee46643b4ab91b85fde1d9417cf32bf0c3c3c0be76786af13ac2910b009d1
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/gemm/collective/collective_builder.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/gemm/collective/collective_builder.hpp
+  sha256: a4d3261653e091b0734855ac0f2fc9759fb6db7d064981160821c3b2fc92394c
+  upstream_sha: fbebcb7aa4aa7c7c0d6bab4d915756d616318de1
+  captured_at_base_sha_note: 'PR #5207 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  sha256: d530ac8b559da28e808ea73cbe81426a5d26b02e2a1d3b0b7c6c20b97e07bd6c
+  upstream_sha: fbebcb7aa4aa7c7c0d6bab4d915756d616318de1
+  captured_at_base_sha_note: 'PR #5207 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/gemm/dispatch_policy.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/gemm/dispatch_policy.hpp
+  sha256: 89c176e36bf26bdb3ebac08686316fca5342e4d573e1454e9cfb252a06bee436
+  upstream_sha: fbebcb7aa4aa7c7c0d6bab4d915756d616318de1
+  captured_at_base_sha_note: 'PR #5207 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/sgl-kernel/csrc/gemm/fp8_blockwise_gemm_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/fp8_blockwise_gemm_kernel.cu
+  sha256: f0976d427f6d5ff6dd92b1e10e66a903ab9d6b288c179a58c298cd3fc83d8ec6

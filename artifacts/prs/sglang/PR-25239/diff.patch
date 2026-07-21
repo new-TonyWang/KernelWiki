@@ -1,0 +1,57 @@
+diff --git a/docs_new/docs/references/environment_variables.mdx b/docs_new/docs/references/environment_variables.mdx
+index e222daa0a87d..8ccee106cd56 100644
+--- a/docs_new/docs/references/environment_variables.mdx
++++ b/docs_new/docs/references/environment_variables.mdx
+@@ -574,6 +574,16 @@ SGLang supports various environment variables that can be used to configure its
+       <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Enable FlashInfer TRTLLM per-token NVFP4 activation scaling; ignores checkpoint activation FP32 scale by treating it as <code>1</code></td>
+       <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.02)"}}><code>false</code></td>
+     </tr>
++    <tr>
++      <td style={{padding: "9px 12px", fontWeight: 500, backgroundColor: "rgba(255,255,255,0.02)"}}><code>FLASHINFER_NVFP4_4OVER6</code></td>
++      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Enable FlashInfer NVFP4 4over6 scaling for the per-token activation path; effective only with <code>SGLANG_FLASHINFER_NVFP4_PER_TOKEN_ACTIVATION</code></td>
++      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.02)"}}><code>false</code></td>
++    </tr>
++    <tr>
++      <td style={{padding: "9px 12px", fontWeight: 500, backgroundColor: "rgba(255,255,255,0.02)"}}><code>FLASHINFER_NVFP4_4OVER6_E4M3_USE_256</code></td>
++      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Use <code>256</code> as the E4M3 scale maximum for FlashInfer NVFP4 4over6 per-token activation scaling; otherwise uses <code>448</code></td>
++      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.02)"}}><code>false</code></td>
++    </tr>
+ <tr>
+       <td style={{padding: "9px 12px", fontWeight: 500, backgroundColor: "rgba(255,255,255,0.02)"}}><code>SGLANG_NVFP4_CKPT_FP8_NEXTN_MOE</code></td>
+       <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Quantize moe of nextn layer from BF16 to FP8 when launching DeepSeek NVFP4 checkpoint</td>
+diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
+index 82ec4ab7d973..03ee829d3633 100644
+--- a/python/sglang/srt/environ.py
++++ b/python/sglang/srt/environ.py
+@@ -446,6 +446,9 @@ class Envs:
+     SGLANG_FLASHINFER_WORKSPACE_SIZE = EnvInt(384 * 1024 * 1024)
+     # Enable per-token NVFP4 activation scaling path for FlashInfer TRT-LLM MoE.
+     SGLANG_FLASHINFER_NVFP4_PER_TOKEN_ACTIVATION = EnvBool(False)
++    # SGLang needs to know FlashInfer NVFP4 4over6 config to compute the global scale factor.
++    FLASHINFER_NVFP4_4OVER6 = EnvBool(False)
++    FLASHINFER_NVFP4_4OVER6_E4M3_USE_256 = EnvBool(False)
+     # Skip-softmax threshold scale factor for TRT-LLM attention (prefill and decode separately).
+     # None = standard attention. See https://arxiv.org/abs/2512.12087
+     SGLANG_SKIP_SOFTMAX_PREFILL_THRESHOLD_SCALE_FACTOR = EnvFloat(None)
+diff --git a/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py b/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+index 997d3ccf6f6c..d2392eade779 100644
+--- a/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
++++ b/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+@@ -876,9 +876,16 @@ def fused_experts_none_to_flashinfer_trtllm_fp4(
+     if envs.SGLANG_FLASHINFER_NVFP4_PER_TOKEN_ACTIVATION.get():
+         from flashinfer import SfLayout, nvfp4_quantize
+ 
++        e4m3_max = 448.0
++        if (
++            envs.FLASHINFER_NVFP4_4OVER6.get()
++            and envs.FLASHINFER_NVFP4_4OVER6_E4M3_USE_256.get()
++        ):
++            e4m3_max = 256.0
++
+         hs_fp4_bytes, hs_sf_bytes, per_token_scale = nvfp4_quantize(
+             hidden_states,
+-            1.0 / (448.0 * 6.0),
++            1.0 / (e4m3_max * 6.0),
+             sfLayout=SfLayout.layout_linear,
+             per_token_activation=True,
+         )

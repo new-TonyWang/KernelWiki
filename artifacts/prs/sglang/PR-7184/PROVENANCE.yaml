@@ -1,0 +1,39 @@
+origin_url: https://github.com/sgl-project/sglang/pull/7184
+upstream_repo: sgl-project/sglang
+upstream_sha: ab1a4fa5
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-7184
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: d25d2292a709b9147184181a4dec1fb8ea70baf164574eb303642807f55439c0
+- local_path: key-files/python/sglang/srt/layers/attention/cutlass_mla_backend.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/attention/cutlass_mla_backend.py
+  sha256: 01b1ff5544e1ab7f61a71f0c0c7eb394e227aacf27f839fc159bc16a1471e8f7
+- local_path: key-files/sgl-kernel/csrc/attention/cutlass_mla_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/attention/cutlass_mla_kernel.cu
+  sha256: 5d8a68310cc498f832a3afaf09a5d38ce5ddb95b45a576b63e7a64d0b7423b15
+- local_path: key-files/sgl-kernel/csrc/common_extension.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/common_extension.cc
+  sha256: d31fca174c2709ad5279de44a5454565fc5729746016822240dae1544ab5aa8d
+- local_path: key-files/sgl-kernel/include/sgl_kernel_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/include/sgl_kernel_ops.h
+  sha256: b9c7a2bd593841ab40c32418b4ae139aa5ea88b056665efc4d5a57f392723599
+- local_path: key-files/sgl-kernel/python/sgl_kernel/attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/python/sgl_kernel/attention.py
+  sha256: f612088c06a4626e610293999e9633ccb8647e036f344ed5d0c019614d2fcd2c

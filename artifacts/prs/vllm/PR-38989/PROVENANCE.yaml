@@ -1,0 +1,20 @@
+origin_url: https://github.com/vllm-project/vllm/pull/38989
+upstream_repo: vllm-project/vllm
+upstream_sha: 92fbec39
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-38989
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 11343619fbc1c5898af4829abef1d025d289a29c02374caad1d597c843cf419e
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+  sha256: 97b444f09419e9761435872de40faaeefcc746fc008223156de9bb3700917df1
+captured_via_relaxed_allowlist: true

@@ -1,0 +1,39 @@
+origin_url: https://github.com/sgl-project/sglang/pull/23833
+upstream_repo: sgl-project/sglang
+upstream_sha: 3f7c95d6
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-23833
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 4d0b7bd43e883e38291f82eebb4946e828cbb5a5c51be12928d7f4d169c55ee7
+- local_path: key-files/python/sglang/jit_kernel/csrc/moe/expert_specialization/es_sm100_mxfp8_blockscaled_group_quant.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/moe/expert_specialization/es_sm100_mxfp8_blockscaled_group_quant.cuh
+  sha256: 398d73664bb560c2a0e1f99a5788b939793093dff2f1740a318569f7cfe6d7c2
+- local_path: key-files/python/sglang/jit_kernel/csrc/moe/expert_specialization/es_sm100_mxfp8_blockscaled_moe_group_gemm.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/moe/expert_specialization/es_sm100_mxfp8_blockscaled_moe_group_gemm.cuh
+  sha256: abb556104569a0d6138516d187d1fc769fa81b613d07334eefb1744a382f26ee
+- local_path: key-files/python/sglang/jit_kernel/csrc/moe/expert_specialization/es_sm100_mxfp8_blockscaled_moe_group_gemm_functor.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/moe/expert_specialization/es_sm100_mxfp8_blockscaled_moe_group_gemm_functor.cuh
+  sha256: e4c2e9a37b380465b0eb2a8a12a0730c7e5a87ef4d66f8583918cae0715cdf53
+- local_path: key-files/python/sglang/jit_kernel/csrc/moe/expert_specialization/es_sm100_mxfp8_blockscaled_moe_group_gemm_traits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/moe/expert_specialization/es_sm100_mxfp8_blockscaled_moe_group_gemm_traits.cuh
+  sha256: a50295047703237a860b9a87d348891e130fd49dbcf943bf2f60ddc65e2828dd
+- local_path: key-files/python/sglang/jit_kernel/mxfp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/mxfp8.py
+  sha256: cadfc5417df1091801038e51af421700d0f1ba2651746545fdaebab56d325248
