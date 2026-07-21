@@ -1,0 +1,1 @@
+/* size_cap_truncated: upstream file is 1393512 bytes (> 1048576). Re-fetch upstream at flashinfer-ai/flashinfer:include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/KernelMetaInfo.h@65e9092a to read the full content. */

@@ -1,0 +1,49 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1324
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: bf3445fc
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1324
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ecc3267261be3544bf5acb6061d628b004337238e93e9d10676322b62ca718b2
+- local_path: key-files/csrc/batch_attention.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/batch_attention.cu
+  sha256: adde7f035cbc27402bc5521a51620cfafdde0bfc206abc51fe50d1a3bee9755c
+- local_path: key-files/csrc/batch_attention_jit_pybind.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/batch_attention_jit_pybind.cu
+  sha256: 288a3ce56c8a7b276d17feec97b30a7ad049eb7397ef2d836ca494e176d4e57c
+- local_path: key-files/flashinfer/attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/attention.py
+  sha256: 9d0e6eeabd88dd4fe1876a04f48f048503cf52722815d3f855c511978e0b2d7e
+- local_path: key-files/flashinfer/jit/attention/pytorch.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/pytorch.py
+  sha256: 3919a803046dbe5bc3766917fc838e18343cada6c5e1ddfab51398bf813ce572
+- local_path: key-files/include/flashinfer/attention/persistent.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/persistent.cuh
+  sha256: 58e59f81676187b05ffe87cb5c9436d19d9a6f0b3a36dc10ff5a95878efdb0c9
+- local_path: key-files/include/flashinfer/attention/prefill.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/prefill.cuh
+  sha256: b48e029458289e61f62f79f0a320dfb22db757e726c81f3836813d7b94cfbe01
+- local_path: key-files/include/flashinfer/attention/scheduler.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/scheduler.cuh
+  sha256: 7649e7433361fd1ac05895676b5b1f23052d1bebe41d687a1aa70ad5f5d8490e

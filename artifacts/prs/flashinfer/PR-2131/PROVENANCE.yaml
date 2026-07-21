@@ -1,0 +1,24 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/2131
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 15a819ec
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-2131
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 03495fb7498201026b5868b724fd7edd7e4c1c975e31e303b0db5293e49b8f88
+- local_path: key-files/csrc/fp8_blockscale_gemm_sm90_binding.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fp8_blockscale_gemm_sm90_binding.cu
+  sha256: 02697984190fcf926a47c57da15cf06b5216b22d29efc8f6da71b0b37cb0ba50
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm_kernel.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm_kernel.cuh
+  sha256: b0633a435cd15e29ac420d91d41e3084eef816ceb39f1c861742cbb4049615ec

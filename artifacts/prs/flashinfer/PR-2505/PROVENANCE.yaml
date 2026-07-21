@@ -1,0 +1,29 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/2505
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 952b6ab2
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-2505
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 9be26f5d387ea2683ce86c54275b6b7baecefa34eb6da0a45c63baa516b7cc39
+- local_path: key-files/csrc/trtllm_batched_gemm_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_batched_gemm_runner.cu
+  sha256: b45b4e97adb453d5ada95ef89faae84279034aae16d85cfb5970458450dd6b56
+- local_path: key-files/csrc/trtllm_fused_moe_kernel_launcher.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_kernel_launcher.cu
+  sha256: a7dc6c84613b0eb01da341f44151c23ed85df6ff6e270031ca3930702b1a794e
+- local_path: key-files/csrc/trtllm_fused_moe_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_runner.cu
+  sha256: 3b1ab3340f4aeee797f03aa475ef45d464ddf8641d8e7350360e3844b819b1e2

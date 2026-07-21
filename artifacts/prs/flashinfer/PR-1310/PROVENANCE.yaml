@@ -1,0 +1,30 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1310
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: bc1a041b
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1310
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 3dddf2174a3e111c0ae8e44e8e24bea87496501b978f54385797e74d6291e12c
+- local_path: key-files/flashinfer/autotuner.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/autotuner.py
+  sha256: 2fe689290187db78f85e0a506483f8e2968971a4b456ef088dc9af1e1ddf2e71
+- local_path: key-files/flashinfer/fused_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/fused_moe.py
+  sha256: 0e40bd223f8a3da1bec905a3b49ed7b0a1d4770583794b823494c30b630b33fc
+- local_path: key-files/flashinfer/tuning_configs/v0_2_8_trtllm_fused_moe_NVIDIA_B200.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/tuning_configs/v0_2_8_trtllm_fused_moe_NVIDIA_B200.py
+  sha256: a04d1f798d2fa6bab459d2eea79b0504de52a49a8d4f72b8aa048ecbeee1d854
+captured_via_relaxed_allowlist: true

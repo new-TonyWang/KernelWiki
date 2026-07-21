@@ -1,0 +1,64 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1200
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 40db3fad
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1200
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 911d32bcfe541ff3e469c3674bfae769f182f5e50de2bbd80f9df00a25c2b07e
+- local_path: key-files/csrc/batch_attention.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/batch_attention.cu
+  sha256: da41661708e7de05383d61c02b053b44066e44ba37f971087ba34cd56971d581
+- local_path: key-files/csrc/batch_attention_jit_pybind.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/batch_attention_jit_pybind.cu
+  sha256: 1983e11324bcb1d5b2131e31f9d4636a4441ff6b86bd748bd78156fd2f1db326
+- local_path: key-files/flashinfer/attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/attention.py
+  sha256: 8e19d06aed279907bf599fc7c2283e03077a7f12816ea35b6ca8b6533129d7c3
+- local_path: key-files/flashinfer/jit/attention/pytorch.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/pytorch.py
+  sha256: 4e08553c5a9ae18459cc8764286aab88224335f96be7648216bd8576493a9559
+- local_path: key-files/include/flashinfer/attention/cascade.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/cascade.cuh
+  sha256: 667249076290f6b9ba52d56a59c567f929cefd0dfa0520d6cac2b899aa3dddfa
+- local_path: key-files/include/flashinfer/attention/persistent.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/persistent.cuh
+  sha256: cb1e16672ef36a24d92285c8d6f0e42070478af03cd2f062ca9d0939b6d6bcbe
+- local_path: key-files/include/flashinfer/attention/persistent_template.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/persistent_template.cuh
+  sha256: 799679baadcc25b8d844a33ed9b23850aaa7071b30f3d0f030da3a5f92e0936a
+- local_path: key-files/include/flashinfer/attention/scheduler.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/scheduler.cuh
+  sha256: 2b5e704fbb44bad29adb08055b92e55a07824dd06b33b0957904a70499a51586
+- local_path: key-files/include/flashinfer/profiler.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/profiler.cuh
+  sha256: 716480f5254df764ddbcc852c162f777fda2ec89dd12f857fa6e76f320120e14
+- local_path: key-files/profiler/batch_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: profiler/batch_attention.py
+  sha256: 759af5002e48da94e23fcbbdb8e89f394f6d6bdad627b8e6af507bdc7c30f15a

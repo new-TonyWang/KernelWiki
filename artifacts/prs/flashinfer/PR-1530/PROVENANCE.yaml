@@ -1,0 +1,44 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1530
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: cfcda9b5
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1530
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 4920397dee401b80a1a616b9dab502a3cc88403ec3f529e23a5d66a246807a0c
+- local_path: key-files/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+  sha256: a19b5a5f52d2ab3304b9e16fe8586292fd08b3b1ac958ca88199dbb6d32abc95
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/thop/fp8Quantize.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/thop/fp8Quantize.h
+  sha256: 20aa95c92d75b8d1e29d01c10c0fa64beaa77ba8fa54c1fd70bb13663dcd6a4e
+- local_path: key-files/csrc/trtllm_allreduce_fusion.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_allreduce_fusion.cu
+  sha256: 598445f65bb74eb7c41c6585960801b298c4e81fb7f9d5caa778c17eaeeadc2a
+- local_path: key-files/csrc/trtllm_moe_allreduce_fusion.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_moe_allreduce_fusion.cu
+  sha256: 8c50c42c5f88f169344a5981b61753e03cf506edb02e55c23e45b75e4a0cfe6a
+- local_path: key-files/include/flashinfer/comm/trtllm_allreduce_fusion.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/comm/trtllm_allreduce_fusion.cuh
+  sha256: d7c384e74def5f179073502c14d34cd497c6a13c23356c6e70088a68b31c05d3
+- local_path: key-files/include/flashinfer/comm/trtllm_moe_allreduce_fusion.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/comm/trtllm_moe_allreduce_fusion.cuh
+  sha256: 25a2e6aaf35ca64f136fdf2fed7ae8f46d1d11c533a68bb685521aba29f0f3f8

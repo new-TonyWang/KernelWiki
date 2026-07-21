@@ -1,0 +1,44 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1610
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 90abf04e
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1610
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 0150031ca89383743b24daa4e1beacf3d10dee9c06804e701313b424713757fd
+- local_path: key-files/csrc/gemm_groupwise_sm120.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/gemm_groupwise_sm120.cu
+  sha256: dc48defa4b7f9b872ee1e1b2d55276ada2699dc9f1402efadfab21e031473f2b
+- local_path: key-files/csrc/gemm_sm120_pybind.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/gemm_sm120_pybind.cu
+  sha256: e95e583dce8c22fd77a9e3a6d79977594e2206b6305a7378691efc652702c8d1
+- local_path: key-files/csrc/group_gemm_fp8_groupwise_sm120.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_fp8_groupwise_sm120.cu
+  sha256: dcd7c61521733e70044c55f42745552fd5faa68f0fb51564d78974d85b163f91
+- local_path: key-files/csrc/group_gemm_sm120_pybind.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_sm120_pybind.cu
+  sha256: ec131c6e82e5cfb04cdcfd7847bea5296292357f35f4b2a1f7b7a7d9629b2bc1
+- local_path: key-files/include/flashinfer/gemm/gemm_groupwise_sm120.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/gemm_groupwise_sm120.cuh
+  sha256: 6401b5e45bbf4fa0db02d7518580914d4dc2258a407b63e38e09b2a851912096
+- local_path: key-files/include/flashinfer/gemm/group_gemm_fp8_groupwise_sm120.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/group_gemm_fp8_groupwise_sm120.cuh
+  sha256: 2f98c79fe16b4377d269d5e2b74db1d510ad041e3f4c0a0b7df005a3b34b881b

@@ -1,0 +1,33 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1441
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: b7bfd00b
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1441
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: f8fb83ce5daad53dc391a52bd6479453ea55106df8d111d4c86437657f7135e0
+- local_path: key-files/flashinfer/autotuner.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/autotuner.py
+  sha256: ae0a60ec7509b350de0def08d65076fbb5f34a827cdeabf2500a00c1c8a3c883
+- local_path: key-files/flashinfer/tuning_configs/v0_1_trtllm_fused_moe_NVIDIA_B200.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/tuning_configs/v0_1_trtllm_fused_moe_NVIDIA_B200.py
+  sha256: 53147a6d2cb269c6dd3f4dfe8076a6a4a7c0e1b9d86d57aedaeea7ac3bfc6107
+- local_path: key-files/flashinfer/tuning_configs/v0_2_8_trtllm_fused_moe_NVIDIA_B200.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/tuning_configs/v0_2_8_trtllm_fused_moe_NVIDIA_B200.py
+  sha256: 465f2a15edd664507e62a9b4f7fd33c786cae5df0128daa776dca988c36f75ff
+  upstream_sha: 9c3b746de2a38ed539cded110fb421c3d86ed9eb
+  captured_at_base_sha_note: 'PR #1441 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+captured_via_relaxed_allowlist: true

@@ -1,0 +1,34 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/2070
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 2062decf
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-2070
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 6be337812c9a9836e4f3c6acc8e8eaec3fc876a796b0f21cb0bbfe8bfd504fc6
+- local_path: key-files/csrc/bf16_gemm_cutlass.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/bf16_gemm_cutlass.cu
+  sha256: 17803a8728249b77a0b7c668ef6f98f6abc50ec29b0804d6bb86e6f59477903b
+- local_path: key-files/include/flashinfer/gemm/bf16_gemm_cutlass.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/bf16_gemm_cutlass.h
+  sha256: a5853923c63ed5fd190015b3b2af4909becf63604b567a72f0aead5fd98870b1
+- local_path: key-files/include/flashinfer/gemm/bf16_gemm_cutlass_template.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/bf16_gemm_cutlass_template.h
+  sha256: 046c6fd2a815d13a8decd99d614633cf9a26e8d073ae37dd15c0679c25a6dabc
+- local_path: key-files/include/flashinfer/gemm/bf16_gemm_template_sm100.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/bf16_gemm_template_sm100.h
+  sha256: 8ead0065167d93360548336fcc4d80fdddc81eb73fbe5c551eb1a37419e0becf
