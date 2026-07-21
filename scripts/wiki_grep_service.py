@@ -8,6 +8,7 @@ import re
 from pathlib import Path
 
 from _wiki_root import WIKI_ROOT
+from wiki_access_policy import filter_exts, is_readable
 
 _WIKI_ROOT_RESOLVED = WIKI_ROOT.resolve()
 
@@ -55,21 +56,23 @@ def iter_files(scope, exts=None):
         sub_list = sub_list + ["artifacts"]
 
     if scope == "artifacts" and not exts:
-        search_exts = ARTIFACT_DEFAULT_EXTS
+        search_exts = set(ARTIFACT_DEFAULT_EXTS)
     else:
-        search_exts = {".md"} | (exts or set())
+        search_exts = {".md"} | (filter_exts(exts) or set())
+    # Caller-supplied extensions are intersected with the policy allowlist, so
+    # `ext=sqlite3,pem` cannot widen the walk beyond text knowledge-base files.
+    search_exts = filter_exts(search_exts) or set()
 
     for sub in sub_list:
         base = WIKI_ROOT / sub
         if not base.exists():
             continue
         for f in base.rglob("*"):
-            if not f.is_file():
+            if f.suffix.lower() not in search_exts:
                 continue
-            if not _is_within_root(f):
+            if not is_readable(f):
                 continue
-            if f.suffix.lower() in search_exts:
-                yield f
+            yield f
 
 
 # ---------------------------------------------------------------------------

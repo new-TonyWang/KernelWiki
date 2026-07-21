@@ -38,9 +38,11 @@ from __future__ import annotations
 
 import argparse
 import hmac
+import ipaddress
 import json
 import os
 import sys
+import time
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -62,12 +64,28 @@ from mcp_server import (  # noqa: E402
     handle_request,
 )
 from mcp_token_store import TokenStore  # noqa: E402
+from mcp_rate_limit import (  # noqa: E402
+    DEFAULT_QUOTA_BYTES,
+    DEFAULT_QUOTA_WINDOW,
+    DEFAULT_RPM,
+    RateLimiter,
+)
 
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8765
 DEFAULT_PATH = "/mcp"
 MAX_REQUEST_BYTES = 2_000_000
+
+
+def _is_loopback(host: str) -> bool:
+    """True if binding *host* keeps the server off the network."""
+    if host in ("localhost", ""):
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
 
 
 def _write_log(msg: str) -> None:
@@ -101,6 +119,8 @@ class KernelWikiMCPHTTPServer(ThreadingHTTPServer):
         admin_token: str | None,
         token_store: TokenStore | None,
         allow_origins: set[str],
+        limiter: RateLimiter | None = None,
+        audit_path: str | None = None,
     ) -> None:
         super().__init__(server_address, RequestHandlerClass)
         self.mcp_path = mcp_path
@@ -108,6 +128,8 @@ class KernelWikiMCPHTTPServer(ThreadingHTTPServer):
         self.admin_token = admin_token
         self.token_store = token_store
         self.allow_origins = allow_origins
+        self.limiter = limiter
+        self.audit_path = audit_path
 
 
 class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
@@ -115,9 +137,52 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
 
     server: KernelWikiMCPHTTPServer
     protocol_version = "HTTP/1.1"
+    identity = "anon:unknown"
 
     def log_message(self, fmt: str, *args: Any) -> None:
         _write_log("%s - %s" % (self.address_string(), fmt % args))
+
+    # ------------------------------------------------------------------
+    # Quota + audit
+    # ------------------------------------------------------------------
+
+    def _check_quota(self) -> bool:
+        """Enforce the per-identity request rate and extraction quota."""
+        limiter = self.server.limiter
+        if limiter is None:
+            return True
+        allowed, retry_after, reason = limiter.check(self.identity)
+        if allowed:
+            return True
+        self._audit("quota_block", reason=reason)
+        self._send_json(
+            HTTPStatus.TOO_MANY_REQUESTS,
+            {"error": "rate_limited", "message": reason},
+            extra_headers={"Retry-After": str(retry_after)},
+        )
+        return False
+
+    def _audit(self, event: str, **fields: Any) -> None:
+        """Append one structured audit record per tool call.
+
+        Successful reads were previously invisible: only errors were logged,
+        and only when MCP_LOG_FILE was set. A full scrape left no trace.
+        """
+        path = self.server.audit_path
+        if not path:
+            return
+        record = {
+            "ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+            "event": event,
+            "identity": self.identity,
+            "peer": self.client_address[0],
+            **fields,
+        }
+        try:
+            with open(path, "a", encoding="utf-8") as fh:
+                fh.write(json.dumps(record, ensure_ascii=False) + "\n")
+        except OSError as exc:
+            _write_log(f"audit write failed: {exc}")
 
     # ------------------------------------------------------------------
     # Header helpers
@@ -195,7 +260,10 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
     def _check_mcp_auth(self) -> bool:
         bearer = self._bearer_token()
         if self.server.token_store:
-            if bearer and self.server.token_store.verify_bearer(bearer):
+            row = self.server.token_store.verify_bearer(bearer) if bearer else None
+            if row:
+                # Quota follows the credential, not the connection.
+                self.identity = f"token:{row.get('name')}"
                 return True
             self._send_json(
                 HTTPStatus.UNAUTHORIZED,
@@ -206,8 +274,10 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
 
         token = self.server.auth_token
         if not token:
+            self.identity = f"anon:{self.client_address[0]}"
             return True
         if bearer and hmac.compare_digest(bearer, token):
+            self.identity = "token:static"
             return True
         self._send_json(
             HTTPStatus.UNAUTHORIZED,
@@ -254,6 +324,8 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         path = self.path.split("?", 1)[0]
         if path in {"/healthz", "/readyz"}:
+            # Unauthenticated liveness probe: no absolute host path, and no
+            # advertisement of whether auth happens to be off.
             self._send_json(
                 HTTPStatus.OK,
                 {
@@ -261,11 +333,6 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
                     "server": SERVER_NAME,
                     "version": SERVER_VERSION,
                     "protocolVersion": PROTOCOL_VERSION,
-                    "wikiRoot": str(WIKI_ROOT),
-                    "auth": {
-                        "mode": "token-db" if self.server.token_store else ("static" if self.server.auth_token else "off"),
-                        "adminApi": bool(self.server.admin_token),
-                    },
                 },
             )
             return
@@ -308,6 +375,8 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
             return
         if not self._check_origin_or_forbid() or not self._check_mcp_auth():
             return
+        if not self._check_quota():
+            return
 
         payload = self._read_json_body()
         if isinstance(payload, tuple):
@@ -316,6 +385,7 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
             return
 
         response = self._dispatch_payload(payload)
+        self._account_and_audit(payload, response)
         if response is None:
             # JSON-RPC notification only: no JSON-RPC response. 204 is the
             # clearest HTTP-level representation for stateless transport.
@@ -455,6 +525,37 @@ class MCPHTTPRequestHandler(BaseHTTPRequestHandler):
     # JSON-RPC dispatch
     # ------------------------------------------------------------------
 
+    def _account_and_audit(self, payload: Any, response: Any) -> None:
+        """Charge returned bytes against the quota and record what was served."""
+        if response is None:
+            return
+        calls = [m for m in (payload if isinstance(payload, list) else [payload])
+                 if isinstance(m, dict) and m.get("method") == "tools/call"]
+        if not calls:
+            return
+
+        nbytes = len(_json_dumps(response))
+        if self.server.limiter is not None:
+            self.server.limiter.charge(self.identity, nbytes)
+
+        if not self.server.audit_path:
+            return
+        usage = (self.server.limiter.usage(self.identity)
+                 if self.server.limiter is not None else {})
+        for msg in calls:
+            params = msg.get("params") or {}
+            args = params.get("arguments") or {}
+            self._audit(
+                "tools/call",
+                tool=params.get("name"),
+                # Argument values are the caller's own search terms, not wiki
+                # content, so they are safe and useful to retain.
+                args={k: v for k, v in args.items() if k != "query"} or None,
+                query=args.get("query"),
+                bytes=nbytes if len(calls) == 1 else None,
+                **usage,
+            )
+
     def _dispatch_payload(self, payload: Any) -> Any | None:
         if isinstance(payload, list):
             if not payload:
@@ -486,6 +587,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=[],
         help="allowed browser Origin; repeatable. Use '*' to allow all. Non-browser clients usually send no Origin.",
     )
+    parser.add_argument("--rpm", type=int, default=int(os.environ.get("MCP_RATE_RPM", DEFAULT_RPM)),
+                        help=f"max requests per minute per identity, 0 disables (default: {DEFAULT_RPM})")
+    parser.add_argument("--quota-bytes", type=int,
+                        default=int(os.environ.get("MCP_QUOTA_BYTES", DEFAULT_QUOTA_BYTES)),
+                        help=f"max response bytes per identity per quota window, 0 disables (default: {DEFAULT_QUOTA_BYTES})")
+    parser.add_argument("--quota-window", type=int,
+                        default=int(os.environ.get("MCP_QUOTA_WINDOW", DEFAULT_QUOTA_WINDOW)),
+                        help=f"quota window in seconds (default: {DEFAULT_QUOTA_WINDOW})")
+    parser.add_argument("--audit-log", default=os.environ.get("MCP_AUDIT_LOG"),
+                        help="path to append one JSON record per tool call; also MCP_AUDIT_LOG")
+    parser.add_argument("--insecure-allow-anonymous", action="store_true",
+                        default=os.environ.get("MCP_INSECURE_ALLOW_ANONYMOUS") == "1",
+                        help="permit binding a non-loopback address with no authentication (not recommended)")
     return parser.parse_args(argv)
 
 
@@ -495,6 +609,24 @@ def main(argv: list[str] | None = None) -> int:
     allow_origins = {_normalize_origin(o) or "" for o in args.allow_origin}
     allow_origins.discard("")
     token_store = TokenStore(args.token_db) if args.token_db else None
+
+    # Fail closed: publishing the knowledge base to the network with no
+    # credential should be a deliberate act, not the default outcome of
+    # copying the --host 0.0.0.0 line out of the README.
+    if not _is_loopback(args.host) and not (token_store or args.auth_token):
+        if not args.insecure_allow_anonymous:
+            _write_log(
+                f"REFUSING TO START: --host {args.host} is reachable from the network "
+                f"but no authentication is configured. Set MCP_AUTH_TOKEN or "
+                f"MCP_TOKEN_DB, bind 127.0.0.1 instead, or pass "
+                f"--insecure-allow-anonymous if exposing the wiki anonymously is intended."
+            )
+            return 2
+        _write_log(
+            f"WARNING: serving anonymously on {args.host} — every client shares one "
+            f"quota bucket per source IP and any reader can enumerate the whole wiki."
+        )
+
     if token_store and args.auth_token:
         inserted = token_store.ensure_bootstrap_token(
             "env-bootstrap",
@@ -504,6 +636,9 @@ def main(argv: list[str] | None = None) -> int:
         if inserted:
             _write_log("inserted bootstrap token from MCP_AUTH_TOKEN into token DB as 'env-bootstrap'")
 
+    limiter = RateLimiter(rpm=args.rpm, quota_bytes=args.quota_bytes,
+                          quota_window=args.quota_window)
+
     httpd = KernelWikiMCPHTTPServer(
         (args.host, args.port),
         MCPHTTPRequestHandler,
@@ -512,13 +647,19 @@ def main(argv: list[str] | None = None) -> int:
         admin_token=args.admin_token,
         token_store=token_store,
         allow_origins=allow_origins,
+        limiter=limiter,
+        audit_path=args.audit_log,
     )
     host, port = httpd.server_address[:2]
     _write_log(
         f"KernelWiki MCP HTTP server listening on http://{host}:{port}{mcp_path} "
         f"(WIKI_ROOT={WIKI_ROOT}, auth={'token-db' if token_store else ('static' if args.auth_token else 'off')}, "
-        f"admin={'on' if args.admin_token else 'off'})"
+        f"admin={'on' if args.admin_token else 'off'}, "
+        f"rpm={args.rpm or 'off'}, quota={args.quota_bytes or 'off'}B/{args.quota_window}s, "
+        f"audit={args.audit_log or 'off'})"
     )
+    if not args.audit_log:
+        _write_log("NOTE: --audit-log is unset, so successful reads leave no record.")
     try:
         httpd.serve_forever(poll_interval=0.5)
     except KeyboardInterrupt:

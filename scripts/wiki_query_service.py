@@ -24,6 +24,8 @@ def _is_within_root(path):
 
 _ALIAS_CACHE = None
 _VENDOR_REGISTRY = None
+_PAGES_CACHE = None
+_PAGES_SIGNATURE = None
 
 
 # ---------------------------------------------------------------------------
@@ -117,25 +119,65 @@ def load_frontmatter(path):
         return None, None
 
 
+def _corpus_signature(md_files):
+    """Cheap change detector: file count plus the newest mtime and total size.
+
+    stat()-ing the tree costs milliseconds; parsing it costs seconds, so this
+    lets a long-lived server skip the reload when nothing changed.
+    """
+    count = 0
+    newest = 0.0
+    total = 0
+    for md in md_files:
+        try:
+            st = md.stat()
+        except OSError:
+            continue
+        count += 1
+        total += st.st_size
+        if st.st_mtime > newest:
+            newest = st.st_mtime
+    return (count, newest, total)
+
+
 def load_all_pages():
-    """Load frontmatter + body for every sources/*.md and wiki/*.md file."""
-    pages = []
+    """Load frontmatter + body for every sources/*.md and wiki/*.md file.
+
+    Results are cached and reused while the corpus is unchanged. Without this
+    every query re-parses the whole knowledge base, which makes a single
+    request cost seconds of CPU and turns the query tool into an amplifier.
+    """
+    global _PAGES_CACHE, _PAGES_SIGNATURE
+
+    md_files = []
     for subdir in ["sources", "wiki"]:
         base = WIKI_ROOT / subdir
         if not base.exists():
             continue
-        for md in base.rglob("*.md"):
-            if not _is_within_root(md):
-                continue
-            fm, body = load_frontmatter(md)
-            if fm is None:
-                continue
-            pages.append({
-                "path": str(md.relative_to(WIKI_ROOT)),
-                "fm": fm,
-                "body": body or "",
-            })
-    return pages
+        md_files.extend(base.rglob("*.md"))
+
+    signature = _corpus_signature(md_files)
+    if _PAGES_CACHE is not None and signature == _PAGES_SIGNATURE:
+        # Callers annotate the returned dicts (_score, _ptype), so hand out
+        # fresh wrappers or one query's ranking would bleed into the next.
+        return [dict(p) for p in _PAGES_CACHE]
+
+    pages = []
+    for md in md_files:
+        if not _is_within_root(md):
+            continue
+        fm, body = load_frontmatter(md)
+        if fm is None:
+            continue
+        pages.append({
+            "path": str(md.relative_to(WIKI_ROOT)),
+            "fm": fm,
+            "body": body or "",
+        })
+
+    _PAGES_CACHE = pages
+    _PAGES_SIGNATURE = signature
+    return [dict(p) for p in pages]
 
 
 # ---------------------------------------------------------------------------

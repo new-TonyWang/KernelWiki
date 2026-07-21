@@ -9,6 +9,7 @@ import yaml
 from pathlib import Path
 
 from _wiki_root import WIKI_ROOT
+from wiki_access_policy import resolve_lookup
 
 _WIKI_ROOT_RESOLVED = WIKI_ROOT.resolve()
 
@@ -31,12 +32,15 @@ def find_page(lookup):
       3. Alias match (frontmatter 'aliases' list, case-insensitive)
       4. ID prefix match (lookup + '-' is a prefix of the page id)
 
-    All candidate files are verified to resolve within WIKI_ROOT
-    (defends against symlink escapes).
+    Path-style lookups are subject to wiki_access_policy: containment in
+    WIKI_ROOT alone would also expose scripts/, corpus/, data/ and .git/, so
+    the lookup must additionally land in an allowed top-level directory with an
+    allowlisted extension. Disallowed paths return None rather than a distinct
+    error, so a caller cannot use this to probe which files exist.
     """
     if "/" in lookup or lookup.endswith(".md"):
-        p = (WIKI_ROOT / lookup).resolve()
-        if p.is_relative_to(_WIKI_ROOT_RESOLVED) and p.exists():
+        p = resolve_lookup(lookup)
+        if p is not None:
             return p
 
     lookup_lower = lookup.lower()

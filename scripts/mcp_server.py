@@ -10,6 +10,7 @@ Protocol: newline-delimited JSON-RPC 2.0 over stdin/stdout.
 No external MCP SDK dependency.
 """
 
+import datetime
 import json
 import re
 import sys
@@ -77,6 +78,7 @@ try:
         load_artifact_files, ARTIFACT_EXTS,
     )
     from wiki_grep_service import search_wiki
+    from wiki_access_policy import EXCERPT_ROOTS, is_readable, resolve_lookup
     try:
         from source_corpus.registry import resolve_corpus_path as _resolve_corpus_path
     except ImportError:
@@ -101,6 +103,13 @@ MAX_GREP_HITS = 100
 MAX_GREP_PER_FILE = 10
 MAX_ARTIFACT_FILES = 100
 MAX_FILE_SIZE = 512_000
+
+# A catch-all regex ('.', '.*', '^') turns wiki_grep into a bulk exporter: it
+# matches every line of every file, so one call returns the corpus rather than
+# an answer. Patterns must therefore contain a literal run of at least this
+# many characters and must not match the empty string.
+MIN_PATTERN_LITERAL = 3
+MAX_GREP_CONTEXT = 3
 
 # ---------------------------------------------------------------------------
 # Server metadata
@@ -161,7 +170,7 @@ TOOLS = [
                 "patterns": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Regex pattern(s). All must match in a file unless any_match is true. Examples: [\"tcgen05\\\\.fence\"], [\"wgmma\", \"sm90\"]",
+                    "description": "Regex pattern(s). All must match in a file unless any_match is true. Examples: [\"tcgen05\\\\.fence\"], [\"wgmma\", \"sm90\"]. Each pattern must contain a literal run of at least 3 characters and must not match the empty string, so catch-all patterns like \".\" or \".*\" are rejected — use wiki_query to browse by tag or type instead.",
                 },
                 "scope": {
                     "type": "string",
@@ -169,7 +178,7 @@ TOOLS = [
                     "description": "Search scope. wiki: synthesized wiki pages; sources: PR/blog/doc/contest pages; artifacts: code files; all: everything (default: all)",
                     "default": "all",
                 },
-                "context": {"type": "integer", "description": "Number of context lines before and after each match (0-10, default 1)", "default": 1},
+                "context": {"type": "integer", "description": "Number of context lines before and after each match (0-3, default 1)", "default": 1},
                 "any_match": {"type": "boolean", "description": "If true, match files where ANY pattern matches; if false (default), ALL patterns must match in the same file", "default": False},
                 "limit": {"type": "integer", "description": "Max files reported (1-100, default 20)", "default": 20},
                 "ext": {"type": "string", "description": "Comma-separated extra file extensions to include (without dots), e.g. \"cu,cuh,py\""},
@@ -250,6 +259,61 @@ def _validate_str(val, name, allowed=None, max_len=200):
     if allowed and val not in allowed:
         raise InvalidParams(f"{name} must be one of: {', '.join(allowed)}")
     return val or None
+
+
+_REGEX_META = frozenset(".^$*+?{}[]|()\\")
+
+
+def longest_literal_run(pattern):
+    """Length of the longest run of literal characters in a regex.
+
+    Escapes, character classes, metacharacters, and any character made
+    optional or repeatable by a following quantifier all break the run, so
+    `.`, `.*`, `[a-z]+` and `\\w{3}` score 0 while `tcgen05\\.fence` scores 7.
+    """
+    best = run = 0
+    i = 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "\\":
+            i += 2
+            run = 0
+            continue
+        if ch == "[":
+            close = pattern.find("]", i + 1)
+            i = len(pattern) if close == -1 else close + 1
+            run = 0
+            continue
+        if ch in _REGEX_META:
+            run = 0
+            i += 1
+            continue
+        # A quantifier applies to the character before it, so that character
+        # is not guaranteed to appear.
+        if pattern[i + 1:i + 2] in ("?", "*", "{"):
+            run = 0
+            i += 1
+            continue
+        run += 1
+        best = max(best, run)
+        i += 1
+    return best
+
+
+def _assert_selective(pattern, compiled):
+    """Reject regexes broad enough to make wiki_grep a bulk export tool."""
+    if compiled.search(""):
+        raise InvalidParams(
+            f"pattern {pattern!r} matches the empty string, so it matches every "
+            f"file in the knowledge base. Search for a specific term instead."
+        )
+    if longest_literal_run(pattern) < MIN_PATTERN_LITERAL:
+        raise InvalidParams(
+            f"pattern {pattern!r} is not selective enough: it needs a literal "
+            f"run of at least {MIN_PATTERN_LITERAL} characters "
+            f"(e.g. 'wgmma', 'tcgen05\\\\.fence'). Use wiki_query to browse by "
+            f"tag or type rather than grepping for everything."
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -423,26 +487,30 @@ def _collect_source_excerpts(fm):
     seen = set()
 
     def _resolve_and_append(lookup_str, detail=None, corpus_lookup=None, anchor=None):
+        # Excerpt targets come from the page's own frontmatter, so corpus/ is a
+        # legitimate destination here even though a caller lookup may not reach
+        # it. Everything still has to pass the access policy.
         src_page = None
         if "/" in lookup_str or lookup_str.endswith(".md"):
-            p = (WIKI_ROOT / lookup_str).resolve()
-            if p.is_relative_to(WIKI_ROOT.resolve()) and p.is_file():
-                src_page = p
+            src_page = resolve_lookup(lookup_str, roots=EXCERPT_ROOTS)
         if src_page is None:
             src_page = find_page(lookup_str)
         if src_page is None and corpus_lookup and _resolve_corpus_path:
             try:
                 cp = _resolve_corpus_path(corpus_lookup)
-                if cp.is_file():
+                # A manifest entry with an absolute local_path escapes the
+                # corpus root entirely, because `Path(root) / "/abs"` is "/abs".
+                if is_readable(cp, roots=EXCERPT_ROOTS):
                     src_page = cp
-            except (ValueError, Exception):
+            except Exception:
                 pass
         if src_page:
             excerpt = _extract_excerpt(src_page, anchor)
             try:
                 display_path = str(src_page.relative_to(WIKI_ROOT))
             except ValueError:
-                display_path = str(src_page)
+                # Never echo an absolute host path back to the caller.
+                display_path = None
             entry = {
                 "id": lookup_str,
                 "path": display_path,
@@ -509,13 +577,14 @@ def handle_wiki_grep(params):
         if not isinstance(p, str):
             raise InvalidParams("each pattern must be a string")
         try:
-            re.compile(p)
+            compiled = re.compile(p)
         except re.error as e:
             raise RegexError(f"invalid regex {p!r}: {e}")
+        _assert_selective(p, compiled)
 
     scope = _validate_str(params.get("scope"), "scope",
                            allowed={"wiki", "sources", "all", "artifacts"}) or "all"
-    context = _clamp_int(params.get("context"), 0, 10, 1, "context")
+    context = _clamp_int(params.get("context"), 0, MAX_GREP_CONTEXT, 1, "context")
     any_match = _validate_bool(params.get("any_match"), "any_match", False)
     limit = _clamp_int(params.get("limit"), 1, MAX_GREP_HITS, 20, "limit")
 
@@ -546,18 +615,33 @@ def handle_wiki_grep(params):
 # Response helpers
 # ---------------------------------------------------------------------------
 
+def _json_default(obj):
+    """Encode values yaml.safe_load produces that json cannot.
+
+    An unquoted `date: 2026-04-17` in frontmatter becomes a datetime.date, so
+    without this every page carrying one fails to serialize.
+    """
+    if isinstance(obj, (datetime.date, datetime.datetime, datetime.time)):
+        return obj.isoformat()
+    return str(obj)
+
+
 def _make_text_response(envelope):
     """Build MCP tools/call response content from an envelope dict."""
-    text = json.dumps(envelope, ensure_ascii=False)
+    text = json.dumps(envelope, ensure_ascii=False, default=_json_default)
     if len(text) > MAX_RESPONSE_CHARS:
         envelope_trunc = {
             "ok": True,
             "truncated": True,
             "total_hits": envelope.get("total_hits", 0),
             "returned": 0,
-            "message": "Response truncated to budget limit",
+            "message": (
+                "Response exceeded the output budget and no results could be "
+                "returned. Retry with a smaller limit, lower context, or a "
+                "narrower filter."
+            ),
         }
-        text = json.dumps(envelope_trunc, ensure_ascii=False)
+        text = json.dumps(envelope_trunc, ensure_ascii=False, default=_json_default)
     return {"content": [{"type": "text", "text": text}], "isError": False}
 
 

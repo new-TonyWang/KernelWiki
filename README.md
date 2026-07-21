@@ -108,23 +108,43 @@ python3 scripts/mcp_server.py
 
 **Start the remote HTTP server:**
 
+The HTTP transport serves the whole knowledge base to whoever can reach the
+port, so authentication is required to bind anything other than loopback. The
+server refuses to start otherwise.
+
 ```bash
-BLACKWELL_WIKI_ROOT="$PWD" MCP_LOG_FILE=/tmp/kernel-wiki-mcp.log \
+BLACKWELL_WIKI_ROOT="$PWD" \
+MCP_AUTH_TOKEN='replace-with-a-long-random-token' \
+MCP_LOG_FILE=/tmp/kernel-wiki-mcp.log \
+MCP_AUDIT_LOG=/tmp/kernel-wiki-audit.jsonl \
   python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
 ```
 
 Register a remote HTTP MCP in Codex:
 
 ```bash
-codex mcp add kernelwiki-remote --url http://SERVER_HOST:8765/mcp
+codex mcp add kernelwiki-remote --url http://SERVER_HOST:8765/mcp \
+  --header "Authorization: Bearer $MCP_AUTH_TOKEN"
 ```
 
-Optional bearer-token auth:
+For local-only use, bind loopback and no token is needed:
 
 ```bash
-MCP_AUTH_TOKEN='replace-with-a-long-random-token' \
-  python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
+python3 scripts/mcp_http_server.py --host 127.0.0.1 --port 8765
 ```
+
+**Rate limit and extraction quota.** Per-call output caps bound one response,
+not a sequence of them, so each identity also gets a request rate and a
+cumulative byte budget. Defaults are 60 requests/minute and 5 MB per hour —
+ample for interactive agent use, and far below what cloning the corpus takes.
+Tune with `--rpm`, `--quota-bytes`, `--quota-window` (`0` disables either
+limit). Quota is keyed on the token name, or on the source IP when running
+anonymously on loopback.
+
+**Audit log.** `MCP_AUDIT_LOG` / `--audit-log` appends one JSON record per tool
+call with the identity, tool, arguments and bytes served. Without it,
+successful reads leave no trace at all; set it if you want bulk access to be
+visible.
 
 Dynamic SQLite-backed tokens can be changed while the MCP service is running:
 
@@ -134,6 +154,7 @@ python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 add laptop
 
 # Start the server against the same DB.
 MCP_TOKEN_DB=data/mcp_tokens.sqlite3 MCP_ADMIN_TOKEN='admin-secret' \
+MCP_AUDIT_LOG=/tmp/kernel-wiki-audit.jsonl \
   python3 scripts/mcp_http_server.py --host 0.0.0.0 --port 8765
 
 # CRUD without restarting the server:
@@ -182,9 +203,9 @@ All filters are optional and combinable.
 
 | Parameter | Type | Values / Examples | Description |
 |-----------|------|-------------------|-------------|
-| `patterns` | `string[]` | `["tcgen05\\.fence"]` | **(required)** Regex pattern(s); all must match unless `any_match` is true |
+| `patterns` | `string[]` | `["tcgen05\\.fence"]` | **(required)** Regex pattern(s); all must match unless `any_match` is true. Each needs a literal run of ≥3 characters and must not match the empty string, so catch-alls like `.` or `.*` are rejected |
 | `scope` | `string` | `wiki`, `sources`, `artifacts`, `all` (default: `all`) | Search scope |
-| `context` | `integer` | `0`–`10`, default `1` | Context lines around each match |
+| `context` | `integer` | `0`–`3`, default `1` | Context lines around each match |
 | `any_match` | `boolean` | `true` / `false` | Match if ANY pattern matches (default: all must) |
 | `limit` | `integer` | `1`–`100`, default `20` | Max files reported |
 | `ext` | `string` | `"cu,cuh,py"` | Comma-separated extra file extensions (without dots) |
