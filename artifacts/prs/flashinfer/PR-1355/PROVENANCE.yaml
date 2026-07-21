@@ -1,0 +1,59 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1355
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: d8e7d6ad
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1355
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: c5cecf4f0c8de63cf6bcf574d29b8223f1a191cd0cf8154cf0ff7bf766f27fff
+- local_path: key-files/csrc/nv_internal/cpp/kernels/quantization.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/cpp/kernels/quantization.cu
+  sha256: 79bc29291b6e112dad9a6a5efde6add35befc4146774b2c80256b3f8726ffa45
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+  sha256: f53531038f7b13c29ede7271de1fc03d8bbf8005dde92b5e1d4c245249349a9b
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/quantization.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/quantization.h
+  sha256: 1c4cf081fba7f5d8543186238b0782cdde071463b325e870fcf609684ec839ee
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/thop/fp4Op.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/thop/fp4Op.cpp
+  sha256: de2a3b7d9be1279b302e88fe4bc8090e09da4d06c48cbf2d900dd4d2ef737ea9
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/thop/fp4Quantize.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/thop/fp4Quantize.cpp
+  sha256: ea5278bb16d71cdb1de0b76740ef602a3dc13440fabbfdadebf10a32c229a64f
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/thop/fp4Quantize.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/thop/fp4Quantize.h
+  sha256: c1c5f36dfd861a42590cdf6d3d31e22e23962985e60aa7f7aac36078450a3399
+- local_path: key-files/csrc/trtllm_gemm_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_gemm_runner.cu
+  sha256: 42dd3bc4599ab5a3dc8cb81ecdfb70542606a9a718abad10e324b5f1fce9a922
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/GemmInterface.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/GemmInterface.h
+  sha256: 04bf0e70d94295c092e814f9632b384869327263f1147987a2560e783cdcd4fc
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/KernelMetaInfo.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/KernelMetaInfo.h
+  sha256: b1dac5d161a1d7c20d06d699770ff4e2bd96588a3974d7209fc3ea291554cb8d

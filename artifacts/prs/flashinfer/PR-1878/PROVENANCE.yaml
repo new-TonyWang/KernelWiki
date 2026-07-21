@@ -1,0 +1,24 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1878
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 792dcb1b
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1878
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 2ed265fab57802adb240142e40222861fd1a7280f9e1c5f3c511b081c7348289
+- local_path: key-files/csrc/fmha_cutlass_sm100.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_cutlass_sm100.cu
+  sha256: 3aee4cea05377df2bdd5d8c62c1e78028fe653cd5f47746511d4589c5f79d7e1
+- local_path: key-files/include/flashinfer/attention/blackwell/collective/sm100_fmha_fwd_mainloop_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/blackwell/collective/sm100_fmha_fwd_mainloop_tma_warpspecialized.hpp
+  sha256: 8d0db785ff4bbfe7c4f77bdc547575af9edc009116d45269af3c6dffec078bb7

@@ -1,0 +1,29 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1240
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: d0c104d6
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1240
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: cd4d306ae6e6c164fbe4dec072fc7d6c3d0cccf9a0699e10427421b2edbb615d
+- local_path: key-files/csrc/trtllm_fused_moe_dev_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_dev_kernel.cu
+  sha256: 718d854b20b5763797cbaef2e4e763104a7a396c18343456e3eeba2d98b90d8f
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/BatchedGemmInterface.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/BatchedGemmInterface.h
+  sha256: f7cf75a8f5f3f1f6681cfe8a986f555289772c37e9ec52ae9740df073654948e
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/KernelMetaInfo.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/KernelMetaInfo.h
+  sha256: d5102a1d86f7dc8a3e87c8ec283197e4a579997f964e40b92cbd4b91b9ac1fea

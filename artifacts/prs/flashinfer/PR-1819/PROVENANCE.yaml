@@ -1,0 +1,112 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1819
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 8276d03c
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1819
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: e0ba52667702edca35b497a97f0eeba9176bb6ded1077c868a8b1fbb06a47623
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/compiler.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/compiler.cuh
+  sha256: 99134511c5c6c238a5639e101fbc5499e54850332def825d5771407096a48ed2
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/fp8_gemm.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/fp8_gemm.cuh
+  sha256: ef5cad0b04b4b2211b7428978f5122415cb5c7529222c54331460c9a6182173d
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/fp8_gemm_impl.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/fp8_gemm_impl.cuh
+  sha256: ef50513aa97f71be559a9a8191977f2b254768a74e46de1edbb9717b79dd54dc
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/jit_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/jit_utils.cuh
+  sha256: f46d7e6874caeeeee9e0e52bf8f2c7527a2612395a1c8931367f3f686b464330
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/mma_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/mma_utils.cuh
+  sha256: b56db5a8c03a283c5a26119bf898a9b79b203e06229656bafa6dbfae9a84bb83
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/nvrtc_cutlass.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/nvrtc_cutlass.cuh
+  sha256: b15184b992aee69dea85ed82e04831f674145519afc4b645a56e55e1c3a0ad77
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/nvrtc_std.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/nvrtc_std.cuh
+  sha256: 36ae853cc55af4e252c06d4dca0ff91f4a7b4fb33da553d1e33ad838de808002
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/runtime.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/runtime.cuh
+  sha256: d4b431d1d5d8548854be9e82c7d9dfdae560cce44dd7bf8f2d5eec4d2fc8ccad
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/scheduler.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/scheduler.cuh
+  sha256: dbe76fea0106b1147645862837b8d3ad85349e2a742affabdf32bb9fba436a47
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/tma_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/tma_utils.cuh
+  sha256: 0ae8184fc2ffff63c3803693d12f97ade61cae8f56f142a853c2cf1f955c5935
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/deep_gemm/utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/deep_gemm/utils.cuh
+  sha256: 615428aa83e007841a9214ba7e20d091a2402aaebacd47d8122eb1f60e054a7b
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/ada_blockwise_gemm/sm89_fp8_gemm_1d1d.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/ada_blockwise_gemm/sm89_fp8_gemm_1d1d.cuh
+  sha256: 8de906b6cee6ce260104240ea9235c08ec57c0fdaf0ab02a93463973169468e9
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/ada_blockwise_gemm/sm89_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/ada_blockwise_gemm/sm89_utils.cuh
+  sha256: 9052c36f9f0046e8d688d88620ef5c5a94e6e38499ea782b5e2d2f849727aea4
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm.cu
+  sha256: 41262d1099c58db16ba56d7469e142f49139b42bbc44428a7a15ba6f4e499486
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm.h
+  sha256: d93cd1852cfc773e4163bbd0ef0cf2c16ea9e49513d4e3e2a6620cfbe74741b7
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm_kernel.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm_kernel.cuh
+  sha256: 9e88bb9a40321e0a3aa812eba9cb2e9d2d885ca0c8859e366a08bfcaeeb580ff
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm_stub.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_gemm_stub.cu
+  sha256: aae25878e2520693265c46e073b74f9a8f4f7daa351fc80b6f9a7fc8227c4257
+  upstream_sha: bbb57add5affe44e5df87ecd2c97656108ef1330
+  captured_at_base_sha_note: 'PR #1819 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_mma_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_mma_utils.cuh
+  sha256: 1a547483e499a98d8500230f6eeffd7027191c1219971dd7774e3940d8f594f9
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_tma_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/fp8_blockscale_gemm/fp8_blockscale_tma_utils.cuh
+  sha256: ce0ce54706125d28ed4ee0fdd010178ca62b684abc3b5b1bc144abd671a6a527

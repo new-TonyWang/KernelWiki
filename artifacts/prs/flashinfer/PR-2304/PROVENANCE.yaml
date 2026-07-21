@@ -1,0 +1,54 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/2304
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 83cdea34
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-2304
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: f8b6172a8a488995b449e427b798e92bbb7adb38c4a78f227b301985051b6db6
+- local_path: key-files/csrc/trtllm_batched_gemm_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_batched_gemm_runner.cu
+  sha256: 800ce57a85e1df37f984186afac0ad82cc8c16a0c6d5b8b6cd9e1712bb16dc15
+- local_path: key-files/csrc/trtllm_fused_moe_kernel_launcher.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_kernel_launcher.cu
+  sha256: d88e9ab287b8a64588a6525d10d719af610a60b27a1690bf43fe4b8f96332141
+- local_path: key-files/csrc/trtllm_fused_moe_routing_deepseek.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_routing_deepseek.cu
+  sha256: 866d8ec44236ac2c74bd840ea7443a9fefc8818b9e78c945b5a01bfb7b01576b
+- local_path: key-files/csrc/trtllm_fused_moe_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_runner.cu
+  sha256: 6ae9dadedb405e995df26ca18657d72bbd4175dfcacf065be3454ff5fc914636
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/KernelRunner.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/KernelRunner.h
+  sha256: 79eaf9a5da087cbed79db6af0cb5792c88ced754f53f78a6148ff804265c9e35
+- local_path: key-files/include/flashinfer/trtllm/fused_moe/DevKernel.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/fused_moe/DevKernel.h
+  sha256: d4a5bfbc6fa5375d7bc8f459aade0e32c600e9cbe3d221712eba5074a56ba2bf
+- local_path: key-files/include/flashinfer/trtllm/fused_moe/RoutingKernel.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/fused_moe/RoutingKernel.h
+  sha256: ee79ee3097495ace8cf477e7b055b9d5d508513f4bd1189d3973dda42ac345b0
+- local_path: key-files/include/flashinfer/trtllm/fused_moe/runner.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/fused_moe/runner.h
+  sha256: 2bd8186951f741953a92e645e8fd4dad594a38c3eed1c2e381946f51438df03e

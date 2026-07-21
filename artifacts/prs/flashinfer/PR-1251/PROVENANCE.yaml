@@ -1,0 +1,79 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1251
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 28741b77
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1251
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 8169cd0e73fb9b933f5162380f5248bc03fb4b2ccb0c89c9151da8849b1a4494
+- local_path: key-files/csrc/gemm_groupwise_sm100.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/gemm_groupwise_sm100.cu
+  sha256: af5c134716c35c194e75b51b6fbbc27051df68195888eeec48835ec9d8d58344
+- local_path: key-files/csrc/group_gemm_bf16_bf16_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_bf16_bf16_sm90.cu
+  sha256: 8cc6eaec3745f5f5a195e4a97018dcf3556de8de8365b051322d6707d022d77f
+  upstream_sha: ce68e1d0cc8a69da4ead85a5280a183f3e2a5a00
+  captured_at_base_sha_note: 'PR #1251 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/group_gemm_e4m3_bf16_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_e4m3_bf16_sm90.cu
+  sha256: 8d1aaca8859f12c04e6ad330bc5e028deb0e26a3c67385b29856f3f8cbfe5c11
+  upstream_sha: ce68e1d0cc8a69da4ead85a5280a183f3e2a5a00
+  captured_at_base_sha_note: 'PR #1251 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/group_gemm_e4m3_f16_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_e4m3_f16_sm90.cu
+  sha256: 93d418a8abadce2972ac677b90b1558ddb0855b825033a9c5d8162edc22881b1
+  upstream_sha: ce68e1d0cc8a69da4ead85a5280a183f3e2a5a00
+  captured_at_base_sha_note: 'PR #1251 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/group_gemm_e5m2_bf16_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_e5m2_bf16_sm90.cu
+  sha256: a13db1025fe26874cd3ed7ac669433211d132ea9003f2d3d6c0e1e26d84278b2
+  upstream_sha: ce68e1d0cc8a69da4ead85a5280a183f3e2a5a00
+  captured_at_base_sha_note: 'PR #1251 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/group_gemm_e5m2_f16_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_e5m2_f16_sm90.cu
+  sha256: 3de821f1b453a5dfa1d2873846cb48db7abecc8d2e46a32dbf408af98e1de778
+  upstream_sha: ce68e1d0cc8a69da4ead85a5280a183f3e2a5a00
+  captured_at_base_sha_note: 'PR #1251 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/group_gemm_fp8_groupwise_sm100.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_fp8_groupwise_sm100.cu
+  sha256: 51fa20c7453f4dae77f7c0310959e25fc00081c52ad2805b7accb07cd9b46988
+- local_path: key-files/csrc/group_gemm_mxfp4_groupwise_sm100.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_mxfp4_groupwise_sm100.cu
+  sha256: 0af1c573ac65107b86835ec4fbe2aecc81f7f547b88db467d742b108b8c05f1d
+- local_path: key-files/include/flashinfer/gemm/group_gemm_fp8_groupwise_sm100.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/group_gemm_fp8_groupwise_sm100.cuh
+  sha256: fce7b6e0ac195ceb059aa2372b9d964a666bc89e5e98e89ca83308cedab6b73d
+- local_path: key-files/include/flashinfer/gemm/group_gemm_mxfp4_groupwise_sm100.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/group_gemm_mxfp4_groupwise_sm100.cuh
+  sha256: abe779f872a5b943674e789026d7ca7cb7b7da443d3af59afc8f7274e757a9f8

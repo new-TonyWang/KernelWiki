@@ -1,0 +1,29 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1973
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 159d0a05
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1973
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 17f08af662bf95f58259e8fc45acde95c22bb6d29e2c1030968ff6904f8ff366
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/cutlass_heuristic.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/cutlass_heuristic.cpp
+  sha256: 39f1783545cc225e246d1f7f00a0062c852a1f7742a276b3aab498e7af5daf43
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_gemm_template_dispatch.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_gemm_template_dispatch.h
+  sha256: cc833126552aece355f7bcef9ba541c32d15eba122d2203aeac2efb886b32019
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_tma_warp_specialized_traits.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_tma_warp_specialized_traits.h
+  sha256: 94c88cbb08009f68ca2fccc617576ab4f5963d6e3f584b1b94bc5fa4ee97b7a1

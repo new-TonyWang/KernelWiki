@@ -1,0 +1,49 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1296
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: db16e415
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1296
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 5880aa04c7c33cb6f55863baf7a9c90833b300f798ff7fa6bb7071c2bdbd979f
+- local_path: key-files/csrc/fp4_gemm_cutlass.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fp4_gemm_cutlass.cu
+  sha256: b6208d26cf1aed42c268e9600bf93dc23242dbbb0092d62ce4033764d27cf41f
+- local_path: key-files/csrc/pytorch_extension_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extension_utils.h
+  sha256: ae5f6608301c8ed3cd84e15bfd7ea08d4aea3cdb88cf16bd3129af580a10dc72
+- local_path: key-files/include/flashinfer/arch_condition.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/arch_condition.h
+  sha256: 99d6b54df9bd2b9095bfe64401581122542ea65d84aa609e24e2ffc1be522418
+- local_path: key-files/include/flashinfer/gemm/cutlass_gemm_configs.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/cutlass_gemm_configs.h
+  sha256: c3a3f4562705c985f57e0adfddf9c69527368de0403603b3902a016158195fba
+- local_path: key-files/include/flashinfer/gemm/fp4_gemm_cutlass.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/fp4_gemm_cutlass.h
+  sha256: 2c5811b5e8dbc722d35ba9ad197cf2437c998873e9dae9660a7e6cb06ad6662d
+- local_path: key-files/include/flashinfer/gemm/fp4_gemm_cutlass_template.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/fp4_gemm_cutlass_template.h
+  sha256: f4f6fcb68dc584cb13b340a996c34e51107867737abdbf67aa47a3394587f1a2
+- local_path: key-files/include/flashinfer/gemm/fp4_gemm_template_sm100.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/fp4_gemm_template_sm100.h
+  sha256: cd9075d8d46ace9c578ed86d570c264fcb8fe97d36b0020d0be8d9f5094174c7

@@ -1,0 +1,171 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/2446
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: c43bc928
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-2446
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 1228c61c6bd3855a4e0d6b29bc92f73233a6479685406081c940ba3e568f64e2
+- local_path: key-files/csrc/fmha_v2/convert.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/convert.cu
+  sha256: afea06d6ed63b279477142cdde9ef6f4aae709acf4c974bb6320c734f558bd74
+  upstream_sha: 749048b61d8e6b1ecd9c10e263dbf7738bfa46d0
+  captured_at_base_sha_note: 'PR #2446 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/fmha_v2/fmha/gmem_tile_o_packed.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fmha/gmem_tile_o_packed.h
+  sha256: 51db68afb43496d8f853013a854ac5ddf245b3394bc50563591aa2c2a88edc82
+- local_path: key-files/csrc/fmha_v2/fmha/gmem_tile_ps.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fmha/gmem_tile_ps.h
+  sha256: 98e47584521834428564bdaad3af066d927321da7fc6c6a4836fad76240f793e
+- local_path: key-files/csrc/fmha_v2/fmha/hopper/gmem_tile_o_packed.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fmha/hopper/gmem_tile_o_packed.h
+  sha256: 2471f454a52189b3812ebb536e304a78edfa3488b695c31143f1e2c62a55509f
+- local_path: key-files/csrc/fmha_v2/fmha/kernel_traits.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fmha/kernel_traits.h
+  sha256: 057f696acfff60508318569af22fd2109fab90f8b0bb2784afdd8baf5cb86719
+- local_path: key-files/csrc/fmha_v2/fmha/warpspec/compute.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fmha/warpspec/compute.h
+  sha256: b90808949b5615b0a9bf3e8266bedf03ab3e61b014a55f9a13427eef97604bec
+- local_path: key-files/csrc/fmha_v2/fmha/warpspec/dma.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fmha/warpspec/dma.h
+  sha256: 959966907fd5db7032b0e1f3062c72e921d601a6cb4815e168f8c5d504fc909e
+- local_path: key-files/csrc/fmha_v2/fmha/warpspec/epilogue.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fmha/warpspec/epilogue.h
+  sha256: b293540a478fcea98440a83187504c1dece5d38255cfafd336731fdbac179301
+- local_path: key-files/csrc/fmha_v2/fmha/warpspec/kernel_traits.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fmha/warpspec/kernel_traits.h
+  sha256: d72f85ef7ec6a68e30b327368c793d7a0b0b1f07d181a981aa5820a67eeaa896
+- local_path: key-files/csrc/fmha_v2/fused_multihead_attention.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fused_multihead_attention.cpp
+  sha256: 991ad89695829419d9b2030a22d88e649d400b4865b3c17024e3af7440503e3b
+  upstream_sha: 749048b61d8e6b1ecd9c10e263dbf7738bfa46d0
+  captured_at_base_sha_note: 'PR #2446 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/fmha_v2/fused_multihead_attention.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fused_multihead_attention.h
+  sha256: 0236ac3778b794a82e942a9828fe0ed177e7ea4997ccd07c154f9531ce274c65
+- local_path: key-files/csrc/fmha_v2/fused_multihead_attention_demo_bert_params.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fused_multihead_attention_demo_bert_params.h
+  sha256: 40841b90e1e5031ff172c8b191704fe93645474c0a127b2248ca74643725826f
+- local_path: key-files/csrc/fmha_v2/fused_multihead_cross_attention.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/fused_multihead_cross_attention.cpp
+  sha256: 8fab2f92e4379cbd5cd61db884300bb27b89681be1edf25c5fbc50e064e36c80
+  upstream_sha: 749048b61d8e6b1ecd9c10e263dbf7738bfa46d0
+  captured_at_base_sha_note: 'PR #2446 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/fmha_v2/softmax_bf16.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/softmax_bf16.cu
+  sha256: ee3b3c0b2505f18f8ac181c54a9187ba1da34eed22d04fda6ad23bf5e2d574c4
+  upstream_sha: 749048b61d8e6b1ecd9c10e263dbf7738bfa46d0
+  captured_at_base_sha_note: 'PR #2446 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/fmha_v2/softmax_fp16.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/softmax_fp16.cu
+  sha256: bc07d56727d8e95e446b59b03e900d21ea971717fb0af87b73f874aa812ae69a
+  upstream_sha: 749048b61d8e6b1ecd9c10e263dbf7738bfa46d0
+  captured_at_base_sha_note: 'PR #2446 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/fmha_v2/softmax_fp32.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/softmax_fp32.cu
+  sha256: 553d5bd833f351cb83f26f71fd5d82d573aad23d10e5afc8df0f0ccfbb95973a
+  upstream_sha: 749048b61d8e6b1ecd9c10e263dbf7738bfa46d0
+  captured_at_base_sha_note: 'PR #2446 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/fmha_v2/softmax_fp8.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/softmax_fp8.cu
+  sha256: a9dc917d5ea09c931af7615dc2430f43e1dc98cfcc6f218dc3af6c8deb231724
+  upstream_sha: 749048b61d8e6b1ecd9c10e263dbf7738bfa46d0
+  captured_at_base_sha_note: 'PR #2446 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/fmha_v2/softmax_impl.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/softmax_impl.h
+  sha256: f7a76150833f7b794a305b343f5457af7ff5d60ef79ee59cf4f47b0ddf5aad26
+  upstream_sha: 749048b61d8e6b1ecd9c10e263dbf7738bfa46d0
+  captured_at_base_sha_note: 'PR #2446 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/fmha_v2/softmax_int8.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2/softmax_int8.cu
+  sha256: a051321a368d5626cb897afaf67fbc9108f97e26e11af6372cc9d8a4201ab414
+  upstream_sha: 749048b61d8e6b1ecd9c10e263dbf7738bfa46d0
+  captured_at_base_sha_note: 'PR #2446 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/fmha_v2_jit_binding.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2_jit_binding.cu
+  sha256: 50ce854057f57f725751c83fb446327aa0a2f2ec49129e13f86a846190855c38
+- local_path: key-files/csrc/fmha_v2_run.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fmha_v2_run.cu
+  sha256: 149008260bbf32d1d4761e7f3d56732a2584e00bdaedfe09cee65fe22e69fac6
+- local_path: key-files/flashinfer/jit/attention/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/__init__.py
+  sha256: aaeb9f05275fe32aeec5c2454bb69384861a18c6f38166b184ec0435f2b13ca8
+- local_path: key-files/flashinfer/jit/attention/fmha_v2/fmha_library.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/fmha_v2/fmha_library.py
+  sha256: 50620b85671312aaa5ff3e85c0e4c2331594daccd430e02fd3a9b63ac91ceec3
+- local_path: key-files/flashinfer/jit/attention/fmha_v2/generator_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/fmha_v2/generator_utils.py
+  sha256: 4b75f96a828a5dcff46ce8b905bb8309f5683ff1ec275705a2b19f3f4a1a51f3
+- local_path: key-files/flashinfer/jit/attention/fmha_v2/utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/fmha_v2/utils.py
+  sha256: ed808a176fcfd781fd4c7e7b9132baaf5ff18bef15dbbf42e44a29728aaeaf5e
+- local_path: key-files/flashinfer/jit/attention/modules.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/modules.py
+  sha256: 21da7e0653e789b09bc8bf57942be8e40f0de704f186d0d6cbabf12b00458561

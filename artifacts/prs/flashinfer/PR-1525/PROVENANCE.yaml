@@ -1,0 +1,84 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1525
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 0d4e26b0
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1525
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 8219b559f7e03f4a160c958e93caa6d8739b66294ff84d8a9de373a296b7d920
+- local_path: key-files/csrc/trtllm_batched_gemm_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_batched_gemm_runner.cu
+  sha256: d408a21dd8710062a12a56a10ea1e9c06a99e55c0f5e284ed48cfa74730912b9
+- local_path: key-files/csrc/trtllm_fused_moe_kernel_launcher.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_kernel_launcher.cu
+  sha256: 19c79b594aef3914abf2242611d7a86db24b27cd78788a6d0977ed9df539fff1
+- local_path: key-files/csrc/trtllm_fused_moe_routing_renormalize.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_routing_renormalize.cu
+  sha256: 60a2b2809a84e1c9e8a8327a95ec84dc14c1177f9ae8a9c30462a77b3a5c7808
+- local_path: key-files/csrc/trtllm_fused_moe_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_runner.cu
+  sha256: 9c3abde2b2dd5cfa1016063192e0c869c2268db7a5be774380725ce6c239b565
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/KernelRunner.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/KernelRunner.h
+  sha256: c61c638b992015079141121aa8716a19919af865aad43a1121afe320ff06fb17
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/BatchedGemmInterface.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/BatchedGemmInterface.h
+  sha256: 8ac5cbf284aca07b932b8c4ddf589f69b3e04614ff3990fe304843187fc8c60a
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/BatchedGemmOptions.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/BatchedGemmOptions.h
+  sha256: c7b681b2c3572133148c379820a3270ebdc7aa59830dd30cdb69ef8082f66079
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/GemmGatedActOptions.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/GemmGatedActOptions.h
+  sha256: 18fcc97c8104f714c1dad026d71d892ef5d3ba51b95b2ebb7a1e027235e00988
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/GemmOptions.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/GemmOptions.h
+  sha256: 49906c7ada8ac5506a13243bf64b6cb71acbba4ca7d869f5afba6ce97e3ee99f
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/KernelParams.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/KernelParams.h
+  sha256: 1daef87409012e07c10c3d5b390d064561fe63f824926ab234b8011722bad5f6
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/KernelParamsDecl.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/KernelParamsDecl.h
+  sha256: 7df561d43c4a475d73b3c183cbe5fa2b6f72b62b6c4ece1d7382c62f27d2463b
+- local_path: key-files/include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/KernelTraits.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/batched_gemm/trtllmGen_bmm_export/KernelTraits.h
+  sha256: 699c30f5c2a4280628f91d3df3b95ff8a3863d21f66477d5415b9147a7c477da
+- local_path: key-files/include/flashinfer/trtllm/fused_moe/RoutingKernel.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/fused_moe/RoutingKernel.h
+  sha256: 97531dc352be99b233a181be82923e95081b8d86dacabbac2fac73508e907a36
+- local_path: key-files/include/flashinfer/trtllm/fused_moe/runner.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/fused_moe/runner.h
+  sha256: 619e6468547cc79a974dc56a876f2c04a5c6f2109306f941ce5cfb5d889d0583

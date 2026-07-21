@@ -1,0 +1,44 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/2102
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: f0355f76
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-2102
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 79808f12448c7be7db711bd15f7650f03917472be11d60e25c2d21621fefc981
+- local_path: key-files/csrc/nv_internal/cpp/common/envUtils.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/cpp/common/envUtils.cpp
+  sha256: b7ee2b3c3790a72b36568d4e0cdac80d29dab4e757f9775b34645a2d776fb565
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/common/envUtils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/common/envUtils.h
+  sha256: b1ebce283ab19df39640260d86962ad69795943233859ab697a3bb198df3df07
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/communicationKernels/moeAlltoAllKernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/communicationKernels/moeAlltoAllKernels.cu
+  sha256: c8ee9b9aa96b1bde2be2e5ab1bcb18aa73a8a8d726386ff3c689c8a6cb49ba2f
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/communicationKernels/moeAlltoAllKernels.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/communicationKernels/moeAlltoAllKernels.h
+  sha256: d3c9145cfda3181556dfecb52884bb3c077c26fdc93a7d8f92d5f182f12bdc22
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/thop/moeAlltoAllMeta.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/thop/moeAlltoAllMeta.h
+  sha256: 2babb8881503c58f9dcaa15da933b882c16b2d7cfd7e1b6721af102c5ddfe087
+- local_path: key-files/csrc/trtllm_moe_alltoall.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_moe_alltoall.cu
+  sha256: 3ac772699e6f7294a3a432f08a4c7e8dfce9d643acbdd41e26455672c8a87a87

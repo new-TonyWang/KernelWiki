@@ -1,0 +1,49 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1241
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: ff0270ce
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1241
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 0ac7741d588c6ed94ab6cc773ef143f5b70acf107e8d57bc240673c03f9f7fce
+- local_path: key-files/csrc/group_gemm_fp8_groupwise_sm100.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_fp8_groupwise_sm100.cu
+  sha256: 63fd1c9f5781d24247eaece4551f60250d72057d6724aef52c316fbb8638d18d
+- local_path: key-files/csrc/group_gemm_mxfp4_groupwise_sm100.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_mxfp4_groupwise_sm100.cu
+  sha256: 04a6a0262ceab6293ebbc21694b856bf399faa53da5e1297211d8a8a62accb97
+- local_path: key-files/csrc/group_gemm_sm100_pybind.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_sm100_pybind.cu
+  sha256: a79afb97834fab51528d1c5693c09c587b22f10e88c2ac4672ce3c13f58a28f2
+- local_path: key-files/csrc/pytorch_extension_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extension_utils.h
+  sha256: 9406aec456e8905910c291919d9a5b2bf1357fbe0de65d19806cdb4db104da64
+- local_path: key-files/include/flashinfer/cutlass_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/cutlass_utils.cuh
+  sha256: 3d53e6baeff1cf59a5761b7bbafa0451e880454abd94d2a6ee6ce562ddc8c751
+- local_path: key-files/include/flashinfer/gemm/group_gemm_fp8_groupwise_sm100.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/group_gemm_fp8_groupwise_sm100.cuh
+  sha256: 8e9881395432776565a091233ae5e0fb85cd7363631702a9f1ab52dcb1dbbd1f
+- local_path: key-files/include/flashinfer/gemm/group_gemm_mxfp4_groupwise_sm100.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/group_gemm_mxfp4_groupwise_sm100.cuh
+  sha256: f5a9d7a85507a56c275d17e692d5a5158e71f6ff74a913dcf6e6e9863f4224e0
