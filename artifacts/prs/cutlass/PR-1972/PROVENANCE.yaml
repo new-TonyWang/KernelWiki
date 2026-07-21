@@ -1,0 +1,72 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/1972
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 4c42f73f
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-1972
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ae0802ac3fd14af85608c7bd18c42186829b6a60a02cc248b31320baf9161a61
+- local_path: key-files/examples/55_hopper_mixed_dtype_gemm/55_hopper_int4_bf16_gemm.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/55_hopper_mixed_dtype_gemm/55_hopper_int4_bf16_gemm.cu
+  sha256: 6790c7234eda01a63955ac27d2a8a3d66a26e3225da5cfda55815c02d16b6d42
+- local_path: key-files/examples/55_hopper_mixed_dtype_gemm/55_hopper_int4_fp8_gemm.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/55_hopper_mixed_dtype_gemm/55_hopper_int4_fp8_gemm.cu
+  sha256: cf3f41999f40b1c55d3f0a79058f8c5cee7af6a987bb9a04926df46534c08ca1
+- local_path: key-files/examples/55_hopper_mixed_dtype_gemm/55_hopper_mixed_dtype_gemm.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/55_hopper_mixed_dtype_gemm/55_hopper_mixed_dtype_gemm.cu
+  sha256: 77263abd0b15f38ef83da741a85dc88716896b2ee7b4ef0414d519c97ba6bf90
+- local_path: key-files/examples/55_hopper_mixed_dtype_gemm/mixed_dtype_utils.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/55_hopper_mixed_dtype_gemm/mixed_dtype_utils.hpp
+  sha256: dc39b90870239fdec9d95855640e4e5bda97a61366677bbceec50ad9e1354972
+- local_path: key-files/examples/55_hopper_mixed_dtype_gemm/packed_scale.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/55_hopper_mixed_dtype_gemm/packed_scale.hpp
+  sha256: 66d033983c460788d7bf54b729061525a4bfb2298e0e7329482538987e246676
+- local_path: key-files/examples/55_hopper_mixed_dtype_gemm/reorder_utils.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/55_hopper_mixed_dtype_gemm/reorder_utils.hpp
+  sha256: e50dc16973e69e4adb5cd3ba36fe439668998e0a5f18ffd623e0fca40f9e6260
+- local_path: key-files/examples/55_hopper_mixed_dtype_gemm/unfused_weight_dequantize.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/55_hopper_mixed_dtype_gemm/unfused_weight_dequantize.hpp
+  sha256: e8e951f1a6d88f4ae059e7524798a85147622bfc8a0b49c6d4b4081f173b2828
+  upstream_sha: 80243e0b8c644f281e2beb0c20fe78cf7b267061
+  captured_at_base_sha_note: 'PR #1972 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/include/cutlass/detail/collective/mixed_input_utils.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/detail/collective/mixed_input_utils.hpp
+  sha256: d716d40f48d7473b95eb36101a64223b78b917ab391c19a588b522a1850c37aa
+- local_path: key-files/include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  sha256: f1b8ade6ba083f5f1af2e3ca646d8ce8d93e02c41f5ff1c795d104029a1081ca
+- local_path: key-files/include/cutlass/gemm/collective/sm90_mma_tma_gmma_rs_warpspecialized_mixed_input.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/sm90_mma_tma_gmma_rs_warpspecialized_mixed_input.hpp
+  sha256: e0ad16f9b645e6ad1fd0b2176492751742ab9fa3745b56756294c7450680ca0a
+- local_path: key-files/include/cutlass/gemm/dispatch_policy.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/dispatch_policy.hpp
+  sha256: 74f6d97b0a1849e65a8e0c8bd0746daca1b26c24396963e700d99aad5f9d1a08

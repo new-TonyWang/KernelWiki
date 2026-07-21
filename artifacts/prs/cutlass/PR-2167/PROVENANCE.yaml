@@ -1,0 +1,29 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/2167
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 496654bf
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-2167
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 42c6f619a072101ff848f59c67a4196bc4c42401ada847f0a1863738c34a0261
+- local_path: key-files/include/cutlass/gemm/kernel/sm100_gemm_array_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm100_gemm_array_tma_warpspecialized.hpp
+  sha256: dd98b77f83a36c0e37d1bac0c8a59e9c01ceef48ecb3ecd743998bc9320f6616
+- local_path: key-files/include/cutlass/gemm/kernel/sm100_gemm_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm100_gemm_tma_warpspecialized.hpp
+  sha256: 53886c1b46ea04a12d9ddf74f60c72195b11d5a5295da5eec388bbd7ed3a7b56
+- local_path: key-files/include/cutlass/gemm/kernel/sm100_gemm_tma_warpspecialized_mma_transform.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm100_gemm_tma_warpspecialized_mma_transform.hpp
+  sha256: 3b53443d56c163b403007732fec4d5fba3abb90048188c0e7af1431d65bbf338

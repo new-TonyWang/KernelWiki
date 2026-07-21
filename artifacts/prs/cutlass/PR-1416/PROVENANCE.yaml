@@ -1,0 +1,24 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/1416
+upstream_repo: NVIDIA/cutlass
+upstream_sha: c4e3e122
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-1416
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 926d7ffe2a420e9b2594e42b57d9606f6ee988e4892ccf8c5d4f841fad1ce3d7
+- local_path: key-files/include/cutlass/detail/layout.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/detail/layout.hpp
+  sha256: 3b25a45e4a10a3c39088628d90a08175a89b62c6d3d54cf859d9455ce8be685d
+- local_path: key-files/tools/util/include/cutlass/util/packed_stride.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: tools/util/include/cutlass/util/packed_stride.hpp
+  sha256: 73a22ea45a6e0ea1002a4954f70eb014da638a09375d411d68f6e3d700914804

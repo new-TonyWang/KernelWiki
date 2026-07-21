@@ -1,0 +1,102 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/1033
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: 116d97d7
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-1033
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 2c0eff63e4785a285c6310b3c3d40180d05ec16884edb659b14c901421224430
+- local_path: key-files/csrc/batch_prefill_fp8_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/batch_prefill_fp8_sm90.cu
+  sha256: 75d359042a5eb12c1b625dac8b27dbd91ece5f9979adfa52e1a90bd5e2ccb118
+- local_path: key-files/csrc/single_prefill_fp8_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/single_prefill_fp8_sm90.cu
+  sha256: 09efacfff0f16e37eecd97479168e6c3bbb17391d33d8550c5dd22bc3f660583
+- local_path: key-files/flashinfer/jit/attention/pytorch.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/attention/pytorch.py
+  sha256: bd04b65a71c2ef4080e31c93da768d551c9ae2922eff4db01cc0e1983c23b743
+- local_path: key-files/include/flashinfer/attention/hopper/quantization/epilogue.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/hopper/quantization/epilogue.cuh
+  sha256: be2c1d68bd2fbeff340a66dd93c778689597a80a58274607c956de2bff1909fd
+- local_path: key-files/include/flashinfer/attention/hopper/quantization/kernel_traits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/hopper/quantization/kernel_traits.cuh
+  sha256: 4c12864c46cd4566c37eda1c72a369ba96d675a8f59d89a0c4d9d747ad32a4b7
+- local_path: key-files/include/flashinfer/attention/hopper/quantization/mainloop_load.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/hopper/quantization/mainloop_load.cuh
+  sha256: 1f6b553fa4855fb0d83981ab6e1688c2352db6d441a90870ad1b053c7b08f647
+- local_path: key-files/include/flashinfer/attention/hopper/quantization/mainloop_sparse_load.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/hopper/quantization/mainloop_sparse_load.cuh
+  sha256: 817a25d5bb5abcc6eead75c8a4ee86d6451cc6fa4cc6e558fd313062a725660e
+- local_path: key-files/include/flashinfer/attention/hopper/quantization/prefill_sm90.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/attention/hopper/quantization/prefill_sm90.cuh
+  sha256: 75f9662088a2e74fedecf41ea44dc003079a08db5a596b6e7e2fff2080cf1b1d
+- local_path: key-files/src/fp8-dev/bench_single_prefill_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: src/fp8-dev/bench_single_prefill_sm90.cu
+  sha256: e9901e6dd5f718848a11c454e9b9ca8b08e77ae0ec8370e19c7d392decf0ffd2
+  upstream_sha: cb5462df0ac72a43bbfbebe3d54dc8f9e35b39f1
+  captured_at_base_sha_note: 'PR #1033 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/src/fp8-dev/cpu_reference.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: src/fp8-dev/cpu_reference.h
+  sha256: 925f32028d8f2d6111eab4a490f9177595e5fb3fe0e8a399e672fec926a639ed
+  upstream_sha: cb5462df0ac72a43bbfbebe3d54dc8f9e35b39f1
+  captured_at_base_sha_note: 'PR #1033 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/src/fp8-dev/flashattention_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: src/fp8-dev/flashattention_ops.h
+  sha256: 04b59fa90171de8bb6f516bedc2e4e8881108d6215c4e538ef1b2628bc2987c8
+  upstream_sha: cb5462df0ac72a43bbfbebe3d54dc8f9e35b39f1
+  captured_at_base_sha_note: 'PR #1033 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/src/fp8-dev/flashinfer_ops.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: src/fp8-dev/flashinfer_ops.cu
+  sha256: 7266b5456c85344cd2b4204eb6739d40a7fc6e8e2c777182acd004a208e04fab
+  upstream_sha: cb5462df0ac72a43bbfbebe3d54dc8f9e35b39f1
+  captured_at_base_sha_note: 'PR #1033 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/src/fp8-dev/test_single_prefill_fa3_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: src/fp8-dev/test_single_prefill_fa3_sm90.cu
+  sha256: 6f0443eeaee12943cf77771e156fff999031b62204a78be28891d471f37658ac
+  upstream_sha: cb5462df0ac72a43bbfbebe3d54dc8f9e35b39f1
+  captured_at_base_sha_note: 'PR #1033 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/src/fp8-dev/utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: src/fp8-dev/utils.h
+  sha256: bcce5e983b67bd16354b16bd75a2f3b869d28f3ee8be76139c0312116f0daa59
+  upstream_sha: cb5462df0ac72a43bbfbebe3d54dc8f9e35b39f1
+  captured_at_base_sha_note: 'PR #1033 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'

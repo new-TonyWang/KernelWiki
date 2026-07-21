@@ -1,0 +1,39 @@
+origin_url: https://github.com/deepseek-ai/DeepGEMM/pull/83
+upstream_repo: deepseek-ai/DeepGEMM
+upstream_sha: 2e7e5801
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-DeepGEMM-83
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: a23b6890643ab98d4e29e108890d81224b262dc883bd8da566986383d3a9f2d1
+- local_path: key-files/deep_gemm/include/deep_gemm/fp8_gemm.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/fp8_gemm.cuh
+  sha256: 2e5be85b0b60fb4e8057924b766f00c4a97e25b3c3c20b9f862fb097ff5aeb6f
+- local_path: key-files/deep_gemm/include/deep_gemm/tma_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/tma_utils.cuh
+  sha256: fc3fdf2273bfbc252334eed1de467de3c8597ccccbcd69f0bcf13f0139a530fe
+- local_path: key-files/deep_gemm/jit_kernels/gemm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/jit_kernels/gemm.py
+  sha256: 22811eef9d2497ca0cf463db6b91da656c2331f7ba4af8ed4c2938bd60dd2819
+- local_path: key-files/deep_gemm/jit_kernels/m_grouped_gemm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/jit_kernels/m_grouped_gemm.py
+  sha256: 0ffc116eaec280ea843b389565c2167869108748638a7bdf9d0efd97c94196ac
+- local_path: key-files/indexing/main.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: indexing/main.cu
+  sha256: 5fd48c562017137935cad4053594702e2210e6f3b41a40bd6777053d1196abfa

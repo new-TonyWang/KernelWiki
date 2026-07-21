@@ -338,18 +338,33 @@ def emit_bundle(repo, pr_num, pr_id, merge_sha, file_list, whole_diff, dry_run=F
     diff_bytes = whole_diff
     if diff_bytes is not None:
         diff_path = bundle / "diff.patch"
+        # The per-file cap applies here too. Key-files are already capped
+        # below, but a large PR's whole-repo patch can be several MiB on its
+        # own, which both bloats the bundle and fails validation.
+        diff_truncated = len(diff_bytes) > FILE_SIZE_CAP
+        if diff_truncated:
+            original_len = len(diff_bytes)
+            marker = (
+                f"\n\n# size_cap_truncated: whole-PR patch is {original_len} bytes "
+                f"(> {FILE_SIZE_CAP}). Truncated at the cap; re-fetch the full "
+                f"patch with `gh pr diff {pr_num} -R {repo}`.\n"
+            ).encode("utf-8")
+            diff_bytes = diff_bytes[:FILE_SIZE_CAP - len(marker)] + marker
         try:
             diff_path.write_bytes(diff_bytes)
         except OSError:
             shutil.rmtree(bundle_work, ignore_errors=True)
             raise
         bundle_total += len(diff_bytes)
-        files_entries.append({
+        entry = {
             "local_path": "diff.patch",
             "role": "pr-diff",
             "mode": "upstream-patch",
             "sha256": sha256_bytes(diff_bytes),
-        })
+        }
+        if diff_truncated:
+            entry["size_cap_truncated"] = True
+        files_entries.append(entry)
 
     # For removed files we still want to capture the pre-deletion content
     # (so users can inspect what the PR deleted). Resolve the PR's base SHA

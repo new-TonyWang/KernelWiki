@@ -1,0 +1,29 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/2684
+upstream_repo: NVIDIA/cutlass
+upstream_sha: e6e2cc29
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-2684
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 88f7cd5d0995b3c460ff2953bbb931523dc1b073548ffc8c088bcdf3c00ef06f
+- local_path: key-files/include/cutlass/detail/collective/mixed_input_utils.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/detail/collective/mixed_input_utils.hpp
+  sha256: 6adf6f61e9bf7da3ed7b1fc0449cfd6c918e79bf9316f25095d30ab0254ac092
+- local_path: key-files/include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  sha256: 283cfd35cee45f7021bc8aebd48595c6ad30aac53032ddab1b0942ee75a0d1e5
+- local_path: key-files/tools/util/include/cutlass/util/mixed_dtype_utils.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: tools/util/include/cutlass/util/mixed_dtype_utils.hpp
+  sha256: 2f28e4228c1383185fbe3a12d56df084c378cdd4c2b99a0a257870070fcd76a4

@@ -1,0 +1,49 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/2037
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 3c28697b
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-2037
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: fac3cadc1f9c1d38a5054d58b1c27c70e2900d273b9bae9cc3b7ce4b97e4623b
+- local_path: key-files/examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling.cu
+  sha256: d49190680f7188749f61f5fb8f80ade02883663053a4e5c6d4ff88462cdb28e3
+- local_path: key-files/examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/67_hopper_fp8_warp_specialized_gemm_with_groupwise_scaling.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/67_hopper_fp8_warp_specialized_gemm_with_groupwise_scaling.cu
+  sha256: 27b0140246d121e18b5a00fdef813a9db7a0b8cd170b97000d0498bf3677e0f4
+- local_path: key-files/examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/reference/host/gemm_with_groupwise_scaling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/67_hopper_fp8_warp_specialized_gemm_with_blockwise_scaling/reference/host/gemm_with_groupwise_scaling.h
+  sha256: 34c880b393c2464948724e85439116ef9eba4c4a4c8ae02a0af7acd47648512b
+- local_path: key-files/include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  sha256: 6f75d2d8ca42fd447168da422b77de012defdae8f87c86f673a81b8cc2caacce
+- local_path: key-files/include/cutlass/gemm/collective/fp8_accumulation.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/fp8_accumulation.hpp
+  sha256: a3dd3e93d2625e7cc4ed84962fa9c2b9ca548d3daafc26c3396e732fb2cf94a4
+- local_path: key-files/include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  sha256: 427905e09ccfbff1681b63be508f8697a8b80b16783585b1202560f7c967210b
+- local_path: key-files/include/cutlass/gemm/dispatch_policy.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/dispatch_policy.hpp
+  sha256: 8d931a150bedf2cd5a8d26b389b55ba9dc24aeef19f795ac87992735e2a50cad
