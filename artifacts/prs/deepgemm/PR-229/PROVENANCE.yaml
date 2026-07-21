@@ -1,0 +1,24 @@
+origin_url: https://github.com/deepseek-ai/DeepGEMM/pull/229
+upstream_repo: deepseek-ai/DeepGEMM
+upstream_sha: ec5e9ed0
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-DeepGEMM-229
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: d9ae84d3a02726f646e1d2bfe6c1b9cea6d7cb05e66bb719a6e826fcb720f3b5
+- local_path: key-files/csrc/jit_kernels/impls/smxx_fp8_mqa_logits.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/jit_kernels/impls/smxx_fp8_mqa_logits.hpp
+  sha256: ae23a42a0c2306e5df745766b18fe40a296b53a97c0c325d9af34a6cd2e6ce72
+- local_path: key-files/deep_gemm/include/deep_gemm/impls/sm100_fp8_mqa_logits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/impls/sm100_fp8_mqa_logits.cuh
+  sha256: 71ad62ddbe3299c1a780d049512d242864cf3d6cf8b6942641f686e99480c510

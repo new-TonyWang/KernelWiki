@@ -1,0 +1,49 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/2746
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 020c700e
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-2746
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 3aebee151039ea22f0f53ea2430f4c8017599ef4a9baaee159ba6c8704cae66b
+- local_path: key-files/examples/75_blackwell_grouped_gemm/75_blackwell_grouped_gemm.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/75_blackwell_grouped_gemm/75_blackwell_grouped_gemm.cu
+  sha256: a50596fe4a19db135511ccc2fcaaaf7b242c6f4f1551fb334e6242ccb102eef6
+- local_path: key-files/examples/75_blackwell_grouped_gemm/75_blackwell_grouped_gemm_block_scaled.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: examples/75_blackwell_grouped_gemm/75_blackwell_grouped_gemm_block_scaled.cu
+  sha256: ef033f56c452d5d79336c378dabc59ec8a164920f98d2ef2e5ce8a7f7b3a67a9
+- local_path: key-files/include/cutlass/epilogue/collective/detail.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/epilogue/collective/detail.hpp
+  sha256: 7357df7b233aa500f58d8b75f51c03e546dc63980859384959afc3064d4598df
+- local_path: key-files/include/cutlass/epilogue/collective/sm100_epilogue_array_nosmem.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/epilogue/collective/sm100_epilogue_array_nosmem.hpp
+  sha256: 2b1dfea335d11d904445916d96b451613f13fbf90a2dd15845370d42551c80c1
+- local_path: key-files/include/cutlass/epilogue/collective/sm100_epilogue_array_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/epilogue/collective/sm100_epilogue_array_tma_warpspecialized.hpp
+  sha256: 7c443d4042ced93462f62f81932d2093d1fa8049c2194e6cdc4282a14ea9f857
+- local_path: key-files/include/cutlass/gemm/collective/sm100_blockscaled_mma_array_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/sm100_blockscaled_mma_array_warpspecialized.hpp
+  sha256: 341fc2b5c1d49600b9ef6a8b62909aed088acb5ba674771ceedb0819a017d809
+- local_path: key-files/include/cutlass/gemm/kernel/sm100_gemm_array_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm100_gemm_array_tma_warpspecialized.hpp
+  sha256: c2f6a58765b529c6b98a93e6b06ef19467551f50416b96ead58e145c386a3dc8

@@ -1,0 +1,36 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/1666
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 36cbfcf4
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-1666
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 23fb79e7b36075b0590d4689b821f93b63bd0ed159d62858f3c3b23372838f35
+  size_cap_truncated: true
+- local_path: key-files/include/cute/arch/mma_sm90.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cute/arch/mma_sm90.hpp
+  sha256: 76076648bb9a4a4a5a103cfe06b2f3a82a25fe03dbc45d08ed269d5a066535ab
+- local_path: key-files/include/cute/arch/mma_sm90_gmma.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cute/arch/mma_sm90_gmma.hpp
+  sha256: e1737ffd2c983f36cdece4a2c179e900e21e4b59d6173bbb02baeccfb8a34224
+  size_cap_truncated: true
+- local_path: key-files/include/cute/atom/mma_traits_sm90_gmma.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cute/atom/mma_traits_sm90_gmma.hpp
+  sha256: 3d67b7ddb0525f55f67fe5a98178fcaf5dbfaacacee022fbe4b9ee7cae170336
+- local_path: key-files/include/cute/numeric/integral_constant.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cute/numeric/integral_constant.hpp
+  sha256: dcfce6980cf61a794e834d98994e162e912e14c840676d44397d6a1d19e583c8

@@ -1,0 +1,34 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/1153
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 362abbf2
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-1153
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: a8d114c877def88c34334341377a5639968d4f2f4a0fa88211b28fd09e45aaf1
+- local_path: key-files/include/cutlass/epilogue/collective/builders/sm90_builder.inl
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/epilogue/collective/builders/sm90_builder.inl
+  sha256: 81180361cc50a8b3ff706313bb800e94c0e6a3f2488c087ec4b2a8807f2b5046
+- local_path: key-files/include/cutlass/epilogue/collective/sm90_epilogue_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/epilogue/collective/sm90_epilogue_tma_warpspecialized.hpp
+  sha256: 4b415a9512207753c7d00ad4aec7f9ac5101b8373b94fa60f4fc295d6888a949
+- local_path: key-files/include/cutlass/epilogue/fusion/sm90_callbacks_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/epilogue/fusion/sm90_callbacks_tma_warpspecialized.hpp
+  sha256: a62305815da7549a5fcfe6d8a5f1b34586424f0e83182a9bd261abbf7b227d8b
+- local_path: key-files/include/cutlass/epilogue/fusion/sm90_visitor_store_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/epilogue/fusion/sm90_visitor_store_tma_warpspecialized.hpp
+  sha256: 0a4b6cabfff02a3a9d8b384c475d3e909aee77f6e8fbb9b9225cd1d138c63526

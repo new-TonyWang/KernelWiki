@@ -1,0 +1,54 @@
+origin_url: https://github.com/deepseek-ai/DeepGEMM/pull/200
+upstream_repo: deepseek-ai/DeepGEMM
+upstream_sha: 80ceeb2c
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-DeepGEMM-200
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: b7de56b8bd313ef9c162c2f56078a36f64081c0abc85efaf10d0303a53ee20c6
+- local_path: key-files/csrc/apis/attention.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/apis/attention.hpp
+  sha256: 36152b9e4a0267188db91d7e00718d34f7f69ec502304844cfc015679b4c82af
+- local_path: key-files/csrc/indexing/main.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/indexing/main.cu
+  sha256: 2cb4173bab1cd6edb00c8bc14486ec44cfeda347e270fcf4f83357bcb7ee93f7
+- local_path: key-files/csrc/jit_kernels/impls/smxx_clean_logits.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/jit_kernels/impls/smxx_clean_logits.hpp
+  sha256: ed9d89a47d59efdf47c1795a1e81ebd42e2f4d8d6870b43a6e9b2c69f597cc15
+- local_path: key-files/csrc/jit_kernels/impls/smxx_fp8_mqa_logits.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/jit_kernels/impls/smxx_fp8_mqa_logits.hpp
+  sha256: 412601d9ee6420500617b3a619ad6e5c601689f3ad7f6c6a16eed7078a33f46b
+- local_path: key-files/csrc/jit_kernels/impls/smxx_fp8_paged_mqa_logits.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/jit_kernels/impls/smxx_fp8_paged_mqa_logits.hpp
+  sha256: 220bef3b21581d92b2267c0c9ec03af28eae121925c39da1930482a7a123f857
+- local_path: key-files/deep_gemm/include/deep_gemm/impls/sm90_fp8_mqa_logits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/impls/sm90_fp8_mqa_logits.cuh
+  sha256: 12e2c0d2f3cb89be5a202c053a64b44ee2a7da9425cfd3ce64c95f23c39b7007
+- local_path: key-files/deep_gemm/include/deep_gemm/impls/sm90_fp8_paged_mqa_logits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/impls/sm90_fp8_paged_mqa_logits.cuh
+  sha256: a07c7a7f9d7d2bd156831799cb6c2566219bc8e14535b1085c1ad2bd6d3e455e
+- local_path: key-files/deep_gemm/include/deep_gemm/impls/smxx_clean_logits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/impls/smxx_clean_logits.cuh
+  sha256: e3d34e0f32a1207a1d49a7477ca3f33f9e83ea2bf9ad9ffb9c22af59406a4d24

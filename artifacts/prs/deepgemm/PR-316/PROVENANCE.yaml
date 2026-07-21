@@ -1,0 +1,84 @@
+origin_url: https://github.com/deepseek-ai/DeepGEMM/pull/316
+upstream_repo: deepseek-ai/DeepGEMM
+upstream_sha: 891d57b4
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-DeepGEMM-316
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 17c5765701845202e6eae3263044fd5ddb44787f978bb857ee3083473b08a6cd
+- local_path: key-files/csrc/apis/attention.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/apis/attention.hpp
+  sha256: 8842a87095a68a11c974174b79b6ec6d81e96edf26ef683cecbee84c3beaa537
+- local_path: key-files/csrc/apis/mega.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/apis/mega.hpp
+  sha256: 65cd9f6914a2813eb5adf1dee38117bcb6c2f0664ddef3cefa2e5d8f473b1423
+- local_path: key-files/csrc/jit_kernels/heuristics/mega_moe.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/jit_kernels/heuristics/mega_moe.hpp
+  sha256: 8b2415d6680411f17ca50db2e7e11ba589e1ea590fa2f7bc7a02fea358115095
+- local_path: key-files/csrc/jit_kernels/impls/sm100_fp8_fp4_mega_moe.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/jit_kernels/impls/sm100_fp8_fp4_mega_moe.hpp
+  sha256: 3403c10fde282b073a6b29388f15088ad1fae4bf0f59609d61391ce9634b1365
+- local_path: key-files/csrc/jit_kernels/impls/smxx_fp8_fp4_paged_mqa_logits.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/jit_kernels/impls/smxx_fp8_fp4_paged_mqa_logits.hpp
+  sha256: 7dc67f1cbea8deef451a72253ab7e66056e87ef2a99f303c282692c606c8f67b
+- local_path: key-files/deep_gemm/include/deep_gemm/comm/barrier.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/comm/barrier.cuh
+  sha256: 1f5d80380cab9eb2d91ed521156c623063df232e7f1c9d4da715a28d2f4663fc
+- local_path: key-files/deep_gemm/include/deep_gemm/impls/sm100_fp4_mqa_logits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/impls/sm100_fp4_mqa_logits.cuh
+  sha256: 9db8e1157308974780cba9c2ad4ed1db7d1da4e8b6e16ca9e9cd77a96ccea508
+- local_path: key-files/deep_gemm/include/deep_gemm/impls/sm100_fp4_paged_mqa_logits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/impls/sm100_fp4_paged_mqa_logits.cuh
+  sha256: 5135c99fe30409415a832113da4ba50c88a36c362992262bc6951f75f5b65044
+- local_path: key-files/deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/impls/sm100_fp8_fp4_mega_moe.cuh
+  sha256: 7657d0b647ce7fdb0887f02ef2fe3b96ecb71545a1ec71250f2f1059a491bf5d
+- local_path: key-files/deep_gemm/include/deep_gemm/impls/sm100_fp8_paged_mqa_logits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/impls/sm100_fp8_paged_mqa_logits.cuh
+  sha256: 172ccbb470232511d39206daa70a4ccaeeb6ac87084c76a1adc75c5e5350a59e
+- local_path: key-files/deep_gemm/include/deep_gemm/impls/sm90_fp8_paged_mqa_logits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/impls/sm90_fp8_paged_mqa_logits.cuh
+  sha256: 8a980e9b478c4aace34005d69deedb20586ff5148e12beca2e53b5e9c0c03bab
+- local_path: key-files/deep_gemm/include/deep_gemm/layout/mega_moe.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/layout/mega_moe.cuh
+  sha256: 0e48622164020bd4501f9efbfedaab10c08de9c893954bf0621c6bbb8df44bbe
+- local_path: key-files/deep_gemm/include/deep_gemm/ptx/ld_st.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/ptx/ld_st.cuh
+  sha256: a327d9a0be2d4b4b683fd4c447ba7fd984fb403a07c3f27af76353eda065b370
+- local_path: key-files/deep_gemm/include/deep_gemm/scheduler/paged_mqa_logits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: deep_gemm/include/deep_gemm/scheduler/paged_mqa_logits.cuh
+  sha256: 5d6ff771984b3bc027e9d0bbf849040a0acb287b883618c4aa16527cdb593f10

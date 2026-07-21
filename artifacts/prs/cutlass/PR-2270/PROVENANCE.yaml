@@ -1,0 +1,59 @@
+origin_url: https://github.com/NVIDIA/cutlass/pull/2270
+upstream_repo: NVIDIA/cutlass
+upstream_sha: 2b78c2fe
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-cutlass-2270
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 3a9286ccb9cf01aa6ab0b25e66eb2fd48bae5036fe47c9dbc10875431c615daa
+- local_path: key-files/include/cute/atom/mma_traits_sm90_gmma.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cute/atom/mma_traits_sm90_gmma.hpp
+  sha256: 956d254e25fbc5a0f400424bdfecb5a5857d258a0da3839bfa971f0fc56f19d3
+- local_path: key-files/include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/builders/sm90_gmma_builder.inl
+  sha256: 6e382ee35274a35ffc4bef09a533bb73928b33521c477f12f30884b9ebf1158e
+- local_path: key-files/include/cutlass/gemm/collective/fp8_accumulation.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/fp8_accumulation.hpp
+  sha256: 61378595be924d3f31a56b93df47a3dff320e899336784fac136e4fafe2a08e0
+- local_path: key-files/include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  sha256: b7cdfaa78d800514fd214c0baa09a0ccc4ae2f187b3947a3c82602b1fa2a8cf6
+- local_path: key-files/include/cutlass/gemm/dispatch_policy.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/dispatch_policy.hpp
+  sha256: 17aaff9b4c6f7d5967f37ee61767baa2252f44f6066d6b98b5e1ac647f9820e5
+- local_path: key-files/include/cutlass/gemm/kernel/sm90_gemm_array_tma_warpspecialized_cooperative.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm90_gemm_array_tma_warpspecialized_cooperative.hpp
+  sha256: 1fbb0c5161601b0beb6d69aa4da1cba31830ef09af0793f3f4fce9fdf8b2fd3b
+- local_path: key-files/include/cutlass/gemm/kernel/sm90_gemm_array_tma_warpspecialized_pingpong.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm90_gemm_array_tma_warpspecialized_pingpong.hpp
+  sha256: a7893d7c20067a9bb4e7f102541ae1825c07a5c97242ce5a81c28a90cf84d6e7
+- local_path: key-files/include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_cooperative.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_cooperative.hpp
+  sha256: 8f09c79f5e52fffd3a2fb0e7810727dc9480d336452f69dec2d11cce3ca0fe62
+- local_path: key-files/include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_pingpong.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/cutlass/gemm/kernel/sm90_gemm_tma_warpspecialized_pingpong.hpp
+  sha256: 83a8e63dd9e7f70a735c17fbb779782fc31ce5215509ed644d13e68428438dee

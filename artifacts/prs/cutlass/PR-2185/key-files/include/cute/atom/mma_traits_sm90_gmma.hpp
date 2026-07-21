@@ -1,0 +1,1 @@
+/* bundle_cap_truncated: upstream file fits the per-file cap but the aggregate bundle size exceeds 5242880 bytes. Re-fetch upstream at NVIDIA/cutlass:include/cute/atom/mma_traits_sm90_gmma.hpp@62750a2b to read the full content. */
