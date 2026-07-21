@@ -1,0 +1,49 @@
+diff --git a/docs/start/install.md b/docs/start/install.md
+index f7234c0a6606..3b357fa3edb6 100644
+--- a/docs/start/install.md
++++ b/docs/start/install.md
+@@ -157,4 +157,4 @@ sky status --endpoint 30000 sglang
+ - [FlashInfer](https://github.com/flashinfer-ai/flashinfer) is the default attention kernel backend. It only supports sm75 and above. If you encounter any FlashInfer-related issues on sm75+ devices (e.g., T4, A10, A100, L4, L40S, H100), please switch to other kernels by adding `--attention-backend triton --sampling-backend pytorch` and open an issue on GitHub.
+ - If you only need to use OpenAI models with the frontend language, you can avoid installing other dependencies by using `pip install "sglang[openai]"`.
+ - The language frontend operates independently of the backend runtime. You can install the frontend locally without needing a GPU, while the backend can be set up on a GPU-enabled machine. To install the frontend, run `pip install sglang`, and for the backend, use `pip install sglang[srt]`. `srt` is the abbreviation of SGLang runtime.
+-- To reinstall flashinfer locally, use the following command: `pip install "flashinfer-python>=0.2.2.post1" -i https://flashinfer.ai/whl/cu124/torch2.5 --force-reinstall --no-deps` and then delete the cache with `rm -rf ~/.cache/flashinfer`.
++- To reinstall flashinfer locally, use the following command: `pip install "flashinfer-python>=0.2.3" -i https://flashinfer.ai/whl/cu124/torch2.5 --force-reinstall --no-deps` and then delete the cache with `rm -rf ~/.cache/flashinfer`.
+diff --git a/python/pyproject.toml b/python/pyproject.toml
+index 5bd244d7c0d4..e3fb80bbfd9a 100644
+--- a/python/pyproject.toml
++++ b/python/pyproject.toml
+@@ -45,7 +45,7 @@ runtime_common = [
+ srt = [
+     "sglang[runtime_common]",
+     "sgl-kernel==0.0.4.post2",
+-    "flashinfer_python==0.2.2.post1",
++    "flashinfer_python==0.2.3",
+     "torch==2.5.1",
+     "vllm>=0.6.4.post1,<=0.7.2",
+     "cuda-python",
+diff --git a/python/sglang/srt/entrypoints/engine.py b/python/sglang/srt/entrypoints/engine.py
+index f8a6b4e431ff..0fa841993447 100644
+--- a/python/sglang/srt/entrypoints/engine.py
++++ b/python/sglang/srt/entrypoints/engine.py
+@@ -376,7 +376,7 @@ def _set_envs_and_config(server_args: ServerArgs):
+     if server_args.attention_backend == "flashinfer":
+         assert_pkg_version(
+             "flashinfer_python",
+-            "0.2.2.post1",
++            "0.2.3",
+             "Please uninstall the old version and "
+             "reinstall the latest version by following the instructions "
+             "at https://docs.flashinfer.ai/installation.html.",
+diff --git a/scripts/ci_install_dependency.sh b/scripts/ci_install_dependency.sh
+index 7f7118eae205..d22ed245355e 100755
+--- a/scripts/ci_install_dependency.sh
++++ b/scripts/ci_install_dependency.sh
+@@ -16,7 +16,7 @@ pip install -e "python[all]" --find-links https://flashinfer.ai/whl/cu124/torch2
+ 
+ rm -rf /root/.cache/flashinfer
+ # Force reinstall flashinfer and torch_memory_saver
+-pip install flashinfer_python==0.2.2.post1 --find-links ${FLASHINFER_REPO} --force-reinstall --no-deps
++pip install flashinfer_python==0.2.3 --find-links ${FLASHINFER_REPO} --force-reinstall --no-deps
+ 
+ pip install torch_memory_saver --force-reinstall
+ 

@@ -1,0 +1,73 @@
+diff --git a/python/sglang/multimodal_gen/runtime/layers/quantization/fp8.py b/python/sglang/multimodal_gen/runtime/layers/quantization/fp8.py
+index 0ecdd52da373..3431091ceaaf 100644
+--- a/python/sglang/multimodal_gen/runtime/layers/quantization/fp8.py
++++ b/python/sglang/multimodal_gen/runtime/layers/quantization/fp8.py
+@@ -75,7 +75,11 @@
+ 
+ 
+ class Fp8Config(QuantizationConfig):
+-    """Config class for FP8."""
++    """Config class for FP8.
++
++    No-arg ``Fp8Config()`` selects online (post-load) weight quantization:
++    ``is_checkpoint_fp8_serialized=False`` with ``activation_scheme="dynamic"``.
++    """
+ 
+     def __init__(
+         self,
+diff --git a/python/sglang/multimodal_gen/runtime/layers/quantization/mxfp4.py b/python/sglang/multimodal_gen/runtime/layers/quantization/mxfp4.py
+index a296cfc9958a..ed1b457a14cf 100644
+--- a/python/sglang/multimodal_gen/runtime/layers/quantization/mxfp4.py
++++ b/python/sglang/multimodal_gen/runtime/layers/quantization/mxfp4.py
+@@ -44,7 +44,8 @@ class Mxfp4Config(QuantizationConfig):
+     """
+     MXFP4 quantization config for diffusion models.
+ 
+-    Supports online quantization from unquantized BF16/FP16 checkpoints.
++    Supports online quantization from unquantized BF16/FP16 checkpoints;
++    no-arg ``Mxfp4Config()`` selects that online (post-load) path.
+     Note: MXFP4 requires ROCm and MI350+ (gfx95x).
+     """
+ 
+diff --git a/python/sglang/multimodal_gen/runtime/loader/transformer_load_utils.py b/python/sglang/multimodal_gen/runtime/loader/transformer_load_utils.py
+index 58f167c94298..a74bfeaade31 100644
+--- a/python/sglang/multimodal_gen/runtime/loader/transformer_load_utils.py
++++ b/python/sglang/multimodal_gen/runtime/loader/transformer_load_utils.py
+@@ -503,12 +503,16 @@ def _resolve_quant_config(
+         )
+ 
+         # modelslim requires a per-layer quant description file; load it from
+-        # the component directory rather than returning an empty config.
++        # the component directory rather than constructing an empty config.
+         if server_args.quantization == "modelslim":
+             return get_quant_config(hf_config, component_model_path)
+ 
++        # Online-quant convention: for `fp8` and `mxfp4`, a no-arg
++        # QuantizationConfig() selects the post-load path -- weights load
++        # in source dtype and are quantized in
++        # process_weights_after_loading.
+         quant_cls = get_quantization_config(server_args.quantization)
+-        return quant_cls.from_config({})
++        return quant_cls()
+ 
+     quant_config = get_quant_config(hf_config, component_model_path)
+     if quant_config is None and server_args.transformer_weights_path:
+diff --git a/python/sglang/multimodal_gen/runtime/server_args.py b/python/sglang/multimodal_gen/runtime/server_args.py
+index 0807a973495c..22c1527948e2 100644
+--- a/python/sglang/multimodal_gen/runtime/server_args.py
++++ b/python/sglang/multimodal_gen/runtime/server_args.py
+@@ -1331,9 +1331,11 @@ def add_cli_args(parser: FlexibleArgumentParser) -> FlexibleArgumentParser:
+             help=(
+                 "Quantization method for the transformer. If omitted, the method is "
+                 "auto-detected from the checkpoint config or safetensors metadata when "
+-                "possible. Applies to both pre-quantized checkpoints and online "
+-                "quantization. Use this flag to override auto-detection. "
+-                "Options: 'fp8', 'mxfp8', 'mxfp4', 'mxfp4_npu', 'modelslim'. "
++                "possible. Use this flag to override auto-detection. "
++                "Online (post-load) quantization from a BF16/FP16 checkpoint "
++                "is supported for 'fp8' and 'mxfp4'. Other methods "
++                "('modelopt', 'modelopt_fp8', 'modelopt_fp4', 'mxfp8', "
++                "'mxfp4_npu', 'modelslim') require a pre-quantized checkpoint. "
+                 "Note: 'mxfp4' targets ROCm + MI350+ (gfx95x); "
+                 "'mxfp4_npu' / 'mxfp8' target Ascend NPU (A5 series for mxfp4_npu)."
+             ),

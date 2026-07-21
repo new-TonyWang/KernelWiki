@@ -1,0 +1,703 @@
+diff --git a/python/sglang/jit_kernel/benchmark/bench_mla_kv_pack_quantize_fp8.py b/python/sglang/jit_kernel/benchmark/bench_mla_kv_pack_quantize_fp8.py
+new file mode 100644
+index 000000000000..a797e80bad19
+--- /dev/null
++++ b/python/sglang/jit_kernel/benchmark/bench_mla_kv_pack_quantize_fp8.py
+@@ -0,0 +1,214 @@
++"""Bench the hybrid ``mla_kv_pack_quantize_fp8`` against an inlined naive Triton baseline."""
++
++import itertools
++from typing import Tuple
++
++import torch
++import triton
++import triton.language as tl
++import triton.testing
++
++from sglang.jit_kernel.benchmark.utils import (
++    DEFAULT_DEVICE,
++    DEFAULT_DTYPE,
++    DEFAULT_QUANTILES,
++    get_benchmark_range,
++)
++from sglang.jit_kernel.mla_kv_pack_quantize_fp8 import (
++    mla_kv_pack_quantize_fp8 as hybrid_pack,
++)
++from sglang.jit_kernel.utils import is_arch_support_pdl
++from sglang.test.ci.ci_register import register_cuda_ci
++
++register_cuda_ci(est_time=15, suite="stage-b-kernel-benchmark-1-gpu-large")
++
++
++@triton.jit
++def _triton_mla_kv_pack_quantize_fp8_kernel(
++    k_nope_ptr,
++    k_pe_ptr,
++    v_ptr,
++    k_out_ptr,
++    v_out_ptr,
++    k_scale_inv,
++    v_scale_inv,
++    s_total,
++    k_nope_stride_t,
++    k_nope_stride_h,
++    k_pe_stride_t,
++    v_stride_t,
++    v_stride_h,
++    k_out_stride_t,
++    k_out_stride_h,
++    v_out_stride_t,
++    v_out_stride_h,
++    QK_NOPE: tl.constexpr,
++    QK_ROPE: tl.constexpr,
++    V_HEAD: tl.constexpr,
++    FP8_DTYPE: tl.constexpr,
++    BLOCK_S: tl.constexpr,
++    ENABLE_PDL: tl.constexpr,
++):
++    pid_s = tl.program_id(0)
++    pid_h = tl.program_id(1)
++    t_idx = pid_s * BLOCK_S + tl.arange(0, BLOCK_S)
++    t_mask = t_idx < s_total
++    nope_idx = tl.arange(0, QK_NOPE)
++    rope_idx = tl.arange(0, QK_ROPE)
++    v_idx = tl.arange(0, V_HEAD)
++    if ENABLE_PDL:
++        tl.extra.cuda.gdc_wait()
++    nope_off = (
++        t_idx[:, None] * k_nope_stride_t + pid_h * k_nope_stride_h + nope_idx[None, :]
++    )
++    k_nope = tl.load(k_nope_ptr + nope_off, mask=t_mask[:, None])
++    pe_off = t_idx[:, None] * k_pe_stride_t + rope_idx[None, :]
++    k_pe = tl.load(k_pe_ptr + pe_off, mask=t_mask[:, None])
++    v_off = t_idx[:, None] * v_stride_t + pid_h * v_stride_h + v_idx[None, :]
++    v = tl.load(v_ptr + v_off, mask=t_mask[:, None])
++    k_nope_fp8 = (k_nope.to(tl.float32) * k_scale_inv).to(FP8_DTYPE)
++    k_pe_fp8 = (k_pe.to(tl.float32) * k_scale_inv).to(FP8_DTYPE)
++    v_fp8 = (v.to(tl.float32) * v_scale_inv).to(FP8_DTYPE)
++    k_out_base = t_idx[:, None] * k_out_stride_t + pid_h * k_out_stride_h
++    tl.store(
++        k_out_ptr + k_out_base + nope_idx[None, :], k_nope_fp8, mask=t_mask[:, None]
++    )
++    tl.store(
++        k_out_ptr + k_out_base + QK_NOPE + rope_idx[None, :],
++        k_pe_fp8,
++        mask=t_mask[:, None],
++    )
++    v_out_off = (
++        t_idx[:, None] * v_out_stride_t + pid_h * v_out_stride_h + v_idx[None, :]
++    )
++    tl.store(v_out_ptr + v_out_off, v_fp8, mask=t_mask[:, None])
++    if ENABLE_PDL:
++        tl.extra.cuda.gdc_launch_dependents()
++
++
++def _triton_pack(k_nope, k_pe, v, k_out, v_out):
++    s, num_heads, qk_nope = k_nope.shape
++    qk_rope = k_pe.shape[-1]
++    v_head = v.shape[-1]
++    k_pe_2d = k_pe.squeeze(1) if k_pe.dim() == 3 else k_pe
++    enable_pdl = is_arch_support_pdl()
++    if s < 512:
++        block_s, num_warps, num_stages = 1, 1, 2
++    elif s < 2048:
++        block_s, num_warps, num_stages = 4, 2, 3
++    else:
++        block_s, num_warps, num_stages = 16, 4, 3
++    extra = {"launch_pdl": True} if enable_pdl else {}
++    grid = (triton.cdiv(s, block_s), num_heads)
++    _triton_mla_kv_pack_quantize_fp8_kernel[grid](
++        k_nope,
++        k_pe_2d,
++        v,
++        k_out,
++        v_out,
++        1.0,
++        1.0,
++        s,
++        k_nope.stride(0),
++        k_nope.stride(1),
++        k_pe_2d.stride(0),
++        v.stride(0),
++        v.stride(1),
++        k_out.stride(0),
++        k_out.stride(1),
++        v_out.stride(0),
++        v_out.stride(1),
++        QK_NOPE=qk_nope,
++        QK_ROPE=qk_rope,
++        V_HEAD=v_head,
++        FP8_DTYPE=tl.float8e4nv,
++        BLOCK_S=block_s,
++        ENABLE_PDL=enable_pdl,
++        num_warps=num_warps,
++        num_stages=num_stages,
++        **extra,
++    )
++
++
++QK_NOPE = 128
++QK_ROPE = 64
++V_HEAD = 128
++NUM_HEADS = 32
++NUM_LAYERS = 8
++
++BS_RANGE = get_benchmark_range(
++    full_range=[1, 4, 16, 64, 256, 1024, 4096, 8192, 16384],
++    ci_range=[1, 64, 1024, 4096, 16384],
++)
++
++LINE_VALS = ["hybrid", "triton"]
++LINE_NAMES = ["hybrid (v0+v1_flat)", "naive Triton"]
++STYLES = [("green", "-"), ("red", "--")]
++CONFIGS = list(itertools.product(BS_RANGE))
++
++
++@triton.testing.perf_report(
++    triton.testing.Benchmark(
++        x_names=["batch_size"],
++        x_vals=CONFIGS,
++        line_arg="provider",
++        line_vals=LINE_VALS,
++        line_names=LINE_NAMES,
++        styles=STYLES,
++        ylabel="us",
++        plot_name="mla-kv-pack-quantize-fp8-performance",
++        args={},
++    )
++)
++def benchmark(batch_size: int, provider: str) -> Tuple[float, float, float]:
++    k_nope = torch.randn(
++        (NUM_LAYERS, batch_size, NUM_HEADS, QK_NOPE),
++        dtype=DEFAULT_DTYPE,
++        device=DEFAULT_DEVICE,
++    )
++    k_pe = torch.randn(
++        (NUM_LAYERS, batch_size, 1, QK_ROPE),
++        dtype=DEFAULT_DTYPE,
++        device=DEFAULT_DEVICE,
++    )
++    v = torch.randn(
++        (NUM_LAYERS, batch_size, NUM_HEADS, V_HEAD),
++        dtype=DEFAULT_DTYPE,
++        device=DEFAULT_DEVICE,
++    )
++    k_out = torch.empty(
++        (NUM_LAYERS, batch_size, NUM_HEADS, QK_NOPE + QK_ROPE),
++        dtype=torch.float8_e4m3fn,
++        device=DEFAULT_DEVICE,
++    )
++    v_out = torch.empty(
++        (NUM_LAYERS, batch_size, NUM_HEADS, V_HEAD),
++        dtype=torch.float8_e4m3fn,
++        device=DEFAULT_DEVICE,
++    )
++    torch.cuda.synchronize()
++
++    if provider == "hybrid":
++
++        def fn():
++            for i in range(NUM_LAYERS):
++                hybrid_pack(k_nope[i], k_pe[i], v[i], k_out=k_out[i], v_out=v_out[i])
++
++    else:
++
++        def fn():
++            for i in range(NUM_LAYERS):
++                _triton_pack(k_nope[i], k_pe[i], v[i], k_out[i], v_out[i])
++
++    ms, min_ms, max_ms = triton.testing.do_bench_cudagraph(
++        fn, quantiles=DEFAULT_QUANTILES
++    )
++    return (
++        1000 * ms / NUM_LAYERS,
++        1000 * max_ms / NUM_LAYERS,
++        1000 * min_ms / NUM_LAYERS,
++    )
++
++
++if __name__ == "__main__":
++    benchmark.run(print_data=True)
+diff --git a/python/sglang/jit_kernel/mla_kv_pack_quantize_fp8.py b/python/sglang/jit_kernel/mla_kv_pack_quantize_fp8.py
+new file mode 100644
+index 000000000000..bf1024eb09c5
+--- /dev/null
++++ b/python/sglang/jit_kernel/mla_kv_pack_quantize_fp8.py
+@@ -0,0 +1,295 @@
++"""Fused ``cat(k_nope, broadcast(k_pe)) + FP8 quantize`` for K and ``FP8 quantize`` for V.
++
++Dispatches between two Triton kernels per batch size; see ``_pick_kernel``.
++"""
++
++from __future__ import annotations
++
++from typing import Optional, Tuple
++
++import torch
++import triton
++import triton.language as tl
++
++from sglang.jit_kernel.utils import is_arch_support_pdl
++
++
++@triton.jit
++def _v0_kernel(
++    k_nope_ptr,
++    k_pe_ptr,
++    v_ptr,
++    k_out_ptr,
++    v_out_ptr,
++    k_scale_inv,
++    v_scale_inv,
++    s_total,
++    k_nope_stride_t,
++    k_nope_stride_h,
++    k_pe_stride_t,
++    v_stride_t,
++    v_stride_h,
++    k_out_stride_t,
++    k_out_stride_h,
++    v_out_stride_t,
++    v_out_stride_h,
++    QK_NOPE: tl.constexpr,
++    QK_ROPE: tl.constexpr,
++    V_HEAD: tl.constexpr,
++    FP8_DTYPE: tl.constexpr,
++    BLOCK_S: tl.constexpr,
++    ENABLE_PDL: tl.constexpr,
++):
++    pid_s = tl.program_id(0)
++    pid_h = tl.program_id(1)
++    t_idx = pid_s * BLOCK_S + tl.arange(0, BLOCK_S)
++    t_mask = t_idx < s_total
++    nope_idx = tl.arange(0, QK_NOPE)
++    rope_idx = tl.arange(0, QK_ROPE)
++    v_idx = tl.arange(0, V_HEAD)
++    if ENABLE_PDL:
++        tl.extra.cuda.gdc_wait()
++    nope_off = (
++        t_idx[:, None] * k_nope_stride_t + pid_h * k_nope_stride_h + nope_idx[None, :]
++    )
++    k_nope = tl.load(k_nope_ptr + nope_off, mask=t_mask[:, None])
++    pe_off = t_idx[:, None] * k_pe_stride_t + rope_idx[None, :]
++    k_pe = tl.load(k_pe_ptr + pe_off, mask=t_mask[:, None])
++    v_off = t_idx[:, None] * v_stride_t + pid_h * v_stride_h + v_idx[None, :]
++    v = tl.load(v_ptr + v_off, mask=t_mask[:, None])
++    k_nope_fp8 = (k_nope.to(tl.float32) * k_scale_inv).to(FP8_DTYPE)
++    k_pe_fp8 = (k_pe.to(tl.float32) * k_scale_inv).to(FP8_DTYPE)
++    v_fp8 = (v.to(tl.float32) * v_scale_inv).to(FP8_DTYPE)
++    k_out_base = t_idx[:, None] * k_out_stride_t + pid_h * k_out_stride_h
++    tl.store(
++        k_out_ptr + k_out_base + nope_idx[None, :], k_nope_fp8, mask=t_mask[:, None]
++    )
++    tl.store(
++        k_out_ptr + k_out_base + QK_NOPE + rope_idx[None, :],
++        k_pe_fp8,
++        mask=t_mask[:, None],
++    )
++    v_out_off = (
++        t_idx[:, None] * v_out_stride_t + pid_h * v_out_stride_h + v_idx[None, :]
++    )
++    tl.store(v_out_ptr + v_out_off, v_fp8, mask=t_mask[:, None])
++    if ENABLE_PDL:
++        tl.extra.cuda.gdc_launch_dependents()
++
++
++@triton.jit
++def _v1_flat_kernel(
++    k_nope_ptr,
++    k_pe_ptr,
++    v_ptr,
++    k_out_ptr,
++    v_out_ptr,
++    k_scale_inv,
++    v_scale_inv,
++    s_total,
++    num_heads,
++    k_nope_stride_t,
++    k_nope_stride_h,
++    k_pe_stride_t,
++    v_stride_t,
++    v_stride_h,
++    k_out_stride_t,
++    k_out_stride_h,
++    v_out_stride_t,
++    v_out_stride_h,
++    QK_NOPE: tl.constexpr,
++    QK_ROPE: tl.constexpr,
++    V_HEAD: tl.constexpr,
++    FP8_DTYPE: tl.constexpr,
++    BLOCK: tl.constexpr,
++    ENABLE_PDL: tl.constexpr,
++):
++    if ENABLE_PDL:
++        tl.extra.cuda.gdc_wait()
++    pid = tl.program_id(0)
++    pair_idx = pid * BLOCK + tl.arange(0, BLOCK)
++    total = s_total * num_heads
++    mask = pair_idx < total
++    t_idx = pair_idx // num_heads
++    h_idx = pair_idx % num_heads
++    nope_idx = tl.arange(0, QK_NOPE)
++    rope_idx = tl.arange(0, QK_ROPE)
++    v_idx_ = tl.arange(0, V_HEAD)
++    nope_off = (
++        t_idx[:, None] * k_nope_stride_t
++        + h_idx[:, None] * k_nope_stride_h
++        + nope_idx[None, :]
++    )
++    k_nope = tl.load(k_nope_ptr + nope_off, mask=mask[:, None])
++    pe_off = t_idx[:, None] * k_pe_stride_t + rope_idx[None, :]
++    k_pe = tl.load(k_pe_ptr + pe_off, mask=mask[:, None])
++    v_off = t_idx[:, None] * v_stride_t + h_idx[:, None] * v_stride_h + v_idx_[None, :]
++    v = tl.load(v_ptr + v_off, mask=mask[:, None])
++    k_nope_fp8 = (k_nope.to(tl.float32) * k_scale_inv).to(FP8_DTYPE)
++    k_pe_fp8 = (k_pe.to(tl.float32) * k_scale_inv).to(FP8_DTYPE)
++    v_fp8 = (v.to(tl.float32) * v_scale_inv).to(FP8_DTYPE)
++    k_out_base = t_idx[:, None] * k_out_stride_t + h_idx[:, None] * k_out_stride_h
++    tl.store(k_out_ptr + k_out_base + nope_idx[None, :], k_nope_fp8, mask=mask[:, None])
++    tl.store(
++        k_out_ptr + k_out_base + QK_NOPE + rope_idx[None, :],
++        k_pe_fp8,
++        mask=mask[:, None],
++    )
++    v_out_off = (
++        t_idx[:, None] * v_out_stride_t
++        + h_idx[:, None] * v_out_stride_h
++        + v_idx_[None, :]
++    )
++    tl.store(v_out_ptr + v_out_off, v_fp8, mask=mask[:, None])
++    if ENABLE_PDL:
++        tl.extra.cuda.gdc_launch_dependents()
++
++
++def _pick_kernel(s: int, num_heads: int) -> Tuple[str, dict]:
++    """Tuned on GB300, DSv3 dims, BF16 -> FP8 e4m3."""
++    if s <= 2:
++        # Launch-overhead-bound; tighter (BLOCK_S, num_warps) just adds warp
++        # setup cost without paying back in per-CTA work.
++        return "v0", {"BLOCK_S": 1, "num_warps": 1, "num_stages": 2}
++    if s <= 16:
++        return "v0", {"BLOCK_S": 4, "num_warps": 2, "num_stages": 3}
++    if s <= 32:
++        return "v1_flat", {"BLOCK": 8, "num_warps": 8, "num_stages": 2}
++    if s <= 192:
++        return "v1_flat", {"BLOCK": 16, "num_warps": 8, "num_stages": 3}
++    if s <= 1536:
++        return "v0", {"BLOCK_S": 16, "num_warps": 4, "num_stages": 3}
++    return "v1_flat", {"BLOCK": 16, "num_warps": 8, "num_stages": 3}
++
++
++_FP8_DTYPE_MAP = {
++    torch.float8_e4m3fn: tl.float8e4nv,
++    torch.float8_e5m2: tl.float8e5,
++}
++
++
++def mla_kv_pack_quantize_fp8(
++    k_nope: torch.Tensor,
++    k_pe: torch.Tensor,
++    v: torch.Tensor,
++    k_scale_inv: float = 1.0,
++    v_scale_inv: float = 1.0,
++    k_out: Optional[torch.Tensor] = None,
++    v_out: Optional[torch.Tensor] = None,
++    fp8_dtype: torch.dtype = torch.float8_e4m3fn,
++    enable_pdl: Optional[bool] = None,
++) -> Tuple[torch.Tensor, torch.Tensor]:
++    """Fused ``cat(k_nope, broadcast k_pe) + FP8 quantize`` for K and ``FP8 quantize`` for V.
++
++    Shapes: ``k_nope [s, h, qk_nope]``, ``k_pe [s, 1, qk_rope]`` or ``[s, qk_rope]``,
++    ``v [s, h, v_head]``. Returns ``(k_fp8 [s, h, qk_nope + qk_rope], v_fp8 [s, h, v_head])``.
++    Strided views are supported as long as the inner dim is contiguous.
++    """
++    assert k_nope.dtype in (
++        torch.bfloat16,
++        torch.float16,
++    ), f"k_nope must be bf16/fp16, got {k_nope.dtype}"
++    assert (
++        k_pe.dtype == k_nope.dtype and v.dtype == k_nope.dtype
++    ), "k_nope, k_pe, v must share dtype"
++    assert fp8_dtype in (torch.float8_e4m3fn, torch.float8_e5m2)
++
++    s, num_heads, qk_nope = k_nope.shape
++    qk_rope = k_pe.shape[-1]
++    v_head = v.shape[-1]
++
++    assert (
++        v.shape[0] == s and v.shape[1] == num_heads
++    ), f"v shape {tuple(v.shape)} mismatches k_nope {tuple(k_nope.shape)}"
++    assert (
++        k_pe.shape[0] == s
++    ), f"k_pe first dim {k_pe.shape[0]} mismatches k_nope first dim {s}"
++    assert k_nope.stride(-1) == 1, "k_nope must have stride-1 inner dim"
++    assert v.stride(-1) == 1, "v must have stride-1 inner dim"
++    assert k_pe.stride(-1) == 1, "k_pe must have stride-1 inner dim"
++
++    if k_pe.dim() == 3:
++        assert k_pe.shape[1] == 1, f"k_pe head dim must be 1, got {k_pe.shape[1]}"
++        k_pe_2d = k_pe.squeeze(1)
++    else:
++        k_pe_2d = k_pe
++
++    if k_out is None:
++        k_out = torch.empty(
++            (s, num_heads, qk_nope + qk_rope), dtype=fp8_dtype, device=k_nope.device
++        )
++    if v_out is None:
++        v_out = torch.empty((s, num_heads, v_head), dtype=fp8_dtype, device=v.device)
++
++    if enable_pdl is None:
++        enable_pdl = is_arch_support_pdl()
++
++    fp8_tl_dtype = _FP8_DTYPE_MAP[fp8_dtype]
++    kernel_choice, cfg = _pick_kernel(s, num_heads)
++    extra = {"launch_pdl": True} if enable_pdl else {}
++
++    if kernel_choice == "v0":
++        block_s = cfg["BLOCK_S"]
++        grid = (triton.cdiv(s, block_s), num_heads)
++        _v0_kernel[grid](
++            k_nope,
++            k_pe_2d,
++            v,
++            k_out,
++            v_out,
++            float(k_scale_inv),
++            float(v_scale_inv),
++            s,
++            k_nope.stride(0),
++            k_nope.stride(1),
++            k_pe_2d.stride(0),
++            v.stride(0),
++            v.stride(1),
++            k_out.stride(0),
++            k_out.stride(1),
++            v_out.stride(0),
++            v_out.stride(1),
++            QK_NOPE=qk_nope,
++            QK_ROPE=qk_rope,
++            V_HEAD=v_head,
++            FP8_DTYPE=fp8_tl_dtype,
++            BLOCK_S=block_s,
++            ENABLE_PDL=enable_pdl,
++            num_warps=cfg["num_warps"],
++            num_stages=cfg["num_stages"],
++            **extra,
++        )
++    else:
++        block = cfg["BLOCK"]
++        total = s * num_heads
++        grid = (triton.cdiv(total, block),)
++        _v1_flat_kernel[grid](
++            k_nope,
++            k_pe_2d,
++            v,
++            k_out,
++            v_out,
++            float(k_scale_inv),
++            float(v_scale_inv),
++            s,
++            num_heads,
++            k_nope.stride(0),
++            k_nope.stride(1),
++            k_pe_2d.stride(0),
++            v.stride(0),
++            v.stride(1),
++            k_out.stride(0),
++            k_out.stride(1),
++            v_out.stride(0),
++            v_out.stride(1),
++            QK_NOPE=qk_nope,
++            QK_ROPE=qk_rope,
++            V_HEAD=v_head,
++            FP8_DTYPE=fp8_tl_dtype,
++            BLOCK=block,
++            ENABLE_PDL=enable_pdl,
++            num_warps=cfg["num_warps"],
++            num_stages=cfg["num_stages"],
++            **extra,
++        )
++    return k_out, v_out
+diff --git a/python/sglang/jit_kernel/tests/test_mla_kv_pack_quantize_fp8.py b/python/sglang/jit_kernel/tests/test_mla_kv_pack_quantize_fp8.py
+new file mode 100644
+index 000000000000..bfb88067a99a
+--- /dev/null
++++ b/python/sglang/jit_kernel/tests/test_mla_kv_pack_quantize_fp8.py
+@@ -0,0 +1,104 @@
++import sys
++
++import pytest
++import torch
++
++from sglang.jit_kernel.mla_kv_pack_quantize_fp8 import mla_kv_pack_quantize_fp8
++from sglang.jit_kernel.utils import get_ci_test_range
++from sglang.test.ci.ci_register import register_cuda_ci
++
++register_cuda_ci(est_time=60, suite="stage-b-kernel-unit-1-gpu-large")
++
++DEVICE = "cuda"
++
++SHAPES = get_ci_test_range(
++    [(128, 64, 128), (64, 32, 64)],
++    [(128, 64, 128)],
++)
++NUM_HEADS = get_ci_test_range([8, 16, 32, 64], [16, 32])
++BATCH_SIZES = get_ci_test_range(
++    [1, 4, 17, 64, 257, 1024, 4096, 16384],
++    [1, 64, 1024, 16384],
++)
++
++
++def _ref(k_nope, k_pe, v, k_scale_inv, v_scale_inv, fp8_dtype):
++    s, h, qk_nope = k_nope.shape
++    qk_rope = k_pe.shape[-1]
++    v_head = v.shape[-1]
++    if k_pe.dim() == 3:
++        k_pe = k_pe.squeeze(1)
++
++    k_bf16 = torch.empty(
++        (s, h, qk_nope + qk_rope), dtype=k_nope.dtype, device=k_nope.device
++    )
++    k_bf16[..., :qk_nope] = k_nope
++    k_bf16[..., qk_nope:] = k_pe.unsqueeze(1).expand(-1, h, -1)
++
++    k_fp8 = (k_bf16.float() * k_scale_inv).to(fp8_dtype)
++    v_fp8 = (v.float() * v_scale_inv).to(fp8_dtype)
++    return k_fp8, v_fp8
++
++
++@pytest.mark.parametrize("dtype", [torch.bfloat16, torch.float16])
++@pytest.mark.parametrize("shape", SHAPES)
++@pytest.mark.parametrize("num_heads", NUM_HEADS)
++@pytest.mark.parametrize("batch_size", BATCH_SIZES)
++def test_correctness(dtype, shape, num_heads, batch_size):
++    qk_nope, qk_rope, v_head = shape
++
++    torch.manual_seed(0)
++    k_nope = torch.randn((batch_size, num_heads, qk_nope), dtype=dtype, device=DEVICE)
++    k_pe = torch.randn((batch_size, 1, qk_rope), dtype=dtype, device=DEVICE)
++    v = torch.randn((batch_size, num_heads, v_head), dtype=dtype, device=DEVICE)
++
++    k_scale_inv = 0.7
++    v_scale_inv = 1.3
++
++    k_fp8, v_fp8 = mla_kv_pack_quantize_fp8(
++        k_nope, k_pe, v, k_scale_inv=k_scale_inv, v_scale_inv=v_scale_inv
++    )
++
++    k_ref, v_ref = _ref(k_nope, k_pe, v, k_scale_inv, v_scale_inv, torch.float8_e4m3fn)
++
++    torch.testing.assert_close(k_fp8.float(), k_ref.float(), rtol=1e-2, atol=0.5)
++    torch.testing.assert_close(v_fp8.float(), v_ref.float(), rtol=1e-2, atol=0.5)
++
++
++@pytest.mark.parametrize("dtype", [torch.bfloat16])
++def test_strided_inputs(dtype):
++    s, h = 16, 32
++    qk_nope, qk_rope, v_head = 128, 64, 128
++
++    full = torch.randn(
++        (s, h, qk_nope * 2), dtype=dtype, device=DEVICE, requires_grad=False
++    )
++    k_nope = full[..., qk_nope:]
++    assert k_nope.stride(-1) == 1
++
++    k_pe = torch.randn((s, 1, qk_rope), dtype=dtype, device=DEVICE)
++    v = torch.randn((s, h, v_head), dtype=dtype, device=DEVICE)
++
++    k_fp8, v_fp8 = mla_kv_pack_quantize_fp8(k_nope, k_pe, v)
++    k_ref, v_ref = _ref(k_nope, k_pe, v, 1.0, 1.0, torch.float8_e4m3fn)
++    torch.testing.assert_close(k_fp8.float(), k_ref.float(), rtol=1e-2, atol=0.5)
++    torch.testing.assert_close(v_fp8.float(), v_ref.float(), rtol=1e-2, atol=0.5)
++
++
++def test_kpe_2d_accepted():
++    s, h = 8, 16
++    qk_nope, qk_rope, v_head = 128, 64, 128
++    dtype = torch.bfloat16
++
++    k_nope = torch.randn((s, h, qk_nope), dtype=dtype, device=DEVICE)
++    k_pe = torch.randn((s, qk_rope), dtype=dtype, device=DEVICE)
++    v = torch.randn((s, h, v_head), dtype=dtype, device=DEVICE)
++
++    k_fp8, v_fp8 = mla_kv_pack_quantize_fp8(k_nope, k_pe, v)
++    k_ref, v_ref = _ref(k_nope, k_pe.unsqueeze(1), v, 1.0, 1.0, torch.float8_e4m3fn)
++    torch.testing.assert_close(k_fp8.float(), k_ref.float(), rtol=1e-2, atol=0.5)
++    torch.testing.assert_close(v_fp8.float(), v_ref.float(), rtol=1e-2, atol=0.5)
++
++
++if __name__ == "__main__":
++    sys.exit(pytest.main([__file__, "-v", "-s"]))
+diff --git a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mha.py b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mha.py
+index a2846434e846..f317e8fad08d 100644
+--- a/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mha.py
++++ b/python/sglang/srt/models/deepseek_common/attention_forward_methods/forward_mha.py
+@@ -36,6 +36,14 @@
+     from sglang.srt.layers.quantization.fp8_kernel import fp8_dtype
+     from sglang.srt.layers.quantization.rocm_mxfp4_utils import fused_rms_mxfp4_quant
+ 
++
++def _resolve_attn_backend(forward_batch: ForwardBatch):
++    backend = forward_batch.attn_backend
++    if isinstance(backend, TboAttnBackend):
++        backend = backend.primary
++    return backend
++
++
+ # Configs for DeepSeek-V3:
+ # num_local_heads = 128
+ # qk_nope_head_dim = 128
+@@ -369,6 +377,11 @@ def _chunked_prefix_attn_mha(
+         forward_batch: ForwardBatch,
+     ) -> torch.Tensor:
+ 
++        # kv_b_proj needs BF16 input, but legacy q.dtype was BF16 by accident.
++        backend = _resolve_attn_backend(forward_batch)
++        pack_fn = getattr(backend, "pack_prefix_chunk_kv", None)
++        kv_a_dtype = torch.bfloat16 if pack_fn is not None else q.dtype
++
+         assert forward_batch.num_prefix_chunks is not None
+         for i in range(forward_batch.num_prefix_chunks):
+             forward_batch.set_prefix_chunk_idx(i)
+@@ -376,7 +389,7 @@ def _chunked_prefix_attn_mha(
+             kv_indices = forward_batch.prefix_chunk_kv_indices[i]
+             # Fetch latent cache from memory pool with precomputed chunked kv indices
+             kv_a_normed, k_pe = self._get_mla_kv_buffer(
+-                kv_indices, q.dtype, forward_batch
++                kv_indices, kv_a_dtype, forward_batch
+             )
+             kv = self.kv_b_proj(kv_a_normed)[0]
+             kv = kv.view(
+@@ -385,17 +398,20 @@ def _chunked_prefix_attn_mha(
+             v = kv[..., self.qk_nope_head_dim :]
+             k_nope = kv[..., : self.qk_nope_head_dim]
+ 
+-            k = torch.empty(
+-                (
+-                    k_nope.shape[0],
+-                    self.num_local_heads,
+-                    self.qk_nope_head_dim + self.qk_rope_head_dim,
+-                ),
+-                dtype=v.dtype,
+-                device=v.device,
+-            )
+-            k[..., : self.qk_nope_head_dim] = k_nope
+-            k[..., self.qk_nope_head_dim :] = k_pe
++            if pack_fn is not None:
++                k, v = pack_fn(k_nope, k_pe, v)
++            else:
++                k = torch.empty(
++                    (
++                        k_nope.shape[0],
++                        self.num_local_heads,
++                        self.qk_nope_head_dim + self.qk_rope_head_dim,
++                    ),
++                    dtype=v.dtype,
++                    device=v.device,
++                )
++                k[..., : self.qk_nope_head_dim] = k_nope
++                k[..., self.qk_nope_head_dim :] = k_pe
+ 
+             output, lse = self.attn_mha(q, k, v, forward_batch, save_kv_cache=False)
+             tmp_output = torch.empty_like(accum_output)

@@ -1,0 +1,60 @@
+diff --git a/python/sglang/srt/layers/moe/utils.py b/python/sglang/srt/layers/moe/utils.py
+index c6ac46ee8c9d..eb878b796404 100644
+--- a/python/sglang/srt/layers/moe/utils.py
++++ b/python/sglang/srt/layers/moe/utils.py
+@@ -506,8 +506,14 @@ class RoutingMethodType(IntEnum):
+     RenormalizeNaive = (4,)
+     # TopK only (no softmax)
+     TopK = (5,)
++    # SigmoidRenorm: Sigmoid -> TopK -> Renormalize
++    SigmoidRenorm = (6,)
++    # MiniMax2
++    MiniMax2 = (7,)
++    # Sigmoid: Sigmoid -> TopK (no renormalize)
++    Sigmoid = (8,)
+     # Unspecified
+-    Unspecified = 6
++    Unspecified = 9
+ 
+ 
+ AITER_PADDING_SIZE = 128
+diff --git a/python/sglang/srt/models/cohere2_moe.py b/python/sglang/srt/models/cohere2_moe.py
+index a9924a3386b8..8326c35efe5f 100644
+--- a/python/sglang/srt/models/cohere2_moe.py
++++ b/python/sglang/srt/models/cohere2_moe.py
+@@ -24,6 +24,7 @@
+ from sglang.srt.layers.logits_processor import LogitsProcessor
+ from sglang.srt.layers.moe.fused_moe_triton import FusedMoE
+ from sglang.srt.layers.moe.topk import TopK
++from sglang.srt.layers.moe.utils import RoutingMethodType
+ from sglang.srt.layers.quantization.base_config import QuantizationConfig
+ from sglang.srt.layers.radix_attention import RadixAttention
+ from sglang.srt.layers.rotary_embedding import get_rope
+@@ -249,9 +250,19 @@ def __init__(
+         if self.expert_selection_fn == "sigmoid":
+             custom_routing_function = cohere2_sigmoid_topk
+             scoring_func = "sigmoid"
++            routing_method_type = (
++                RoutingMethodType.SigmoidRenorm
++                if self.norm_topk_prob
++                else RoutingMethodType.Sigmoid
++            )
+         else:
+             custom_routing_function = None
+             scoring_func = "softmax"
++            routing_method_type = (
++                RoutingMethodType.RenormalizeNaive
++                if self.norm_topk_prob
++                else RoutingMethodType.Default
++            )
+ 
+         self.gate = ReplicatedLinear(
+             config.hidden_size,
+@@ -278,6 +289,7 @@ def __init__(
+             quant_config=quant_config,
+             layer_id=layer_id,
+             prefix=add_prefix("experts", prefix),
++            routing_method_type=routing_method_type,
+         )
+ 
+         num_shared_experts = getattr(config, "num_shared_experts", 0)

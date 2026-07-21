@@ -1,0 +1,40 @@
+origin_url: https://github.com/vllm-project/vllm/pull/38815
+upstream_repo: vllm-project/vllm
+upstream_sha: df1e30e7
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-38815
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 5771ac38efa817a313a05894456c8a79be3cf82728619176ba6bc344f2841547
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors.py
+  sha256: bc1eca09f63b9831f64a973a9ea1bd17ad911355c010322da65e097124f0465c
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe.py
+  sha256: 5a0efa6d8074d9cf1fc587513dd92707af546a27ec690be36c96b29239190652
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w8a8_mxfp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w8a8_mxfp8.py
+  sha256: 1c0fcae8c5864fefdd1d24db8a386c807568411c45369e9031fb4fd5c715f890
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/schemes/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/schemes/__init__.py
+  sha256: 84d4aa7c9bcef2fd7ccd7cfe9cad4dd398041c3cfa5578b553c64eb3b369120e
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_mxfp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_mxfp8.py
+  sha256: 62ec78c04519fa03391b9b3532488034da1ae70b6f385b802c10cc076a73757e
+captured_via_relaxed_allowlist: true

@@ -1,0 +1,62 @@
+diff --git a/docs_new/docs/references/environment_variables.mdx b/docs_new/docs/references/environment_variables.mdx
+index 3efc356a1c59..4ae94069c819 100644
+--- a/docs_new/docs/references/environment_variables.mdx
++++ b/docs_new/docs/references/environment_variables.mdx
+@@ -127,6 +127,11 @@ SGLang supports various environment variables that can be used to configure its
+       <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Control FlashInfer availability check</td>
+       <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.02)"}}>`true`</td>
+     </tr>
++    <tr>
++      <td style={{padding: "9px 12px", fontWeight: 500, backgroundColor: "rgba(255,255,255,0.02)"}}>`SGLANG_FLASHINFER_AUTOTUNE_CACHE`</td>
++      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Reuse persisted FlashInfer autotune results from `SGLANG_CACHE_DIR` across runs. Set to `0` to force re-autotuning on every startup; the fresh result is written to a `runs/<rank>.<timestamp>.json` sibling file (the canonical cache is left untouched).</td>
++      <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.02)"}}>`true`</td>
++    </tr>
+     <tr>
+       <td style={{padding: "9px 12px", fontWeight: 500, backgroundColor: "rgba(255,255,255,0.02)"}}>`SGLANG_SKIP_P2P_CHECK`</td>
+       <td style={{padding: "9px 12px", backgroundColor: "rgba(255,255,255,0.05)"}}>Skip P2P (peer-to-peer) access check</td>
+diff --git a/python/sglang/srt/environ.py b/python/sglang/srt/environ.py
+index b4c470b478c7..69be13b8a29e 100644
+--- a/python/sglang/srt/environ.py
++++ b/python/sglang/srt/environ.py
+@@ -721,6 +721,7 @@ class Envs:
+ 
+     # Sglang Cache Dir
+     SGLANG_CACHE_DIR = EnvStr(os.path.expanduser("~/.cache/sglang"))
++    SGLANG_FLASHINFER_AUTOTUNE_CACHE = EnvBool(True)
+ 
+     # Plugin system
+     SGLANG_PLATFORM = EnvStr("")
+diff --git a/python/sglang/srt/model_executor/model_runner.py b/python/sglang/srt/model_executor/model_runner.py
+index fad8a8868403..023678566c39 100644
+--- a/python/sglang/srt/model_executor/model_runner.py
++++ b/python/sglang/srt/model_executor/model_runner.py
+@@ -2386,13 +2386,27 @@ def _flashinfer_autotune(self):
+         from flashinfer.autotuner import autotune
+ 
+         cache_path = self._flashinfer_autotune_cache_path()
+-        logger.info("Running FlashInfer autotune with cache: %s", cache_path)
++        if envs.SGLANG_FLASHINFER_AUTOTUNE_CACHE.get():
++            autotune_cache = cache_path
++            logger.info("Running FlashInfer autotune with cache: %s", autotune_cache)
++        else:
++            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
++            runs_dir = cache_path.parent / "runs"
++            runs_dir.mkdir(parents=True, exist_ok=True)
++            autotune_cache = (
++                runs_dir / f"{cache_path.stem}.{timestamp}{cache_path.suffix}"
++            )
++            logger.info(
++                "Running FlashInfer autotune (cache reuse DISABLED via "
++                "SGLANG_FLASHINFER_AUTOTUNE_CACHE=0); writing fresh result to: %s",
++                autotune_cache,
++            )
+ 
+         # Run warmup on the non-default stream to avoid NCCL 2.29+ cudaMemcpyBatchAsync
+         # calls on default stream (unsupported by CUDA) when --enable-symm-mem is used.
+         self.forward_stream.wait_stream(torch.cuda.current_stream())
+         with torch.get_device_module(self.device).stream(self.forward_stream):
+-            with torch.inference_mode(), autotune(True, cache=str(cache_path)):
++            with torch.inference_mode(), autotune(True, cache=str(autotune_cache)):
+                 self._dummy_run(batch_size=self.req_to_token_pool.size)
+         torch.cuda.current_stream().wait_stream(self.forward_stream)
+         logger.info("FlashInfer autotune completed.")

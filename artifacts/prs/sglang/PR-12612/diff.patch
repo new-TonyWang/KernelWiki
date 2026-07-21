@@ -1,0 +1,212 @@
+diff --git a/python/sglang/srt/mem_cache/memory_pool.py b/python/sglang/srt/mem_cache/memory_pool.py
+index 5025687fc5d1..19b899f04b12 100644
+--- a/python/sglang/srt/mem_cache/memory_pool.py
++++ b/python/sglang/srt/mem_cache/memory_pool.py
+@@ -645,24 +645,65 @@ def _create_buffers(self):
+                 if self.enable_custom_mem_pool
+                 else nullcontext()
+             ):
+-                # [size, head_num, head_dim] for each layer
+-                # The padded slot 0 is used for writing dummy outputs from padded tokens.
+-                self.k_buffer = [
+-                    torch.zeros(
+-                        (self.size + self.page_size, self.head_num, self.head_dim),
+-                        dtype=self.store_dtype,
+-                        device=self.device,
+-                    )
+-                    for _ in range(self.layer_num)
+-                ]
+-                self.v_buffer = [
+-                    torch.zeros(
+-                        (self.size + self.page_size, self.head_num, self.head_dim),
+-                        dtype=self.store_dtype,
+-                        device=self.device,
+-                    )
+-                    for _ in range(self.layer_num)
+-                ]
++                if is_float4_e2m1fn_x2(self.dtype):
++                    m = self.size + self.page_size
++                    n = self.head_num
++                    k = self.head_dim
++
++                    scale_block_size = 16
++                    self.store_dtype = torch.uint8
++                    self.k_buffer = [
++                        torch.zeros(
++                            (m, n, k // 2),
++                            dtype=self.store_dtype,
++                            device=self.device,
++                        )
++                        for _ in range(self.layer_num)
++                    ]
++                    self.v_buffer = [
++                        torch.zeros(
++                            (m, n, k // 2),
++                            dtype=self.store_dtype,
++                            device=self.device,
++                        )
++                        for _ in range(self.layer_num)
++                    ]
++
++                    self.k_scale_buffer = [
++                        torch.zeros(
++                            (m, (n * k) // scale_block_size),
++                            dtype=self.store_dtype,
++                            device=self.device,
++                        )
++                        for _ in range(self.layer_num)
++                    ]
++                    self.v_scale_buffer = [
++                        torch.zeros(
++                            (m, (n * k) // scale_block_size),
++                            dtype=self.store_dtype,
++                            device=self.device,
++                        )
++                        for _ in range(self.layer_num)
++                    ]
++                else:
++                    # [size, head_num, head_dim] for each layer
++                    # The padded slot 0 is used for writing dummy outputs from padded tokens.
++                    self.k_buffer = [
++                        torch.zeros(
++                            (self.size + self.page_size, self.head_num, self.head_dim),
++                            dtype=self.store_dtype,
++                            device=self.device,
++                        )
++                        for _ in range(self.layer_num)
++                    ]
++                    self.v_buffer = [
++                        torch.zeros(
++                            (self.size + self.page_size, self.head_num, self.head_dim),
++                            dtype=self.store_dtype,
++                            device=self.device,
++                        )
++                        for _ in range(self.layer_num)
++                    ]
+ 
+         self.k_data_ptrs = torch.tensor(
+             [x.data_ptr() for x in self.k_buffer],
+@@ -763,7 +804,22 @@ def load_cpu_copy(self, kv_cache_cpu, indices):
+     def _get_key_buffer(self, layer_id: int):
+         # for internal use of referencing
+         if self.store_dtype != self.dtype:
+-            return self.k_buffer[layer_id - self.start_layer].view(self.dtype)
++            if is_float4_e2m1fn_x2(self.dtype):
++                cache_k_nope_fp4 = self.k_buffer[layer_id - self.start_layer].view(
++                    torch.uint8
++                )
++                cache_k_nope_fp4_sf = self.k_scale_buffer[layer_id - self.start_layer]
++
++                from sglang.srt.layers.quantization.kvfp4_tensor import (
++                    KVFP4QuantizeUtil,
++                )
++
++                cache_k_nope_fp4_dequant = KVFP4QuantizeUtil.batched_dequantize(
++                    cache_k_nope_fp4, cache_k_nope_fp4_sf
++                )
++                return cache_k_nope_fp4_dequant
++            else:
++                return self.k_buffer[layer_id - self.start_layer].view(self.dtype)
+         return self.k_buffer[layer_id - self.start_layer]
+ 
+     def get_key_buffer(self, layer_id: int):
+@@ -777,7 +833,22 @@ def get_key_buffer(self, layer_id: int):
+     def _get_value_buffer(self, layer_id: int):
+         # for internal use of referencing
+         if self.store_dtype != self.dtype:
+-            return self.v_buffer[layer_id - self.start_layer].view(self.dtype)
++            if is_float4_e2m1fn_x2(self.dtype):
++                cache_v_nope_fp4 = self.v_buffer[layer_id - self.start_layer].view(
++                    torch.uint8
++                )
++                cache_v_nope_fp4_sf = self.v_scale_buffer[layer_id - self.start_layer]
++
++                from sglang.srt.layers.quantization.kvfp4_tensor import (
++                    KVFP4QuantizeUtil,
++                )
++
++                cache_v_nope_fp4_dequant = KVFP4QuantizeUtil.batched_dequantize(
++                    cache_v_nope_fp4, cache_v_nope_fp4_sf
++                )
++                return cache_v_nope_fp4_dequant
++            else:
++                return self.v_buffer[layer_id - self.start_layer].view(self.dtype)
+         return self.v_buffer[layer_id - self.start_layer]
+ 
+     def get_value_buffer(self, layer_id: int):
+@@ -809,24 +880,44 @@ def set_kv_buffer(
+                 cache_k.div_(k_scale)
+             if v_scale is not None:
+                 cache_v.div_(v_scale)
+-            cache_k = cache_k.to(self.dtype)
+-            cache_v = cache_v.to(self.dtype)
++            if is_float4_e2m1fn_x2(self.dtype):
++                from sglang.srt.layers.quantization.kvfp4_tensor import (
++                    KVFP4QuantizeUtil,
++                )
++
++                cache_k, cache_k_fp4_sf = KVFP4QuantizeUtil.batched_quantize(cache_k)
++                cache_v, cache_v_fp4_sf = KVFP4QuantizeUtil.batched_quantize(cache_v)
++            else:
++                cache_k = cache_k.to(self.dtype)
++                cache_v = cache_v.to(self.dtype)
+ 
+         if self.store_dtype != self.dtype:
+             cache_k = cache_k.view(self.store_dtype)
+             cache_v = cache_v.view(self.store_dtype)
++            if is_float4_e2m1fn_x2(self.dtype):
++                cache_k_fp4_sf = cache_k_fp4_sf.view(self.store_dtype)
++                cache_v_fp4_sf = cache_v_fp4_sf.view(self.store_dtype)
+ 
+         if get_is_capture_mode() and self.alt_stream is not None:
+             # Overlap the copy of K and V cache for small batch size
+             current_stream = self.device_module.current_stream()
+             self.alt_stream.wait_stream(current_stream)
+             self.k_buffer[layer_id - self.start_layer][loc] = cache_k
++            if is_float4_e2m1fn_x2(self.dtype):
++                self.k_scale_buffer[layer_id - self.start_layer][loc] = cache_k_fp4_sf
+             with self.device_module.stream(self.alt_stream):
+                 self.v_buffer[layer_id - self.start_layer][loc] = cache_v
++                if is_float4_e2m1fn_x2(self.dtype):
++                    self.v_scale_buffer[layer_id - self.start_layer][
++                        loc
++                    ] = cache_v_fp4_sf
+             current_stream.wait_stream(self.alt_stream)
+         else:
+             self.k_buffer[layer_id - self.start_layer][loc] = cache_k
+             self.v_buffer[layer_id - self.start_layer][loc] = cache_v
++            if is_float4_e2m1fn_x2(self.dtype):
++                self.k_scale_buffer[layer_id - self.start_layer][loc] = cache_k_fp4_sf
++                self.v_scale_buffer[layer_id - self.start_layer][loc] = cache_v_fp4_sf
+ 
+     def move_kv_cache(self, tgt_loc: torch.Tensor, src_loc: torch.Tensor):
+         N = tgt_loc.numel()
+diff --git a/python/sglang/srt/model_executor/model_runner.py b/python/sglang/srt/model_executor/model_runner.py
+index 963e2cd814c6..9b64875dc7f2 100644
+--- a/python/sglang/srt/model_executor/model_runner.py
++++ b/python/sglang/srt/model_executor/model_runner.py
+@@ -1314,6 +1314,24 @@ def profile_max_num_token(self, total_gpu_memory: int):
+                 * 2
+                 * torch._utils._element_size(self.kv_cache_dtype)
+             )
++
++            if is_float4_e2m1fn_x2(self.kv_cache_dtype):
++                # kv_scale_buffer
++                scale_block_size = 16
++
++                n = self.model_config.get_num_kv_heads(get_attention_tp_size())
++                k = self.model_config.head_dim
++                cell_size = (cell_size // 2) + (
++                    (
++                        n
++                        * k
++                        * num_layers
++                        * 2
++                        * torch._utils._element_size(self.kv_cache_dtype)
++                    )
++                    // scale_block_size
++                )
++
+         rest_memory = available_gpu_memory - total_gpu_memory * (
+             1 - self.mem_fraction_static
+         )

@@ -1,0 +1,103 @@
+diff --git a/python/sglang/srt/layers/quantization/utils.py b/python/sglang/srt/layers/quantization/utils.py
+index 2c54d901ebd3..99e3218cfd3f 100644
+--- a/python/sglang/srt/layers/quantization/utils.py
++++ b/python/sglang/srt/layers/quantization/utils.py
+@@ -50,6 +50,8 @@ def _module_path_match(ignored: str, prefix: str) -> bool:
+     # match `mlp.gate_up_proj`. Needed for quant configs (e.g. Qwen3.6-FP8)
+     # whose `modules_to_not_convert` lists MoE-template names like `mlp.gate`
+     # that collide with fused dense MLP names by plain substring.
++    ignored = ignored.rstrip(".")
++    prefix = prefix.rstrip(".")
+     if ignored == prefix:
+         return True
+     if prefix.startswith(ignored + "."):
+diff --git a/test/registered/backends/test_flashinfer_trtllm_gen_moe_backend.py b/test/registered/backends/test_flashinfer_trtllm_gen_moe_backend.py
+index e483fa56248d..d0238f200c0e 100644
+--- a/test/registered/backends/test_flashinfer_trtllm_gen_moe_backend.py
++++ b/test/registered/backends/test_flashinfer_trtllm_gen_moe_backend.py
+@@ -155,6 +155,50 @@ def test_gsm8k(self):
+         self.assertGreater(metrics["score"], 0.93)
+ 
+ 
++class FlashinferTrtllmGenMoeBackendMXFP8MixedBF16Base:
++    backend = None
++
++    @classmethod
++    def setUpClass(cls):
++        cls.model = "zianglih/JoyAI-LLM-Flash-MXFP8-last-6-BF16"
++        cls.base_url = DEFAULT_URL_FOR_TEST
++        cls.process = popen_launch_server(
++            cls.model,
++            cls.base_url,
++            timeout=DEFAULT_TIMEOUT_FOR_SERVER_LAUNCH,
++            env={**os.environ, "SGLANG_ENABLE_JIT_DEEPGEMM": "False"},
++            other_args=[
++                "--kv-cache-dtype",
++                "bf16",
++                "--fp8-gemm-backend",
++                "flashinfer_cutlass",
++                "--moe-runner-backend",
++                cls.backend,
++                "--tp-size",
++                "4",
++                "--trust-remote-code",
++            ],
++        )
++
++    @classmethod
++    def tearDownClass(cls):
++        kill_process_tree(cls.process.pid)
++
++    def test_gsm8k(self):
++        args = SimpleNamespace(
++            base_url=self.base_url,
++            model=self.model,
++            eval_name="gsm8k",
++            api="completion",
++            max_tokens=512,
++            num_examples=200,
++            num_threads=128,
++        )
++        metrics = run_eval(args)
++        print(f"{metrics=}")
++        self.assertGreater(metrics["score"], 0.92)
++
++
+ class FlashinferTrtllmGenMoeBackendNVFP4Base:
+     backend = None
+     extra_env = {}
+@@ -217,6 +261,12 @@ class TestFlashinferTrtllmGenMoeBackendMXFP8Routed(
+     backend = "flashinfer_trtllm_routed"
+ 
+ 
++class TestFlashinferTrtllmRoutedMxfp8MixedBF16(
++    FlashinferTrtllmGenMoeBackendMXFP8MixedBF16Base, CustomTestCase
++):
++    backend = "flashinfer_trtllm_routed"
++
++
+ class TestFlashinferTrtllmGenMoeBackendBF16Routed(
+     FlashinferTrtllmGenMoeBackendBF16Base, CustomTestCase
+ ):
+diff --git a/test/registered/quant/test_is_layer_skipped.py b/test/registered/quant/test_is_layer_skipped.py
+index c311fc5764b2..637edb74fc05 100644
+--- a/test/registered/quant/test_is_layer_skipped.py
++++ b/test/registered/quant/test_is_layer_skipped.py
+@@ -47,6 +47,17 @@ def test_mlp_gate_does_not_match_gate_up_proj(self):
+         )
+         self.assertTrue(is_layer_skipped("model.layers.0.mlp.gate", ignored, {}))
+ 
++    def test_trailing_dot_prefix_matches_child_modules(self):
++        # Mixed-precision checkpoints may use a trailing-dot layer prefix to keep
++        # every module under the layer in higher precision.
++        ignored = ["model.layers.34."]
++        self.assertTrue(
++            is_layer_skipped("model.layers.34.mlp.experts.0.down_proj", ignored, {})
++        )
++        self.assertFalse(
++            is_layer_skipped("model.layers.340.mlp.experts.0.down_proj", ignored, {})
++        )
++
+ 
+ if __name__ == "__main__":
+     unittest.main()

@@ -1,0 +1,34 @@
+origin_url: https://github.com/sgl-project/sglang/pull/25532
+upstream_repo: sgl-project/sglang
+upstream_sha: b7085d38
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-25532
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ebe33ecf35ed0babc9e5066aab04d4b0e69c85bd6779df1ea9cd968fae727e6d
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/epilogue/broadcast_load_epilogue_c3x.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/epilogue/broadcast_load_epilogue_c3x.hpp
+  sha256: 4f342e9ab7305df18424d859c4aa25a6811d3c6516dcaa79a15079621b6c6913
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/epilogue/scaled_mm_epilogues_c3x.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/epilogue/scaled_mm_epilogues_c3x.hpp
+  sha256: 128ccc10afb20f0b4493cb0f7d076fb647e3396ebeae8524b167d87bdf65032d
+- local_path: key-files/sgl-kernel/csrc/cutlass_extensions/gemm/fp8_gemm_sm90_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cutlass_extensions/gemm/fp8_gemm_sm90_dispatch.cuh
+  sha256: 549d3c1c5c13d67e7309cf50610a51c9485eb181b3a17423247287abd1a0b038
+- local_path: key-files/sgl-kernel/csrc/gemm/fp8_gemm_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/fp8_gemm_kernel.cu
+  sha256: be6f95bb0ef108ebf08b8b84336b6840726beb7fa5bbb90aa6eb4038ce778767

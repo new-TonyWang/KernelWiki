@@ -1,0 +1,59 @@
+origin_url: https://github.com/sgl-project/sglang/pull/3267
+upstream_repo: sgl-project/sglang
+upstream_sha: 640363ad
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-3267
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: bc53cbbb489127af9db754fb48e4d777e74aeb2849d279c737e26ed2a448118d
+- local_path: key-files/sgl-kernel/setup.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/setup.py
+  sha256: 5343d34ae3b765f63c63732ad79995f9ac93ce9bcae4e4cf832300aaaa0dbde9
+- local_path: key-files/sgl-kernel/src/sgl-kernel/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/src/sgl-kernel/__init__.py
+  sha256: 503f796a7f294fd35007430c12766fb551a353b0a46b9f7d1fa99ceeb257da6a
+- local_path: key-files/sgl-kernel/src/sgl-kernel/csrc/cutlass_extensions/gemm/collective/collective_builder.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/src/sgl-kernel/csrc/cutlass_extensions/gemm/collective/collective_builder.hpp
+  sha256: a4d3261653e091b0734855ac0f2fc9759fb6db7d064981160821c3b2fc92394c
+- local_path: key-files/sgl-kernel/src/sgl-kernel/csrc/cutlass_extensions/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/src/sgl-kernel/csrc/cutlass_extensions/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  sha256: d530ac8b559da28e808ea73cbe81426a5d26b02e2a1d3b0b7c6c20b97e07bd6c
+- local_path: key-files/sgl-kernel/src/sgl-kernel/csrc/cutlass_extensions/gemm/dispatch_policy.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/src/sgl-kernel/csrc/cutlass_extensions/gemm/dispatch_policy.hpp
+  sha256: d20fbcffd90029f71328afcfa9256616135e27643a3f37b7b9cfee34e69dd673
+- local_path: key-files/sgl-kernel/src/sgl-kernel/csrc/fp8_blockwise_gemm_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/src/sgl-kernel/csrc/fp8_blockwise_gemm_kernel.cu
+  sha256: af4befb63bf8766838f001be9934a98bc88ab470946b028b53db6e7ce6d1fcd7
+- local_path: key-files/sgl-kernel/src/sgl-kernel/include/sgl_kernels_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/src/sgl-kernel/include/sgl_kernels_ops.h
+  sha256: e5d88fe697eb1266f7d96fd8181bd30bb1e9f3e2abefb16e980d6938e3a99829
+- local_path: key-files/sgl-kernel/src/sgl-kernel/ops/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/src/sgl-kernel/ops/__init__.py
+  sha256: 5dd3eb774430e31ce788b2abe8a94c8b6b828798907b1dbb6480bae515cb1306
+- local_path: key-files/sgl-kernel/src/sgl-kernel/torch_extension.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/src/sgl-kernel/torch_extension.cc
+  sha256: 989cf04f0a3908e41173c273e28550cea2e544c4e36597d847d5ac5cbb7f3d00

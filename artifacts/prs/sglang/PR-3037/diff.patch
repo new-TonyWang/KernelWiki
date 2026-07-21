@@ -1,0 +1,13 @@
+diff --git a/sgl-kernel/setup.py b/sgl-kernel/setup.py
+index 72d188e71d8b..5a98863345a8 100644
+--- a/sgl-kernel/setup.py
++++ b/sgl-kernel/setup.py
+@@ -39,6 +39,8 @@ def _get_version():
+ 
+ 
+ cutlass = root / "3rdparty" / "cutlass"
++cutlass_default = root / "3rdparty" / "cutlass"
++cutlass = Path(os.environ.get("CUSTOM_CUTLASS_SRC_DIR", default=cutlass_default))
+ flashinfer = root / "3rdparty" / "flashinfer"
+ include_dirs = [
+     cutlass.resolve() / "include",

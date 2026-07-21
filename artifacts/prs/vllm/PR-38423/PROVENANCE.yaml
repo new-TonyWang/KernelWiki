@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/38423
+upstream_repo: vllm-project/vllm
+upstream_sha: b4a2f3ac
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-38423
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ea8013fe423cf60eeed5708cc13a67c4f033c8cc94088d651d3f0fc2bb264d23
+- local_path: key-files/csrc/quantization/fp4/nvfp4_quant_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_quant_entry.cu
+  sha256: 7da7a0323e1eebd664496a8caeaf170cfdc745c5145bcf3e209cd2e0c2502967
+- local_path: key-files/csrc/quantization/fp4/nvfp4_scaled_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_scaled_mm_entry.cu
+  sha256: ef4ac8fa833ac9dc5f29ea01873c9cda20e44a183c942718cb115c8b6c1f6f45
+- local_path: key-files/csrc/quantization/machete/machete_mainloop.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_mainloop.cuh
+  sha256: 2a9baa42b101ad61e1b4b4afbf1af8b71d0d0ad7917bcfc2d2c32fef185423bc

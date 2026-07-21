@@ -1,0 +1,29 @@
+origin_url: https://github.com/sgl-project/sglang/pull/4278
+upstream_repo: sgl-project/sglang
+upstream_sha: 7c866711
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-4278
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 15591610c446edb8d261f4ad9236bd15402d436641da372153b478a25c645963
+- local_path: key-files/sgl-kernel/csrc/gemm/fp8_blockwise_gemm_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/fp8_blockwise_gemm_kernel.cu
+  sha256: bcb00fdf9f77a2e50edadb1f1d91b2afce1a35e94ba9ee2799a5a7654cd319e0
+- local_path: key-files/sgl-kernel/include/utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/include/utils.h
+  sha256: c512c4ba3ef3c6e98c287075eb1ce1a2b9fc943a56c8b19b1a1db6a843986794
+- local_path: key-files/sgl-kernel/setup.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/setup.py
+  sha256: 85fc9f1c7b5c2608bbd1f6aa7499a32254695e2abb86d9915ce6d1198d4cd7b2

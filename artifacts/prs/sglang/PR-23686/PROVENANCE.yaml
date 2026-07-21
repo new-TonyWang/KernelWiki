@@ -1,0 +1,29 @@
+origin_url: https://github.com/sgl-project/sglang/pull/23686
+upstream_repo: sgl-project/sglang
+upstream_sha: 2ef83105
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-23686
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 5573e037a1c4498081938b12b0a1cdd110229ff073cb18761185061ab46a457c
+- local_path: key-files/python/sglang/srt/layers/moe/fused_moe_triton/fused_marlin_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/fused_moe_triton/fused_marlin_moe.py
+  sha256: 6e286df75d59d828a03ca1fffe2d285952f74fad2badc394baa15acb116c0ba7
+- local_path: key-files/sgl-kernel/csrc/moe/marlin_moe_wna16/marlin_template.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/marlin_moe_wna16/marlin_template.h
+  sha256: 0ac30d4c7ff9a5c934c91ea836d7aeeaa0e2e1092b2f89b9f6cbea1f524be70c
+- local_path: key-files/sgl-kernel/csrc/moe/marlin_moe_wna16/ops.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/marlin_moe_wna16/ops.cu
+  sha256: 886e9577455576d038efcdfb721c61bba42be998fcd1e0c3170bff1033df21e4

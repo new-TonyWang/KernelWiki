@@ -1,0 +1,42 @@
+origin_url: https://github.com/sgl-project/sglang/pull/6404
+upstream_repo: sgl-project/sglang
+upstream_sha: 3ded6235
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-6404
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 37f339b59e43fb68b5119cc5b43d75664de221dfab9e8e2cfa17ad8043aa4bc5
+- local_path: key-files/sgl-kernel/csrc/cpu/gemm.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cpu/gemm.h
+  sha256: 9dfcdd178559f7fcd79f8dcf74e148a493453ad0ce985b5811cbe436d98ea74b
+- local_path: key-files/sgl-kernel/csrc/cpu/moe.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cpu/moe.cpp
+  sha256: cae94b0df846e0ea28162e5ed7c4a720504ed3c8eae7504151a5a6bdbc42ad28
+- local_path: key-files/sgl-kernel/csrc/cpu/moe_fp8.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cpu/moe_fp8.cpp
+  sha256: b3d1c838f4f23f91b1052930946d87be0af36493f60be0834f0287befb1c0b29
+- local_path: key-files/sgl-kernel/csrc/cpu/torch_extension_cpu.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/cpu/torch_extension_cpu.cpp
+  sha256: e75e7864423141ac554d5b39f874372e2ba482a70862e060fb17a5ae3089cc70
+- local_path: key-files/sgl-kernel/setup_cpu.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/setup_cpu.py
+  sha256: 55c739606ffb438e60408eacee55db709e4be5f357fa05e997c347b235bbe3e0
+  upstream_sha: 4ba1eea83f930f546d072a898181687e85eab4d7
+  captured_at_base_sha_note: 'PR #6404 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'

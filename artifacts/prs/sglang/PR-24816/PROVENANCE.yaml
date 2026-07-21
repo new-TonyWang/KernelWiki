@@ -1,0 +1,40 @@
+origin_url: https://github.com/sgl-project/sglang/pull/24816
+upstream_repo: sgl-project/sglang
+upstream_sha: 28758d37
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-24816
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 58855789cb7190bdd7127e22fc632166bbb2f808847d502e9ba7ab3eb42ef61a
+- local_path: key-files/python/sglang/srt/layers/moe/topk.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/topk.py
+  sha256: 19f853672166dd485484c6b2419be868f7fe980e95fee0cbe3abc3c89aa1fc9f
+- local_path: key-files/python/sglang/srt/layers/quantization/fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/quantization/fp8.py
+  sha256: 8c2d684c6162a18c635494191cca4a476628661706ef7998dac343e19dc9cf38
+- local_path: key-files/python/sglang/srt/layers/quantization/mxfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/quantization/mxfp4.py
+  sha256: 3082d1aa02b1fb2f32e869bd1972449e3503863e781885b3cb80455c4899a9cd
+- local_path: key-files/python/sglang/srt/layers/quantization/mxfp4_flashinfer_cutlass_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/quantization/mxfp4_flashinfer_cutlass_moe.py
+  sha256: 1102981381aace6dd4830847c79aec211e20cca220087a9c377deba4300288e6
+- local_path: key-files/python/sglang/srt/layers/quantization/mxfp4_flashinfer_trtllm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/quantization/mxfp4_flashinfer_trtllm_moe.py
+  sha256: 9088e738dfe8ca6d006eaf897c373a9d489bcd52a4145b337dc8986b2ce7fa38
+captured_via_relaxed_allowlist: true

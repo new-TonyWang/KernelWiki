@@ -1,0 +1,13 @@
+diff --git a/vllm/config/attention.py b/vllm/config/attention.py
+index 1da647a6d6ff..014bb9b22601 100644
+--- a/vllm/config/attention.py
++++ b/vllm/config/attention.py
+@@ -30,7 +30,7 @@ class AttentionConfig:
+     use_cudnn_prefill: bool = False
+     """Whether to use cudnn prefill."""
+ 
+-    use_trtllm_ragged_deepseek_prefill: bool = False
++    use_trtllm_ragged_deepseek_prefill: bool = True
+     """Whether to use TRTLLM ragged deepseek prefill."""
+ 
+     use_trtllm_attention: bool | None = None

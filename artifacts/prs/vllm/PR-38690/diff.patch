@@ -1,0 +1,25 @@
+diff --git a/cmake/external_projects/vllm_flash_attn.cmake b/cmake/external_projects/vllm_flash_attn.cmake
+index 443d41d5a21a..9414f5af3722 100644
+--- a/cmake/external_projects/vllm_flash_attn.cmake
++++ b/cmake/external_projects/vllm_flash_attn.cmake
+@@ -39,7 +39,7 @@ else()
+   FetchContent_Declare(
+           vllm-flash-attn
+           GIT_REPOSITORY https://github.com/vllm-project/flash-attention.git
+-          GIT_TAG 29210221863736a08f71a866459e368ad1ac4a95
++          GIT_TAG c0ec424fd8a546d0cbbf4bf050bbcfe837c55afb
+           GIT_PROGRESS TRUE
+           # Don't share the vllm-flash-attn build between build types
+           BINARY_DIR ${CMAKE_BINARY_DIR}/vllm-flash-attn
+diff --git a/requirements/cuda.txt b/requirements/cuda.txt
+index 6d7f9693f75c..cfee494b5a60 100644
+--- a/requirements/cuda.txt
++++ b/requirements/cuda.txt
+@@ -16,5 +16,5 @@ flashinfer-cubin==0.6.7
+ nvidia-cudnn-frontend>=1.13.0,<1.19.0
+ 
+ # QuACK and Cutlass DSL for FA4 (cute-DSL implementation)
+-nvidia-cutlass-dsl>=4.4.0.dev1
+-quack-kernels>=0.2.7
++nvidia-cutlass-dsl>=4.4.2
++quack-kernels>=0.3.3

@@ -1,0 +1,13 @@
+diff --git a/python/sglang/srt/models/deepseek_v2.py b/python/sglang/srt/models/deepseek_v2.py
+index 6b23c2c88e3f..05f1d39797e1 100644
+--- a/python/sglang/srt/models/deepseek_v2.py
++++ b/python/sglang/srt/models/deepseek_v2.py
+@@ -334,7 +334,7 @@ def forward(
+                 and (self.weight.shape[0] == 256 or self.weight.shape[0] == 384)
+                 and _device_sm >= 90
+             ):
+-                if _device_sm == 100 and self.weight.shape[0] == 256:
++                if _device_sm in [100, 103] and self.weight.shape[0] == 256:
+                     # router gemm output float32
+                     logits = torch.empty(
+                         hidden_states.shape[0],

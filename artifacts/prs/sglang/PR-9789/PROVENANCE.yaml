@@ -1,0 +1,29 @@
+origin_url: https://github.com/sgl-project/sglang/pull/9789
+upstream_repo: sgl-project/sglang
+upstream_sha: 7a16db9b
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-9789
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 2b239f6cb515df56d0ee9141082f4ea9b53b48dc2cfe2895ea0705b2cc287801
+- local_path: key-files/sgl-kernel/csrc/gemm/fp8_blockwise_gemm_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/fp8_blockwise_gemm_kernel.cu
+  sha256: a67292e0a50ea089b2a9bba4f49798f5f76ac6996b306caaeb379ac584fee9f4
+- local_path: key-files/sgl-kernel/csrc/gemm/fp8_gemm_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/fp8_gemm_kernel.cu
+  sha256: 3a6b3ac2a73a20f3f6965c29232a4d09e9bb528d726a0053bddd113f76cfa2b4
+- local_path: key-files/sgl-kernel/csrc/moe/fp8_blockwise_moe_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/fp8_blockwise_moe_kernel.cu
+  sha256: 957833dfc5456bd81c492b4d896bc94e130564850d5990eec62c3a7a2cefa8d2

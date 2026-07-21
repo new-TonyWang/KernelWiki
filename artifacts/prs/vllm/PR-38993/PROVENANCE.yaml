@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/38993
+upstream_repo: vllm-project/vllm
+upstream_sha: 1af6f78a
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-38993
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: e3606a06a6eea46c070b0655aceaee4d0d974c05fe291a5514da0d14acb7d568
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+  sha256: cd1c253a3711925b1256d5ab5d3c894e09b62400d5c3555a204d243f1cbbe02d
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  sha256: 099a66b7d148cc282429688ca5047baafb3b6632e377bdca96925eb86527678b
+- local_path: key-files/vllm/model_executor/warmup/deep_gemm_warmup.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/warmup/deep_gemm_warmup.py
+  sha256: 1e7d9fe54d072a94a8ed06c97cee9624390db7e3d652fda913eb38dc213bd775
+captured_via_relaxed_allowlist: true

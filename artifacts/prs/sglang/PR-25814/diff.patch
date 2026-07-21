@@ -1,0 +1,28 @@
+diff --git a/docs_new/cookbook/autoregressive/GLM/GLM-5.mdx b/docs_new/cookbook/autoregressive/GLM/GLM-5.mdx
+index 406e64aa10c4..b937d71a87a4 100644
+--- a/docs_new/cookbook/autoregressive/GLM/GLM-5.mdx
++++ b/docs_new/cookbook/autoregressive/GLM/GLM-5.mdx
+@@ -109,6 +109,7 @@ sglang serve \
+   --speculative-num-steps 3 \
+   --speculative-eagle-topk 1 \
+   --speculative-num-draft-tokens 4 \
++  --enable-flashinfer-allreduce-fusion \
+   --mem-fraction-static 0.85 \
+   --host 0.0.0.0 \
+   --port 30000
+diff --git a/docs_new/src/snippets/autoregressive/glm-5-deployment.jsx b/docs_new/src/snippets/autoregressive/glm-5-deployment.jsx
+index 26f1931ad575..e7f8c95504d1 100644
+--- a/docs_new/src/snippets/autoregressive/glm-5-deployment.jsx
++++ b/docs_new/src/snippets/autoregressive/glm-5-deployment.jsx
+@@ -206,6 +206,11 @@ export const GLM5Deployment = () => {
+       cmd += ' \\\n  --enable-flashinfer-allreduce-fusion';
+     }
+ 
++    // H200 FP8: flashinfer allreduce fusion.
++    if (hardware === 'h200' && effectiveQuant === 'fp8') {
++      cmd += ' \\\n  --enable-flashinfer-allreduce-fusion';
++    }
++
+     cmd += ` \\\n  --mem-fraction-static ${memFraction}`;
+     return cmd;
+   };

@@ -1,0 +1,54 @@
+origin_url: https://github.com/sgl-project/sglang/pull/6929
+upstream_repo: sgl-project/sglang
+upstream_sha: 18efb5e8
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-6929
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: f69384e33da863f9068ea29d2eeaef4cc56adc87ec09917f6376cef63fcf5292
+- local_path: key-files/sgl-kernel/csrc/attention/cutlass_mla_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/attention/cutlass_mla_kernel.cu
+  sha256: bf5afee95c7a49e5ff032e55387c39eea29ef6a3bca8bdafec71f43b900b9cdb
+- local_path: key-files/sgl-kernel/csrc/attention/cutlass_sm100_mla/device/sm100_mla.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/attention/cutlass_sm100_mla/device/sm100_mla.hpp
+  sha256: f411088638eab8ee0d22d7160779fe0c0830006c0184e09d3298d140df0bdbd2
+- local_path: key-files/sgl-kernel/csrc/attention/cutlass_sm100_mla/kernel/sm100_fmha_mla_reduction.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/attention/cutlass_sm100_mla/kernel/sm100_fmha_mla_reduction.hpp
+  sha256: 01b0d650bbbf16b0d150ea634e5a4e92dbfd37d0a442a9b88701f15c1a32b929
+- local_path: key-files/sgl-kernel/csrc/attention/cutlass_sm100_mla/kernel/sm100_fmha_mla_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/attention/cutlass_sm100_mla/kernel/sm100_fmha_mla_tma_warpspecialized.hpp
+  sha256: 644c75a7cb55eed77ee85b8b05cd784dd8aa9e80b9944e640e40a231a7f42231
+- local_path: key-files/sgl-kernel/csrc/attention/cutlass_sm100_mla/kernel/sm100_mla_tile_scheduler.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/attention/cutlass_sm100_mla/kernel/sm100_mla_tile_scheduler.hpp
+  sha256: e664316462e86130992aa56675efece67fc0b10504550d686f2257a29f392d60
+- local_path: key-files/sgl-kernel/csrc/common_extension.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/common_extension.cc
+  sha256: 8df09dfb904cc6e05ce91114f2d580f472c659fb410a9b664582198f92877676
+- local_path: key-files/sgl-kernel/include/sgl_kernel_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/include/sgl_kernel_ops.h
+  sha256: 911a426d6702fe605bad7a8033bb900f13f4d368c8334fd773c121eb986135b5
+- local_path: key-files/sgl-kernel/python/sgl_kernel/attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/python/sgl_kernel/attention.py
+  sha256: 524d19419bf00f8ca82c55bf52bb292993c77c1e35a0d63675060dbb52c785cf

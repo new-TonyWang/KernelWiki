@@ -1,0 +1,34 @@
+origin_url: https://github.com/sgl-project/sglang/pull/8118
+upstream_repo: sgl-project/sglang
+upstream_sha: d4a93841
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-8118
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 5c6d643dbb71bac6fdb2f8a7259c70427fb790e2e081f06d3642cb246738e9f8
+- local_path: key-files/python/sglang/srt/layers/moe/fused_moe_triton/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/fused_moe_triton/layer.py
+  sha256: 4c8de9f05389263a68c84ed532782cf413de8a237d33d5c76494565535ad887d
+- local_path: key-files/sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_get_group_starts.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_get_group_starts.cuh
+  sha256: 6b7a4fdd34985ad079bacb9d6cb1412fd60b0a5c9ad1d2ad29e93eab3ce9f686
+- local_path: key-files/sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_grouped_mm_c3x.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_grouped_mm_c3x.cu
+  sha256: 331fd1efcf9bcb374024bc80ef9699f375a6c7a799199a2f33f86fa90e2e4cae
+- local_path: key-files/sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_grouped_mm_c3x.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/moe/cutlass_moe/w4a8/w4a8_grouped_mm_c3x.cuh
+  sha256: 7adda9e750477a0f9007b49ffb9db7195fbf9fe8f51fcc6ffe16f95375416663
