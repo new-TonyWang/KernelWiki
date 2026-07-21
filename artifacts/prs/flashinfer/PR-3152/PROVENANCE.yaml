@@ -1,0 +1,89 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/3152
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: a11ce269
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-3152
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 6ad0ec3a893ecd8141d284eadd4a6e5d7bd471d46ffb7bce150cdbda113413fe
+- local_path: key-files/csrc/fp4_gemm_cutlass_sm120.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fp4_gemm_cutlass_sm120.cu
+  sha256: a1c4a0e32db900cc39c3c9e9250839ebc9292040ef0d2d177f838097980a76ee
+- local_path: key-files/csrc/group_gemm_mxfp4_groupwise_sm120.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_mxfp4_groupwise_sm120.cu
+  sha256: 511423827f2b8edb94ca73db4b67b73f533d393eaa0f3ccc51dedbf6816ad353
+- local_path: key-files/csrc/group_gemm_nvfp4_groupwise_sm120.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_nvfp4_groupwise_sm120.cu
+  sha256: 5de5d8d7ba07a42471013c157627dae701b2117042d93bc13c6aa90f4b16e334
+- local_path: key-files/csrc/group_gemm_sm120_binding.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/group_gemm_sm120_binding.cu
+  sha256: 0493936208f084cbabf8fd8862cdc70d82f6af9581646ae959b8c8dcd08ba771
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/cutlass_extensions/include/cutlass_extensions/gemm_configs.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/cutlass_extensions/include/cutlass_extensions/gemm_configs.h
+  sha256: d8ee57c17feb5304ff08086166d293e4069e3f2fde309e5f6e7c749de8cf34b1
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/cutlass_heuristic.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/cutlass_heuristic.cpp
+  sha256: 0bd727e29e4507bf97d6726bf4a49f8cc411e4528366e442ebdd3c471ab87cac
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_gemm_template_dispatch_tma_ws.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/cutlass_kernels/moe_gemm/moe_gemm_template_dispatch_tma_ws.h
+  sha256: 321c2af7ee9d55490046a3a4809cecfccce2fa908975583d49f47244832df2c3
+- local_path: key-files/flashinfer/jit/gemm/cutlass/generate_kernels.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: flashinfer/jit/gemm/cutlass/generate_kernels.py
+  sha256: dd7ddbfaf1789ecf6172886d7aa71bc160c047830de6b7c715d125bf31c64a89
+- local_path: key-files/include/flashinfer/gemm/cutlass_gemm_configs.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/cutlass_gemm_configs.h
+  sha256: 114f3a3ef96b914150475d2e20212309b6cac8a0b55443cf5114b84b092239be
+- local_path: key-files/include/flashinfer/gemm/fp4_gemm_cutlass_template_sm120.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/fp4_gemm_cutlass_template_sm120.h
+  sha256: 446daaf38d34e643a4743169287b7e27c0c38bfedce3d7da68a2dfdefeb0b90e
+- local_path: key-files/include/flashinfer/gemm/fp4_gemm_template_sm120.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/fp4_gemm_template_sm120.h
+  sha256: a70a47370ed14ee8f88b4d93e54547db6a23891af2451f78ca1159de0eda312c
+- local_path: key-files/include/flashinfer/gemm/group_gemm_mxfp4_groupwise_sm120.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/group_gemm_mxfp4_groupwise_sm120.cuh
+  sha256: 46799a771cc1328d59b939936099064c9a906d64914b03ab222c49741bd6ff64
+- local_path: key-files/include/flashinfer/gemm/group_gemm_nvfp4_groupwise_sm120.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/group_gemm_nvfp4_groupwise_sm120.cuh
+  sha256: 8b513fd6ebe8a539899fb72f7ba7ca9aba02281b714fee9c4078eb96fbf6fff6
+- local_path: key-files/include/flashinfer/gemm/mxfp8_gemm_cutlass_template_sm120.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/mxfp8_gemm_cutlass_template_sm120.h
+  sha256: 57fe994ba800726e4b3414135840f451830f7dd5a950cbe8102ebf9a45fdbbe4
+- local_path: key-files/include/flashinfer/gemm/mxfp8_gemm_template_sm120.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/gemm/mxfp8_gemm_template_sm120.h
+  sha256: b7dcdbf2036f4aff130548a67c3ff369283315dcda57c6435f6d0a6b1d0fe17a

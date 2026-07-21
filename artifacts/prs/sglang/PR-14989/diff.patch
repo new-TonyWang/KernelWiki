@@ -1,0 +1,25 @@
+diff --git a/docs/advanced_features/attention_backend.md b/docs/advanced_features/attention_backend.md
+index 3010b7463e40..7052b4bbd700 100644
+--- a/docs/advanced_features/attention_backend.md
++++ b/docs/advanced_features/attention_backend.md
+@@ -36,7 +36,7 @@ The support matrix is split into two parts: MHA (standard attention) and MLA (mu
+ | **Backend**                | **Native Page Sizes**     | **FP8 KV Cache** | **FP4 KV Cache** | **Chunked Prefix Cache** | **Spec topk=1** | **Spec topk>1** |
+ |----------------------------|---------------------------|------------------|------------------|--------------------------|-----------------|-----------------|
+ | **FlashInfer MLA**         | 1                         | ❌               | ✅               | ✅                       | ✅              | ❌              |
+-| **FlashMLA**               | 64                        | ✅               | ❌               | ✅                       | ✅              | ❌              |
++| **FlashMLA**               | 64                        | ✅               | ✅               | ✅                       | ✅              | ❌              |
+ | **Cutlass MLA**            | 128                       | ✅               | ✅               | ✅                       | ✅              | ❌              |
+ | **TRTLLM MLA (Blackwell)** | 32 or 64                  | ✅               | ✅               | ✅                       | ✅              | ❌              |
+ | **FA3 (FlashAttention 3)** | n/a                       | ❌               | ❌               | ✅                       | ✅              | ⚠️ (page_size=1 only) |
+diff --git a/python/sglang/srt/server_args.py b/python/sglang/srt/server_args.py
+index bc17db6f89e0..8579789ec961 100644
+--- a/python/sglang/srt/server_args.py
++++ b/python/sglang/srt/server_args.py
+@@ -1613,6 +1613,7 @@ def _handle_kv4_compatibility(self):
+                             "cutlass_mla",
+                             "flashinfer",
+                             "trtllm_mla",
++                            "flashmla",
+                         ]
+                         assert (
+                             self.attention_backend in KV4_ATTENTION_MLA_BACKEND_CHOICES

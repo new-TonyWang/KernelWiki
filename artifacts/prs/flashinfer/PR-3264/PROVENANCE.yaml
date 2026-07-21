@@ -1,0 +1,54 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/3264
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: a0f61ad3
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-3264
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 4fdecea817218f4ecfa47c79a09fcad8e9a6073ffb94672fb47525e464070c17
+- local_path: key-files/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+  sha256: cec0eae4e1f528da7b1ee8656f026554b49fc5672e649061a1e74fbcbdfc2fb7
+- local_path: key-files/csrc/nv_internal/cpp/common/envUtils.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/cpp/common/envUtils.cpp
+  sha256: b89c924474febec686fbb9a3e5c992387a6e6c6e378186947e1664ed4c0cfb1d
+- local_path: key-files/csrc/nv_internal/cpp/kernels/quantization.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/cpp/kernels/quantization.cu
+  sha256: e243e752127acbe41db2d4cd29efad5e8f5cda0f9cbb69a3c56a9658b7f8192b
+- local_path: key-files/csrc/nv_internal/include/tensorrt_llm/common/quantization.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/include/tensorrt_llm/common/quantization.h
+  sha256: 1a3d886433eb00d9101447fe2eb499addda2bd90970b79223529fd0250684e74
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/common/envUtils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/common/envUtils.h
+  sha256: cd1a00b87b21897a9e36d733169f57d75ccbab47c48c1a6cdd3e9d08ec3f7430
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+  sha256: a0ea4367dfb7e1b8034cbcc62570f89e8678fca29e27b901900989de67fce83d
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
+  sha256: 3c203323ffab8ebd173811b61b33e713ee67e72bdc04dd37e05730598ca818e5
+- local_path: key-files/csrc/trtllm_fused_moe_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_fused_moe_runner.cu
+  sha256: db70b516363034132e1d66b811c69ed7fb63a24844f5b1e30c0bd6d3dbdc8d55

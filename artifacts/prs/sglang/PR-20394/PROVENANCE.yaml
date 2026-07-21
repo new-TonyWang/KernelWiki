@@ -1,0 +1,30 @@
+origin_url: https://github.com/sgl-project/sglang/pull/20394
+upstream_repo: sgl-project/sglang
+upstream_sha: d24ea24e
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-20394
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 7d7dd7b8afb31c8f331d0e9e2c40209615f6e05fe4cf23ebd87dd54d068886f1
+- local_path: key-files/python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/moe/moe_runner/flashinfer_trtllm.py
+  sha256: 2aa980a8f8fde14ea28438f6ed0eaac9c8a411bc17c4ad39ab1305e19de2cde6
+- local_path: key-files/python/sglang/srt/layers/quantization/fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/layers/quantization/fp8.py
+  sha256: be81bfe47ca39f2936e96331d50846907a2603c969731834b739dce3ebd3285b
+- local_path: key-files/python/sglang/srt/model_executor/model_runner.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/srt/model_executor/model_runner.py
+  sha256: 80037fe483409a97e994932c0558a37e9d7013a4827fb0d830a8d6634e9fd8b3
+captured_via_relaxed_allowlist: true

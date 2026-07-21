@@ -1,0 +1,41 @@
+diff --git a/python/sglang/srt/model_loader/loader.py b/python/sglang/srt/model_loader/loader.py
+index 58d5fe33102c..612a6dc0c1d6 100644
+--- a/python/sglang/srt/model_loader/loader.py
++++ b/python/sglang/srt/model_loader/loader.py
+@@ -198,6 +198,9 @@ def _get_quantization_config(
+     packed_modules_mapping = getattr(model_class, "packed_modules_mapping", {})
+     remap_prefix = getattr(model_class, "remap_prefix", None)
+     # TODO: we should remove this code and switch to the packed_modules_mapping declared inside the modeling files
++    if model_config.quantization == "quark":
++        packed_modules_mapping.update({"gate_up_proj": ["gate_proj", "up_proj"]})
++
+     if _is_npu:
+         packed_modules_mapping.update(
+             {
+diff --git a/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py b/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py
+index b72e8290d773..77760007ab2d 100644
+--- a/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py
++++ b/python/sglang/srt/models/deepseek_common/deepseek_weight_loader.py
+@@ -560,6 +560,9 @@ def post_load_weights(
+                 _use_aiter_gfx95
+                 and self.quant_config is not None
+                 and self.quant_config.get_name() == "quark"
++                and self.config.architectures
++                and self.config.architectures[0]
++                == "DeepseekV3ForCausalLM"  # Avoid processing other models like GlmMoeDsaForCausalLM
+             ):
+                 w_kc, self_attn.w_scale_k, w_vc, self_attn.w_scale_v = (
+                     quark_post_load_weights(self_attn, w, "mxfp4")
+diff --git a/python/sglang/srt/server_args.py b/python/sglang/srt/server_args.py
+index 8cea237cc2d5..0a45c1dc6d38 100644
+--- a/python/sglang/srt/server_args.py
++++ b/python/sglang/srt/server_args.py
+@@ -1016,6 +1016,8 @@ def _handle_missing_default_values(self):
+             self.served_model_name = self.model_path
+         if self.device is None:
+             self.device = get_device()
++        # strip device index from user if any (e.g. "cuda:0" -> "cuda")
++        self.device = self.device.split(":")[0]
+         if self.random_seed is None:
+             self.random_seed = random.randint(0, 1 << 30)
+         if self.mm_process_config is None:

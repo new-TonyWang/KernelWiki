@@ -1,0 +1,95 @@
+origin_url: https://github.com/sgl-project/sglang/pull/20012
+upstream_repo: sgl-project/sglang
+upstream_sha: f88acf87
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sglang-20012
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 747b0191c859b9d44a66ec7a04944f54ba057d575c1df3e1b0f9eed4ecd5fee6
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_expert_quant.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_expert_quant.cuh
+  sha256: c352da09792d5522d1e80986191845f4a08fae697dfe11ba474738c4006b577b
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_quant.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_quant.cuh
+  sha256: 4887be7995f9fac75711f67525d135c15e986bc80b4572cf5756347751c61308
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_quant_entry.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_quant_entry.cuh
+  sha256: 548e81ae637a19db1eebed18028d281e3f6b7bafd9d88dadac3efcc0061d7611
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_quant_kernels.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_quant_kernels.cuh
+  sha256: 0b65dc56af7779e9cef346691360d72bf3c13c2a992af185cbc1b4c0f90d5da9
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_scaled_mm_entry.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_scaled_mm_entry.cuh
+  sha256: bf77edb6d75872d258e7a3cd4bb0d15b53b16154ca7e6ef020710385afd01ce3
+- local_path: key-files/python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_scaled_mm_kernels.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/gemm/nvfp4/nvfp4_scaled_mm_kernels.cuh
+  sha256: ccb390d4b730bdce92eb0dbecce324ae4811afdb2ec132ec8c5c55a531e753cb
+- local_path: key-files/python/sglang/jit_kernel/csrc/moe/nvfp4_blockwise_moe.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/csrc/moe/nvfp4_blockwise_moe.cuh
+  sha256: 4ef5e5cc4d457e07acfbc95a54269d9b1bd5534ba32a311962501045d5101132
+- local_path: key-files/python/sglang/jit_kernel/nvfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sglang/jit_kernel/nvfp4.py
+  sha256: bc8271af318236dd6034ca179c798afd88a443c3370311b5e8a328d4aa08a90a
+- local_path: key-files/sgl-kernel/csrc/common_extension.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/common_extension.cc
+  sha256: 9a429358eed5a756af382a2aa39eb8b43faf769abd7bf09ab9c4081df43cd042
+- local_path: key-files/sgl-kernel/csrc/gemm/nvfp4_quant_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/nvfp4_quant_entry.cu
+  sha256: e4b8c28bf8ac56e6814de7bb21c47e9a462dd8efb45d8351e9b11d66c649d10e
+  upstream_sha: 04e364d538bb92e433ecc7479c1f303a8a1c6ddf
+  captured_at_base_sha_note: 'PR #20012 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/sgl-kernel/csrc/gemm/nvfp4_scaled_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/csrc/gemm/nvfp4_scaled_mm_entry.cu
+  sha256: 2e5641752c3981d2ed51b63680ba3a8f31f6b31fee3bf5c3daded84281c13291
+  upstream_sha: 04e364d538bb92e433ecc7479c1f303a8a1c6ddf
+  captured_at_base_sha_note: 'PR #20012 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/sgl-kernel/include/sgl_kernel_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/include/sgl_kernel_ops.h
+  sha256: 473e33e87f4b4d76900f8b90a4323bfc7564387dc5f5170c14633ec14b6743ef
+- local_path: key-files/sgl-kernel/python/sgl_kernel/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/python/sgl_kernel/__init__.py
+  sha256: 144da85370fdc2df3b4303f60c5fa69313d994aaa583c11e565f9bc8aa2a01f8
+- local_path: key-files/sgl-kernel/python/sgl_kernel/gemm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/python/sgl_kernel/gemm.py
+  sha256: f789777dde5323e0e4a9719f3a28b7d2198d1688ab605e09083acc08e81147ca
+- local_path: key-files/sgl-kernel/python/sgl_kernel/moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: sgl-kernel/python/sgl_kernel/moe.py
+  sha256: 3ca21366501029466982c4be6bea0632cf0d9c02b85718108832962fa5127aa1

@@ -1,0 +1,2339 @@
+diff --git a/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh b/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+index eb6719d3f5..532686900b 100644
+--- a/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
++++ b/csrc/fused_moe/cutlass_backend/cutlass_fused_moe_kernels.cuh
+@@ -24,6 +24,7 @@
+ #include <numeric>
+ #include <random>
+ #include <sstream>
++#include <type_traits>
+ 
+ #include "tensorrt_llm/common/memoryUtils.h"
+ #include "tensorrt_llm/common/workspace.h"
+@@ -74,6 +75,63 @@ namespace tensorrt_llm::kernels::cutlass_kernels {
+ 
+ constexpr int CVT_ELTS_PER_THREAD = 8;
+ 
++template <typename Fn>
++auto dispatchNVFP44Over6Config(Fn&& fn) {
++  bool const use4Over6 = tensorrt_llm::common::getEnvNVFP4Use4Over6();
++  bool const disableFP4QuantFastMath = tensorrt_llm::common::getEnvDisableFP4QuantFastMath();
++
++  auto dispatchDisableFastMath = [&](auto e4m3MaxTag, auto errModeTag, auto errUseFastMathTag) {
++    if (disableFP4QuantFastMath) {
++      return fn(std::true_type{},
++                NVFP44Over6Config<decltype(e4m3MaxTag)::value, decltype(errModeTag)::value,
++                                  decltype(errUseFastMathTag)::value>{});
++    }
++    return fn(std::false_type{},
++              NVFP44Over6Config<decltype(e4m3MaxTag)::value, decltype(errModeTag)::value,
++                                decltype(errUseFastMathTag)::value>{});
++  };
++
++  if (use4Over6) {
++    NVFP44Over6ErrMode const errMode = tensorrt_llm::common::getEnvNVFP44Over6ErrMode();
++    bool const errUseFastMath = tensorrt_llm::common::getEnvNVFP44Over6ErrUseFastMath();
++    int e4m3Max = 448;
++    if (tensorrt_llm::common::getEnvNVFP44Over6E4M3Use256()) {
++      e4m3Max = 256;
++    }
++
++    auto dispatchErrUseFastMath = [&](auto e4m3MaxTag, auto errModeTag) {
++      if (errUseFastMath) {
++        return dispatchDisableFastMath(e4m3MaxTag, errModeTag, std::true_type{});
++      }
++      return dispatchDisableFastMath(e4m3MaxTag, errModeTag, std::false_type{});
++    };
++    auto dispatchErrMode = [&](auto e4m3MaxTag) {
++      switch (errMode) {
++        case NVFP44Over6ErrMode::MAE:
++          return dispatchErrUseFastMath(
++              e4m3MaxTag, std::integral_constant<NVFP44Over6ErrMode, NVFP44Over6ErrMode::MAE>{});
++        case NVFP44Over6ErrMode::MSE:
++          return dispatchErrUseFastMath(
++              e4m3MaxTag, std::integral_constant<NVFP44Over6ErrMode, NVFP44Over6ErrMode::MSE>{});
++        default:
++          TLLM_CHECK_WITH_INFO(false, "Unsupported NVFP4 4over6 error mode.");
++          return dispatchErrUseFastMath(
++              e4m3MaxTag, std::integral_constant<NVFP44Over6ErrMode, NVFP44Over6ErrMode::MAE>{});
++      }
++    };
++    if (e4m3Max == 256) {
++      return dispatchErrMode(std::integral_constant<int, 256>{});
++    }
++    TLLM_CHECK_WITH_INFO(e4m3Max == 448, "Unsupported NVFP4 4over6 E4M3 max.");
++    return dispatchErrMode(std::integral_constant<int, 448>{});
++  }
++
++  if (disableFP4QuantFastMath) {
++    return fn(std::true_type{}, std::false_type{});
++  }
++  return fn(std::false_type{}, std::false_type{});
++}
++
+ /**
+  * Takes the input maps and prepares the expanded maps for min latency
+  * @param num_active_experts_per_node: Number of active experts on current node
+@@ -959,7 +1017,8 @@ __host__ __device__ constexpr int64_t getOffsetActivationSF(
+   return 0;
+ }
+ 
+-template <class GemmOutputType, class QuantizedType, class ComputeElem, int VecSize>
++template <class GemmOutputType, class QuantizedType, class ComputeElem, int VecSize,
++          bool DISABLE_FP4_QUANT_FAST_MATH = false, typename NVFP4_4OVER6_CONFIG = std::false_type>
+ __device__ auto quantizePackedFPXValue(
+     ComputeElem& post_act_val, float global_scale_val, int64_t num_tokens_before_expert,
+     int64_t expert_id, int64_t token_id, int64_t elem_idx, int64_t num_cols,
+@@ -997,9 +1056,12 @@ __device__ auto quantizePackedFPXValue(
+         return cvt_warp_fp16_to_mxfp8<GemmOutputType, VecSize, CVT_ELTS_PER_THREAD>(vec, SFout);
+       };
+     } else {
+-      return (scaling_type == TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NVFP4)
+-                 ? &cvt_warp_fp16_to_fp4<GemmOutputType, VecSize, CVT_ELTS_PER_THREAD, false>
+-                 : &cvt_warp_fp16_to_fp4<GemmOutputType, VecSize, CVT_ELTS_PER_THREAD, true>;
++      if (scaling_type == TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NVFP4) {
++        return &cvt_warp_fp16_to_fp4<GemmOutputType, VecSize, CVT_ELTS_PER_THREAD, false,
++                                     DISABLE_FP4_QUANT_FAST_MATH, NVFP4_4OVER6_CONFIG>;
++      }
++      return &cvt_warp_fp16_to_fp4<GemmOutputType, VecSize, CVT_ELTS_PER_THREAD, true,
++                                   DISABLE_FP4_QUANT_FAST_MATH>;
+     }
+   }();
+ 
+@@ -1362,7 +1424,8 @@ constexpr static int EXPAND_THREADS_PER_BLOCK = 256;
+ 
+ template <class InputActivationsType, class ExpandedActivationsType,
+           TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType BlockScalingType,
+-          bool PRE_QUANT_AWQ>
++          bool PRE_QUANT_AWQ, bool DISABLE_FP4_QUANT_FAST_MATH = false,
++          typename NVFP4_4OVER6_CONFIG = std::false_type>
+ __global__ void expandInputRowsKernel(
+     InputActivationsType const* unpermuted_input, ExpandedActivationsType* permuted_output,
+     float const* unpermuted_scales, float* permuted_scales,
+@@ -1399,6 +1462,10 @@ __global__ void expandInputRowsKernel(
+                     std::is_same_v<InputActivationsType, ExpandedActivationsType>,
+                 "Only NVFP4, MXFP8 and WINT4_AFP8 supports outputting a different format as part "
+                 "of the expansion");
++  static_assert(
++      !IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value ||
++          BlockScalingType == TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NVFP4,
++      "NVFP4 4over6 requires NVFP4 block scaling");
+ 
+ #if (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 900))
+   cudaGridDependencySynchronize();
+@@ -1466,12 +1533,13 @@ __global__ void expandInputRowsKernel(
+       for (int elem_index = start_offset; elem_index < num_elems_in_col; elem_index += stride) {
+         auto in_vec = source_row_ptr[elem_index];
+         if constexpr (need_nvfp4_quant || need_mxfp8_quant) {
+-          auto res = quantizePackedFPXValue<InputActivationsType, ExpandedActivationsType, DataElem,
+-                                            VecSize>(
+-              in_vec, global_scale_val, num_tokens_before_expert, expert, permuted_row, elem_index,
+-              padded_hidden_size, fc1_act_sf_flat,
+-              is_nvfp4 ? TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NVFP4
+-                       : TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::MXFPX);
++          auto res =
++              quantizePackedFPXValue<InputActivationsType, ExpandedActivationsType, DataElem,
++                                     VecSize, DISABLE_FP4_QUANT_FAST_MATH, NVFP4_4OVER6_CONFIG>(
++                  in_vec, global_scale_val, num_tokens_before_expert, expert, permuted_row,
++                  elem_index, padded_hidden_size, fc1_act_sf_flat,
++                  is_nvfp4 ? TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NVFP4
++                           : TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::MXFPX);
+           static_assert(sizeof(res) == sizeof(*dest_row_ptr),
+                         "Quantized value must be the same size as the output");
+           dest_row_ptr[elem_index] = res;
+@@ -1593,9 +1661,13 @@ void expandInputRowsKernelLauncher(
+       TLLM_CHECK_WITH_INFO(quant_params.fp4.fc1.weight_block_scale,
+                            "NVFP4 block scaling is expected for FP4xFP4");
+       TLLM_CHECK_WITH_INFO(!prequant_scales, "NVFP4 is not supported for AWQ");
+-      return &expandInputRowsKernel<InputActivationsType, ExpandedActivationsType,
+-                                    TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NVFP4,
+-                                    false>;
++      return dispatchNVFP44Over6Config(
++          [&](auto disableFP4QuantFastMathTag, auto nvfp4_4over6_config_tag) {
++            return &expandInputRowsKernel<
++                InputActivationsType, ExpandedActivationsType,
++                TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NVFP4, false,
++                decltype(disableFP4QuantFastMathTag)::value, decltype(nvfp4_4over6_config_tag)>;
++          });
+     } else
+ #endif
+     {
+@@ -2038,7 +2110,8 @@ void doGatedActivation(ActivationOutputType* output, GemmOutputType const* gemm_
+ // ============================== Activation =================================
+ 
+ template <class T, class GemmOutputType, class ScaleBiasType, class ActFn,
+-          TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType BlockScalingType>
++          TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType BlockScalingType,
++          bool DISABLE_FP4_QUANT_FAST_MATH = false, typename NVFP4_4OVER6_CONFIG = std::false_type>
+ __global__ __launch_bounds__(ACTIVATION_THREADS_PER_BLOCK) void doActivationKernel(
+     T* output, GemmOutputType const* gemm_result, float const* fp8_quant,
+     ScaleBiasType const* bias_ptr, bool bias_is_broadcast, int64_t const* expert_first_token_offset,
+@@ -2070,6 +2143,8 @@ __global__ __launch_bounds__(ACTIVATION_THREADS_PER_BLOCK) void doActivationKern
+       (IsNVFP4 || IsMXFP8)
+           ? CVT_ELTS_PER_THREAD
+           : (128 / std::min(sizeof_bits<T>::value, sizeof_bits<GemmOutputType>::value));
++  static_assert(!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value || IsNVFP4,
++                "NVFP4 4over6 requires NVFP4 block scaling");
+ 
+   // This should be VecSize * 4 elements
+   // We assume at least VecSize alignment or the quantization will fail
+@@ -2166,7 +2241,8 @@ __global__ __launch_bounds__(ACTIVATION_THREADS_PER_BLOCK) void doActivationKern
+       if constexpr (IsNVFP4 || IsMXFP8) {
+         // We use GemmOutputType as the intermediate compute type as that should always be
+         // unquantized
+-        auto res = quantizePackedFPXValue<GemmOutputType, T, ComputeElem, VecSize>(
++        auto res = quantizePackedFPXValue<GemmOutputType, T, ComputeElem, VecSize,
++                                          DISABLE_FP4_QUANT_FAST_MATH, NVFP4_4OVER6_CONFIG>(
+             post_act_val, global_scale_val, num_tokens_before_expert, expert, token, elem_index,
+             inter_size, fc2_act_sf_flat,
+             IsNVFP4 ? TmaWarpSpecializedGroupedGemmInput::FpXBlockScalingType::NVFP4
+@@ -2223,31 +2299,42 @@ void doActivation(T* output, GemmOutputType const* gemm_result, float const* fp8
+   int64_t const threads = ACTIVATION_THREADS_PER_BLOCK;
+ 
+   auto fn = [&]() {
+-    auto fn = [&](auto block_scaling_type) {
++    auto fn = [&](auto block_scaling_type, auto disableFP4QuantFastMathTag,
++                  auto nvfp4_4over6_config_tag) {
+       auto fn_list = std::array{
+-          &doActivationKernel<T, GemmOutputType, ScaleBiasType,
+-                              IdentityAdaptor<cutlass::epilogue::thread::GELU>,
+-                              decltype(block_scaling_type)::value>,  // Gelu
+-          &doActivationKernel<T, GemmOutputType, ScaleBiasType,
+-                              IdentityAdaptor<cutlass::epilogue::thread::ReLu>,
+-                              decltype(block_scaling_type)::value>,  // Relu
+-          &doActivationKernel<T, GemmOutputType, ScaleBiasType,
+-                              IdentityAdaptor<cutlass::epilogue::thread::SiLu>,
+-                              decltype(block_scaling_type)::value>,  // Silu
+-          &doActivationKernel<T, GemmOutputType, ScaleBiasType,
+-                              GLUAdaptor<cutlass::epilogue::thread::SiLu>,
+-                              decltype(block_scaling_type)::value>,  // Swiglu
+-          &doActivationKernel<T, GemmOutputType, ScaleBiasType,
+-                              GLUAdaptor<cutlass::epilogue::thread::GELU>,
+-                              decltype(block_scaling_type)::value>,  // Geglu
++          &doActivationKernel<
++              T, GemmOutputType, ScaleBiasType, IdentityAdaptor<cutlass::epilogue::thread::GELU>,
++              decltype(block_scaling_type)::value, decltype(disableFP4QuantFastMathTag)::value,
++              decltype(nvfp4_4over6_config_tag)>,  // Gelu
++          &doActivationKernel<
++              T, GemmOutputType, ScaleBiasType, IdentityAdaptor<cutlass::epilogue::thread::ReLu>,
++              decltype(block_scaling_type)::value, decltype(disableFP4QuantFastMathTag)::value,
++              decltype(nvfp4_4over6_config_tag)>,  // Relu
++          &doActivationKernel<
++              T, GemmOutputType, ScaleBiasType, IdentityAdaptor<cutlass::epilogue::thread::SiLu>,
++              decltype(block_scaling_type)::value, decltype(disableFP4QuantFastMathTag)::value,
++              decltype(nvfp4_4over6_config_tag)>,  // Silu
++          &doActivationKernel<
++              T, GemmOutputType, ScaleBiasType, GLUAdaptor<cutlass::epilogue::thread::SiLu>,
++              decltype(block_scaling_type)::value, decltype(disableFP4QuantFastMathTag)::value,
++              decltype(nvfp4_4over6_config_tag)>,  // Swiglu
++          &doActivationKernel<
++              T, GemmOutputType, ScaleBiasType, GLUAdaptor<cutlass::epilogue::thread::GELU>,
++              decltype(block_scaling_type)::value, decltype(disableFP4QuantFastMathTag)::value,
++              decltype(nvfp4_4over6_config_tag)>,  // Geglu
+           &doActivationKernel<T, GemmOutputType, ScaleBiasType, SwigluBiasAdaptor,
+-                              decltype(block_scaling_type)::value>,  // SwigluBias
+-          &doActivationKernel<T, GemmOutputType, ScaleBiasType,
+-                              IdentityAdaptor<cutlass::epilogue::thread::Relu2>,
+-                              decltype(block_scaling_type)::value>,  // Relu2
++                              decltype(block_scaling_type)::value,
++                              decltype(disableFP4QuantFastMathTag)::value,
++                              decltype(nvfp4_4over6_config_tag)>,  // SwigluBias
++          &doActivationKernel<
++              T, GemmOutputType, ScaleBiasType, IdentityAdaptor<cutlass::epilogue::thread::Relu2>,
++              decltype(block_scaling_type)::value, decltype(disableFP4QuantFastMathTag)::value,
++              decltype(nvfp4_4over6_config_tag)>,  // Relu2
+           &doActivationKernel<T, GemmOutputType, ScaleBiasType,
+                               IdentityAdaptor<cutlass::epilogue::thread::Identity>,
+-                              decltype(block_scaling_type)::value>  // Identity
++                              decltype(block_scaling_type)::value,
++                              decltype(disableFP4QuantFastMathTag)::value,
++                              decltype(nvfp4_4over6_config_tag)>  // Identity
+       };
+       return fn_list[static_cast<int>(activation_type.activation_type)];
+     };
+@@ -2266,16 +2353,19 @@ void doActivation(T* output, GemmOutputType const* gemm_result, float const* fp8
+     if constexpr (std::is_same_v<T, __nv_fp4_e2m1>) {
+       TLLM_CHECK_WITH_INFO(quant_params.fp4.fc2.weight_block_scale,
+                            "NVFP4 block scaling is expected for FP4xFP4");
+-      return fn(NVFP4);
++      return dispatchNVFP44Over6Config(
++          [&](auto disableFP4QuantFastMathTag, auto nvfp4_4over6_config_tag) {
++            return fn(NVFP4, disableFP4QuantFastMathTag, nvfp4_4over6_config_tag);
++          });
+     } else if constexpr (std::is_same_v<T, __nv_fp8_e4m3>) {
+       return (quant_params.mxfp8_mxfp4.fc2.weight_block_scale ||
+               quant_params.mxfp8_mxfp8.fc2.weight_block_scale)
+-                 ? fn(MXFPX)
+-                 : fn(NONE);
++                 ? fn(MXFPX, std::false_type{}, std::false_type{})
++                 : fn(NONE, std::false_type{}, std::false_type{});
+     } else
+ #endif
+     {
+-      return fn(NONE);
++      return fn(NONE, std::false_type{}, std::false_type{});
+     }
+   }();
+ 
+diff --git a/csrc/nv_internal/cpp/common/envUtils.cpp b/csrc/nv_internal/cpp/common/envUtils.cpp
+index 6cc5584102..31b7a49402 100644
+--- a/csrc/nv_internal/cpp/common/envUtils.cpp
++++ b/csrc/nv_internal/cpp/common/envUtils.cpp
+@@ -21,6 +21,7 @@
+ #include <cstdlib>
+ #include <mutex>
+ #include <optional>
++#include <stdexcept>
+ #include <string>
+ 
+ #include "tensorrt_llm/common/cudaUtils.h"
+@@ -359,9 +360,29 @@ bool getEnvEplbForceGdrcopy() {
+   return forceGdrcopy;
+ }
+ 
+-bool getEnvDisableFP4QuantFastMath() {
+-  static bool const disableFP4QuantFastMath = getBoolEnv("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH");
+-  return disableFP4QuantFastMath;
++bool getEnvDisableFP4QuantFastMath() { return getBoolEnv("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH"); }
++
++bool getEnvNVFP4Use4Over6() { return getBoolEnv("FLASHINFER_NVFP4_4OVER6"); }
++
++NVFP44Over6ErrMode getEnvNVFP44Over6ErrMode() {
++  auto mode = getStrEnv("FLASHINFER_NVFP4_4OVER6_ERR_MODE");
++  if (!mode.has_value()) {
++    return NVFP44Over6ErrMode::MAE;
++  }
++  toUpper(*mode);
++  if (*mode == "MAE") {
++    return NVFP44Over6ErrMode::MAE;
++  }
++  if (*mode == "MSE") {
++    return NVFP44Over6ErrMode::MSE;
++  }
++  throw std::invalid_argument("FLASHINFER_NVFP4_4OVER6_ERR_MODE must be MAE or MSE.");
++}
++
++bool getEnvNVFP44Over6ErrUseFastMath() {
++  return getBoolEnv("FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH");
+ }
+ 
++bool getEnvNVFP44Over6E4M3Use256() { return getBoolEnv("FLASHINFER_NVFP4_4OVER6_E4M3_USE_256"); }
++
+ }  // namespace tensorrt_llm::common
+diff --git a/csrc/nv_internal/cpp/kernels/quantization.cu b/csrc/nv_internal/cpp/kernels/quantization.cu
+index 6af32fccf3..dc85ffc5d1 100644
+--- a/csrc/nv_internal/cpp/kernels/quantization.cu
++++ b/csrc/nv_internal/cpp/kernels/quantization.cu
+@@ -19,6 +19,7 @@
+ #include <float.h>
+ 
+ #include <cub/cub.cuh>
++#include <type_traits>
+ 
+ #include "tensorrt_llm/common/assert.h"
+ #include "tensorrt_llm/common/cudaTypeUtils.cuh"
+@@ -89,6 +90,117 @@ inline int computeEffectiveRows(int m, QuantizationSFLayout layout) {
+   return effectiveRows;
+ }
+ 
++template <typename Fn>
++void dispatchBool(bool value, Fn&& fn) {
++  if (value) {
++    fn(std::true_type{});
++  } else {
++    fn(std::false_type{});
++  }
++}
++
++template <typename Fn>
++void dispatchSFLayout(QuantizationSFLayout layout, Fn&& fn) {
++  switch (layout) {
++    case QuantizationSFLayout::LINEAR:
++      fn(std::integral_constant<QuantizationSFLayout, QuantizationSFLayout::LINEAR>{});
++      break;
++    case QuantizationSFLayout::SWIZZLED_128x4:
++      fn(std::integral_constant<QuantizationSFLayout, QuantizationSFLayout::SWIZZLED_128x4>{});
++      break;
++    case QuantizationSFLayout::SWIZZLED_8x4:
++      fn(std::integral_constant<QuantizationSFLayout, QuantizationSFLayout::SWIZZLED_8x4>{});
++      break;
++    default:
++      TLLM_CHECK_WITH_INFO(false,
++                           "Unsupported QuantizationSFLayout. Supported values are: LINEAR,"
++                           " SWIZZLED_128x4 and SWIZZLED_8x4.");
++  }
++}
++
++template <typename Fn>
++void dispatchNVFP44Over6Config(std::false_type, bool disableFP4QuantFastMath, NVFP44Over6ErrMode,
++                               bool, int, Fn&& fn) {
++  dispatchBool(disableFP4QuantFastMath, [&](auto disableFP4QuantFastMathTag) {
++    fn(disableFP4QuantFastMathTag, std::false_type{});
++  });
++}
++
++template <typename Fn>
++void dispatchNVFP44Over6Config(std::true_type, bool disableFP4QuantFastMath,
++                               NVFP44Over6ErrMode errMode, bool errUseFastMath, int e4m3Max,
++                               Fn&& fn) {
++  dispatchBool(disableFP4QuantFastMath, [&](auto disableFP4QuantFastMathTag) {
++    auto launchWithE4M3Max = [&](auto e4m3MaxTag) {
++      auto launchWithErrMode = [&](auto errModeTag) {
++        dispatchBool(errUseFastMath, [&](auto errUseFastMathTag) {
++          fn(disableFP4QuantFastMathTag,
++             NVFP44Over6Config<decltype(e4m3MaxTag)::value, decltype(errModeTag)::value,
++                               decltype(errUseFastMathTag)::value>{});
++        });
++      };
++      switch (errMode) {
++        case NVFP44Over6ErrMode::MAE:
++          return launchWithErrMode(
++              std::integral_constant<NVFP44Over6ErrMode, NVFP44Over6ErrMode::MAE>{});
++        case NVFP44Over6ErrMode::MSE:
++          return launchWithErrMode(
++              std::integral_constant<NVFP44Over6ErrMode, NVFP44Over6ErrMode::MSE>{});
++        default:
++          TLLM_CHECK_WITH_INFO(false, "Unsupported NVFP4 4over6 error mode.");
++      }
++    };
++
++    if (e4m3Max == 256) {
++      launchWithE4M3Max(std::integral_constant<int, 256>{});
++    } else {
++      TLLM_CHECK_WITH_INFO(e4m3Max == 448, "Unsupported NVFP4 4over6 E4M3 max.");
++      launchWithE4M3Max(std::integral_constant<int, 448>{});
++    }
++  });
++}
++
++template <BlockScaleQuantizationType QUANTIZATION_TYPE, int SF_VEC_SIZE, typename Fn>
++void dispatchFP4KernelConfig(bool useUE8M0, bool useRowWiseScale, bool use4Over6, bool inverseScale,
++                             bool disableFP4QuantFastMath, NVFP44Over6ErrMode errMode,
++                             bool errUseFastMath, int e4m3Max, Fn&& fn) {
++  dispatchBool(useRowWiseScale, [&](auto useRowWiseScaleTag) {
++    dispatchBool(inverseScale, [&](auto useInverseScaleTag) {
++      if (useUE8M0) {
++        dispatchNVFP44Over6Config(
++            std::false_type{}, disableFP4QuantFastMath, NVFP44Over6ErrMode::MAE, false, 448,
++            [&](auto disableFP4QuantFastMathTag, auto nvfp4_4over6_config_tag) {
++              fn(std::true_type{}, useRowWiseScaleTag, useInverseScaleTag,
++                 disableFP4QuantFastMathTag, nvfp4_4over6_config_tag);
++            });
++      } else {
++        if constexpr (QUANTIZATION_TYPE == BlockScaleQuantizationType::FP16_TO_FP4 &&
++                      SF_VEC_SIZE == 16) {
++          auto launchWithoutUE8M0 = [&](auto disableFP4QuantFastMathTag,
++                                        auto nvfp4_4over6_config_tag) {
++            fn(std::false_type{}, useRowWiseScaleTag, useInverseScaleTag,
++               disableFP4QuantFastMathTag, nvfp4_4over6_config_tag);
++          };
++          if (use4Over6) {
++            dispatchNVFP44Over6Config(std::true_type{}, disableFP4QuantFastMath, errMode,
++                                      errUseFastMath, e4m3Max, launchWithoutUE8M0);
++          } else {
++            dispatchNVFP44Over6Config(std::false_type{}, disableFP4QuantFastMath, errMode,
++                                      errUseFastMath, e4m3Max, launchWithoutUE8M0);
++          }
++        } else {
++          dispatchNVFP44Over6Config(
++              std::false_type{}, disableFP4QuantFastMath, NVFP44Over6ErrMode::MAE, false, 448,
++              [&](auto disableFP4QuantFastMathTag, auto nvfp4_4over6_config_tag) {
++                fn(std::false_type{}, useRowWiseScaleTag, useInverseScaleTag,
++                   disableFP4QuantFastMathTag, nvfp4_4over6_config_tag);
++              });
++        }
++      }
++    });
++  });
++}
++
+ ////////////////////////////////////////////////////////////////////////////////////////////////////
+ // MXFP8 Quantization
+ 
+@@ -236,19 +348,6 @@ CUtensorMap make_3d_tma_copy_desc(T* global_address, uint64_t gmem_dim[3],
+ ////////////////////////////////////////////////////////////////////////////////////////////////////
+ // Per-token Nvfp4 kernel
+ 
+-#define DISPATCH_NVP4_QUANT_AND_PER_TOKEN_SCALE_KERNEL(SF_LAYOUT, DISABLE_FP4_QUANT_FAST_MATH)    \
+-  if constexpr (std::is_same_v<T, float>)                                                         \
+-    nvfp4QuantAndPerTokenScaleFP32Kernel<BLOCK_SIZE, QuantizationSFLayout::SF_LAYOUT>             \
+-        <<<grid, block, smem_size, stream>>>(m, n, input, globalScaleInv,                         \
+-                                             expandedIdxToPermutedIdx, weightOutput, scaleOutput, \
+-                                             perTokenScaleOutput);                                \
+-  else                                                                                            \
+-    nvfp4QuantAndPerTokenScaleKernel<T, BLOCK_SIZE, QuantizationSFLayout::SF_LAYOUT,              \
+-                                     /*CACHE_INPUT*/ false, DISABLE_FP4_QUANT_FAST_MATH>          \
+-        <<<grid, block, smem_size, stream>>>(m, n, input, globalScaleInv,                         \
+-                                             expandedIdxToPermutedIdx, weightOutput, scaleOutput, \
+-                                             perTokenScaleOutput);
+-
+ template <typename T>
+ void invokeNvfp4QuantAndPerTokenScale(uint32_t m, uint32_t n, T const* input, float globalScaleInv,
+                                       int32_t* expandedIdxToPermutedIdx, uint8_t* weightOutput,
+@@ -268,34 +367,49 @@ void invokeNvfp4QuantAndPerTokenScale(uint32_t m, uint32_t n, T const* input, fl
+   }
+   dim3 block(BLOCK_SIZE);
+   dim3 grid(m);
+-  bool disableFP4QuantFastMath = tensorrt_llm::common::getEnvDisableFP4QuantFastMath();
+-  switch (sfLayout) {
+-    case QuantizationSFLayout::LINEAR:
+-      if (disableFP4QuantFastMath) {
+-        DISPATCH_NVP4_QUANT_AND_PER_TOKEN_SCALE_KERNEL(LINEAR, true);
+-      } else {
+-        DISPATCH_NVP4_QUANT_AND_PER_TOKEN_SCALE_KERNEL(LINEAR, false);
+-      }
+-      break;
+-    case QuantizationSFLayout::SWIZZLED_128x4:
+-      if (disableFP4QuantFastMath) {
+-        DISPATCH_NVP4_QUANT_AND_PER_TOKEN_SCALE_KERNEL(SWIZZLED_128x4, true);
+-      } else {
+-        DISPATCH_NVP4_QUANT_AND_PER_TOKEN_SCALE_KERNEL(SWIZZLED_128x4, false);
+-      }
+-      break;
+-    case QuantizationSFLayout::SWIZZLED_8x4:
+-      if (disableFP4QuantFastMath) {
+-        DISPATCH_NVP4_QUANT_AND_PER_TOKEN_SCALE_KERNEL(SWIZZLED_8x4, true);
+-      } else {
+-        DISPATCH_NVP4_QUANT_AND_PER_TOKEN_SCALE_KERNEL(SWIZZLED_8x4, false);
++  bool const disableFP4QuantFastMath = tensorrt_llm::common::getEnvDisableFP4QuantFastMath();
++  bool const use4Over6 = tensorrt_llm::common::getEnvNVFP4Use4Over6();
++
++  auto launchKernel = [&](auto sfLayoutTag, auto disableFP4QuantFastMathTag,
++                          auto nvfp4_4over6_config_tag) {
++    constexpr QuantizationSFLayout SF_LAYOUT = decltype(sfLayoutTag)::value;
++
++    if constexpr (std::is_same_v<T, float>) {
++      TLLM_CHECK_WITH_INFO(!IsNVFP44Over6Config<decltype(nvfp4_4over6_config_tag)>::value,
++                           "FLASHINFER_NVFP4_4OVER6 requires fp16 or bf16 input");
++      nvfp4QuantAndPerTokenScaleFP32Kernel<BLOCK_SIZE, SF_LAYOUT>
++          <<<grid, block, smem_size, stream>>>(m, n, input, globalScaleInv,
++                                               expandedIdxToPermutedIdx, weightOutput, scaleOutput,
++                                               perTokenScaleOutput);
++    } else {
++      nvfp4QuantAndPerTokenScaleKernel<T, BLOCK_SIZE, SF_LAYOUT,
++                                       /*CACHE_INPUT*/ false,
++                                       decltype(disableFP4QuantFastMathTag)::value,
++                                       decltype(nvfp4_4over6_config_tag)>
++          <<<grid, block, smem_size, stream>>>(m, n, input, globalScaleInv,
++                                               expandedIdxToPermutedIdx, weightOutput, scaleOutput,
++                                               perTokenScaleOutput);
++    }
++  };
++
++  dispatchSFLayout(sfLayout, [&](auto sfLayoutTag) {
++    auto launchWithLayout = [&](auto disableFP4QuantFastMathTag, auto nvfp4_4over6_config_tag) {
++      launchKernel(sfLayoutTag, disableFP4QuantFastMathTag, nvfp4_4over6_config_tag);
++    };
++    if (use4Over6) {
++      NVFP44Over6ErrMode const errMode = tensorrt_llm::common::getEnvNVFP44Over6ErrMode();
++      bool const errUseFastMath = tensorrt_llm::common::getEnvNVFP44Over6ErrUseFastMath();
++      int e4m3Max = 448;
++      if (tensorrt_llm::common::getEnvNVFP44Over6E4M3Use256()) {
++        e4m3Max = 256;
+       }
+-      break;
+-    default:
+-      TLLM_CHECK_WITH_INFO(false,
+-                           "Unsupported QuantizationSFLayout. Supported values are: LINEAR,"
+-                           " SWIZZLED_128x4 and SWIZZLED_8x4.");
+-  }
++      dispatchNVFP44Over6Config(std::true_type{}, disableFP4QuantFastMath, errMode, errUseFastMath,
++                                e4m3Max, launchWithLayout);
++    } else {
++      dispatchNVFP44Over6Config(std::false_type{}, disableFP4QuantFastMath, NVFP44Over6ErrMode::MAE,
++                                false, 448, launchWithLayout);
++    }
++  });
+ }
+ 
+ // Instantiate the function.
+@@ -322,7 +436,9 @@ template <BlockScaleQuantizationType quantization_type, typename T, int SF_VEC_S
+ void launchFP4QuantizationTma(int b, int m, int n, T const* input, float const* SFScale,
+                               int64_t* output, int32_t* SFOutput, bool useUE8M0,
+                               QuantizationSFLayout layout, int multiProcessorCount, bool enable_pdl,
+-                              bool use_row_wise_scale, bool inverse_scale, cudaStream_t stream) {
++                              bool use_row_wise_scale, bool use4Over6, bool inverse_scale,
++                              bool disableFP4QuantFastMath, NVFP44Over6ErrMode errMode,
++                              bool errUseFastMath, int e4m3Max, cudaStream_t stream) {
+   using Traits = TmaKernelTraits<T>;
+   constexpr int TMA_ROW_TILE = Traits::TMA_ROW_TILE;
+   constexpr int TMA_COL_TILE = Traits::TMA_COL_TILE;
+@@ -382,52 +498,22 @@ void launchFP4QuantizationTma(int b, int m, int n, T const* input, float const*
+   attrs[0].val.programmaticStreamSerializationAllowed = enable_pdl;
+   config.numAttrs = 1;
+   config.attrs = attrs;
+-  if (use_row_wise_scale) {
+-    if (inverse_scale) {
+-      auto* kernel_instance =
+-          useUE8M0
+-              ? &quantize_with_block_size_tma<quantization_type, T, SF_VEC_SIZE, true, true, true>
+-              : &quantize_with_block_size_tma<quantization_type, T, SF_VEC_SIZE, false, true, true>;
+-
+-      // Set max dynamic shared memory for the kernel (required for > 48KB)
+-      cudaFuncSetAttribute(kernel_instance, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+-      cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
+-                         reinterpret_cast<uint32_t*>(output), reinterpret_cast<uint32_t*>(SFOutput),
+-                         layout, tensor_map);
+-    } else {
+-      auto* kernel_instance =
+-          useUE8M0
+-              ? &quantize_with_block_size_tma<quantization_type, T, SF_VEC_SIZE, true, true, false>
+-              : &quantize_with_block_size_tma<quantization_type, T, SF_VEC_SIZE, false, true,
+-                                              false>;
+-      cudaFuncSetAttribute(kernel_instance, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+-      cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
+-                         reinterpret_cast<uint32_t*>(output), reinterpret_cast<uint32_t*>(SFOutput),
+-                         layout, tensor_map);
+-    }
+-  } else {
+-    if (inverse_scale) {
+-      auto* kernel_instance =
+-          useUE8M0
+-              ? &quantize_with_block_size_tma<quantization_type, T, SF_VEC_SIZE, true, false, true>
+-              : &quantize_with_block_size_tma<quantization_type, T, SF_VEC_SIZE, false, false,
+-                                              true>;
+-      cudaFuncSetAttribute(kernel_instance, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+-      cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
+-                         reinterpret_cast<uint32_t*>(output), reinterpret_cast<uint32_t*>(SFOutput),
+-                         layout, tensor_map);
+-    } else {
+-      auto* kernel_instance =
+-          useUE8M0
+-              ? &quantize_with_block_size_tma<quantization_type, T, SF_VEC_SIZE, true, false, false>
+-              : &quantize_with_block_size_tma<quantization_type, T, SF_VEC_SIZE, false, false,
+-                                              false>;
+-      cudaFuncSetAttribute(kernel_instance, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+-      cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
+-                         reinterpret_cast<uint32_t*>(output), reinterpret_cast<uint32_t*>(SFOutput),
+-                         layout, tensor_map);
+-    }
+-  }
++
++  auto launchKernel = [&](auto useUE8M0Tag, auto useRowWiseScaleTag, auto useInverseScaleTag,
++                          auto disableFP4QuantFastMathTag, auto nvfp4_4over6_config_tag) {
++    auto* kernel_instance = &quantize_with_block_size_tma<
++        quantization_type, T, SF_VEC_SIZE, decltype(useUE8M0Tag)::value,
++        decltype(useRowWiseScaleTag)::value, decltype(useInverseScaleTag)::value,
++        decltype(disableFP4QuantFastMathTag)::value, decltype(nvfp4_4over6_config_tag)>;
++    cudaFuncSetAttribute(kernel_instance, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
++    cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
++                       reinterpret_cast<uint32_t*>(output), reinterpret_cast<uint32_t*>(SFOutput),
++                       layout, tensor_map);
++  };
++
++  dispatchFP4KernelConfig<quantization_type, SF_VEC_SIZE>(
++      useUE8M0, use_row_wise_scale, use4Over6, inverse_scale, disableFP4QuantFastMath, errMode,
++      errUseFastMath, e4m3Max, launchKernel);
+ }
+ 
+ template <typename T, int SF_VEC_SIZE>
+@@ -441,10 +527,11 @@ void invokeFP4Quantization(int b, int m, int n, T const* input, float const* SFS
+     // TODO: fix the issue when n is not a multiple of NUM_CONSUMER_WARPS * TMA_COL_TILE
+     constexpr int TMA_COL_CHUNK = 8 * 64;  // NUM_CONSUMER_WARPS * TMA_COL_TILE
+     if constexpr (SF_VEC_SIZE == 16) {
+-      if (SF_VEC_SIZE == 16 && m >= 1024 && n % TMA_COL_CHUNK == 0) {
++      if (m >= 1024 && n % TMA_COL_CHUNK == 0) {
+         launchFP4QuantizationTma<BlockScaleQuantizationType::FP8_TO_FP4, T, SF_VEC_SIZE>(
+             b, m, n, input, SFScale, output, SFOutput, useUE8M0, layout, multiProcessorCount,
+-            enable_pdl, use_row_wise_scale, inverse_scale, stream);
++            enable_pdl, use_row_wise_scale, false, inverse_scale, false, NVFP44Over6ErrMode::MAE,
++            false, 448, stream);
+         return;
+       }
+     }
+@@ -457,48 +544,20 @@ void invokeFP4Quantization(int b, int m, int n, T const* input, float const* SFS
+     int effectiveRows = computeEffectiveRows(m, layout);
+     dim3 grid(std::min(effectiveRows, multiProcessorCount * numBlocksPerSM));
+ 
+-    // Launch the cvt kernel.x
+-    if (use_row_wise_scale) {
+-      if (inverse_scale) {
+-        auto* kernel_instance =
+-            useUE8M0 ? &quantize_with_block_size<BlockScaleQuantizationType::FP8_TO_FP4, T,
+-                                                 SF_VEC_SIZE, true, true, true>
+-                     : &quantize_with_block_size<BlockScaleQuantizationType::FP8_TO_FP4, T,
+-                                                 SF_VEC_SIZE, false, true, true>;
+-        kernel_instance<<<grid, block, 0, stream>>>(b, m, n, n, input, SFScale,
+-                                                    reinterpret_cast<uint32_t*>(output),
+-                                                    reinterpret_cast<uint32_t*>(SFOutput), layout);
+-      } else {
+-        auto* kernel_instance =
+-            useUE8M0 ? &quantize_with_block_size<BlockScaleQuantizationType::FP8_TO_FP4, T,
+-                                                 SF_VEC_SIZE, true, true, false>
+-                     : &quantize_with_block_size<BlockScaleQuantizationType::FP8_TO_FP4, T,
+-                                                 SF_VEC_SIZE, false, true, false>;
+-        kernel_instance<<<grid, block, 0, stream>>>(b, m, n, n, input, SFScale,
+-                                                    reinterpret_cast<uint32_t*>(output),
+-                                                    reinterpret_cast<uint32_t*>(SFOutput), layout);
+-      }
+-    } else {
+-      if (inverse_scale) {
+-        auto* kernel_instance =
+-            useUE8M0 ? &quantize_with_block_size<BlockScaleQuantizationType::FP8_TO_FP4, T,
+-                                                 SF_VEC_SIZE, true, false, true>
+-                     : &quantize_with_block_size<BlockScaleQuantizationType::FP8_TO_FP4, T,
+-                                                 SF_VEC_SIZE, false, false, true>;
+-        kernel_instance<<<grid, block, 0, stream>>>(b, m, n, n, input, SFScale,
+-                                                    reinterpret_cast<uint32_t*>(output),
+-                                                    reinterpret_cast<uint32_t*>(SFOutput), layout);
+-      } else {
+-        auto* kernel_instance =
+-            useUE8M0 ? &quantize_with_block_size<BlockScaleQuantizationType::FP8_TO_FP4, T,
+-                                                 SF_VEC_SIZE, true, false, false>
+-                     : &quantize_with_block_size<BlockScaleQuantizationType::FP8_TO_FP4, T,
+-                                                 SF_VEC_SIZE, false, false, false>;
+-        kernel_instance<<<grid, block, 0, stream>>>(b, m, n, n, input, SFScale,
+-                                                    reinterpret_cast<uint32_t*>(output),
+-                                                    reinterpret_cast<uint32_t*>(SFOutput), layout);
+-      }
+-    }
++    auto launchKernel = [&](auto useUE8M0Tag, auto useRowWiseScaleTag, auto useInverseScaleTag,
++                            auto disableFP4QuantFastMathTag, auto nvfp4_4over6_config_tag) {
++      auto* kernel_instance = &quantize_with_block_size<
++          BlockScaleQuantizationType::FP8_TO_FP4, T, SF_VEC_SIZE, decltype(useUE8M0Tag)::value,
++          decltype(useRowWiseScaleTag)::value, decltype(useInverseScaleTag)::value,
++          decltype(disableFP4QuantFastMathTag)::value, decltype(nvfp4_4over6_config_tag)>;
++      kernel_instance<<<grid, block, 0, stream>>>(b, m, n, n, input, SFScale,
++                                                  reinterpret_cast<uint32_t*>(output),
++                                                  reinterpret_cast<uint32_t*>(SFOutput), layout);
++    };
++
++    dispatchFP4KernelConfig<BlockScaleQuantizationType::FP8_TO_FP4, SF_VEC_SIZE>(
++        useUE8M0, use_row_wise_scale, false, inverse_scale, false, NVFP44Over6ErrMode::MAE, false,
++        448, launchKernel);
+   } else
+ #endif
+   {
+@@ -506,10 +565,23 @@ void invokeFP4Quantization(int b, int m, int n, T const* input, float const* SFS
+     // TODO: fix the issue when n is not a multiple of NUM_CONSUMER_WARPS * TMA_COL_TILE
+     constexpr int TMA_COL_CHUNK = 8 * 64;  // NUM_CONSUMER_WARPS * TMA_COL_TILE
+     if constexpr (SF_VEC_SIZE == 16) {
+-      if (SF_VEC_SIZE == 16 && m >= 1024 && n % TMA_COL_CHUNK == 0) {
++      if (m >= 1024 && n % TMA_COL_CHUNK == 0) {
++        bool const use4Over6 = tensorrt_llm::common::getEnvNVFP4Use4Over6();
++        NVFP44Over6ErrMode errMode = NVFP44Over6ErrMode::MAE;
++        bool errUseFastMath = false;
++        int e4m3Max = 448;
++        if (use4Over6) {
++          errMode = tensorrt_llm::common::getEnvNVFP44Over6ErrMode();
++          errUseFastMath = tensorrt_llm::common::getEnvNVFP44Over6ErrUseFastMath();
++          if (tensorrt_llm::common::getEnvNVFP44Over6E4M3Use256()) {
++            e4m3Max = 256;
++          }
++        }
+         launchFP4QuantizationTma<BlockScaleQuantizationType::FP16_TO_FP4, T, SF_VEC_SIZE>(
+             b, m, n, input, SFScale, output, SFOutput, useUE8M0, layout, multiProcessorCount,
+-            enable_pdl, use_row_wise_scale, inverse_scale, stream);
++            enable_pdl, use_row_wise_scale, use4Over6, inverse_scale,
++            tensorrt_llm::common::getEnvDisableFP4QuantFastMath(), errMode, errUseFastMath, e4m3Max,
++            stream);
+         return;
+       }
+     }
+@@ -533,47 +605,33 @@ void invokeFP4Quantization(int b, int m, int n, T const* input, float const* SFS
+     attrs[0].val.programmaticStreamSerializationAllowed = enable_pdl;
+     config.numAttrs = 1;
+     config.attrs = attrs;
+-    if (use_row_wise_scale) {
+-      if (inverse_scale) {
+-        auto* kernel_instance =
+-            useUE8M0 ? &quantize_with_block_size<BlockScaleQuantizationType::FP16_TO_FP4, T,
+-                                                 SF_VEC_SIZE, true, true, true>
+-                     : &quantize_with_block_size<BlockScaleQuantizationType::FP16_TO_FP4, T,
+-                                                 SF_VEC_SIZE, false, true, true>;
+-        cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
+-                           reinterpret_cast<uint32_t*>(output),
+-                           reinterpret_cast<uint32_t*>(SFOutput), layout);
+-      } else {
+-        auto* kernel_instance =
+-            useUE8M0 ? &quantize_with_block_size<BlockScaleQuantizationType::FP16_TO_FP4, T,
+-                                                 SF_VEC_SIZE, true, true, false>
+-                     : &quantize_with_block_size<BlockScaleQuantizationType::FP16_TO_FP4, T,
+-                                                 SF_VEC_SIZE, false, true, false>;
+-        cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
+-                           reinterpret_cast<uint32_t*>(output),
+-                           reinterpret_cast<uint32_t*>(SFOutput), layout);
+-      }
+-    } else {
+-      if (inverse_scale) {
+-        auto* kernel_instance =
+-            useUE8M0 ? &quantize_with_block_size<BlockScaleQuantizationType::FP16_TO_FP4, T,
+-                                                 SF_VEC_SIZE, true, false, true>
+-                     : &quantize_with_block_size<BlockScaleQuantizationType::FP16_TO_FP4, T,
+-                                                 SF_VEC_SIZE, false, false, true>;
+-        cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
+-                           reinterpret_cast<uint32_t*>(output),
+-                           reinterpret_cast<uint32_t*>(SFOutput), layout);
+-      } else {
+-        auto* kernel_instance =
+-            useUE8M0 ? &quantize_with_block_size<BlockScaleQuantizationType::FP16_TO_FP4, T,
+-                                                 SF_VEC_SIZE, true, false, false>
+-                     : &quantize_with_block_size<BlockScaleQuantizationType::FP16_TO_FP4, T,
+-                                                 SF_VEC_SIZE, false, false, false>;
+-        cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
+-                           reinterpret_cast<uint32_t*>(output),
+-                           reinterpret_cast<uint32_t*>(SFOutput), layout);
++    bool const disableFP4QuantFastMath = tensorrt_llm::common::getEnvDisableFP4QuantFastMath();
++    bool const use4Over6 = tensorrt_llm::common::getEnvNVFP4Use4Over6();
++    NVFP44Over6ErrMode errMode = NVFP44Over6ErrMode::MAE;
++    bool errUseFastMath = false;
++    int e4m3Max = 448;
++    if (use4Over6) {
++      errMode = tensorrt_llm::common::getEnvNVFP44Over6ErrMode();
++      errUseFastMath = tensorrt_llm::common::getEnvNVFP44Over6ErrUseFastMath();
++      if (tensorrt_llm::common::getEnvNVFP44Over6E4M3Use256()) {
++        e4m3Max = 256;
+       }
+     }
++
++    auto launchKernel = [&](auto useUE8M0Tag, auto useRowWiseScaleTag, auto useInverseScaleTag,
++                            auto disableFP4QuantFastMathTag, auto nvfp4_4over6_config_tag) {
++      auto* kernel_instance = &quantize_with_block_size<
++          BlockScaleQuantizationType::FP16_TO_FP4, T, SF_VEC_SIZE, decltype(useUE8M0Tag)::value,
++          decltype(useRowWiseScaleTag)::value, decltype(useInverseScaleTag)::value,
++          decltype(disableFP4QuantFastMathTag)::value, decltype(nvfp4_4over6_config_tag)>;
++      cudaLaunchKernelEx(&config, kernel_instance, b, m, n, n, input, SFScale,
++                         reinterpret_cast<uint32_t*>(output), reinterpret_cast<uint32_t*>(SFOutput),
++                         layout);
++    };
++
++    dispatchFP4KernelConfig<BlockScaleQuantizationType::FP16_TO_FP4, SF_VEC_SIZE>(
++        useUE8M0, use_row_wise_scale, use4Over6, inverse_scale, disableFP4QuantFastMath, errMode,
++        errUseFastMath, e4m3Max, launchKernel);
+   }
+ }
+ 
+@@ -684,10 +742,30 @@ void invokeSiluAndMulNVFP4Quantization(void* output, void* output_scale, void* i
+   TLLM_CHECK_WITH_INFO(mask != nullptr, "mask must be non-null for expert NVFP4 path");
+   TLLM_CHECK_WITH_INFO(n_experts > 0, "n_experts must be > 0");
+   grid.x = (grid.x + n_experts - 1) / n_experts * n_experts;
+-  cvt_fp16_to_fp4_expert<T, false><<<grid, block, 0, stream>>>(
+-      m_topk, k, reinterpret_cast<T*>(input), reinterpret_cast<float*>(input_global_scale),
+-      reinterpret_cast<uint32_t*>(output), reinterpret_cast<uint32_t*>(output_scale),
+-      reinterpret_cast<int32_t*>(mask), use_silu_and_mul, n_experts);
++  bool const disableFP4QuantFastMath = tensorrt_llm::common::getEnvDisableFP4QuantFastMath();
++  bool const use4Over6 = tensorrt_llm::common::getEnvNVFP4Use4Over6();
++
++  auto launchKernel = [&](auto disableFP4QuantFastMathTag, auto nvfp4_4over6_config_tag) {
++    cvt_fp16_to_fp4_expert<T, false, decltype(disableFP4QuantFastMathTag)::value,
++                           decltype(nvfp4_4over6_config_tag)><<<grid, block, 0, stream>>>(
++        m_topk, k, reinterpret_cast<T*>(input), reinterpret_cast<float*>(input_global_scale),
++        reinterpret_cast<uint32_t*>(output), reinterpret_cast<uint32_t*>(output_scale),
++        reinterpret_cast<int32_t*>(mask), use_silu_and_mul, n_experts);
++  };
++
++  if (use4Over6) {
++    NVFP44Over6ErrMode const errMode = tensorrt_llm::common::getEnvNVFP44Over6ErrMode();
++    bool const errUseFastMath = tensorrt_llm::common::getEnvNVFP44Over6ErrUseFastMath();
++    int e4m3Max = 448;
++    if (tensorrt_llm::common::getEnvNVFP44Over6E4M3Use256()) {
++      e4m3Max = 256;
++    }
++    dispatchNVFP44Over6Config(std::true_type{}, disableFP4QuantFastMath, errMode, errUseFastMath,
++                              e4m3Max, launchKernel);
++  } else {
++    dispatchNVFP44Over6Config(std::false_type{}, disableFP4QuantFastMath, NVFP44Over6ErrMode::MAE,
++                              false, 448, launchKernel);
++  }
+   return;
+ }
+ 
+diff --git a/csrc/nv_internal/include/tensorrt_llm/common/quantization.h b/csrc/nv_internal/include/tensorrt_llm/common/quantization.h
+index 69db681a3f..251a09b7f4 100644
+--- a/csrc/nv_internal/include/tensorrt_llm/common/quantization.h
++++ b/csrc/nv_internal/include/tensorrt_llm/common/quantization.h
+@@ -19,10 +19,33 @@
+ #include <cstdint>
+ #include <optional>
+ #include <string>
++#include <type_traits>
+ 
+ namespace tensorrt_llm {
+ namespace common {
+ 
++enum class NVFP44Over6ErrMode : std::uint8_t {
++  MAE = 0,
++  MSE = 1,
++};
++
++template <int E4M3_MAX = 448, NVFP44Over6ErrMode ERR_MODE = NVFP44Over6ErrMode::MAE,
++          bool ERR_USE_FAST_MATH = false>
++struct NVFP44Over6Config {
++  static_assert(E4M3_MAX == 448 || E4M3_MAX == 256, "Unsupported NVFP4 E4M3 max.");
++
++  static constexpr int e4m3Max = E4M3_MAX;
++  static constexpr NVFP44Over6ErrMode errMode = ERR_MODE;
++  static constexpr bool errUseFastMath = ERR_USE_FAST_MATH;
++};
++
++template <typename T>
++struct IsNVFP44Over6Config : std::false_type {};
++
++template <int E4M3_MAX, NVFP44Over6ErrMode ERR_MODE, bool ERR_USE_FAST_MATH>
++struct IsNVFP44Over6Config<NVFP44Over6Config<E4M3_MAX, ERR_MODE, ERR_USE_FAST_MATH>>
++    : std::true_type {};
++
+ class QuantMode {
+   // [WARNING] KEEP BELOW DEFINITION IN SYNC WITH tensorrt_llm/quantization/mode.py
+  public:
+diff --git a/csrc/nv_internal/tensorrt_llm/common/envUtils.h b/csrc/nv_internal/tensorrt_llm/common/envUtils.h
+index c94383ba7b..0bda57ba0a 100644
+--- a/csrc/nv_internal/tensorrt_llm/common/envUtils.h
++++ b/csrc/nv_internal/tensorrt_llm/common/envUtils.h
+@@ -20,6 +20,8 @@
+ #include <optional>
+ #include <string>
+ 
++#include "tensorrt_llm/common/quantization.h"
++
+ namespace tensorrt_llm::common {
+ // Useful when you want to inject some debug code controllable with env var.
+ std::optional<int32_t> getIntEnv(char const* name);
+@@ -104,4 +106,16 @@ int getEnvMoeA2ACombineBlockSize();
+ // Disable the fast fp4 quantization math and align with the TransformerEngine
+ bool getEnvDisableFP4QuantFastMath();
+ 
++// Enable the NVFP4 4over6 scale-candidate quantization mode.
++bool getEnvNVFP4Use4Over6();
++
++// Select the candidate error used by the NVFP4 4over6 scale-candidate path.
++NVFP44Over6ErrMode getEnvNVFP44Over6ErrMode();
++
++// Enable fast math in the NVFP4 4over6 scale-candidate error path.
++bool getEnvNVFP44Over6ErrUseFastMath();
++
++// Use 256 instead of 448 for the NVFP4 4over6 E4M3 scaling convention.
++bool getEnvNVFP44Over6E4M3Use256();
++
+ }  // namespace tensorrt_llm::common
+diff --git a/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh b/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+index b0414d152d..0f52f6f2fb 100644
+--- a/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
++++ b/csrc/nv_internal/tensorrt_llm/kernels/quantization.cuh
+@@ -220,7 +220,8 @@ constexpr int CVT_FP8_TO_FP4_ELTS_PER_THREAD = 16;
+ // FP4/MXFP8 Quantization Kernels
+ 
+ template <BlockScaleQuantizationType quantization_type, class Type, int SF_VEC_SIZE, bool UE8M0_SF,
+-          bool USE_ROW_WISE_SCALE = false, bool USE_INVERSE_SCALE = false>
++          bool USE_ROW_WISE_SCALE = false, bool USE_INVERSE_SCALE = false,
++          bool DISABLE_FP4_QUANT_FAST_MATH = false, typename NVFP4_4OVER6_CONFIG = std::false_type>
+ __global__ void
+ #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000)
+ __launch_bounds__(512, 4) quantize_with_block_size(
+@@ -230,7 +231,6 @@ quantize_with_block_size(
+     int32_t numbatches, int32_t numRows, int32_t numCols, int32_t numPaddedCols, Type const* in,
+     float const* SFScale, void* out, uint32_t* SFout, QuantizationSFLayout layout) {
+ #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000)
+-
+   // The elements per thread.
+   static constexpr int ELTS_PER_THREAD =
+       quantization_type == BlockScaleQuantizationType::FP8_TO_FP4 ? CVT_FP8_TO_FP4_ELTS_PER_THREAD
+@@ -242,15 +242,26 @@ quantize_with_block_size(
+   using FP4OutT = std::conditional_t<ELTS_PER_THREAD == 16, uint64_t, uint32_t>;
+   static constexpr int CVT_NUM_THREADS_PER_SF = SF_VEC_SIZE / ELTS_PER_THREAD;  // 2 or 4
+   static_assert(sizeof(PackedVecT) == sizeof(Type) * ELTS_PER_THREAD, "Vec size is not matched.");
+-
+-  // Get the global scaling factor, which will be applied to the SF.
+-  // Note SFScale is the same as next GEMM's alpha, which is (448.f / (Alpha_A / 6.f)).
++  static_assert(!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value ||
++                    quantization_type == BlockScaleQuantizationType::FP16_TO_FP4,
++                "NVFP4 4over6 requires FP16/BF16 to FP4 quantization");
++  static_assert(!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value || !UE8M0_SF,
++                "NVFP4 4over6 requires E4M3 scale factors");
++  static_assert(
++      !IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value || SF_VEC_SIZE == CVT_FP4_SF_VEC_SIZE,
++      "NVFP4 4over6 requires NVFP4 scale blocks");
++
++  // Get the caller-provided global scaling factor, which will be applied to the SF.
+   float SFScaleVal = 1.0f;
+   if constexpr (!USE_ROW_WISE_SCALE) {
+     if (SFScale != nullptr) {
+       SFScaleVal = *SFScale;
+       if constexpr (USE_INVERSE_SCALE) {
+-        SFScaleVal = reciprocal_approximate_ftz(SFScaleVal);
++        if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++          SFScaleVal = __fdiv_rn(1.0f, SFScaleVal);
++        } else {
++          SFScaleVal = reciprocal_approximate_ftz(SFScaleVal);
++        }
+       }
+     }
+   }
+@@ -282,7 +293,11 @@ quantize_with_block_size(
+       if (rowIdx < numRows && SFScale != nullptr) {
+         SFScaleVal = SFScale[rowIdx];
+         if constexpr (USE_INVERSE_SCALE) {
+-          SFScaleVal = reciprocal_approximate_ftz(SFScaleVal);
++          if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++            SFScaleVal = __fdiv_rn(1.0f, SFScaleVal);
++          } else {
++            SFScaleVal = reciprocal_approximate_ftz(SFScaleVal);
++          }
+         }
+       } else {
+         SFScaleVal = 1.f;
+@@ -353,7 +368,8 @@ quantize_with_block_size(
+             // Dispatch the quantization kernel.
+             if constexpr (quantization_type == BlockScaleQuantizationType::FP16_TO_FP4) {
+               reinterpret_cast<FP4OutT*>(out)[outOffset] =
+-                  cvt_warp_fp16_to_fp4<Type, SF_VEC_SIZE, ELTS_PER_THREAD, UE8M0_SF>(
++                  cvt_warp_fp16_to_fp4<Type, SF_VEC_SIZE, ELTS_PER_THREAD, UE8M0_SF,
++                                       DISABLE_FP4_QUANT_FAST_MATH, NVFP4_4OVER6_CONFIG>(
+                       in_vec, SFScaleVal, sf_out);
+             } else if constexpr (quantization_type == BlockScaleQuantizationType::FP8_TO_FP4) {
+               reinterpret_cast<uint64_t*>(out)[outOffset] =
+@@ -374,7 +390,8 @@ quantize_with_block_size(
+ 
+ // quantize with TMA in high throughput mode
+ template <BlockScaleQuantizationType quantization_type, class Type, int SF_VEC_SIZE, bool UE8M0_SF,
+-          bool USE_ROW_WISE_SCALE = false, bool USE_INVERSE_SCALE = false>
++          bool USE_ROW_WISE_SCALE = false, bool USE_INVERSE_SCALE = false,
++          bool DISABLE_FP4_QUANT_FAST_MATH = false, typename NVFP4_4OVER6_CONFIG = std::false_type>
+ __global__ void
+ #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000)
+ __launch_bounds__(288, 2) quantize_with_block_size_tma(
+@@ -402,6 +419,11 @@ quantize_with_block_size_tma(
+   using PackedVecT = PackedVec<Type, ELTS_PER_THREAD>;
+   static_assert(sizeof(PackedVecT) == sizeof(Type) * ELTS_PER_THREAD, "Vec size is not matched.");
+   static_assert(SF_VEC_SIZE == 16, "Only support SF_VEC_SIZE = 16 for TMA quantization.");
++  static_assert(!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value ||
++                    quantization_type == BlockScaleQuantizationType::FP16_TO_FP4,
++                "NVFP4 4over6 requires FP16/BF16 to FP4 quantization");
++  static_assert(!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value || !UE8M0_SF,
++                "NVFP4 4over6 requires E4M3 scale factors");
+ 
+   int warpIdx = threadIdx.x / 32;
+   int numWarp = blockDim.x / 32;
+@@ -426,7 +448,11 @@ quantize_with_block_size_tma(
+     if (SFScale != nullptr) {
+       SFScaleVal = *SFScale;
+       if constexpr (USE_INVERSE_SCALE) {
+-        SFScaleVal = reciprocal_approximate_ftz(SFScaleVal);
++        if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++          SFScaleVal = __fdiv_rn(1.0f, SFScaleVal);
++        } else {
++          SFScaleVal = reciprocal_approximate_ftz(SFScaleVal);
++        }
+       }
+     }
+   }
+@@ -508,7 +534,11 @@ quantize_with_block_size_tma(
+               if (threadRowIdxGlobal < numRows && SFScale != nullptr) {
+                 SFScaleVal = SFScale[threadRowIdxGlobal];
+                 if constexpr (USE_INVERSE_SCALE) {
+-                  SFScaleVal = reciprocal_approximate_ftz(SFScaleVal);
++                  if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++                    SFScaleVal = __fdiv_rn(1.0f, SFScaleVal);
++                  } else {
++                    SFScaleVal = reciprocal_approximate_ftz(SFScaleVal);
++                  }
+                 }
+               } else {
+                 SFScaleVal = 1.f;
+@@ -542,7 +572,8 @@ quantize_with_block_size_tma(
+               // Dispatch the quantization kernel
+               if constexpr (quantization_type == BlockScaleQuantizationType::FP16_TO_FP4) {
+                 reinterpret_cast<uint64_t*>(out)[threadOutOffset] =
+-                    cvt_warp_fp16_to_fp4<Type, SF_VEC_SIZE, ELTS_PER_THREAD, UE8M0_SF>(
++                    cvt_warp_fp16_to_fp4<Type, SF_VEC_SIZE, ELTS_PER_THREAD, UE8M0_SF,
++                                         DISABLE_FP4_QUANT_FAST_MATH, NVFP4_4OVER6_CONFIG>(
+                         in_vec, SFScaleVal, sf_out);
+               } else if constexpr (quantization_type == BlockScaleQuantizationType::FP8_TO_FP4) {
+                 reinterpret_cast<uint64_t*>(out)[threadOutOffset] =
+@@ -580,7 +611,8 @@ quantize_with_block_size_tma(
+ }
+ 
+ // Use UE4M3 by default.
+-template <class Type, bool UE8M0_SF = false>
++template <class Type, bool UE8M0_SF = false, bool DISABLE_FP4_QUANT_FAST_MATH = false,
++          typename NVFP4_4OVER6_CONFIG = std::false_type>
+ __global__ void
+ #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000)
+ __launch_bounds__(512, 4) cvt_fp16_to_fp4_expert(
+@@ -598,6 +630,8 @@ cvt_fp16_to_fp4_expert(
+       (CVT_FP4_SF_VEC_SIZE / CVT_FP16_TO_FP4_ELTS_PER_THREAD);
+   static_assert(sizeof(PackedVecT) == sizeof(Type) * CVT_FP16_TO_FP4_ELTS_PER_THREAD,
+                 "Vec size is not matched.");
++  static_assert(!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value || !UE8M0_SF,
++                "NVFP4 4over6 requires E4M3 scale factors");
+ 
+   // Input tensor row/col loops.
+   int tid = blockIdx.x * blockDim.x + threadIdx.x;
+@@ -661,9 +695,7 @@ cvt_fp16_to_fp4_expert(
+     // packed into one PackedFp4OutT (uint32_t for 8 elts, uint64_t for 16 elts).
+     int64_t outOffset = rowIdx * colsPerRow + colIdx;
+ 
+-    // Get the global scaling factor, which will be applied to the SF.
+-    // Note SFScale is the same as next GEMM's alpha, which is
+-    // (448.f / (Alpha_A / 6.f)).
++    // Get the caller-provided global scaling factor, which will be applied to the SF.
+     float const SFScaleVal = SFScale == nullptr ? 1.0f : SFScale[expert_idx];
+ 
+     int factor = CVT_FP4_SF_VEC_SIZE * 4;
+@@ -677,8 +709,9 @@ cvt_fp16_to_fp4_expert(
+         rowIdx_in_expert, colIdx, numCols, SFout_in_expert);
+ 
+     reinterpret_cast<PackedFp4OutT*>(out)[outOffset] =
+-        cvt_warp_fp16_to_fp4<Type, CVT_FP4_SF_VEC_SIZE, CVT_FP16_TO_FP4_ELTS_PER_THREAD, UE8M0_SF>(
+-            in_vec, SFScaleVal, sf_out);
++        cvt_warp_fp16_to_fp4<Type, CVT_FP4_SF_VEC_SIZE, CVT_FP16_TO_FP4_ELTS_PER_THREAD, UE8M0_SF,
++                             DISABLE_FP4_QUANT_FAST_MATH, NVFP4_4OVER6_CONFIG>(in_vec, SFScaleVal,
++                                                                               sf_out);
+   }
+ #endif
+ }
+@@ -687,7 +720,7 @@ __global__ void block_scale_interleave_kernel(int numbatches, int numRows, int n
+                                               uint8_t const* SFIn, uint8_t* SFOutput);
+ 
+ template <typename T, uint32_t BLOCK_SIZE, QuantizationSFLayout SF_LAYOUT, bool CACHE_INPUT = true,
+-          bool DISABLE_FP4_QUANT_FAST_MATH = false>
++          bool DISABLE_FP4_QUANT_FAST_MATH = false, typename NVFP4_4OVER6_CONFIG = std::false_type>
+ __global__ void nvfp4QuantAndPerTokenScaleKernel(
+     // input
+     uint32_t m, uint32_t n, T const* input, float globalScaleInv, int32_t* expandedIdxToPermutedIdx,
+@@ -743,7 +776,33 @@ __global__ void nvfp4QuantAndPerTokenScaleKernel(
+ 
+   float perTokenScale;
+   float globalEncodeScale;
+-  if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++  if constexpr (IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value && DISABLE_FP4_QUANT_FAST_MATH) {
++    if (threadIdx.x == 0) {
++      float const globalScale = __fdiv_rn(1.0f, globalScaleInv);
++      if (globalAmax != 0.0f) {
++        float const rowEncodeScale = fminf(__fdiv_rn(globalScale, globalAmax), FLT_MAX);
++        if (rowEncodeScale != 0.0f) {
++          perTokenScaleOutput[rowIdx] = rowEncodeScale;
++        } else {
++          perTokenScaleOutput[rowIdx] = 1.0f;
++        }
++      } else {
++        perTokenScaleOutput[rowIdx] = 0.0f;
++      }
++    }
++    __syncthreads();
++    globalEncodeScale = perTokenScaleOutput[rowIdx];
++    if (globalEncodeScale != 0.0f) {
++      perTokenScale = __fdiv_rn(1.0f, globalEncodeScale);
++    } else {
++      perTokenScale = 0.0f;
++    }
++    __syncthreads();
++    if (threadIdx.x == 0) {
++      perTokenScaleOutput[rowIdx] = perTokenScale;
++    }
++  } else if constexpr (!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value &&
++                       DISABLE_FP4_QUANT_FAST_MATH) {
+     if (threadIdx.x == 0) {
+       float const globalScale = __fdiv_rn(1.0f, globalScaleInv);
+       float const rowEncodeScale =
+@@ -784,8 +843,8 @@ __global__ void nvfp4QuantAndPerTokenScaleKernel(
+     }
+     uint8_t fp8Scale;
+     auto fp4Vals =
+-        cvt_warp_fp16_to_fp4<T, SF_VEC_SIZE, SF_VEC_SIZE, false, DISABLE_FP4_QUANT_FAST_MATH>(
+-            vec_in, globalEncodeScale, &fp8Scale);
++        cvt_warp_fp16_to_fp4<T, SF_VEC_SIZE, SF_VEC_SIZE, false, DISABLE_FP4_QUANT_FAST_MATH,
++                             NVFP4_4OVER6_CONFIG>(vec_in, globalEncodeScale, &fp8Scale);
+     reinterpret_cast<PackedFp4Type*>(weightOutput)[vecOffset] = fp4Vals;
+ 
+     int64_t sfOffset;
+diff --git a/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh b/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
+index c6db756baf..54db109c11 100644
+--- a/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
++++ b/csrc/nv_internal/tensorrt_llm/kernels/quantization_utils.cuh
+@@ -247,6 +247,41 @@ __device__ __forceinline__ float exp2f_rcp(uint8_t exp) {
+   return (exp == 0) ? 1 : exp2f(FP32_EXPONENT_BIAS - static_cast<float>(exp));
+ }
+ 
++__device__ __forceinline__ float e2m1_code_to_float(uint8_t code) {
++  uint8_t const magnitude = code & 0x7;
++  float value = 0.0f;
++  switch (magnitude) {
++    case 1:
++      value = 0.5f;
++      break;
++    case 2:
++      value = 1.0f;
++      break;
++    case 3:
++      value = 1.5f;
++      break;
++    case 4:
++      value = 2.0f;
++      break;
++    case 5:
++      value = 3.0f;
++      break;
++    case 6:
++      value = 4.0f;
++      break;
++    case 7:
++      value = 6.0f;
++      break;
++    default:
++      value = 0.0f;
++      break;
++  }
++  if ((code & 0x8) != 0) {
++    value = -value;
++  }
++  return value;
++}
++
+ ////////////////////////////////////////////////////////////////////////////////////////////////////
+ // Type converters for packed vectors
+ 
+@@ -289,13 +324,42 @@ struct PackedVec<__nv_fp8_e4m3, NUM_ELTS> {
+ // Quantization helper functions
+ 
+ // Quantizes the provided PackedVec into the uint32_t or uint64_t output
++template <typename NVFP4_4OVER6_CONFIG>
++__device__ __forceinline__ float compute_4over6_error(float diff) {
++  if constexpr (NVFP4_4OVER6_CONFIG::errMode == NVFP44Over6ErrMode::MSE) {
++    return diff * diff;
++  } else if constexpr (NVFP4_4OVER6_CONFIG::errMode == NVFP44Over6ErrMode::MAE) {
++    return fabsf(diff);
++  } else {
++    return fabsf(diff);
++  }
++}
++
++template <typename NVFP4_4OVER6_CONFIG>
++__device__ __forceinline__ float compute_4over6_error_rn(float diff) {
++  if constexpr (NVFP4_4OVER6_CONFIG::errMode == NVFP44Over6ErrMode::MSE) {
++    return __fmul_rn(diff, diff);
++  } else if constexpr (NVFP4_4OVER6_CONFIG::errMode == NVFP44Over6ErrMode::MAE) {
++    return fabsf(diff);
++  } else {
++    return fabsf(diff);
++  }
++}
++
+ template <class Type, int SF_VEC_SIZE, int CVT_ELTS_PER_THREAD, bool UE8M0_SF,
+-          bool DISABLE_FP4_QUANT_FAST_MATH = false>
++          bool DISABLE_FP4_QUANT_FAST_MATH = false, typename NVFP4_4OVER6_CONFIG = std::false_type>
+ __device__ std::conditional_t<CVT_ELTS_PER_THREAD == 16, uint64_t, uint32_t> cvt_warp_fp16_to_fp4(
+     PackedVec<Type, CVT_ELTS_PER_THREAD>& vec, float SFScaleVal, uint8_t* SFout) {
+ #if defined(__CUDA_ARCH__) && (__CUDA_ARCH__ >= 1000)
+   static_assert(CVT_ELTS_PER_THREAD == 8 || CVT_ELTS_PER_THREAD == 16,
+                 "CVT_ELTS_PER_THREAD must be 8 or 16");
++  static_assert(std::is_same_v<NVFP4_4OVER6_CONFIG, std::false_type> ||
++                    IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value,
++                "NVFP4_4OVER6_CONFIG must be std::false_type or NVFP44Over6Config.");
++  static_assert(!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value || !UE8M0_SF,
++                "NVFP4 4over6 requires E4M3 scale factors");
++  static_assert(!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value || SF_VEC_SIZE == 16,
++                "NVFP4 4over6 requires NVFP4 scale blocks");
+ 
+   using ReturnType = std::conditional_t<CVT_ELTS_PER_THREAD == 16, uint64_t, uint32_t>;
+ 
+@@ -331,7 +395,8 @@ __device__ std::conditional_t<CVT_ELTS_PER_THREAD == 16, uint64_t, uint32_t> cvt
+ 
+     fp8SFVal = tmp.__x;
+     outputScale = vecMax != 0 ? exp2f_rcp(fp8SFVal) : 0.0f;
+-  } else if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++  } else if constexpr (!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value &&
++                       DISABLE_FP4_QUANT_FAST_MATH) {
+     // Get the SF (max value of the vector / max value of e2m1).
+     // maximum value of e2m1 = 6.0.
+     constexpr float fp4_max_inv = 1.0f / 6.0f;
+@@ -341,9 +406,10 @@ __device__ std::conditional_t<CVT_ELTS_PER_THREAD == 16, uint64_t, uint32_t> cvt
+     __nv_fp8_e4m3 tmp = __nv_fp8_e4m3(SFValue);
+     fp8SFVal = tmp.__x;
+     SFValue = static_cast<float>(tmp);
+-    // Match TE's encode scale: 1 / (fp32(fp8(SFValue)) * (1 / SFScaleVal)).
+-    outputScale = vecMax != 0 ? __fdiv_rn(1.0f, SFValue * __fdiv_rn(1.0f, SFScaleVal)) : 0.0f;
+-  } else {
++    // Match TE's encode scale: min(1 / (fp32(fp8(SFValue)) * (1 / SFScaleVal)), fp32_max).
++    outputScale =
++        vecMax != 0 ? fminf(__fdiv_rn(1.0f, SFValue * __fdiv_rn(1.0f, SFScaleVal)), FLT_MAX) : 0.0f;
++  } else if constexpr (!IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value) {
+     // Get the SF (max value of the vector / max value of e2m1).
+     // maximum value of e2m1 = 6.0.
+     // TODO: use half as compute data type.
+@@ -360,6 +426,146 @@ __device__ std::conditional_t<CVT_ELTS_PER_THREAD == 16, uint64_t, uint32_t> cvt
+                       : 0.0f;
+   }
+ 
++  if constexpr (!UE8M0_SF && IsNVFP44Over6Config<NVFP4_4OVER6_CONFIG>::value) {
++    if (vecMax == 0.0f) {
++      if (SFout) {
++        *SFout = 0;
++      }
++      return ReturnType{0};
++    }
++
++    constexpr float E2M1_MAX_VALUE = 6.0f;
++    float sfHighPrecision6;
++    if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++      sfHighPrecision6 = __fmul_rn(vecMax, __fdiv_rn(SFScaleVal, E2M1_MAX_VALUE));
++    } else {
++      sfHighPrecision6 = SFScaleVal * (vecMax * reciprocal_approximate_ftz(E2M1_MAX_VALUE));
++    }
++    float sfHighPrecision4;
++    if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++      sfHighPrecision4 = __fmul_rn(sfHighPrecision6, 1.5f);
++    } else {
++      sfHighPrecision4 = sfHighPrecision6 * 1.5f;
++    }
++
++    __nv_fp8_e4m3 tmp4 = __nv_fp8_e4m3(sfHighPrecision4);
++    __nv_fp8_e4m3 tmp6 = __nv_fp8_e4m3(sfHighPrecision6);
++    uint8_t const fp8SFVal4 = tmp4.__x;
++    uint8_t const fp8SFVal6 = tmp6.__x;
++    float const sfValue4 = static_cast<float>(tmp4);
++    float const sfValue6 = static_cast<float>(tmp6);
++    float globalDecodeScale;
++    if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++      globalDecodeScale = __fdiv_rn(1.0f, SFScaleVal);
++    } else {
++      globalDecodeScale = reciprocal_approximate_ftz(SFScaleVal);
++    }
++    float outputScale4;
++    float outputScale6;
++    if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++      outputScale4 = fminf(__fdiv_rn(1.0f, __fmul_rn(sfValue4, globalDecodeScale)), FLT_MAX);
++      outputScale6 = fminf(__fdiv_rn(1.0f, __fmul_rn(sfValue6, globalDecodeScale)), FLT_MAX);
++    } else {
++      outputScale4 = reciprocal_approximate_ftz(sfValue4 * globalDecodeScale);
++      outputScale6 = reciprocal_approximate_ftz(sfValue6 * globalDecodeScale);
++    }
++
++    float2 fp2Vals[CVT_ELTS_PER_THREAD / 2];
++    float2 fp2Vals4[CVT_ELTS_PER_THREAD / 2];
++    float2 fp2Vals6[CVT_ELTS_PER_THREAD / 2];
++
++#pragma unroll
++    for (int i = 0; i < CVT_ELTS_PER_THREAD / 2; i++) {
++      if constexpr (std::is_same_v<Type, half>) {
++        fp2Vals[i] = __half22float2(vec.elts[i]);
++      } else {
++        fp2Vals[i] = __bfloat1622float2(vec.elts[i]);
++      }
++      if constexpr (DISABLE_FP4_QUANT_FAST_MATH) {
++        fp2Vals4[i].x = __fmul_rn(fp2Vals[i].x, outputScale4);
++        fp2Vals4[i].y = __fmul_rn(fp2Vals[i].y, outputScale4);
++        fp2Vals6[i].x = __fmul_rn(fp2Vals[i].x, outputScale6);
++        fp2Vals6[i].y = __fmul_rn(fp2Vals[i].y, outputScale6);
++      } else {
++        fp2Vals4[i].x = fp2Vals[i].x * outputScale4;
++        fp2Vals4[i].y = fp2Vals[i].y * outputScale4;
++        fp2Vals6[i].x = fp2Vals[i].x * outputScale6;
++        fp2Vals6[i].y = fp2Vals[i].y * outputScale6;
++      }
++    }
++
++    ReturnType const e2m1Vec4 = fp32_vec_to_e2m1(fp2Vals4);
++    ReturnType const e2m1Vec6 = fp32_vec_to_e2m1(fp2Vals6);
++    uint64_t const e2m1Bits4 = static_cast<uint64_t>(e2m1Vec4);
++    uint64_t const e2m1Bits6 = static_cast<uint64_t>(e2m1Vec6);
++    float error4 = 0.0f;
++    float error6 = 0.0f;
++
++#pragma unroll
++    for (int i = 0; i < CVT_ELTS_PER_THREAD; i++) {
++      float inputVal = fp2Vals[i / 2].x;
++      if ((i & 1) != 0) {
++        inputVal = fp2Vals[i / 2].y;
++      }
++
++      uint8_t const code4 = static_cast<uint8_t>((e2m1Bits4 >> (4 * i)) & 0xF);
++      float const e2m1Val4 = e2m1_code_to_float(code4);
++      float diff4;
++      if constexpr (!NVFP4_4OVER6_CONFIG::errUseFastMath) {
++        float const dequant4 = __fmul_rn(__fmul_rn(e2m1Val4, sfValue4), globalDecodeScale);
++        diff4 = __fsub_rn(dequant4, inputVal);
++        error4 = __fadd_rn(error4, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff4));
++      } else {
++        float const dequant4 = e2m1Val4 * sfValue4 * globalDecodeScale;
++        diff4 = dequant4 - inputVal;
++        error4 += compute_4over6_error<NVFP4_4OVER6_CONFIG>(diff4);
++      }
++
++      uint8_t const code6 = static_cast<uint8_t>((e2m1Bits6 >> (4 * i)) & 0xF);
++      float const e2m1Val6 = e2m1_code_to_float(code6);
++      float diff6;
++      if constexpr (!NVFP4_4OVER6_CONFIG::errUseFastMath) {
++        float const dequant6 = __fmul_rn(__fmul_rn(e2m1Val6, sfValue6), globalDecodeScale);
++        diff6 = __fsub_rn(dequant6, inputVal);
++        error6 = __fadd_rn(error6, compute_4over6_error_rn<NVFP4_4OVER6_CONFIG>(diff6));
++      } else {
++        float const dequant6 = e2m1Val6 * sfValue6 * globalDecodeScale;
++        diff6 = dequant6 - inputVal;
++        error6 += compute_4over6_error<NVFP4_4OVER6_CONFIG>(diff6);
++      }
++    }
++
++    if constexpr (CVT_NUM_THREADS_PER_SF >= 2) {
++      if constexpr (!NVFP4_4OVER6_CONFIG::errUseFastMath) {
++        error4 = __fadd_rn(error4, __shfl_xor_sync(uint32_t(-1), error4, 1));
++        error6 = __fadd_rn(error6, __shfl_xor_sync(uint32_t(-1), error6, 1));
++      } else {
++        error4 += __shfl_xor_sync(uint32_t(-1), error4, 1);
++        error6 += __shfl_xor_sync(uint32_t(-1), error6, 1);
++      }
++    }
++    if constexpr (CVT_NUM_THREADS_PER_SF == 4) {
++      if constexpr (!NVFP4_4OVER6_CONFIG::errUseFastMath) {
++        error4 = __fadd_rn(error4, __shfl_xor_sync(uint32_t(-1), error4, 2));
++        error6 = __fadd_rn(error6, __shfl_xor_sync(uint32_t(-1), error6, 2));
++      } else {
++        error4 += __shfl_xor_sync(uint32_t(-1), error4, 2);
++        error6 += __shfl_xor_sync(uint32_t(-1), error6, 2);
++      }
++    }
++
++    if (error4 < error6) {
++      if (SFout) {
++        *SFout = fp8SFVal4;
++      }
++      return e2m1Vec4;
++    }
++    if (SFout) {
++      *SFout = fp8SFVal6;
++    }
++    return e2m1Vec6;
++  }
++
+   if (SFout) {
+     // Write the SF to global memory (STG.8).
+     *SFout = fp8SFVal;
+diff --git a/csrc/trtllm_fused_moe_runner.cu b/csrc/trtllm_fused_moe_runner.cu
+index 7aeb5abb03..eabafef7b7 100644
+--- a/csrc/trtllm_fused_moe_runner.cu
++++ b/csrc/trtllm_fused_moe_runner.cu
+@@ -23,6 +23,7 @@
+ #include "flashinfer/trtllm/fused_moe/DevKernel.h"
+ #include "flashinfer/trtllm/fused_moe/RoutingKernel.h"
+ #include "flashinfer/trtllm/fused_moe/runner.h"
++#include "tensorrt_llm/common/envUtils.h"
+ #include "tensorrt_llm/kernels/quantization.h"
+ 
+ namespace tensorrt_llm {
+@@ -765,8 +766,11 @@ void Runner::run(MoERunnerArgs const& args, MoEWorkspace const& workspace, int d
+     auto sfLayout = mGemm2.mTileTokensDim >= 128 ? QuantizationSFLayout::SWIZZLED_128x4
+                                                  : QuantizationSFLayout::SWIZZLED_8x4;
+ 
+-    // TODO(siyuan): should this value be exposed?
+-    float globalScaleInv = 1.f / 448.f / 6.f;
++    float globalScaleInv = 1.f / (448.f * 6.f);
++    if (tensorrt_llm::common::getEnvNVFP4Use4Over6() &&
++        tensorrt_llm::common::getEnvNVFP44Over6E4M3Use256()) {
++      globalScaleInv = 1.f / (256.f * 6.f);
++    }
+     invokeNvfp4QuantAndPerTokenScale<__nv_bfloat16>(
+         args.num_tokens * args.top_k, args.intermediate_size,
+         reinterpret_cast<__nv_bfloat16 const*>(workspace.gemm1_output), globalScaleInv,
+diff --git a/tests/moe/test_trtllm_cutlass_fused_moe.py b/tests/moe/test_trtllm_cutlass_fused_moe.py
+index eafc9f8b91..6b7d5a6da9 100644
+--- a/tests/moe/test_trtllm_cutlass_fused_moe.py
++++ b/tests/moe/test_trtllm_cutlass_fused_moe.py
+@@ -36,11 +36,16 @@
+     mxfp8_quantize,
+     mxfp4_dequantize_host,
+ )
++from tests.test_helpers.utils_fp4 import nvfp4_global_encode_scale_te
++
++from . import utils as moe_utils
+ 
+ FLOAT4_E2M1_MAX = 6.0
+ FLOAT8_E4M3_MAX = torch.finfo(torch.float8_e4m3fn).max
+ FP8_DTYPE = torch.float8_e4m3fn
+ 
++set_nvfp4_4over6_env = moe_utils.set_nvfp4_4over6_env
++
+ 
+ def dynamic_per_tensor_fp8_quant(x: torch.tensor) -> tuple[torch.tensor, torch.tensor]:
+     fp8_traits_max = FLOAT8_E4M3_MAX
+@@ -483,6 +488,7 @@ def test_moe_fp8(
+     [ActivationType.Swiglu, ActivationType.Relu2],
+     ids=["swiglu", "relu2"],
+ )
++@pytest.mark.parametrize("use_4over6", [False, True])
+ @pytest.mark.skipif(
+     torch.cuda.get_device_capability()[0] not in [10, 11, 12],
+     reason="NVFP4 is only supported on SM100, SM110 and SM120/SM121",
+@@ -497,6 +503,7 @@ def test_moe_nvfp4(
+     wtype,
+     quantized_input,
+     activation_type,
++    use_4over6,
+ ):
+     # Skip invalid configurations
+     if top_k > num_experts:
+@@ -539,8 +546,8 @@ def test_moe_nvfp4(
+     for expert in range(e):
+         w1_amax = torch.abs(w1).max().to(torch.float32)
+         w2_amax = torch.abs(w2).max().to(torch.float32)
+-        w1_gs[expert] = FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX / w1_amax
+-        w2_gs[expert] = FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX / w2_amax
++        w1_gs[expert] = nvfp4_global_encode_scale_te(w1_amax, use_4over6=use_4over6)
++        w2_gs[expert] = nvfp4_global_encode_scale_te(w2_amax, use_4over6=use_4over6)
+ 
+         w1_q[expert], w1_blockscale[expert] = fp4_quantize(w1[expert], w1_gs[expert])
+ 
+@@ -1978,6 +1985,7 @@ def round_up(x, y):
+     [ActivationType.Swiglu],
+     ids=["swiglu"],
+ )
++@pytest.mark.parametrize("use_4over6", [False, True])
+ @pytest.mark.skipif(
+     not is_sm100a_supported(torch.device("cuda"))
+     and not is_sm12x_supported(torch.device("cuda")),
+@@ -1993,6 +2001,7 @@ def test_moe_nvfp4_unaligned_hidden_size(
+     wtype,
+     quantized_input,
+     activation_type,
++    use_4over6,
+ ):
+     """Test NVFP4 MoE with hidden_size not aligned to sf_block_size * 4.
+ 
+@@ -2039,8 +2048,8 @@ def round_up(x, y):
+     for expert in range(e):
+         w1_amax = torch.abs(w1[expert]).max().to(torch.float32)
+         w2_amax = torch.abs(w2[expert]).max().to(torch.float32)
+-        w1_gs[expert] = FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX / w1_amax
+-        w2_gs[expert] = FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX / w2_amax
++        w1_gs[expert] = nvfp4_global_encode_scale_te(w1_amax, use_4over6=use_4over6)
++        w2_gs[expert] = nvfp4_global_encode_scale_te(w2_amax, use_4over6=use_4over6)
+ 
+         w1_q[expert], w1_blockscale[expert] = fp4_quantize(w1[expert], w1_gs[expert])
+         w2_q[expert], w2_blockscale[expert] = fp4_quantize(w2[expert], w2_gs[expert])
+diff --git a/tests/moe/test_trtllm_gen_per_token_moe.py b/tests/moe/test_trtllm_gen_per_token_moe.py
+index 1993da2572..5d0527e83c 100644
+--- a/tests/moe/test_trtllm_gen_per_token_moe.py
++++ b/tests/moe/test_trtllm_gen_per_token_moe.py
+@@ -38,11 +38,14 @@
+ )
+ from flashinfer.utils import device_support_pdl, get_compute_capability
+ from tests.test_helpers.utils_fp4 import nvfp4_global_decode_scale_te
++from . import utils as moe_utils
+ from .test_trtllm_gen_fused_moe import (
+     check_accuracy,
+     routing_reference_topk,
+ )
+ 
++set_nvfp4_4over6_env = moe_utils.set_nvfp4_4over6_env
++
+ torch.manual_seed(42)
+ cache_permute_indices: Dict[tuple, torch.Tensor] = {}
+ 
+@@ -52,12 +55,16 @@
+ @pytest.mark.parametrize("intermediate_size", [1024, 2048, 4096])
+ @pytest.mark.parametrize("num_experts", [32])
+ @pytest.mark.parametrize("top_k", [4])
++@pytest.mark.parametrize("use_4over6", [False, True])
++@pytest.mark.parametrize("weights_use_4over6", [False, True])
+ def test_routed_fused_moe(
+     num_tokens: int,
+     hidden_size: int,
+     intermediate_size: int,
+     num_experts: int,
+     top_k: int,
++    use_4over6: bool,
++    weights_use_4over6: bool,
+ ):
+     device = torch.device("cuda:0")
+     compute_capability = get_compute_capability(torch.device(device="cuda"))
+@@ -106,9 +113,13 @@ def test_routed_fused_moe(
+     ].to(torch.bfloat16)
+ 
+     # ======== Quantize =======
++    hidden_states_global_scale_inv = nvfp4_global_decode_scale_te(
++        torch.ones((), dtype=torch.float32, device=device),
++        use_4over6=use_4over6,
++    )
+     hidden_states, hidden_states_scale, per_token_scale_inv = nvfp4_quantize(
+         hidden_states_bf16,
+-        1.0 / (448.0 * 6.0),
++        hidden_states_global_scale_inv,
+         sfLayout=SfLayout.layout_linear,
+         per_token_activation=True,
+     )
+@@ -118,21 +129,26 @@ def test_routed_fused_moe(
+ 
+     w13_global_amax = w13_bf16.abs().amax().to(torch.float32)
+     w2_global_amax = w2_bf16.abs().amax().to(torch.float32)
+-    w13_global_scale_inv = nvfp4_global_decode_scale_te(w13_global_amax)
+-    w2_global_scale_inv = nvfp4_global_decode_scale_te(w2_global_amax)
+-    w13, w13_scale = nvfp4_quantize(
+-        w13_bf16,
+-        1.0 / w13_global_scale_inv,
+-        sfLayout=SfLayout.layout_linear,
++    w13_global_scale_inv = nvfp4_global_decode_scale_te(
++        w13_global_amax, use_4over6=weights_use_4over6
++    )
++    w2_global_scale_inv = nvfp4_global_decode_scale_te(
++        w2_global_amax, use_4over6=weights_use_4over6
+     )
++    with moe_utils.nvfp4_4over6_env(weights_use_4over6):
++        w13, w13_scale = nvfp4_quantize(
++            w13_bf16,
++            1.0 / w13_global_scale_inv,
++            sfLayout=SfLayout.layout_linear,
++        )
++        w2, w2_scale = nvfp4_quantize(
++            w2_bf16,
++            1.0 / w2_global_scale_inv,
++            sfLayout=SfLayout.layout_linear,
++        )
+     w13_scale = w13_scale.view(torch.float8_e4m3fn).reshape(
+         num_experts, intermediate_size * 2, -1
+     )
+-    w2, w2_scale = nvfp4_quantize(
+-        w2_bf16,
+-        1.0 / w2_global_scale_inv,
+-        sfLayout=SfLayout.layout_linear,
+-    )
+     w2_scale = w2_scale.view(torch.float8_e4m3fn).reshape(num_experts, hidden_size, -1)
+ 
+     # ======== Dequantize ========
+@@ -307,4 +323,4 @@ def test_routed_fused_moe(
+ 
+     torch.cuda.synchronize()
+ 
+-    check_accuracy(reference, result, atol=0.1, rtol=0.85, percent=0.92)
++    check_accuracy(reference, result, atol=0.1, rtol=0.85, percent=0.9)
+diff --git a/tests/moe/utils.py b/tests/moe/utils.py
+index 39abf18717..b5aa440236 100644
+--- a/tests/moe/utils.py
++++ b/tests/moe/utils.py
+@@ -14,6 +14,9 @@
+ limitations under the License.
+ """
+ 
++import os
++
++from contextlib import contextmanager
+ import pytest
+ import torch
+ from enum import IntEnum
+@@ -35,6 +38,54 @@ class QuantMode(IntEnum):
+     MXINT4_BF16_BF16 = 8
+ 
+ 
++@contextmanager
++def nvfp4_4over6_env(use_4over6: bool):
++    original_value = os.environ.get("FLASHINFER_NVFP4_4OVER6", None)
++    if use_4over6:
++        os.environ["FLASHINFER_NVFP4_4OVER6"] = "1"
++    else:
++        os.environ["FLASHINFER_NVFP4_4OVER6"] = "0"
++
++    try:
++        yield
++    finally:
++        if original_value is None:
++            os.environ.pop("FLASHINFER_NVFP4_4OVER6", None)
++        else:
++            os.environ["FLASHINFER_NVFP4_4OVER6"] = original_value
++
++
++@pytest.fixture(autouse=True)
++def set_nvfp4_4over6_env(request):
++    if "use_4over6" not in request.fixturenames:
++        yield
++        return
++
++    env_names = (
++        "FLASHINFER_NVFP4_4OVER6",
++        "TRTLLM_DISABLE_FP4_QUANT_FAST_MATH",
++        "FLASHINFER_NVFP4_4OVER6_ERR_MODE",
++        "FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH",
++        "FLASHINFER_NVFP4_4OVER6_E4M3_USE_256",
++    )
++    original_values = {name: os.environ.get(name, None) for name in env_names}
++
++    use_4over6 = request.getfixturevalue("use_4over6")
++    os.environ["FLASHINFER_NVFP4_4OVER6"] = "1" if use_4over6 else "0"
++    os.environ["TRTLLM_DISABLE_FP4_QUANT_FAST_MATH"] = "1"
++    os.environ["FLASHINFER_NVFP4_4OVER6_ERR_MODE"] = "MAE"
++    os.environ["FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH"] = "0"
++    os.environ["FLASHINFER_NVFP4_4OVER6_E4M3_USE_256"] = "0"
++
++    yield
++
++    for name, value in original_values.items():
++        if value is None:
++            os.environ.pop(name, None)
++        else:
++            os.environ[name] = value
++
++
+ NON_GATED_ACTIVATION_SUPPORTED_QUANT_MODES = [
+     QuantMode.FP4_NVFP4_NVFP4,
+     QuantMode.FP8_BLOCK_SCALE_MXFP8,
+diff --git a/tests/test_helpers/utils_fp4.py b/tests/test_helpers/utils_fp4.py
+index cd6a248da8..1c1c73a980 100644
+--- a/tests/test_helpers/utils_fp4.py
++++ b/tests/test_helpers/utils_fp4.py
+@@ -88,12 +88,22 @@ def ref_fp4_quant(x, global_scale, block_size, sf_use_ue8m0=False):
+     return cast_to_fp4(clipped_x), scale.squeeze(-1)
+ 
+ 
+-def nvfp4_global_encode_scale_te(global_amax: torch.Tensor) -> torch.Tensor:
++def nvfp4_global_encode_scale_te(
++    global_amax: torch.Tensor,
++    use_4over6: bool = False,
++    use_256: bool = False,
++) -> torch.Tensor:
++    """Return the effective NVFP4 global encode scale."""
+     global_amax = global_amax.to(torch.float32)
+     float4_e2m1_max = torch.tensor(6.0, device=global_amax.device, dtype=torch.float32)
+-    float8_e4m3_max = torch.tensor(
+-        448.0, device=global_amax.device, dtype=torch.float32
+-    )
++    if use_4over6 and use_256:
++        float8_e4m3_max = torch.tensor(
++            256.0, device=global_amax.device, dtype=torch.float32
++        )
++    else:
++        float8_e4m3_max = torch.tensor(
++            448.0, device=global_amax.device, dtype=torch.float32
++        )
+     global_encode_scale = torch.div(float8_e4m3_max * float4_e2m1_max, global_amax)
+     global_encode_scale = torch.min(
+         global_encode_scale,
+@@ -119,8 +129,17 @@ def nvfp4_global_encode_scale_te(global_amax: torch.Tensor) -> torch.Tensor:
+     return global_encode_scale
+ 
+ 
+-def nvfp4_global_decode_scale_te(global_amax: torch.Tensor) -> torch.Tensor:
+-    return torch.div(1.0, nvfp4_global_encode_scale_te(global_amax))
++def nvfp4_global_decode_scale_te(
++    global_amax: torch.Tensor,
++    use_4over6: bool = False,
++    use_256: bool = False,
++) -> torch.Tensor:
++    return torch.div(
++        1.0,
++        nvfp4_global_encode_scale_te(
++            global_amax, use_4over6=use_4over6, use_256=use_256
++        ),
++    )
+ 
+ 
+ def ref_fp4_quant_te(
+@@ -185,6 +204,135 @@ def ref_fp4_quant_te(
+     return cast_to_fp4(clipped_x), decode_scale.squeeze(-1)
+ 
+ 
++def _ref_fp4_quant_te_with_decode_scale(
++    x_blocks: torch.Tensor,
++    decode_scale: torch.Tensor,
++    global_decode_scale: torch.Tensor,
++) -> torch.Tensor:
++    """TE-style FP4 quantization with a caller-provided E4M3 decode scale."""
++    max_float32 = torch.tensor(
++        torch.finfo(torch.float32).max,
++        device=x_blocks.device,
++        dtype=torch.float32,
++    )
++    decode_scale = decode_scale.to(torch.float32)
++    encode_scale = torch.minimum(
++        torch.div(1.0, decode_scale * global_decode_scale),
++        max_float32,
++    )
++    scaled_x = x_blocks.to(torch.float32) * encode_scale
++    clipped_x = torch.clamp(scaled_x, -FLOAT4_E2M1_MAX, FLOAT4_E2M1_MAX)
++    return cast_to_fp4(clipped_x)
++
++
++def ref_fp4_quant_4over6_te(
++    x: torch.Tensor,
++    global_amax: torch.Tensor,
++    block_size: int = 16,
++    *,
++    per_token_rowwise: bool = False,
++    err_mode: str = "MAE",
++    use_256: bool = False,
++) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
++    """NVFP4 4over6 reference: TE quantization plus fouroversix error selection.
++
++    Returns unpacked E2M1 values, E4M3 block scales in linear layout, the
++    effective global/per-token decode scale, and the chosen candidate mask.
++    """
++    if x.ndim != 2:
++        raise ValueError(
++            f"ref_fp4_quant_4over6_te expects a 2D tensor, got {x.ndim}D with shape {x.shape}"
++        )
++    assert block_size == 16
++    err_mode = err_mode.upper()
++    if err_mode not in ("MAE", "MSE"):
++        raise ValueError("err_mode must be 'MAE' or 'MSE'.")
++
++    m, n = x.shape
++    x_blocks = x.view(m, n // block_size, block_size).to(torch.float32)
++    vec_max = torch.amax(torch.abs(x_blocks), dim=-1, keepdim=True)
++
++    e2m1_max = torch.tensor(FLOAT4_E2M1_MAX, device=x.device, dtype=torch.float32)
++
++    if per_token_rowwise:
++        global_amax = global_amax.to(torch.float32).view(m)
++        global_encode_scale = nvfp4_global_encode_scale_te(
++            global_amax, use_4over6=True, use_256=use_256
++        )
++        global_decode_scale = torch.where(
++            global_amax == 0.0,
++            torch.zeros_like(global_amax),
++            torch.div(1.0, global_encode_scale),
++        )
++        global_encode_scale = global_encode_scale.view(m, 1, 1)
++        global_decode_scale_blocks = global_decode_scale.view(m, 1, 1)
++        per_token_scale = global_decode_scale
++    else:
++        global_encode_scale = nvfp4_global_encode_scale_te(
++            global_amax.to(torch.float32), use_4over6=True, use_256=use_256
++        )
++        global_decode_scale = torch.div(1.0, global_encode_scale)
++        global_decode_scale_blocks = global_decode_scale
++        per_token_scale = global_decode_scale.reshape(())
++
++    # Candidate scale construction follows the original 4over6 reference.
++    sf6_high_precision = torch.where(
++        vec_max == 0.0,
++        torch.zeros_like(vec_max),
++        vec_max * torch.div(global_encode_scale, e2m1_max),
++    )
++    sf4_high_precision = sf6_high_precision * 1.5
++    float8_e4m3_max = torch.tensor(448.0, device=x.device, dtype=torch.float32)
++    sf4_high_precision = torch.clamp(
++        sf4_high_precision, min=-float8_e4m3_max, max=float8_e4m3_max
++    )
++    sf6_high_precision = torch.clamp(
++        sf6_high_precision, min=-float8_e4m3_max, max=float8_e4m3_max
++    )
++    sf4_fp8 = sf4_high_precision.to(torch.float8_e4m3fn)
++    sf6_fp8 = sf6_high_precision.to(torch.float8_e4m3fn)
++    sf4 = sf4_fp8.to(torch.float32)
++    sf6 = sf6_fp8.to(torch.float32)
++
++    # Candidate FP4 quantization follows the TE reference expression exactly:
++    # encode_scale = min(1 / (fp32(fp8_scale) * global_decode_scale), fp32_max),
++    # then clamp to E2M1 range and map with cast_to_fp4.
++    q4 = _ref_fp4_quant_te_with_decode_scale(
++        x_blocks,
++        sf4_fp8,
++        global_decode_scale_blocks,
++    )
++    q6 = _ref_fp4_quant_te_with_decode_scale(
++        x_blocks,
++        sf6_fp8,
++        global_decode_scale_blocks,
++    )
++
++    # Error dequantization and strict less-than comparison follow 4over6.
++    dq4 = q4 * sf4 * global_decode_scale_blocks
++    dq6 = q6 * sf6 * global_decode_scale_blocks
++    err4 = torch.zeros((m, n // block_size), dtype=torch.float32, device=x.device)
++    err6 = torch.zeros((m, n // block_size), dtype=torch.float32, device=x.device)
++    for i in range(block_size):
++        diff4 = dq4[:, :, i] - x_blocks[:, :, i]
++        diff6 = dq6[:, :, i] - x_blocks[:, :, i]
++        if err_mode == "MSE":
++            err4 += diff4 * diff4
++            err6 += diff6 * diff6
++        else:
++            err4 += torch.abs(diff4)
++            err6 += torch.abs(diff6)
++    pick_four = err4 < err6
++
++    q_ref = torch.where(pick_four.unsqueeze(-1), q4, q6).reshape(m, n)
++    scale_ref = torch.where(
++        pick_four,
++        sf4_fp8.view(torch.uint8).squeeze(-1),
++        sf6_fp8.view(torch.uint8).squeeze(-1),
++    )
++    return q_ref, scale_ref, per_token_scale, pick_four
++
++
+ def recover_swizzled_scales(scale, m, n, block_size, sf_start_index=0):
+     assert sf_start_index + m <= scale.shape[0]
+     full_m = scale.shape[0]
+diff --git a/tests/utils/test_fp4_quantize.py b/tests/utils/test_fp4_quantize.py
+index b98936dc21..c83e269422 100644
+--- a/tests/utils/test_fp4_quantize.py
++++ b/tests/utils/test_fp4_quantize.py
+@@ -1,12 +1,15 @@
+ import functools
+ import os
++from dataclasses import dataclass
+ 
+ import pytest
+ import torch
+ from tests.test_helpers.utils_fp4 import (
+     cast_from_fp4,
+     nvfp4_global_decode_scale_te,
++    nvfp4_global_encode_scale_te,
+     ref_fp4_quant,
++    ref_fp4_quant_4over6_te,
+     ref_fp4_quant_te,
+ )
+ 
+@@ -538,64 +541,213 @@ def test_mxfp4_quantize_backend_parity(
+ NVFP4_ROUNDTRIP_SF_LAYOUTS = [SfLayout.layout_128x4, SfLayout.layout_linear]
+ 
+ 
++@dataclass(frozen=True)
++class NVFP44Over6TestConfig:
++    id: str
++    e4m3_max: int = 448
++    err_mode: str = "MAE"
++    err_use_fast_math: bool = False
++    exact: bool = False
++
++    @property
++    def use_256(self) -> bool:
++        return self.e4m3_max == 256
++
++
++NVFP4_TE_REFERENCE_CONFIGS = [
++    None,
++    NVFP44Over6TestConfig(
++        id="4over6-mae-e4m3-448-exact",
++        e4m3_max=448,
++        err_mode="MAE",
++        exact=True,
++    ),
++    NVFP44Over6TestConfig(
++        id="4over6-mae-e4m3-448-err-fast",
++        e4m3_max=448,
++        err_mode="MAE",
++        err_use_fast_math=True,
++        exact=False,
++    ),
++    NVFP44Over6TestConfig(
++        id="4over6-mae-e4m3-256-exact",
++        e4m3_max=256,
++        err_mode="MAE",
++        exact=True,
++    ),
++    NVFP44Over6TestConfig(
++        id="4over6-mae-e4m3-256-err-fast",
++        e4m3_max=256,
++        err_mode="MAE",
++        err_use_fast_math=True,
++        exact=False,
++    ),
++    NVFP44Over6TestConfig(
++        id="4over6-mse-e4m3-448-exact",
++        e4m3_max=448,
++        err_mode="MSE",
++        exact=True,
++    ),
++    NVFP44Over6TestConfig(
++        id="4over6-mse-e4m3-448-err-fast",
++        e4m3_max=448,
++        err_mode="MSE",
++        err_use_fast_math=True,
++        exact=False,
++    ),
++    NVFP44Over6TestConfig(
++        id="4over6-mse-e4m3-256-exact",
++        e4m3_max=256,
++        err_mode="MSE",
++        exact=True,
++    ),
++    NVFP44Over6TestConfig(
++        id="4over6-mse-e4m3-256-err-fast",
++        e4m3_max=256,
++        err_mode="MSE",
++        err_use_fast_math=True,
++        exact=False,
++    ),
++]
++NVFP4_DEFAULT_4OVER6_CONFIGS = [
++    None,
++    NVFP44Over6TestConfig(
++        id="4over6-mae-e4m3-448",
++        e4m3_max=448,
++        err_mode="MAE",
++        err_use_fast_math=False,
++        exact=False,
++    ),
++]
++
++
++def _nvfp4_quant_config_id(config: NVFP44Over6TestConfig | None) -> str:
++    if config is None:
++        return "nvfp4"
++    return config.id
++
++
+ def _te_ref_scale_bytes_for_layout(
+     scale_ref: torch.Tensor,
+-    is_sf_swizzled_layout: bool,
++    sf_layout: SfLayout,
+ ) -> torch.Tensor:
+     scale_ref = scale_ref.view(torch.uint8)
+-    if is_sf_swizzled_layout:
++
++    if sf_layout == SfLayout.layout_linear:
++        return scale_ref
++    if sf_layout == SfLayout.layout_128x4:
+         rows = ((scale_ref.shape[0] + 127) // 128) * 128
+         cols = ((scale_ref.shape[1] + 3) // 4) * 4
+         return block_scale_interleave(scale_ref).reshape(rows, cols)
+-    return scale_ref
+-
+-
+-@pytest.fixture
+-def set_te_reference_test_env():
+-    """Fixture to set and reset TRTLLM_DISABLE_FP4_QUANT_FAST_MATH environment variable."""
+-    original_value = os.environ.get("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH", None)
++    if sf_layout == SfLayout.layout_8x4:
++        rows = ((scale_ref.shape[0] + 7) // 8) * 8
++        cols = ((scale_ref.shape[1] + 3) // 4) * 4
++        expected = torch.zeros(
++            (rows, cols),
++            dtype=torch.uint8,
++            device=scale_ref.device,
++        )
++        expected_flat = expected.view(-1)
++        for row in range(scale_ref.shape[0]):
++            for col in range(scale_ref.shape[1]):
++                inner_k = col % 4
++                inner_m = row % 8
++                k_tile = col // 4
++                m_tile = row // 8
++                flat_offset = (
++                    m_tile * (cols // 4) * 32 + k_tile * 32 + inner_m * 4 + inner_k
++                )
++                expected_flat[flat_offset] = scale_ref[row, col]
++        return expected
++    raise ValueError(f"Unknown scale-factor layout: {sf_layout}")
++
++
++@pytest.fixture(autouse=True)
++def set_nvfp4_quant_env():
++    """Set NVFP4 quantization env vars for one test."""
++    env_names = (
++        "FLASHINFER_NVFP4_4OVER6",
++        "TRTLLM_DISABLE_FP4_QUANT_FAST_MATH",
++        "FLASHINFER_NVFP4_4OVER6_ERR_MODE",
++        "FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH",
++        "FLASHINFER_NVFP4_4OVER6_E4M3_USE_256",
++    )
++    original_values = {name: os.environ.get(name, None) for name in env_names}
+ 
+-    def _set_algo(algo: str):
+-        if algo == "auto":
+-            os.environ.pop("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH", None)
++    def _set_bool_env(name: str, value: bool | None):
++        if value is None:
++            os.environ.pop(name, None)
+         else:
+-            os.environ["TRTLLM_DISABLE_FP4_QUANT_FAST_MATH"] = algo
+-
+-    yield _set_algo
++            os.environ[name] = "1" if value else "0"
+ 
+-    # Restore original value
+-    if original_value is None:
+-        os.environ.pop("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH", None)
+-    else:
+-        os.environ["TRTLLM_DISABLE_FP4_QUANT_FAST_MATH"] = original_value
++    def _set_str_env(name: str, value: str | None):
++        if value is None:
++            os.environ.pop(name, None)
++        else:
++            os.environ[name] = value
++
++    def _set_env(
++        *,
++        quant_config: NVFP44Over6TestConfig | None = None,
++        use_4over6: bool | None = None,
++        disable_quant_fast_math: bool | None = None,
++        err_mode: str | None = None,
++        err_use_fast_math: bool | None = None,
++        use_256: bool | None = None,
++    ):
++        if quant_config is not None:
++            if use_4over6 is None:
++                use_4over6 = True
++            if err_mode is None:
++                err_mode = quant_config.err_mode
++            if err_use_fast_math is None:
++                err_use_fast_math = quant_config.err_use_fast_math
++            if use_256 is None:
++                use_256 = quant_config.use_256
++        _set_bool_env("FLASHINFER_NVFP4_4OVER6", use_4over6)
++        _set_bool_env("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH", disable_quant_fast_math)
++        _set_str_env("FLASHINFER_NVFP4_4OVER6_ERR_MODE", err_mode)
++        _set_bool_env("FLASHINFER_NVFP4_4OVER6_ERR_USE_FAST_MATH", err_use_fast_math)
++        _set_bool_env("FLASHINFER_NVFP4_4OVER6_E4M3_USE_256", use_256)
++
++    _set_env()
++    yield _set_env
++
++    for name, value in original_values.items():
++        if value is None:
++            os.environ.pop(name, None)
++        else:
++            os.environ[name] = value
+ 
+ 
+ @pytest.mark.parametrize("dtype", DTYPES)
+ @pytest.mark.parametrize("shape", NVFP4_SHAPES)
+-@pytest.mark.parametrize("is_sf_swizzled_layout", [False, True])
++@pytest.mark.parametrize("sf_layout", NVFP4_SF_LAYOUTS)
+ @pytest.mark.parametrize("init_data", ["random", "boundary", "zeros", "maxes"])
++@pytest.mark.parametrize("per_token_activation", [False, True])
++@pytest.mark.parametrize(
++    "quant_config", NVFP4_TE_REFERENCE_CONFIGS, ids=_nvfp4_quant_config_id
++)
+ @pytest.mark.parametrize("device", CUDA_DEVICES)
+ @torch.inference_mode()
+-def test_nvfp4_per_token_quantize_te_reference(
++def test_nvfp4_quantize_te_reference(
+     dtype: torch.dtype,
+     shape: tuple[int, int],
+-    is_sf_swizzled_layout: bool,
++    sf_layout: SfLayout,
+     init_data: str,
++    per_token_activation: bool,
++    quant_config: NVFP44Over6TestConfig | None,
+     device: str,
+-    set_te_reference_test_env,
++    set_nvfp4_quant_env,
+ ) -> None:
+-    set_te_reference_test_env("1")
+-    """Per-token NVFP4 quantization should match the TE Python reference bitwise."""
++    """NVFP4 quantization should match the Python reference bitwise."""
+     if not _is_fp4_supported(torch.device(device)):
+         pytest.skip("Nvfp4 Requires compute capability >= 10 and CUDA >= 12.8")
+-    if os.getenv("TRTLLM_DISABLE_FP4_QUANT_FAST_MATH", "0") == "0":
+-        pytest.skip(
+-            "Environment variable TRTLLM_DISABLE_FP4_QUANT_FAST_MATH is not set or false, "
+-            "skipping test_nvfp4_per_token_quantize_te_reference."
+-        )
+ 
+     torch.set_default_device(device)
+     torch.manual_seed(42)
++    use_4over6 = quant_config is not None
++    use_256 = quant_config.use_256 if quant_config is not None else False
+ 
+     m, n = shape
+     if init_data == "random":
+@@ -617,34 +769,85 @@ def test_nvfp4_per_token_quantize_te_reference(
+     else:
+         raise ValueError(f"Unknown init_data: {init_data}")
+ 
+-    row_amax = torch.abs(x).max(dim=1).values.to(torch.float32)
+-    expected_per_token_scale = torch.where(
+-        row_amax == 0,
+-        torch.zeros_like(row_amax),
+-        nvfp4_global_decode_scale_te(row_amax),
+-    )
+-    q_ref, scale_ref = ref_fp4_quant_te(x, row_amax, per_token_rowwise=True)
+-    expected_scale = _te_ref_scale_bytes_for_layout(scale_ref, is_sf_swizzled_layout)
++    expected_per_token_scale = None
++    if per_token_activation:
++        global_amax = torch.abs(x).max(dim=1).values.to(torch.float32)
++        expected_per_token_scale = torch.where(
++            global_amax == 0,
++            torch.zeros_like(global_amax),
++            nvfp4_global_decode_scale_te(
++                global_amax,
++                use_4over6=use_4over6,
++                use_256=use_256,
++            ),
++        )
++        per_token_global_scale_inv = nvfp4_global_decode_scale_te(
++            torch.ones((), dtype=torch.float32, device=x.device),
++            use_4over6=use_4over6,
++            use_256=use_256,
++        )
++    else:
++        global_amax = torch.abs(x).max().to(torch.float32)
++        global_scale = nvfp4_global_encode_scale_te(
++            global_amax,
++            use_4over6=use_4over6,
++            use_256=use_256,
++        )
+ 
+-    sf_layout = (
+-        SfLayout.layout_128x4 if is_sf_swizzled_layout else SfLayout.layout_linear
+-    )
+-    q_out, scale_out, per_token_scale = nvfp4_quantize(
+-        x,
+-        1.0 / (FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX),
+-        sfLayout=sf_layout,
+-        per_token_activation=True,
+-    )
+-    torch.testing.assert_close(
+-        per_token_scale,
+-        expected_per_token_scale,
+-        rtol=0,
+-        atol=0,
+-    )
++    def _run_quantize(expected_per_token_scale=None):
++        if per_token_activation:
++            q_out, scale_out, per_token_scale = nvfp4_quantize(
++                x,
++                per_token_global_scale_inv,
++                sfLayout=sf_layout,
++                per_token_activation=True,
++            )
++            if expected_per_token_scale is not None:
++                torch.testing.assert_close(
++                    per_token_scale,
++                    expected_per_token_scale,
++                    rtol=0,
++                    atol=0,
++                )
++        else:
++            q_out, scale_out = nvfp4_quantize(
++                x,
++                global_scale,
++                sfLayout=sf_layout,
++            )
++        return q_out, scale_out
+ 
++    if quant_config is not None:
++        q_ref, scale_ref, expected_per_token_scale, _ = ref_fp4_quant_4over6_te(
++            x,
++            global_amax,
++            per_token_rowwise=per_token_activation,
++            err_mode=quant_config.err_mode,
++            use_256=use_256,
++        )
++        expected_scale = _te_ref_scale_bytes_for_layout(scale_ref, sf_layout)
++    else:
++        q_ref, scale_ref = ref_fp4_quant_te(
++            x,
++            global_amax,
++            per_token_rowwise=per_token_activation,
++        )
++        expected_scale = _te_ref_scale_bytes_for_layout(scale_ref, sf_layout)
++
++    set_nvfp4_quant_env(quant_config=quant_config, disable_quant_fast_math=True)
++    q_out, scale_out = _run_quantize(expected_per_token_scale)
+     q_out_unpacked = cast_from_fp4(q_out).reshape_as(q_ref)
+-    torch.testing.assert_close(q_out_unpacked, q_ref, rtol=0, atol=0)
+-    torch.testing.assert_close(scale_out, expected_scale, rtol=0, atol=0)
++    if quant_config is None or quant_config.exact:
++        torch.testing.assert_close(q_out_unpacked, q_ref, rtol=0, atol=0)
++        torch.testing.assert_close(scale_out, expected_scale, rtol=0, atol=0)
++    else:
++        torch.testing.assert_close(q_out_unpacked, q_ref, rtol=0, atol=3.0)
++        torch.testing.assert_close(
++            scale_out.to(torch.float32),
++            expected_scale.to(torch.float32),
++            rtol=0,
++            atol=6.0,
++        )
+ 
+ 
+ @pytest.mark.parametrize("backend", NVFP4_BACKENDS)
+@@ -652,6 +855,9 @@ def test_nvfp4_per_token_quantize_te_reference(
+ @pytest.mark.parametrize("shape", NVFP4_SHAPES)
+ @pytest.mark.parametrize("sf_layout", NVFP4_ROUNDTRIP_SF_LAYOUTS)
+ @pytest.mark.parametrize("per_token_activation", [False, True])
++@pytest.mark.parametrize(
++    "quant_config", NVFP4_DEFAULT_4OVER6_CONFIGS, ids=_nvfp4_quant_config_id
++)
+ @pytest.mark.parametrize("device", CUDA_DEVICES)
+ @torch.inference_mode()
+ def test_nvfp4_quantize_roundtrip(
+@@ -660,7 +866,9 @@ def test_nvfp4_quantize_roundtrip(
+     shape: tuple[int, int],
+     sf_layout: SfLayout,
+     per_token_activation: bool,
++    quant_config: NVFP44Over6TestConfig | None,
+     device: str,
++    set_nvfp4_quant_env,
+ ) -> None:
+     """Test NVFP4 quantization roundtrip for both backends and layouts."""
+     if not _is_fp4_supported(torch.device(device)):
+@@ -669,6 +877,12 @@ def test_nvfp4_quantize_roundtrip(
+         pytest.skip("CuTe-DSL not available")
+     if per_token_activation and backend != "cuda":
+         pytest.skip("Per-token NVFP4 quantization only supports the CUDA backend")
++    use_4over6 = quant_config is not None
++    use_256 = quant_config.use_256 if quant_config is not None else False
++    if use_4over6 and backend != "cuda":
++        pytest.skip("NVFP4 4over6 mode is only supported by the CUDA backend")
++
++    set_nvfp4_quant_env(quant_config=quant_config)
+ 
+     torch.set_default_device(device)
+     torch.manual_seed(42)
+@@ -677,12 +891,21 @@ def test_nvfp4_quantize_roundtrip(
+     x = torch.randn((m, n), dtype=dtype)
+ 
+     tensor_amax = torch.abs(x).max().to(torch.float32)
+-    global_scale = FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX / tensor_amax
++    global_scale = nvfp4_global_encode_scale_te(
++        tensor_amax,
++        use_4over6=use_4over6,
++        use_256=use_256,
++    )
++    per_token_global_scale_inv = nvfp4_global_decode_scale_te(
++        torch.ones((), dtype=torch.float32, device=device),
++        use_4over6=use_4over6,
++        use_256=use_256,
++    )
+ 
+     if per_token_activation:
+         quant_out, scale_out, per_token_scale = nvfp4_quantize(
+             x,
+-            1.0 / (FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX),
++            per_token_global_scale_inv,
+             sfLayout=sf_layout,
+             backend=backend,
+             per_token_activation=True,
+@@ -692,7 +915,11 @@ def test_nvfp4_quantize_roundtrip(
+         quant_out, scale_out = nvfp4_quantize(
+             x, global_scale, sfLayout=sf_layout, backend=backend
+         )
+-        dequant_global_scale = 1 / global_scale
++        dequant_global_scale = nvfp4_global_decode_scale_te(
++            tensor_amax,
++            use_4over6=use_4over6,
++            use_256=use_256,
++        )
+ 
+     # Basic shape checks
+     assert quant_out.shape == (m, n // 2), (
+@@ -1124,19 +1351,27 @@ def test_scaled_fp4_grouped_quantize(
+ @pytest.mark.parametrize("dtype", DTYPES)
+ @pytest.mark.parametrize("batch_shape", BATCH_SHAPES)
+ @pytest.mark.parametrize("seed", SEEDS)
++@pytest.mark.parametrize(
++    "quant_config", NVFP4_DEFAULT_4OVER6_CONFIGS, ids=_nvfp4_quant_config_id
++)
+ @pytest.mark.parametrize("device", CUDA_DEVICES)
+ @torch.inference_mode()
+ def test_silu_and_mul_scaled_nvfp4_experts_quantize(
+     dtype: torch.dtype,
+     batch_shape: tuple[int, int, int],
+     seed: int,
++    quant_config: NVFP44Over6TestConfig | None,
+     device: str,
++    set_nvfp4_quant_env,
+ ) -> None:
+     """Test silu_and_mul_nvfp4_batched_quantize function."""
+     if not _is_fp4_supported(torch.device(device)):
+         pytest.skip("Nvfp4 Requires compute capability of 10 or above")
++    set_nvfp4_quant_env(quant_config=quant_config)
+     torch.set_default_device(device)
+     torch.manual_seed(seed)
++    use_4over6 = quant_config is not None
++    use_256 = quant_config.use_256 if quant_config is not None else False
+ 
+     b, m, n = batch_shape
+     x = torch.randn((b, m, n * 2), dtype=dtype)
+@@ -1144,7 +1379,11 @@ def test_silu_and_mul_scaled_nvfp4_experts_quantize(
+     ref_y = silu_and_mul(x)
+ 
+     tensor_amax = ref_y.abs().amax(dim=(1, 2)).to(torch.float32)
+-    global_scale = FLOAT8_E4M3_MAX * FLOAT4_E2M1_MAX / tensor_amax
++    global_scale = nvfp4_global_encode_scale_te(
++        tensor_amax,
++        use_4over6=use_4over6,
++        use_256=use_256,
++    )
+ 
+     out, out_scale = silu_and_mul_scaled_nvfp4_experts_quantize(x, mask, global_scale)
+ 

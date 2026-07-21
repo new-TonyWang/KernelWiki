@@ -1,0 +1,104 @@
+origin_url: https://github.com/flashinfer-ai/flashinfer/pull/2653
+upstream_repo: flashinfer-ai/flashinfer
+upstream_sha: c9386046
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-flashinfer-2653
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 6974e67afa78858b15a44182dcf0af982608d269a62dea4220ee282f02a17bc3
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/thop/fp8Quantize.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/thop/fp8Quantize.cpp
+  sha256: 01b817ccd194672c0e49482a2b7eaa74bfdedf386b2d6bf9c702443e13117d34
+- local_path: key-files/csrc/nv_internal/tensorrt_llm/thop/fp8Quantize.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/nv_internal/tensorrt_llm/thop/fp8Quantize.h
+  sha256: 6119439395c6a4c3bbe53826d9654dca6fe99aa0cc6877644830d9ee82ad3798
+- local_path: key-files/csrc/trtllm_gemm_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_gemm_runner.cu
+  sha256: 75d2b6795bd131e5e2c7047ef22bb9c7c5e38dbecb082a3885a3de5e0895a7a8
+- local_path: key-files/csrc/trtllm_low_latency_gemm_runner.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/trtllm_low_latency_gemm_runner.cu
+  sha256: 97c2191e7888425e123e3b4e22869219e2ca8a2759f369b9a08f187d81eeef6f
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/Enums.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/Enums.h
+  sha256: 18a0056970aa6a1cc465ac51709ce79849878564c42c27a6c2182a74f0cfb8ee
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/GemmInterface.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/GemmInterface.h
+  sha256: 94443ab22eab8859fd5c71a15a88cead4b30b7d52a4d4bf7a615a20e0822ed46
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/GemmOptions.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/GemmOptions.h
+  sha256: 7589b3c05e0a30adff5ff6ad23e5809eb885114157596c45d686222973a9d684
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/KernelParams.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/KernelParams.h
+  sha256: a1a4978d5e82bce470cb8dc7b62786013453c423f9e39474a66e2a9516e9949b
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/KernelParamsDecl.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/KernelParamsDecl.h
+  sha256: 8cfca6b8605f7d2ab6eec9c2c66b7fe41840f1dd6bbc85b5054a14d791a5f250
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/KernelTraits.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/KernelTraits.h
+  sha256: 42efda59f4585dbad4eb07158612f81e96aa87b756e938e48aa23f9c5638d02c
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/TmaDescriptor.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/TmaDescriptor.h
+  sha256: 66255b7eef2433cca4b571a4921098fb22d7125e7a7da79bee7f673d43574ce7
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/CommonUtils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/CommonUtils.h
+  sha256: 0dc14343343ea8d4358fac565371f5eb023e690a2a96688dbf0b394321b33870
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/CudaArchDecl.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/CudaArchDecl.h
+  sha256: 3d7f49ae1accc60629d6a6da96df788323cc016cacfc7d0cc05b0c05ebe412aa
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/CudaKernelLauncher.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/CudaKernelLauncher.h
+  sha256: eb06884bae0b80986938bdb460a3111b271471ada5395b48a237afd473871992
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/DtypeDecl.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/DtypeDecl.h
+  sha256: 0ba648cd69540653c3f33c39acb2ab43a865e16dc11f7b8e46a84f619dcba58f
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/MmaDecl.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/MmaDecl.h
+  sha256: 24c11c8f5b5038752ebd58b8eb8f5909a7b95f543d029f52ce8af4c73513f3fe
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/SfLayoutDecl.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/SfLayoutDecl.h
+  sha256: 05473f2a7b8c77fa833c55a391d5eb5bd92f2d68930dfafddf839514e3af3284
+- local_path: key-files/include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/SparsityDecl.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/flashinfer/trtllm/gemm/trtllmGen_gemm_export/trtllm/gen/SparsityDecl.h
+  sha256: a08bd13f73ab9bc0f0c70baa83923303a0149ef71bcc9c23bf9ff9c90740eab7
