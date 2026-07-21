@@ -447,12 +447,34 @@ def handle_wiki_get_page(params):
                                          containment_root=WIKI_ROOT)
             result["artifact_dir"] = ad
             result["artifact_dir_fallback"] = is_fallback
-            result["artifact_files"] = [
-                {"path": f["rel_path"], "size": f["size"],
-                 "truncated": f["truncated"],
-                 "content": f["content"]}
-                for f in files
-            ]
+            # Fit what the output budget allows instead of letting one oversized
+            # bundle blow the whole response. A 1.2 MiB PR bundle used to
+            # serialize past MAX_RESPONSE_CHARS and come back as an empty
+            # truncation envelope, so include_code returned nothing at all.
+            # Skip (rather than stop at) a file that does not fit, so a large
+            # diff.patch cannot starve the key-files behind it.
+            budget = MAX_RESPONSE_CHARS - len(json.dumps(
+                {**result, "artifact_files": []}, ensure_ascii=False,
+                default=_json_default)) - 512
+            included, omitted = [], []
+            for f in files:
+                entry = {"path": f["rel_path"], "size": f["size"],
+                         "truncated": f["truncated"],
+                         "content": f["content"]}
+                cost = len(json.dumps(entry, ensure_ascii=False,
+                                      default=_json_default)) + 1
+                if cost > budget:
+                    omitted.append(f["rel_path"])
+                    continue
+                budget -= cost
+                included.append(entry)
+            result["artifact_files"] = included
+            if omitted:
+                result["artifact_files_omitted"] = omitted
+                result["artifact_files_omitted_reason"] = (
+                    "too large for the response budget; read them from "
+                    f"{ad}/ on disk"
+                )
 
     envelope = {
         "ok": True,
