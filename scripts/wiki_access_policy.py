@@ -81,6 +81,24 @@ def is_readable(path: Path, *, roots: tuple[str, ...] = PAGE_ROOTS,
     return True
 
 
+def is_allowed_dir(path: Path, *, roots: tuple[str, ...] = PAGE_ROOTS) -> bool:
+    """True if *path* is a directory whose contents may be served.
+
+    Artifact bundle locations come from a page's `artifact_dir` frontmatter
+    field, which is a repo-controlled string but still resolves anywhere under
+    the root — `artifact_dir: scripts` would otherwise hand out the server's
+    own source.
+    """
+    if not is_within_root(path):
+        return False
+    try:
+        if not path.is_dir():
+            return False
+    except OSError:
+        return False
+    return _top_level(path) in roots
+
+
 def resolve_lookup(rel_lookup: str, *, roots: tuple[str, ...] = PAGE_ROOTS,
                    require_ext: bool = True) -> Path | None:
     """Resolve a relative lookup string under WIKI_ROOT, or None if disallowed.

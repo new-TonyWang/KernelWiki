@@ -9,7 +9,7 @@ import yaml
 from pathlib import Path
 
 from _wiki_root import WIKI_ROOT
-from wiki_access_policy import resolve_lookup
+from wiki_access_policy import is_readable, resolve_lookup
 
 _WIKI_ROOT_RESOLVED = WIKI_ROOT.resolve()
 
@@ -202,9 +202,13 @@ def load_artifact_files(ad_path, max_files=100, max_file_size=512000,
 
     files = []
     for f in sorted(ad_path.rglob("*")):
-        if not f.is_file() or f.suffix.lower() not in ARTIFACT_EXTS:
+        if f.suffix.lower() not in ARTIFACT_EXTS:
             continue
-        # Per-file symlink containment check
+        # Access policy covers symlink containment, allowed top-level roots and
+        # the extension allowlist, so a bundle pointed at scripts/ or data/
+        # yields nothing even if the caller reaches this far.
+        if not is_readable(f):
+            continue
         if resolved_root and not f.resolve().is_relative_to(resolved_root):
             continue
         if len(files) >= max_files:

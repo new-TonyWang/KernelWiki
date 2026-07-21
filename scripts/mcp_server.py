@@ -78,7 +78,9 @@ try:
         load_artifact_files, ARTIFACT_EXTS,
     )
     from wiki_grep_service import search_wiki
-    from wiki_access_policy import EXCERPT_ROOTS, is_readable, resolve_lookup
+    from wiki_access_policy import (
+        EXCERPT_ROOTS, is_allowed_dir, is_readable, resolve_lookup,
+    )
     try:
         from source_corpus.registry import resolve_corpus_path as _resolve_corpus_path
     except ImportError:
@@ -438,7 +440,7 @@ def handle_wiki_get_page(params):
 
     if include_code and fm:
         ad, ad_path, is_fallback = resolve_artifact_dir(page_path, fm)
-        if ad_path and ad_path.resolve().is_relative_to(WIKI_ROOT.resolve()) and ad_path.is_dir():
+        if ad_path and is_allowed_dir(ad_path):
             files = load_artifact_files(ad_path,
                                          max_files=MAX_ARTIFACT_FILES,
                                          max_file_size=MAX_FILE_SIZE,
