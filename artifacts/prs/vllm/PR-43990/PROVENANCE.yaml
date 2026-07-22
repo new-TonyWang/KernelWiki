@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/43990
+upstream_repo: vllm-project/vllm
+upstream_sha: 8a9eb408
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-43990
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: f9d6f5ccfe864e18b19103000be67281b8b58b6109b0ac2e149ecd46a80729ac
+- local_path: key-files/vllm/v1/worker/gpu/model_runner.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/worker/gpu/model_runner.py
+  sha256: fc8db462e6042190bdb31942198c7cf1b7a1d66cd6399b09f26fb6a0bc5aaa35
+- local_path: key-files/vllm/v1/worker/gpu_model_runner.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/worker/gpu_model_runner.py
+  sha256: a3d7590e24cde383143a9823f5b98b6633428a3096d6dfeee960555ce869aa56
+- local_path: key-files/vllm/v1/worker/utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/worker/utils.py
+  sha256: 36cae980896d5607ce238606ec6c053eff17b7597a0c9185549f94583c1b9de6
+captured_via_relaxed_allowlist: true

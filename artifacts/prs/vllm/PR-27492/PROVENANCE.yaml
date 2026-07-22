@@ -1,0 +1,50 @@
+origin_url: https://github.com/vllm-project/vllm/pull/27492
+upstream_repo: vllm-project/vllm
+upstream_sha: 34553b9d
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-27492
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 90208b2c298c1530beaf1225fce542bad3b62a8e5c99be44d1d74519fd87fdd3
+- local_path: key-files/vllm/model_executor/layers/fused_moe/config.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/config.py
+  sha256: b799674d7f4dcc1d98771e4f8f2bf807cff97d86c9d68c9c972c2243333c104c
+- local_path: key-files/vllm/model_executor/layers/fused_moe/flashinfer_trtllm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/flashinfer_trtllm_moe.py
+  sha256: 60cbf53a9b740bf2df20312c93516c434809918f1bb56935475c22e51e0e4698
+- local_path: key-files/vllm/model_executor/layers/fused_moe/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/layer.py
+  sha256: 41c92abd3f504848f18f4b8ff372926af5a85f7ce636036bd9ba81128125fed0
+- local_path: key-files/vllm/model_executor/layers/quantization/fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/fp8.py
+  sha256: cbf4fa2771372401ff8399ba32ddc04b5e1f036d193e20dcbc8c37637bd498aa
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  sha256: 621cf1f18e916c05a81f60820ce6f55039246e1285c537daf4a50404b7dbe9b2
+- local_path: key-files/vllm/model_executor/models/qwen3_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/qwen3_moe.py
+  sha256: 810c8c033ceb50f74b837272a7bf3ee2fbfb14fcdb1be6a2e50bbad2db78632a
+- local_path: key-files/vllm/model_executor/models/qwen3_next.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/qwen3_next.py
+  sha256: e51a7f1871fc0b3c21e30f8da5749380ed25d6811bfb2ea4348bd3a9c527b858
+captured_via_relaxed_allowlist: true

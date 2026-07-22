@@ -1,0 +1,25 @@
+origin_url: https://github.com/vllm-project/vllm/pull/30071
+upstream_repo: vllm-project/vllm
+upstream_sha: 0c738b58
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-30071
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 8865bc0965445a74c9c38a6cb165e7000d01261f8c82a95abdc933eddb691965
+- local_path: key-files/vllm/model_executor/layers/quantization/quark/quark.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/quark/quark.py
+  sha256: e0200d54a2b4a3b47b49b03912452d7d04b1b2679bf5e836f034f7a2aa80383d
+- local_path: key-files/vllm/model_executor/layers/quantization/quark/quark_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/quark/quark_moe.py
+  sha256: 70047c0617b128944ea6a31f016b1350ea450a72da5f9d2528ee33dadccf094b
+captured_via_relaxed_allowlist: true

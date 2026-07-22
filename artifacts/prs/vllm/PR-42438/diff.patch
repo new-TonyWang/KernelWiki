@@ -1,0 +1,65 @@
+diff --git a/.github/workflows/scripts/build.sh b/.github/workflows/scripts/build.sh
+index 5bb9f7196806..eb3971c42bfc 100644
+--- a/.github/workflows/scripts/build.sh
++++ b/.github/workflows/scripts/build.sh
+@@ -9,6 +9,9 @@ PATH=${cuda_home}/bin:$PATH
+ LD_LIBRARY_PATH=${cuda_home}/lib64:$LD_LIBRARY_PATH
+ 
+ # Install requirements
++if [ "$(echo $2 | cut -d. -f1)" = "12" ]; then
++    sed -i 's/^nvidia-cutlass-dsl\[cu13\]>=/nvidia-cutlass-dsl>=/' requirements/cuda.txt
++fi
+ $python_executable -m pip install -r requirements/build/cuda.txt -r requirements/cuda.txt
+ 
+ # Limit the number of parallel jobs to avoid OOM
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index 923dbe4069b2..be0f70690090 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -199,7 +199,10 @@ COPY requirements/cuda.txt requirements/cuda.txt
+ COPY use_existing_torch.py use_existing_torch.py
+ COPY pyproject.toml pyproject.toml
+ RUN --mount=type=cache,target=/root/.cache/uv \
+-    if [ "${PYTORCH_NIGHTLY}" = "1" ]; then \
++    if [ "$(echo $CUDA_VERSION | cut -d. -f1)" = "12" ]; then \
++        sed -i 's/^nvidia-cutlass-dsl\[cu13\]>=/nvidia-cutlass-dsl>=/' requirements/cuda.txt; \
++    fi \
++    && if [ "${PYTORCH_NIGHTLY}" = "1" ]; then \
+         echo "Installing torch nightly..." \
+         && uv pip install --python /opt/venv/bin/python3 torch torchaudio torchvision --pre \
+         --index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/nightly/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.') \
+@@ -627,6 +630,9 @@ ARG PYTORCH_CUDA_INDEX_BASE_URL
+ COPY requirements/common.txt /tmp/common.txt
+ COPY requirements/cuda.txt /tmp/requirements-cuda.txt
+ RUN --mount=type=cache,target=/root/.cache/uv \
++    if [ "$(echo $CUDA_VERSION | cut -d. -f1)" = "12" ]; then \
++        sed -i 's/^nvidia-cutlass-dsl\[cu13\]>=/nvidia-cutlass-dsl>=/' /tmp/requirements-cuda.txt; \
++    fi && \
+     uv pip install --system -r /tmp/requirements-cuda.txt \
+         --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.') && \
+     rm /tmp/requirements-cuda.txt /tmp/common.txt
+diff --git a/requirements/cuda.txt b/requirements/cuda.txt
+index abff2525af9e..068e83272a5a 100644
+--- a/requirements/cuda.txt
++++ b/requirements/cuda.txt
+@@ -21,5 +21,5 @@ nvidia-cudnn-frontend>=1.13.0,<1.19.0
+ fastsafetensors >= 0.2.2
+ 
+ # QuACK and Cutlass DSL for FA4 (cute-DSL implementation)
+-nvidia-cutlass-dsl>=4.4.2
++nvidia-cutlass-dsl[cu13]>=4.4.2
+ quack-kernels>=0.3.3
+diff --git a/setup.py b/setup.py
+index dc963c9e7891..738a89a4775d 100644
+--- a/setup.py
++++ b/setup.py
+@@ -970,6 +970,9 @@ def _read_requirements(filename: str) -> list[str]:
+                 # vllm-flash-attn is built only for CUDA 12.x.
+                 # Skip for other versions.
+                 continue
++            if "nvidia-cutlass-dsl[cu13]" in req and cuda_major == "12":
++                # [cu13] extra is the default; strip it on CUDA 12 builds.
++                req = req.replace("nvidia-cutlass-dsl[cu13]", "nvidia-cutlass-dsl")
+             modified_requirements.append(req)
+         requirements = modified_requirements
+     elif _is_hip():

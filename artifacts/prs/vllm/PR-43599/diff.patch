@@ -1,0 +1,163 @@
+diff --git a/vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py b/vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py
+index 0b679b78c929..d11c7a3767d4 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py
+@@ -99,9 +99,6 @@ def _supports_router_logits_dtype(
+     ) -> bool:
+         return True
+ 
+-    def supports_chunking(self) -> bool:
+-        return False
+-
+     def supports_expert_map(self) -> bool:
+         return False
+ 
+diff --git a/vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py b/vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+index 31af4a32bae2..046d3e006af2 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+@@ -88,9 +88,6 @@ def _supports_parallel_config(moe_parallel_config: FusedMoEParallelConfig) -> bo
+             or moe_parallel_config.use_ag_rs_all2all_kernels
+         ) and not moe_parallel_config.enable_eplb
+ 
+-    def supports_chunking(self) -> bool:
+-        return False
+-
+     def supports_expert_map(self) -> bool:
+         return False
+ 
+diff --git a/vllm/model_executor/layers/fused_moe/experts/trtllm_mxfp4_moe.py b/vllm/model_executor/layers/fused_moe/experts/trtllm_mxfp4_moe.py
+index 64c163d73eb1..1e2fff8eb66c 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/trtllm_mxfp4_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/trtllm_mxfp4_moe.py
+@@ -113,9 +113,6 @@ def _supports_activation(activation: MoEActivation) -> bool:
+     def activation_format() -> mk.FusedMoEActivationFormat:
+         return mk.FusedMoEActivationFormat.Standard
+ 
+-    def supports_chunking(self) -> bool:
+-        return False
+-
+     def supports_expert_map(self) -> bool:
+         return False
+ 
+diff --git a/vllm/model_executor/layers/fused_moe/experts/trtllm_nvfp4_moe.py b/vllm/model_executor/layers/fused_moe/experts/trtllm_nvfp4_moe.py
+index 3ddcdef77575..ee56b50acd28 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/trtllm_nvfp4_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/trtllm_nvfp4_moe.py
+@@ -157,8 +157,27 @@ def _supports_shape(hidden_dim: int) -> bool:
+     def activation_format() -> mk.FusedMoEActivationFormat:
+         return mk.FusedMoEActivationFormat.Standard
+ 
+-    def supports_chunking(self) -> bool:
+-        return False
++    def _get_chunk_size(self) -> int:
++        MAX_GRID_Y = 65535
++        MAX_TILE_TOKENS_DIM = 128
++
++        def _calc_max_supported_tokens(top_k: int, num_experts: int) -> int:
++            """Calculates the max number of supported tokens, so the CUDA grid.Y limit
++            won't be reached.
++            Based on getMaxNumCtasInBatchDim function in flashinfer's TRTLLM MoE runner:
++            https://github.com/flashinfer-ai/flashinfer/blob/719ee23fd82cb220d51ad118ca60198718f6c9d1/include/flashinfer/trtllm/fused_moe/runner.h#L97
++            Which given numTokens, topK, numExperts, tileTokensDim calculates maxNumCtas
++            which is used as the CUDA grid.Y dimension, which we want to
++            be <= MAX_GRID_Y. Solving for numTokens gives the formula below.
++            """
++            return (
++                num_experts + (MAX_GRID_Y - num_experts + 1) * MAX_TILE_TOKENS_DIM - 1
++            ) // top_k
++
++        # Using 305k or more causes IMA error in the kernel, so limit to 300k.
++        return min(
++            300000, _calc_max_supported_tokens(self.topk, self.moe_config.num_experts)
++        )
+ 
+     def supports_expert_map(self) -> bool:
+         return False
+@@ -199,7 +218,7 @@ def workspace_shapes(
+     def finalize_weight_and_reduce_impl(self) -> mk.TopKWeightAndReduce:
+         return TopKWeightAndReduceNoOP()
+ 
+-    def apply(
++    def _invoke_kernel(
+         self,
+         output: torch.Tensor,
+         hidden_states: torch.Tensor,
+@@ -209,18 +228,10 @@ def apply(
+         topk_ids: torch.Tensor,
+         activation: MoEActivation,
+         global_num_experts: int,
+-        expert_map: torch.Tensor | None,
+-        a1q_scale: torch.Tensor | None,
+-        a2_scale: torch.Tensor | None,
+-        workspace13: torch.Tensor,
+-        workspace2: torch.Tensor,
+-        expert_tokens_meta: mk.ExpertTokensMetadata | None,
+-        apply_router_weight_on_input: bool,
++        a1q_scale: torch.Tensor,
+     ):
+         import flashinfer
+ 
+-        assert self._supports_activation(activation)
+-        assert a1q_scale is not None
+         assert self.quant_config.w1_scale is not None
+         assert self.quant_config.w2_scale is not None
+ 
+@@ -262,6 +273,57 @@ def apply(
+             output=output,
+         )
+ 
++    def apply(
++        self,
++        output: torch.Tensor,
++        hidden_states: torch.Tensor,
++        w1: torch.Tensor,
++        w2: torch.Tensor,
++        topk_weights: torch.Tensor,
++        topk_ids: torch.Tensor,
++        activation: MoEActivation,
++        global_num_experts: int,
++        expert_map: torch.Tensor | None,
++        a1q_scale: torch.Tensor | None,
++        a2_scale: torch.Tensor | None,
++        workspace13: torch.Tensor,
++        workspace2: torch.Tensor,
++        expert_tokens_meta: mk.ExpertTokensMetadata | None,
++        apply_router_weight_on_input: bool,
++    ):
++        assert self._supports_activation(activation)
++        assert a1q_scale is not None
++
++        M = hidden_states.shape[0]
++        chunk_size = self._get_chunk_size()
++
++        if chunk_size >= M:
++            self._invoke_kernel(
++                output,
++                hidden_states,
++                w1,
++                w2,
++                topk_weights,
++                topk_ids,
++                activation,
++                global_num_experts,
++                a1q_scale,
++            )
++        else:
++            for start in range(0, M, chunk_size):
++                end = min(start + chunk_size, M)
++                self._invoke_kernel(
++                    output[start:end],
++                    hidden_states[start:end],
++                    w1,
++                    w2,
++                    topk_weights[start:end],
++                    topk_ids[start:end],
++                    activation,
++                    global_num_experts,
++                    a1q_scale[start:end],
++                )
++
+ 
+ class TrtLlmNvFp4ExpertsMonolithic(
+     TrtLlmNvFp4ExpertsBase, mk.FusedMoEExpertsMonolithic

@@ -1,0 +1,20 @@
+origin_url: https://github.com/vllm-project/vllm/pull/18000
+upstream_repo: vllm-project/vllm
+upstream_sha: 307939f2
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-18000
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: e4136687b6db31a965ea1f9000c6ffa5b53d6d4b3fcf3ded7537fb053841144c
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w4a16_nvfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w4a16_nvfp4.py
+  sha256: 6b4ae163cdc4fb8386e83b2a5de0e06bcc6b58edae34ad618ef13cd24bb37482
+captured_via_relaxed_allowlist: true

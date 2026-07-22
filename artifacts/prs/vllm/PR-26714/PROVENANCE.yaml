@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/26714
+upstream_repo: vllm-project/vllm
+upstream_sha: 41d30719
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-26714
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 66fcdb0aab5cfeb88c5e723f01af2fd7437a3a79201cc8c079f6aac906c27ab5
+- local_path: key-files/vllm/model_executor/layers/fused_moe/trtllm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/trtllm_moe.py
+  sha256: f0389ccd61d1b4e119ab15f8fa182a9817a8570f9c439e8020be6fd8ebf4cfc9
+- local_path: key-files/vllm/model_executor/layers/quantization/modelopt.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/modelopt.py
+  sha256: e2fc7ee8d5edb7f253644eba86978e97952ddbb3d9a6141305417e212f9278bd
+- local_path: key-files/vllm/model_executor/layers/quantization/mxfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/mxfp4.py
+  sha256: 594eb8e05d0669d1610a5577653a94f36e8fef180d7deb04de32224adc288456
+captured_via_relaxed_allowlist: true

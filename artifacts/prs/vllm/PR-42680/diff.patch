@@ -1,0 +1,802 @@
+diff --git a/vllm/model_executor/layers/fused_moe/__init__.py b/vllm/model_executor/layers/fused_moe/__init__.py
+index 7a48ae0d9bc5..4f8627a97c6a 100644
+--- a/vllm/model_executor/layers/fused_moe/__init__.py
++++ b/vllm/model_executor/layers/fused_moe/__init__.py
+@@ -93,7 +93,6 @@ def get_config() -> dict[str, Any] | None:
+         CutlassBatchedExpertsFp8,
+         CutlassExpertsFp8,
+         CutlassExpertsW4A8Fp8,
+-        cutlass_moe_w4a8_fp8,
+     )
+     from vllm.model_executor.layers.fused_moe.experts.deep_gemm_moe import (
+         DeepGemmExperts,
+@@ -133,7 +132,6 @@ def get_config() -> dict[str, Any] | None:
+         "fused_experts",
+         "get_config_file_name",
+         "GroupedTopk",
+-        "cutlass_moe_w4a8_fp8",
+         "CutlassExpertsFp8",
+         "CutlassBatchedExpertsFp8",
+         "CutlassExpertsW4A8Fp8",
+diff --git a/vllm/model_executor/layers/fused_moe/experts/cutlass_moe.py b/vllm/model_executor/layers/fused_moe/experts/cutlass_moe.py
+index c1274a3c14d5..53a876721a13 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/cutlass_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/cutlass_moe.py
+@@ -20,9 +20,6 @@
+     moe_permute,
+     moe_unpermute,
+ )
+-from vllm.model_executor.layers.fused_moe.prepare_finalize import (
+-    MoEPrepareAndFinalizeNoDPEPModular,
+-)
+ from vllm.model_executor.layers.fused_moe.topk_weight_and_reduce import (
+     TopKWeightAndReduceDelegate,
+     TopKWeightAndReduceNoOP,
+@@ -36,6 +33,7 @@
+     kFp8DynamicTokenSym,
+     kFp8StaticChannelSym,
+     kFp8StaticTensorSym,
++    kInt4Static,
+     kMxfp4Dynamic,
+     kMxfp4Static,
+     kNvfp4Dynamic,
+@@ -1237,29 +1235,36 @@ def run_cutlass_moe_w4a8_fp8(
+ class CutlassExpertsW4A8Fp8(mk.FusedMoEExpertsModular):
+     def __init__(
+         self,
+-        out_dtype: torch.dtype | None,
+-        a_strides1: torch.Tensor,
+-        a_strides2: torch.Tensor,
+-        b_strides1: torch.Tensor,
+-        b_strides2: torch.Tensor,
+-        c_strides1: torch.Tensor,
+-        c_strides2: torch.Tensor,
+-        s_strides1: torch.Tensor,
+-        s_strides2: torch.Tensor,
+         moe_config: FusedMoEConfig,
+         quant_config: FusedMoEQuantConfig,
++        b_strides1: torch.Tensor,
++        b_strides2: torch.Tensor,
+         group_size: int,
+     ):
+         super().__init__(moe_config=moe_config, quant_config=quant_config)
+-        self.out_dtype = out_dtype
+-        self.a_strides1 = a_strides1
+-        self.a_strides2 = a_strides2
++
++        e = moe_config.num_local_experts
++        n = moe_config.intermediate_size_per_partition
++        k = moe_config.hidden_dim
++        device = moe_config.device
++
++        self.out_dtype = moe_config.in_dtype
++
++        a_strides1_c_strides2 = torch.full((e,), k, device=device, dtype=torch.int64)
++        self.a_strides1 = a_strides1_c_strides2
++        self.a_strides2 = torch.full((e,), n, device=device, dtype=torch.int64)
++        self.c_strides1 = torch.full((e,), 2 * n, device=device, dtype=torch.int64)
++        self.c_strides2 = a_strides1_c_strides2
++
+         self.b_strides1 = b_strides1
+         self.b_strides2 = b_strides2
+-        self.c_strides1 = c_strides1
+-        self.c_strides2 = c_strides2
+-        self.s_strides1 = s_strides1
+-        self.s_strides2 = s_strides2
++
++        # sizeof(StrideS) = 16 bytes, encoded as 2xint64.
++        self.s_strides1 = torch.zeros((e, 2), device=device, dtype=torch.int64)
++        self.s_strides1[:, 0] = 2 * n
++        self.s_strides2 = torch.zeros((e, 2), device=device, dtype=torch.int64)
++        self.s_strides2[:, 0] = k
++
+         self.group_size = group_size
+ 
+     @staticmethod
+@@ -1267,42 +1272,53 @@ def activation_format() -> mk.FusedMoEActivationFormat:
+         return mk.FusedMoEActivationFormat.Standard
+ 
+     @staticmethod
+-    def _supports_current_device() -> bool:
+-        raise NotImplementedError(
+-            "CutlassExpertsW4A8Fp8 is not yet used by an Oracle. "
+-            "This method should not be called."
++    def is_supported_config(
++        cls: type[mk.FusedMoEExperts],
++        moe_config: FusedMoEConfig,
++        weight_key: QuantKey | None,
++        activation_key: QuantKey | None,
++        activation_format: mk.FusedMoEActivationFormat,
++    ) -> tuple[bool, str | None]:
++        if moe_config.in_dtype != torch.bfloat16:
++            return (
++                False,
++                f"kernel does not support {moe_config.in_dtype} input/output dtype",
++            )
++
++        return mk.FusedMoEExperts.is_supported_config(
++            cls,
++            moe_config,
++            weight_key,
++            activation_key,
++            activation_format,
+         )
+ 
++    @staticmethod
++    def _supports_current_device() -> bool:
++        return cutlass_group_gemm_supported()
++
+     @staticmethod
+     def _supports_no_act_and_mul() -> bool:
+-        raise NotImplementedError(
+-            "CutlassExpertsW4A8Fp8 is not yet used by an Oracle. "
+-            "This method should not be called."
+-        )
++        return False
+ 
+     @staticmethod
+     def _supports_quant_scheme(
+         weight_key: QuantKey | None,
+         activation_key: QuantKey | None,
+     ) -> bool:
+-        raise NotImplementedError(
+-            "CutlassExpertsW4A8Fp8 is not yet used by an Oracle. "
+-            "This method should not be called."
+-        )
++        return (weight_key, activation_key) == (kInt4Static, kFp8DynamicTokenSym)
+ 
+     @staticmethod
+     def _supports_activation(activation: MoEActivation) -> bool:
+-        raise NotImplementedError(
+-            "CutlassExpertsW4A8Fp8 is not yet used by an Oracle. "
+-            "This method should not be called."
++        return activation in (
++            MoEActivation.SILU,
++            MoEActivation.GELU,
++            MoEActivation.SWIGLUOAI,
+         )
+ 
+     @staticmethod
+     def _supports_parallel_config(moe_parallel_config: FusedMoEParallelConfig) -> bool:
+-        raise NotImplementedError(
+-            "CutlassExpertsW4A8Fp8 is not yet used by an Oracle. "
+-            "This method should not be called."
+-        )
++        return True
+ 
+     def supports_expert_map(self) -> bool:
+         return True
+@@ -1394,112 +1410,3 @@ def apply(
+             topk_weights,
+             self.group_size,
+         )
+-
+-
+-def cutlass_moe_w4a8_fp8(
+-    a: torch.Tensor,
+-    w1_q: torch.Tensor,
+-    w2_q: torch.Tensor,
+-    topk_weights: torch.Tensor,
+-    topk_ids: torch.Tensor,
+-    a_strides1: torch.Tensor,
+-    a_strides2: torch.Tensor,
+-    b_strides1: torch.Tensor,
+-    b_strides2: torch.Tensor,
+-    c_strides1: torch.Tensor,
+-    c_strides2: torch.Tensor,
+-    s_strides1: torch.Tensor,
+-    s_strides2: torch.Tensor,
+-    quant_config: FusedMoEQuantConfig,
+-    moe_config: FusedMoEConfig,
+-    activation: MoEActivation = MoEActivation.SILU,
+-    expert_map: torch.Tensor | None = None,
+-    apply_router_weight_on_input: bool = False,
+-    global_num_experts: int = -1,
+-    group_size: int = 128,
+-) -> torch.Tensor:
+-    """
+-    This function computes a w4a8-quantized Mixture of Experts (MoE) layer
+-    using two sets of quantized weights, w1_q and w2_q, and top-k gating
+-    mechanism. The matrix multiplications are implemented with CUTLASS
+-    mixed-dtype grouped gemm.
+-
+-    Parameters:
+-    - a (torch.Tensor): The input tensor to the MoE layer.
+-        Shape: [M, K]
+-    - w1_q (torch.Tensor): The first set of fp8-quantized expert weights.
+-        Shape: [num_experts, 2*N, K // packed_factor]
+-    - w2_q (torch.Tensor): The second set of fp8-quantized expert weights.
+-        Shape: [num_experts, K, N // packed_factor]
+-    - topk_weights (torch.Tensor): The weights of each token->expert mapping.
+-    - topk_ids (torch.Tensor): The token->expert mappings.
+-    - a_strides1 (torch.Tensor): The input strides for the first gemm.
+-        Shape: [num_experts]
+-    - a_strides2 (torch.Tensor): The input strides for the second gemm.
+-        Shape: [num_experts]
+-    - b_strides1 (torch.Tensor): The packed layout for the first gemm weights.
+-        Shape: [num_experts, 3]
+-        dtype: torch.int32
+-    - b_strides2 (torch.Tensor): The packed layout for the second gemm weights.
+-        Shape: [num_experts, 3]
+-        dtype: torch.int32
+-    - c_strides1 (torch.Tensor): The output strides for the first gemm.
+-        Shape: [num_experts]
+-    - c_strides2 (torch.Tensor): The output strides for the second gemm.
+-        Shape: [num_experts]
+-    - s_strides1 (torch.Tensor): strides for the group-wise scales for the first gemm.
+-        Shape: [num_experts, 2]
+-        dtype: torch.int64
+-    - s_strides2 (torch.Tensor): strides for the group-wise scales for the second gemm.
+-        Shape: [num_experts, 2]
+-        dtype: torch.int64
+-    - per_act_token (Optional[bool]): Whether the scale is per-token or
+-                                      per-tensor.
+-    - activation (MoEActivation): The activation function to use.
+-    - expert_map (Optional[torch.Tensor]): In the case of Expert parallel,
+-        every Rank is responsible for a subset of experts. expert_map is a
+-        mapping from global expert-id to local expert-id. When expert_map[i]
+-        is -1, it means that this Rank is not responsible for global
+-        expert-id i.
+-    - apply_router_weight_on_input (bool): When true, the topk weights are
+-        applied directly on the inputs. This is only applicable when topk is 1.
+-    - global_num_experts (int): The total number of experts.
+-    - group_size (int): The number of weights per scale factor
+-
+-    Returns:
+-    - torch.Tensor: The bf16 output tensor after applying the MoE layer.
+-    """
+-    assert quant_config is not None
+-
+-    num_experts = global_num_experts if global_num_experts != -1 else w1_q.size(0)
+-
+-    fn = mk.FusedMoEKernel(
+-        MoEPrepareAndFinalizeNoDPEPModular(),
+-        CutlassExpertsW4A8Fp8(
+-            out_dtype=a.dtype,
+-            a_strides1=a_strides1,
+-            a_strides2=a_strides2,
+-            b_strides1=b_strides1,
+-            b_strides2=b_strides2,
+-            c_strides1=c_strides1,
+-            c_strides2=c_strides2,
+-            s_strides1=s_strides1,
+-            s_strides2=s_strides2,
+-            moe_config=moe_config,
+-            quant_config=quant_config,
+-            group_size=group_size,
+-        ),
+-        inplace=False,
+-    )
+-
+-    return fn.apply(
+-        a,
+-        w1_q,
+-        w2_q,
+-        topk_weights,
+-        topk_ids,
+-        activation=activation,
+-        global_num_experts=num_experts,
+-        expert_map=expert_map,
+-        apply_router_weight_on_input=apply_router_weight_on_input,
+-    )
+diff --git a/vllm/model_executor/layers/fused_moe/oracle/w4a8.py b/vllm/model_executor/layers/fused_moe/oracle/w4a8.py
+new file mode 100644
+index 000000000000..e886d9d5da5b
+--- /dev/null
++++ b/vllm/model_executor/layers/fused_moe/oracle/w4a8.py
+@@ -0,0 +1,196 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: Copyright contributors to the vLLM project
++from enum import Enum
++from typing import TYPE_CHECKING
++
++import torch
++
++import vllm.model_executor.layers.fused_moe.modular_kernel as mk
++from vllm.logger import init_logger
++from vllm.model_executor.layers.fused_moe.all2all_utils import (
++    maybe_make_prepare_finalize,
++)
++from vllm.model_executor.layers.fused_moe.config import (
++    FusedMoEConfig,
++    FusedMoEQuantConfig,
++    int4_w4afp8_moe_quant_config,
++)
++from vllm.model_executor.layers.quantization.utils.quant_utils import (
++    QuantKey,
++    kFp8DynamicTokenSym,
++    kInt4Static,
++)
++
++if TYPE_CHECKING:
++    from vllm.model_executor.layers.fused_moe.experts.cutlass_moe import (
++        CutlassExpertsW4A8Fp8,
++    )
++
++logger = init_logger(__name__)
++
++
++class W4A8MoeBackend(Enum):
++    CUTLASS = "CUTLASS"
++
++
++def backend_to_kernel_cls(
++    backend: W4A8MoeBackend,
++) -> list[type["CutlassExpertsW4A8Fp8"]]:
++    if backend == W4A8MoeBackend.CUTLASS:
++        from vllm.model_executor.layers.fused_moe.experts.cutlass_moe import (
++            CutlassExpertsW4A8Fp8,
++        )
++
++        return [CutlassExpertsW4A8Fp8]
++    else:
++        raise ValueError(f"Unknown W4A8 MoE backend: {backend.value}")
++
++
++def select_w4a8_moe_backend(
++    config: FusedMoEConfig,
++    weight_key: QuantKey | None = kInt4Static,
++    activation_key: QuantKey | None = kFp8DynamicTokenSym,
++) -> tuple[W4A8MoeBackend, type["CutlassExpertsW4A8Fp8"]]:
++    backend = W4A8MoeBackend.CUTLASS
++
++    activation_format = (
++        mk.FusedMoEActivationFormat.BatchedExperts
++        if config.moe_parallel_config.use_batched_activation_format
++        else mk.FusedMoEActivationFormat.Standard
++    )
++
++    last_reason: str | None = None
++    for kernel_cls in backend_to_kernel_cls(backend):
++        supported, reason = kernel_cls.is_supported_config(
++            kernel_cls,
++            config,
++            weight_key,
++            activation_key,
++            activation_format,
++        )
++        if supported:
++            logger.info_once("Using %s W4A8 MoE backend.", backend.value)
++            return backend, kernel_cls
++        last_reason = reason
++
++    raise NotImplementedError(
++        f"W4A8 MoE backend {backend.value} does not support the "
++        f"deployment configuration: {last_reason}."
++    )
++
++
++def convert_to_w4a8_moe_kernel_format(
++    w13_weight_packed: torch.Tensor,
++    w2_weight_packed: torch.Tensor,
++    w13_weight_scale: torch.Tensor,
++    w2_weight_scale: torch.Tensor,
++) -> tuple[
++    torch.Tensor,
++    torch.Tensor,
++    torch.Tensor,
++    torch.Tensor,
++    torch.Tensor,
++    torch.Tensor,
++    torch.Tensor,
++    torch.Tensor,
++]:
++    from vllm import _custom_ops as ops
++    from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
++    from vllm.model_executor.layers.quantization.utils.quant_utils import (
++        GroupShape,
++        convert_bf16_scales_to_fp8,
++        convert_packed_uint4b8_to_signed_int4_inplace,
++    )
++
++    quant_fp8 = QuantFP8(static=False, group_shape=GroupShape.PER_TOKEN)
++
++    convert_packed_uint4b8_to_signed_int4_inplace(w13_weight_packed)
++    # Mirror the sync in CutlassW4A8LinearKernel; required for TP>1 correctness.
++    torch.accelerator.synchronize()
++    w13_weight_shuffled, b_strides1 = ops.cutlass_encode_and_reorder_int4b_grouped(
++        w13_weight_packed
++    )
++
++    convert_packed_uint4b8_to_signed_int4_inplace(w2_weight_packed)
++    # Mirror the sync in CutlassW4A8LinearKernel; required for TP>1 correctness.
++    torch.accelerator.synchronize()
++    w2_weight_shuffled, b_strides2 = ops.cutlass_encode_and_reorder_int4b_grouped(
++        w2_weight_packed
++    )
++
++    w13_weight_scale, w13_weight_chan_scale = convert_bf16_scales_to_fp8(
++        quant_fp8, w13_weight_scale
++    )
++    w2_weight_scale, w2_weight_chan_scale = convert_bf16_scales_to_fp8(
++        quant_fp8, w2_weight_scale
++    )
++
++    # Scales are stored as (E, N, K // 128), but the kernel expects
++    # (E, K // 128, N) in row-major format.
++    w13_weight_scale_packed = ops.cutlass_pack_scale_fp8(
++        w13_weight_scale.permute(0, 2, 1).contiguous()
++    )
++    w2_weight_scale_packed = ops.cutlass_pack_scale_fp8(
++        w2_weight_scale.permute(0, 2, 1).contiguous()
++    )
++
++    return (
++        w13_weight_shuffled,
++        w2_weight_shuffled,
++        w13_weight_scale_packed,
++        w2_weight_scale_packed,
++        w13_weight_chan_scale,
++        w2_weight_chan_scale,
++        b_strides1,
++        b_strides2,
++    )
++
++
++def make_w4a8_moe_quant_config(
++    w1_scale: torch.Tensor,
++    w2_scale: torch.Tensor,
++    g1_alphas: torch.Tensor,
++    g2_alphas: torch.Tensor,
++) -> FusedMoEQuantConfig:
++    return int4_w4afp8_moe_quant_config(
++        w1_scale=w1_scale,
++        w2_scale=w2_scale,
++        g1_alphas=g1_alphas,
++        g2_alphas=g2_alphas,
++        per_act_token_quant=True,
++        per_out_ch_quant=True,
++    )
++
++
++def make_w4a8_moe_kernel(
++    moe_quant_config: FusedMoEQuantConfig,
++    moe_config: FusedMoEConfig,
++    experts_cls: type["CutlassExpertsW4A8Fp8"],
++    b_strides1: torch.Tensor,
++    b_strides2: torch.Tensor,
++    group_size: int,
++    routing_tables: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
++) -> mk.FusedMoEKernel:
++    prepare_finalize = maybe_make_prepare_finalize(
++        moe=moe_config,
++        quant_config=moe_quant_config,
++        routing_tables=routing_tables,
++        allow_new_interface=True,
++    )
++    assert prepare_finalize is not None
++
++    logger.info_once("Using %s", prepare_finalize.__class__.__name__)
++
++    experts = experts_cls(
++        moe_config=moe_config,
++        quant_config=moe_quant_config,
++        b_strides1=b_strides1,
++        b_strides2=b_strides2,
++        group_size=group_size,
++    )
++
++    return mk.FusedMoEKernel(
++        prepare_finalize,
++        experts,
++        inplace=not moe_config.disable_inplace,
++    )
+diff --git a/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w4a8_fp8.py b/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w4a8_fp8.py
+index 735e507b2fea..224b1a62bf53 100644
+--- a/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w4a8_fp8.py
++++ b/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w4a8_fp8.py
+@@ -7,12 +7,7 @@
+     QuantizationArgs,
+ )
+ 
+-import vllm.model_executor.layers.fused_moe.modular_kernel as mk
+-from vllm import _custom_ops as ops
+-from vllm.logger import init_logger
+ from vllm.model_executor.layers.fused_moe import (
+-    FusedMoEActivationFormat,
+-    FusedMoEExpertsModular,
+     FusedMoeWeightScaleSupported,
+     RoutedExperts,
+     SharedExperts,
+@@ -20,19 +15,18 @@
+ from vllm.model_executor.layers.fused_moe.config import (
+     FusedMoEConfig,
+     FusedMoEQuantConfig,
+-    int4_w4afp8_moe_quant_config,
++)
++from vllm.model_executor.layers.fused_moe.oracle.w4a8 import (
++    convert_to_w4a8_moe_kernel_format,
++    make_w4a8_moe_kernel,
++    make_w4a8_moe_quant_config,
++    select_w4a8_moe_backend,
+ )
+ from vllm.model_executor.layers.quantization.compressed_tensors.compressed_tensors_moe import (  # noqa E501
+     CompressedTensorsMoEMethod,
+ )
+-from vllm.model_executor.layers.quantization.utils.quant_utils import (
+-    convert_bf16_scales_to_fp8,
+-    convert_packed_uint4b8_to_signed_int4_inplace,
+-)
+ from vllm.model_executor.utils import replace_parameter, set_weight_attrs
+ 
+-logger = init_logger(__name__)
+-
+ 
+ class CompressedTensorsW4A8Fp8MoEMethod(CompressedTensorsMoEMethod):
+     def __init__(
+@@ -56,16 +50,10 @@ def __init__(
+         assert self.weight_quant.actorder != "group"
+         assert self.group_size == 128, "Only group size 128 supported for W4A8 MoE"
+ 
+-        self.disable_expert_map = False
+-        self.layer_name = layer_name
+-
+-        from vllm.model_executor.layers.quantization.input_quant_fp8 import QuantFP8
+-        from vllm.model_executor.layers.quantization.utils.quant_utils import (
+-            GroupShape,
++        self.w4a8_backend, self.experts_cls = select_w4a8_moe_backend(
++            config=self.moe,
+         )
+ 
+-        self.quant_fp8 = QuantFP8(static=False, group_shape=GroupShape.PER_TOKEN)
+-
+     def create_weights(
+         self,
+         layer: torch.nn.Module,
+@@ -156,152 +144,74 @@ def create_weights(
+         layer.register_parameter("w13_weight_shape", w13_weight_shape)
+         set_weight_attrs(w13_weight_shape, extra_weight_attrs)
+ 
+-        # don't use input scales
+-        layer.w13_input_scale = None
+-        layer.w2_input_scale = None
+-
+-    def process_weights_after_loading(self, layer):
+-        device = layer.w13_weight_packed.device
+-
+-        # STRIDES
+-        # A, C
+-        self.a_strides1_c_strides2 = torch.full(
+-            (layer.local_num_experts,),
+-            layer.hidden_size,
+-            device=device,
+-            dtype=torch.int64,
+-        )
+-        self.a_strides2 = torch.full(
+-            (layer.local_num_experts,),
+-            layer.intermediate_size_per_partition,
+-            device=device,
+-            dtype=torch.int64,
+-        )
+-        self.c_strides1 = torch.full(
+-            (layer.local_num_experts,),
+-            2 * layer.intermediate_size_per_partition,
+-            device=device,
+-            dtype=torch.int64,
+-        )
+-
+-        # S (group-wise scales)
+-        # sizeof(StrideS) = 16 bytes, so we need to use 2xint64 to encode it
+-        self.s_strides1 = torch.zeros(
+-            (layer.local_num_experts, 2), device=device, dtype=torch.int64
+-        )
+-        self.s_strides1[:, 0] = 2 * layer.intermediate_size_per_partition
+-
+-        self.s_strides2 = torch.zeros(
+-            (layer.local_num_experts, 2), device=device, dtype=torch.int64
+-        )
+-        self.s_strides2[:, 0] = layer.hidden_size
+-
+-        # encode and reorder weight tensors, and get the layout to pass to
+-        # the grouped gemm kernel. `b_strides1/2` specifies the entire layout
+-        convert_packed_uint4b8_to_signed_int4_inplace(layer.w13_weight_packed)
+-        # mirror the sync in CutlassW4A8LinearKernel; required for tp>1 correctness
+-        torch.accelerator.synchronize()
+-        w13_weight_shuffled, self.b_strides1 = (
+-            ops.cutlass_encode_and_reorder_int4b_grouped(layer.w13_weight_packed)
+-        )
+-        replace_parameter(layer, "w13_weight_packed", w13_weight_shuffled)
+-        convert_packed_uint4b8_to_signed_int4_inplace(layer.w2_weight_packed)
+-        # mirror the sync in CutlassW4A8LinearKernel; required for tp>1 correctness
+-        torch.accelerator.synchronize()
+-        w2_weight_shuffled, self.b_strides2 = (
+-            ops.cutlass_encode_and_reorder_int4b_grouped(layer.w2_weight_packed)
+-        )
+-        replace_parameter(layer, "w2_weight_packed", w2_weight_shuffled)
+-
+-        # convert bf16 scales to (fp8_scales, channel_scales)
+-        w13_weight_scale, w13_weight_chan_scale = convert_bf16_scales_to_fp8(
+-            self.quant_fp8, layer.w13_weight_scale
+-        )
+-        w2_weight_scale, w2_weight_chan_scale = convert_bf16_scales_to_fp8(
+-            self.quant_fp8, layer.w2_weight_scale
+-        )
+-
+-        # register channel scales
+-        layer.register_parameter(
+-            "w13_weight_chan_scale",
+-            torch.nn.Parameter(w13_weight_chan_scale, requires_grad=False),
+-        )
+-        layer.register_parameter(
+-            "w2_weight_chan_scale",
+-            torch.nn.Parameter(w2_weight_chan_scale, requires_grad=False),
++        w13_weight_chan_scale = torch.nn.Parameter(
++            torch.ones(
++                num_experts,
++                2 * intermediate_size_per_partition,
++                dtype=torch.float32,
++            ),
++            requires_grad=False,
+         )
++        layer.register_parameter("w13_weight_chan_scale", w13_weight_chan_scale)
+ 
+-        # The scales are stored as (E, N, K // 128) but the kernel expects
+-        # (E, K // 128, N) in row-major format, so we need to permute the last 2 dims
+-        # and make it contiguous
+-        w13_weight_scale_packed = ops.cutlass_pack_scale_fp8(
+-            w13_weight_scale.permute(0, 2, 1).contiguous()
+-        )
+-        replace_parameter(layer, "w13_weight_scale", w13_weight_scale_packed)
+-        w2_weight_scale_packed = ops.cutlass_pack_scale_fp8(
+-            w2_weight_scale.permute(0, 2, 1).contiguous()
++        w2_weight_chan_scale = torch.nn.Parameter(
++            torch.ones(num_experts, hidden_size, dtype=torch.float32),
++            requires_grad=False,
+         )
+-        replace_parameter(layer, "w2_weight_scale", w2_weight_scale_packed)
++        layer.register_parameter("w2_weight_chan_scale", w2_weight_chan_scale)
+ 
+-    def maybe_make_prepare_finalize(
+-        self,
+-        routing_tables: tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None = None,
+-    ) -> mk.FusedMoEPrepareAndFinalizeModular | None:
+-        return super().maybe_make_prepare_finalize(routing_tables)
++        # don't use input scales
++        layer.w13_input_scale = None
++        layer.w2_input_scale = None
+ 
+-    def get_fused_moe_quant_config(
+-        self, layer: torch.nn.Module
+-    ) -> FusedMoEQuantConfig | None:
+-        # Store quantization scales; both per-group and per-channel
+-        # Note we haven't specified the group size here because
+-        # the quant config logic assumes group-wise scaling
+-        # and channel-wise scaling are exclusive.
+-        return int4_w4afp8_moe_quant_config(
+-            w1_scale=layer.w13_weight_scale,  # group scale
+-            w2_scale=layer.w2_weight_scale,  # group scale
++    def process_weights_after_loading(self, layer: RoutedExperts) -> None:
++        (
++            w13_weight_packed,
++            w2_weight_packed,
++            w13_weight_scale,
++            w2_weight_scale,
++            w13_weight_chan_scale,
++            w2_weight_chan_scale,
++            b_strides1,
++            b_strides2,
++        ) = convert_to_w4a8_moe_kernel_format(
++            w13_weight_packed=layer.w13_weight_packed,
++            w2_weight_packed=layer.w2_weight_packed,
++            w13_weight_scale=layer.w13_weight_scale,
++            w2_weight_scale=layer.w2_weight_scale,
++        )
++
++        replace_parameter(layer, "w13_weight_packed", w13_weight_packed)
++        replace_parameter(layer, "w2_weight_packed", w2_weight_packed)
++        replace_parameter(layer, "w13_weight_scale", w13_weight_scale)
++        replace_parameter(layer, "w2_weight_scale", w2_weight_scale)
++        replace_parameter(layer, "w13_weight_chan_scale", w13_weight_chan_scale)
++        replace_parameter(layer, "w2_weight_chan_scale", w2_weight_chan_scale)
++
++        self.b_strides1 = b_strides1
++        self.b_strides2 = b_strides2
++
++        self.moe_quant_config = self.get_fused_moe_quant_config(layer)
++        if self.moe_quant_config is not None:
++            assert self.experts_cls is not None
++            self.moe_kernel = make_w4a8_moe_kernel(
++                moe_quant_config=self.moe_quant_config,
++                moe_config=self.moe,
++                experts_cls=self.experts_cls,
++                b_strides1=self.b_strides1,
++                b_strides2=self.b_strides2,
++                group_size=self.group_size,
++                routing_tables=layer._expert_routing_tables(),
++            )
++
++    def get_fused_moe_quant_config(self, layer: torch.nn.Module) -> FusedMoEQuantConfig:
++        return make_w4a8_moe_quant_config(
++            w1_scale=layer.w13_weight_scale,
++            w2_scale=layer.w2_weight_scale,
+             g1_alphas=layer.w13_weight_chan_scale,
+             g2_alphas=layer.w2_weight_chan_scale,
+-            per_act_token_quant=True,  # always use dynamic per-token
+-            per_out_ch_quant=True,  # always use per-channel
+-        )
+-
+-    def select_gemm_impl(
+-        self,
+-        prepare_finalize: mk.FusedMoEPrepareAndFinalizeModular,
+-        layer: torch.nn.Module,
+-    ) -> mk.FusedMoEExpertsModular:
+-        assert self.moe_quant_config is not None
+-        assert (
+-            prepare_finalize.activation_format == FusedMoEActivationFormat.Standard
+-        ), "BatchedExperts not supported"
+-
+-        from vllm.model_executor.layers.fused_moe import CutlassExpertsW4A8Fp8
+-
+-        experts: FusedMoEExpertsModular
+-
+-        logger.debug("CutlassExpertsW4A8Fp8(%s)", self.__class__.__name__)
+-        experts = CutlassExpertsW4A8Fp8(
+-            out_dtype=self.moe.in_dtype,
+-            a_strides1=self.a_strides1_c_strides2,
+-            a_strides2=self.a_strides2,
+-            b_strides1=self.b_strides1,
+-            b_strides2=self.b_strides2,
+-            c_strides1=self.c_strides1,
+-            c_strides2=self.a_strides1_c_strides2,
+-            s_strides1=self.s_strides1,
+-            s_strides2=self.s_strides2,
+-            moe_config=self.moe,
+-            quant_config=self.moe_quant_config,
+-            group_size=self.group_size,
+         )
+ 
+-        num_dispatchers = prepare_finalize.num_dispatchers()
+-        self.disable_expert_map = (
+-            num_dispatchers > 1 or not experts.supports_expert_map()
+-        )
+-
+-        return experts
+-
+     def apply(
+         self,
+         layer: RoutedExperts,
+@@ -311,33 +221,20 @@ def apply(
+         shared_experts: SharedExperts | None,
+         shared_experts_input: torch.Tensor | None,
+     ) -> torch.Tensor:
+-        assert self.moe_quant_config is not None
+-
+-        from vllm.model_executor.layers.fused_moe.experts.cutlass_moe import (
+-            cutlass_moe_w4a8_fp8,
+-        )
+-
+-        return cutlass_moe_w4a8_fp8(
+-            x,
+-            layer.w13_weight_packed,
+-            layer.w2_weight_packed,
+-            topk_weights,
+-            topk_ids,
+-            moe_config=self.moe,
+-            quant_config=self.moe_quant_config,
++        assert not self.is_monolithic
++        assert self.moe_kernel is not None
++        return self.moe_kernel.apply(
++            hidden_states=x,
++            w1=layer.w13_weight_packed,
++            w2=layer.w2_weight_packed,
++            topk_weights=topk_weights,
++            topk_ids=topk_ids,
+             activation=layer.activation,
+             global_num_experts=layer.global_num_experts,
+-            expert_map=None if self.disable_expert_map else layer.expert_map,
+-            a_strides1=self.a_strides1_c_strides2,
+-            a_strides2=self.a_strides2,
+-            b_strides1=self.b_strides1,
+-            b_strides2=self.b_strides2,
+-            c_strides1=self.c_strides1,
+-            c_strides2=self.a_strides1_c_strides2,
+-            s_strides1=self.s_strides1,
+-            s_strides2=self.s_strides2,
+-            group_size=self.group_size,
++            expert_map=layer.expert_map,
+             apply_router_weight_on_input=layer.apply_router_weight_on_input,
++            shared_experts=shared_experts,
++            shared_experts_input=shared_experts_input,
+         )
+ 
+     @property

@@ -1,0 +1,20 @@
+origin_url: https://github.com/vllm-project/vllm/pull/30408
+upstream_repo: vllm-project/vllm
+upstream_sha: dc13c99e
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-30408
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 0835e633b65e8ad59faa44e1e4d2b6c33fb8cddaacce290ef78745c62e91a295
+- local_path: key-files/vllm/model_executor/layers/quantization/gguf.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/gguf.py
+  sha256: 6dd3246fd6094b1424185c7642a589c66cc8f6fade06096eac8ef9c4dc2322b1
+captured_via_relaxed_allowlist: true

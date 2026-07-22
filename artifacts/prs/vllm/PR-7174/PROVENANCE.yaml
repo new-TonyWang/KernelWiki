@@ -1,0 +1,114 @@
+origin_url: https://github.com/vllm-project/vllm/pull/7174
+upstream_repo: vllm-project/vllm
+upstream_sha: 5288c06a
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-7174
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 167b6e00c15ddafde347bf067da50f4555ba62b665821a5be31d8901874294af
+- local_path: key-files/csrc/cuda_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cuda_utils.h
+  sha256: 8e5037877c5fce74f3664dbb8506473c11648e8a64c3aaa75f4ffeb65e44c433
+- local_path: key-files/csrc/cutlass_extensions/cute_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/cute_utils.cuh
+  sha256: f50cdeadbd067514e2f30478828da67ceef1a143ee36b1d932440c03fc373ec6
+- local_path: key-files/csrc/cutlass_extensions/torch_utils.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/torch_utils.hpp
+  sha256: 3d587d4784dcee6f676ecf4d23ffeb28b8dbe127e07046680dccd226004d499c
+- local_path: key-files/csrc/cutlass_extensions/vllm_collective_builder.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/vllm_collective_builder.cuh
+  sha256: 2cc721b442009222df650748fee15fa1f98e6fbfad510187afce2ff5539d0938
+- local_path: key-files/csrc/cutlass_extensions/vllm_custom_types.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/vllm_custom_types.cuh
+  sha256: 3a7b9cb8639ff67ef6d49dede3cd28f963984304014627a4f7aa29f1fb7d8ce5
+- local_path: key-files/csrc/cutlass_extensions/vllm_cutlass_library_extension.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/vllm_cutlass_library_extension.py
+  sha256: ebd32a754faa420d390992733067b741132e914305f0c137a3a25a87468f5b75
+- local_path: key-files/csrc/cutlass_extensions/vllm_numeric_conversion.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/vllm_numeric_conversion.cuh
+  sha256: 462a5ef3ac4d101e2ef556717e7aef9785be690964544e470c01e76af015d376
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: 80aba2a3a3278654be756c6fc0a5cc81d5bcb702499e2a3147a7f7e97d4611b2
+- local_path: key-files/csrc/quantization/machete/generate.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/generate.py
+  sha256: dd4b22f34122b1caeec5acc0fa5666a1ad147db6e71d1309f76b7240c3339722
+- local_path: key-files/csrc/quantization/machete/machete_collective_builder.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_collective_builder.cuh
+  sha256: 88df8b10fe657676d5e7930975b7b674da15346eceb405a66dd2a29925b191fd
+- local_path: key-files/csrc/quantization/machete/machete_interleaving_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_interleaving_utils.cuh
+  sha256: 1d026c9dab1fde9e3800245a292dfd984aa86534c1438459ac5d2514fa539f44
+- local_path: key-files/csrc/quantization/machete/machete_mainloop.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_mainloop.cuh
+  sha256: 8787ee6f90f9004631d1e22d5f6bb142c2f1bef6efb65e5919a3ef0467244be0
+- local_path: key-files/csrc/quantization/machete/machete_mm_kernel.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_mm_kernel.cuh
+  sha256: a4c8b24377f59641dc938e51ec4cd37898a7cbde00e4123c84410fed54538314
+- local_path: key-files/csrc/quantization/machete/machete_mm_launcher.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_mm_launcher.cuh
+  sha256: c638bd13baa111092ecc2c92aeb491b0cbc708615e42f9bc97bcf709feaa169a
+- local_path: key-files/csrc/quantization/machete/machete_prepack_kernel.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_prepack_kernel.cuh
+  sha256: b5a8574a449c9abde2082d276aac0a2972480753419cd68d1101799cc0297656
+- local_path: key-files/csrc/quantization/machete/machete_prepack_launcher.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_prepack_launcher.cuh
+  sha256: 5d8f90bae83a5376c06e3f1fae05a7df28f4a0f5195573eb7344e43138a658cc
+- local_path: key-files/csrc/quantization/machete/machete_prepacked_layout.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_prepacked_layout.cuh
+  sha256: 5767decc075184ce5dd281f5c2ae055713bbb9dccf728bb93ef9e95a19c47d11
+- local_path: key-files/csrc/quantization/machete/machete_pytorch.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/machete/machete_pytorch.cu
+  sha256: ecaaf5ffa86624127cf04b1dc4c977c9af851eebb5863797a89d1f1c0c4e4129
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 28b0da02b14aa3d92429ee3fd77c6d15c0c960c0fc333163179d5d3126715c31
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 4fe0ca99c8272b46b25702d9afde16c8e5d200cd21546890a0e2a4a7d1ae23a9

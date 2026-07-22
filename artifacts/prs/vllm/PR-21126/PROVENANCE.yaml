@@ -1,0 +1,40 @@
+origin_url: https://github.com/vllm-project/vllm/pull/21126
+upstream_repo: vllm-project/vllm
+upstream_sha: 48ecb443
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-21126
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: fcdcd2d6fda3d2a5993f84b8c38a27fe963d1016e6f186401c2df8df240fc335
+- local_path: key-files/vllm/model_executor/layers/rotary_embedding/base.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/rotary_embedding/base.py
+  sha256: 56a9386405cb05acec44060db374649d53d392ad80a2e8bbd1b49e6d25bdb730
+- local_path: key-files/vllm/model_executor/layers/rotary_embedding/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/rotary_embedding/common.py
+  sha256: f8adf7b42705988007c15bb694dfa747113676cc473b8762c792d449403dddd5
+- local_path: key-files/vllm/model_executor/layers/rotary_embedding/deepseek_scaling_rope.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/rotary_embedding/deepseek_scaling_rope.py
+  sha256: 370d796836394be881e7234a04abbb6b14a2a92a17b0424e9e751e0201809ee6
+- local_path: key-files/vllm/model_executor/layers/rotary_embedding/llama4_vision_rope.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/rotary_embedding/llama4_vision_rope.py
+  sha256: 3ba3d10df0fbf65e059bb09b8c355df99e5131c487bfce2a558971ee28017704
+- local_path: key-files/vllm/model_executor/layers/rotary_embedding/mrope.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/rotary_embedding/mrope.py
+  sha256: 328abd93dcd9fff1a0b239ae5fbaced7c61812228c8bd9663b565673a2c6f7c5
+captured_via_relaxed_allowlist: true

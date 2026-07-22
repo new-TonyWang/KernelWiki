@@ -1,0 +1,35 @@
+origin_url: https://github.com/vllm-project/vllm/pull/42680
+upstream_repo: vllm-project/vllm
+upstream_sha: 4438b6e7
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-42680
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 35705a61b25fbb3cae322b73a3d9f62113a486e8ec5e190113a53fc8f06984d7
+- local_path: key-files/vllm/model_executor/layers/fused_moe/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/__init__.py
+  sha256: b6f6b1bccc2b8cff561a9d40b1f822888ebec7550224d2e63e0d6e0f2561218c
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/cutlass_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/cutlass_moe.py
+  sha256: 40adf074eb317ab3344f3bafc9b8f2d7e255249c77f6334c71fd022fef882c08
+- local_path: key-files/vllm/model_executor/layers/fused_moe/oracle/w4a8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/oracle/w4a8.py
+  sha256: 6a443173a068b74a9e1f6f69aa032f73f417c4188549758c16d44bf3349184d7
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w4a8_fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w4a8_fp8.py
+  sha256: 31066b21ce9b56cf9f6ca9abf36bdfb43715c5f83638dfbf3580649ea90b77a2
+captured_via_relaxed_allowlist: true

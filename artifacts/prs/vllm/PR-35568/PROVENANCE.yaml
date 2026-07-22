@@ -1,0 +1,39 @@
+origin_url: https://github.com/vllm-project/vllm/pull/35568
+upstream_repo: vllm-project/vllm
+upstream_sha: 06d020bb
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-35568
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 3c3152f211c089df549c3cd9a4e365b15868c1551fbd9641d3f0fd09b36a99b3
+- local_path: key-files/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm.cuh
+  sha256: 49053499807c86c8df631ebf55f8546f871cfd42c1ad406ecb632463e9e2133f
+- local_path: key-files/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm_sm120_fp8_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm_sm120_fp8_dispatch.cuh
+  sha256: 4b420a45a4668083a240a88b085b821efc217a0d29bc88d0b7a9dcf9cf76ffc3
+- local_path: key-files/csrc/moe/marlin_moe_wna16/generate_kernels.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/marlin_moe_wna16/generate_kernels.py
+  sha256: fcfc4fdb1394d3527e5dad98f4c7522eac8dbc405069082838adc8c64567696d
+- local_path: key-files/csrc/moe/marlin_moe_wna16/ops.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/marlin_moe_wna16/ops.cu
+  sha256: 3740d4127c18ebf3914b89d135e5513c8c403d26de5127f3a6fa284e3731898b
+- local_path: key-files/csrc/quantization/marlin/generate_kernels.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/marlin/generate_kernels.py
+  sha256: c12a47037667efedcb3e194ea6eb8c184e313b42ab70e30fa04e18acb235475a

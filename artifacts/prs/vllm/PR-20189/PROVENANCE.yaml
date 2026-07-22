@@ -1,0 +1,20 @@
+origin_url: https://github.com/vllm-project/vllm/pull/20189
+upstream_repo: vllm-project/vllm
+upstream_sha: f0c503f6
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-20189
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 60cce434c654b642faf3219ff4626c63131b9821beafc16479ba6b26500843a3
+- local_path: key-files/vllm/distributed/kv_transfer/kv_connector/v1/nixl_connector.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/distributed/kv_transfer/kv_connector/v1/nixl_connector.py
+  sha256: a9cc4d28e7984e9e3d1f8a0b7be049517e64023e7e0251eb8a1491288671e633
+captured_via_relaxed_allowlist: true

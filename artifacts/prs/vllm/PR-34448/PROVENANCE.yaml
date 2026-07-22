@@ -1,0 +1,54 @@
+origin_url: https://github.com/vllm-project/vllm/pull/34448
+upstream_repo: vllm-project/vllm
+upstream_sha: cb21972a
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-34448
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: fd945a9bb67f644f79aafcc07db452b9e637732b0e65ac44f7bbaae8c5432066
+- local_path: key-files/csrc/moe/mxfp8_moe/cutlass_mxfp8_grouped_mm.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/mxfp8_moe/cutlass_mxfp8_grouped_mm.cu
+  sha256: 40a7f6291c72cf5327cf11cd586eb024f06138363408ce11f5028bf64bcf3ea5
+- local_path: key-files/csrc/moe/mxfp8_moe/cutlass_mxfp8_grouped_mm_functor.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/mxfp8_moe/cutlass_mxfp8_grouped_mm_functor.cuh
+  sha256: f55d2f2d7c451d5e3fd15795cbee756d0c928459d008446af988fe9d2296a3d5
+- local_path: key-files/csrc/moe/mxfp8_moe/cutlass_mxfp8_grouped_mm_launcher.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/mxfp8_moe/cutlass_mxfp8_grouped_mm_launcher.cuh
+  sha256: 3a9eca06f8a89e2f84b2d779c13aab577bfa5cb6f1797bdb146783c93d29ed88
+- local_path: key-files/csrc/moe/mxfp8_moe/cutlass_mxfp8_grouped_mm_traits.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/mxfp8_moe/cutlass_mxfp8_grouped_mm_traits.cuh
+  sha256: 521462114b3e9cce50a1d069d7b023cbbf02ec5834058c49a51a479ed2b1caea
+- local_path: key-files/csrc/moe/mxfp8_moe/mxfp8_experts_quant.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/mxfp8_moe/mxfp8_experts_quant.cu
+  sha256: 3bba91c839dc1515b0fb5aa0dddcf31a0b6b5895451fd32b558ce16c2e877e43
+- local_path: key-files/csrc/moe/mxfp8_moe/mxfp8_experts_quant.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/mxfp8_moe/mxfp8_experts_quant.cuh
+  sha256: f2400ec6d090d8e5022c40a4a2a3429caa6f469f9a460b35414b91c605e417f8
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 016e26a41844cb83c6e421b46e7c3a22d9865dd0a21ff7fa15db422c3a976b28
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: f09d7376c168baef2905b115042f3d4315d34b2314a0268f2021da043620a190

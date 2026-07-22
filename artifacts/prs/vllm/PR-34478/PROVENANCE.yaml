@@ -1,0 +1,35 @@
+origin_url: https://github.com/vllm-project/vllm/pull/34478
+upstream_repo: vllm-project/vllm
+upstream_sha: b7892a3b
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-34478
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: c30f8111a5515b403026c143576a57eff7aa7fe98023e8f3836a69c576769767
+- local_path: key-files/vllm/model_executor/layers/fused_moe/cutlass_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/cutlass_moe.py
+  sha256: d4d34ed16a1ab58a729e155ead97451abebb067c9118dd1f5eeeba6002f8994e
+- local_path: key-files/vllm/model_executor/layers/fused_moe/fused_marlin_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/fused_marlin_moe.py
+  sha256: abfdc5641a39df422c9772dfc3ea83202419d3c41da8b18405c07166e8384959
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe.py
+  sha256: 1ec003d7813e8bc1636a23c118def15515846b3791ef0833146fc55e36788c9d
+- local_path: key-files/vllm/model_executor/models/step3p5.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/step3p5.py
+  sha256: eabf8f7110e519713f8dd247b08421f0040181eb2755d51dd41a9e80ec070430
+captured_via_relaxed_allowlist: true

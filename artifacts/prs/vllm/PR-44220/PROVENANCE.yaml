@@ -1,0 +1,20 @@
+origin_url: https://github.com/vllm-project/vllm/pull/44220
+upstream_repo: vllm-project/vllm
+upstream_sha: dcdfe66b
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-44220
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 794ddb2c1ac81e57f691f6cc412bf98176f21b299f5ebc882569c940926fca53
+- local_path: key-files/vllm/model_executor/layers/fused_moe/oracle/unquantized.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/oracle/unquantized.py
+  sha256: b1f100c060dc2700f5cf72c92d5b17b890807ec04e7fc633bda00fd3bb9f87a6
+captured_via_relaxed_allowlist: true

@@ -1,0 +1,54 @@
+origin_url: https://github.com/vllm-project/vllm/pull/14383
+upstream_repo: vllm-project/vllm
+upstream_sha: 376786fa
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-14383
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 1a18f34c8fc10ea05561cd555f344618a9ef65b7c7ec336600a2154a3f69bffe
+- local_path: key-files/csrc/cutlass_extensions/common.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/common.hpp
+  sha256: 94b17b60baea7cadff9fe2531682e586c5419e34bffce627cae9e076a87cc777
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm100_fp8.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm100_fp8.cu
+  sha256: e49f19b92d1778f7c402ab72aaeca228301b0e55f74245282d46cd941b33104a
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm100_fp8_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm100_fp8_dispatch.cuh
+  sha256: 7ee7c6c55aba4cb6f51d33bb30d246d93d2a47400187ad3f53b6a875af23e562
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_helper.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_helper.hpp
+  sha256: fc33290ef0a6efd499c7f965ea8f9091f3db2e411f2dbfd8dd0b7b400e8347fc
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_kernels.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_kernels.hpp
+  sha256: 933218518c1a509a95dc6e27624e25ac4cc7ce97129b1155ef6e87e75a831136
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_c3x_sm100.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_c3x_sm100.cu
+  sha256: e2506a5ea079779b7007771999d7a24ade4cce867c7c125162e293f30aec43e3
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_c3x_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_c3x_sm90.cu
+  sha256: 60c41984a56561aa6fbb606f5efaf21bd008d70a5327b8dd85b88ee009e8e28b
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  sha256: 01ee9d7467aecc9d1c2e5986dc6a7b9d6b8ebe0d1ec45b01bacad851bdb71264

@@ -1,0 +1,29 @@
+diff --git a/requirements/cuda.txt b/requirements/cuda.txt
+index 5557c868acaf..75008dc20df4 100644
+--- a/requirements/cuda.txt
++++ b/requirements/cuda.txt
+@@ -11,6 +11,4 @@ torchaudio==2.7.1
+ # These must be updated alongside torch
+ torchvision==0.22.1 # Required for phi3v processor. See https://github.com/pytorch/vision?tab=readme-ov-file#installation for corresponding version
+ # https://github.com/facebookresearch/xformers/releases/tag/v0.0.31
+-xformers==0.0.31; platform_system == 'Linux' and platform_machine == 'x86_64'  # Requires PyTorch >= 2.7
+-# FlashInfer should be updated together with the Dockerfile
+-flashinfer_python==0.2.9rc2
+\ No newline at end of file
++xformers==0.0.31; platform_system == 'Linux' and platform_machine == 'x86_64'  # Requires PyTorch >= 2.7
+\ No newline at end of file
+diff --git a/setup.py b/setup.py
+index 6d615d122d69..bfa195d4395f 100644
+--- a/setup.py
++++ b/setup.py
+@@ -671,7 +671,9 @@ def _read_requirements(filename: str) -> list[str]:
+         ["runai-model-streamer >= 0.13.3", "runai-model-streamer-s3", "boto3"],
+         "audio": ["librosa", "soundfile",
+                   "mistral_common[audio]"],  # Required for audio processing
+-        "video": []  # Kept for backwards compatibility
++        "video": [],  # Kept for backwards compatibility
++        # FlashInfer should be updated together with the Dockerfile
++        "flashinfer": ["flashinfer-python==0.2.9rc2"],
+     },
+     cmdclass=cmdclass,
+     package_data=package_data,

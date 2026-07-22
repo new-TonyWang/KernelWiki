@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/20500
+upstream_repo: vllm-project/vllm
+upstream_sha: dbebb7f8
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-20500
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: bffff43246611928cee7d8b671a1418ebd0e1ee6ea3ebcbfb0899b1d10c12488
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe.py
+  sha256: e5d12a25a9e75b7d8c647969eb6af6b90b32b34e3bf3b7895194f37f435629a3
+- local_path: key-files/vllm/model_executor/layers/quantization/fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/fp8.py
+  sha256: 057cb11ba1990816c2947a0c06c66eb94143ecd33a2b09e1fd50a93584459a75
+- local_path: key-files/vllm/model_executor/layers/quantization/modelopt.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/modelopt.py
+  sha256: 389919601150579b8e3d78248824dd75848c102515dd69207dee8401b98fc322
+captured_via_relaxed_allowlist: true

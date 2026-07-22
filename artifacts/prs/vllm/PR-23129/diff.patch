@@ -1,0 +1,95 @@
+diff --git a/.buildkite/release-pipeline.yaml b/.buildkite/release-pipeline.yaml
+index 85d3e5638742..e20ce54ca795 100644
+--- a/.buildkite/release-pipeline.yaml
++++ b/.buildkite/release-pipeline.yaml
+@@ -68,7 +68,7 @@ steps:
+       queue: cpu_queue_postmerge
+     commands:
+       - "aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/q9t5s3a7"
+-      - "DOCKER_BUILDKIT=1 docker build --build-arg max_jobs=16 --build-arg USE_SCCACHE=1 --build-arg GIT_REPO_CHECK=1 --build-arg CUDA_VERSION=12.8.1 --build-arg INSTALL_KV_CONNECTORS=true --tag public.ecr.aws/q9t5s3a7/vllm-release-repo:$BUILDKITE_COMMIT --target vllm-openai --progress plain -f docker/Dockerfile ."
++      - "DOCKER_BUILDKIT=1 docker build --build-arg max_jobs=16 --build-arg USE_SCCACHE=1 --build-arg GIT_REPO_CHECK=1 --build-arg CUDA_VERSION=12.8.1 --build-arg FLASHINFER_AOT_COMPILE=true --build-arg INSTALL_KV_CONNECTORS=true --tag public.ecr.aws/q9t5s3a7/vllm-release-repo:$BUILDKITE_COMMIT --target vllm-openai --progress plain -f docker/Dockerfile ."
+       - "docker push public.ecr.aws/q9t5s3a7/vllm-release-repo:$BUILDKITE_COMMIT"
+ 
+   - label: "Annotate release workflow"
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index 74938917781a..cfaa59868215 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -372,31 +372,45 @@ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist
+ 
+ # Install FlashInfer from source
+ ARG FLASHINFER_GIT_REPO="https://github.com/flashinfer-ai/flashinfer.git"
+-# Keep this in sync with https://github.com/vllm-project/vllm/blob/main/requirements/cuda.txt
+-# We use `--force-reinstall --no-deps` to avoid issues with the existing FlashInfer wheel.
+-ARG FLASHINFER_GIT_REF="v0.2.11"
++# Keep this in sync with "flashinfer" extra in setup.py
++ARG FLASHINFER_GIT_REF="v0.2.12"
++# Flag to control whether to compile FlashInfer AOT kernels
++# Set to "true" to enable AOT compilation:
++# docker build --build-arg FLASHINFER_AOT_COMPILE=true ...
++ARG FLASHINFER_AOT_COMPILE=false
+ RUN --mount=type=cache,target=/root/.cache/uv bash - <<'BASH'
+   . /etc/environment
+     git clone --depth 1 --recursive --shallow-submodules \
+         --branch ${FLASHINFER_GIT_REF} \
+         ${FLASHINFER_GIT_REPO} flashinfer
+-    # Exclude CUDA arches for older versions (11.x and 12.0-12.7)
+-    # TODO: Update this to allow setting TORCH_CUDA_ARCH_LIST as a build arg.
+-    if [[ "${CUDA_VERSION}" == 11.* ]]; then
+-        FI_TORCH_CUDA_ARCH_LIST="7.5 8.0 8.9"
+-    elif [[ "${CUDA_VERSION}" == 12.[0-7]* ]]; then
+-        FI_TORCH_CUDA_ARCH_LIST="7.5 8.0 8.9 9.0a"
+-    else
+-        # CUDA 12.8+ supports 10.0a and 12.0
+-        FI_TORCH_CUDA_ARCH_LIST="7.5 8.0 8.9 9.0a 10.0a 12.0"
+-    fi
+-    echo "🏗️  Building FlashInfer for arches: ${FI_TORCH_CUDA_ARCH_LIST}"
+-    # Needed to build AOT kernels
+     pushd flashinfer
+-        TORCH_CUDA_ARCH_LIST="${FI_TORCH_CUDA_ARCH_LIST}" \
+-            python3 -m flashinfer.aot
+-        TORCH_CUDA_ARCH_LIST="${FI_TORCH_CUDA_ARCH_LIST}" \
+-            uv pip install --system --no-build-isolation --force-reinstall --no-deps .
++        if [ "${FLASHINFER_AOT_COMPILE}" = "true" ]; then
++            # Exclude CUDA arches for older versions (11.x and 12.0-12.7)
++            # TODO: Update this to allow setting TORCH_CUDA_ARCH_LIST as a build arg.
++            if [[ "${CUDA_VERSION}" == 11.* ]]; then
++                FI_TORCH_CUDA_ARCH_LIST="7.5 8.0 8.9"
++            elif [[ "${CUDA_VERSION}" == 12.[0-7]* ]]; then
++                FI_TORCH_CUDA_ARCH_LIST="7.5 8.0 8.9 9.0a"
++            else
++                # CUDA 12.8+ supports 10.0a and 12.0
++                FI_TORCH_CUDA_ARCH_LIST="7.5 8.0 8.9 9.0a 10.0a 12.0"
++            fi
++            echo "🏗️  Installing FlashInfer with AOT compilation for arches: ${FI_TORCH_CUDA_ARCH_LIST}"
++            # Build AOT kernels
++            TORCH_CUDA_ARCH_LIST="${FI_TORCH_CUDA_ARCH_LIST}" \
++                python3 -m flashinfer.aot
++            # Install with no-build-isolation since we already built AOT kernels
++            TORCH_CUDA_ARCH_LIST="${FI_TORCH_CUDA_ARCH_LIST}" \
++                uv pip install --system --no-build-isolation . \
++                --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
++            # Download pre-compiled cubins
++            TORCH_CUDA_ARCH_LIST="${FI_TORCH_CUDA_ARCH_LIST}" \
++                python3 -m flashinfer --download-cubin || echo "WARNING: Failed to download flashinfer cubins."
++        else
++            echo "🏗️  Installing FlashInfer without AOT compilation in JIT mode"
++            uv pip install --system . \
++                --extra-index-url ${PYTORCH_CUDA_INDEX_BASE_URL}/cu$(echo $CUDA_VERSION | cut -d. -f1,2 | tr -d '.')
++        fi
+     popd
+     rm -rf flashinfer
+ BASH
+diff --git a/setup.py b/setup.py
+index cc3037ebb72c..6a3013de7937 100644
+--- a/setup.py
++++ b/setup.py
+@@ -685,7 +685,7 @@ def _read_requirements(filename: str) -> list[str]:
+                   "mistral_common[audio]"],  # Required for audio processing
+         "video": [],  # Kept for backwards compatibility
+         # FlashInfer should be updated together with the Dockerfile
+-        "flashinfer": ["flashinfer-python==0.2.11"],
++        "flashinfer": ["flashinfer-python==0.2.12"],
+     },
+     cmdclass=cmdclass,
+     package_data=package_data,

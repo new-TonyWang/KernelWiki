@@ -1,0 +1,49 @@
+origin_url: https://github.com/vllm-project/vllm/pull/33451
+upstream_repo: vllm-project/vllm
+upstream_sha: f2c47886
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-33451
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 1407cf8c7f039acc5d77f68094d1969618cfe3933792ddc6660dde340d3f5d4a
+- local_path: key-files/tools/pre_commit/generate_attention_backend_docs.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: tools/pre_commit/generate_attention_backend_docs.py
+  sha256: 84bab885a44db5cd5babb81995be91122e810b381c20005ab7d4f5bb69f1b843
+- local_path: key-files/vllm/model_executor/layers/attention/mla_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/attention/mla_attention.py
+  sha256: d28c7ea9453e5ea75763f2aa99961dc3bc9bfc66d8ac8dab741910e1bdcc7278
+- local_path: key-files/vllm/v1/attention/backends/mla/flashinfer_mla_sparse.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/flashinfer_mla_sparse.py
+  sha256: 2fd91de9c8b116c5fe6f0cd44ff7e14b85b124c7cfa958a52bfd0a4c5bda84fa
+- local_path: key-files/vllm/v1/attention/backends/mla/flashmla_sparse.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/flashmla_sparse.py
+  sha256: c7e27f508361dae5445ead2442e3788c0c96e3f81b3cf8c7d181d5ab2adfd18e
+- local_path: key-files/vllm/v1/attention/backends/mla/sparse_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/sparse_utils.py
+  sha256: 3627a9ea84cdffcfc2caba93bcefc93c1c8dfbb711a1e63b4af9d87a4498ba65
+- local_path: key-files/vllm/v1/attention/backends/registry.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/registry.py
+  sha256: de72289d3595e2b271fab23f2c80c951ad1f8d569ebfb3799f71f3489d41750c
+- local_path: key-files/vllm/v1/attention/selector.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/selector.py
+  sha256: f3bea86db4f6ddd090f397303c6a43e87680b042e244564f9da3f41211d2330a

@@ -1,0 +1,84 @@
+diff --git a/vllm/model_executor/kernels/linear/scaled_mm/marlin.py b/vllm/model_executor/kernels/linear/scaled_mm/marlin.py
+index b21eb621ede9..66a03b4d205b 100644
+--- a/vllm/model_executor/kernels/linear/scaled_mm/marlin.py
++++ b/vllm/model_executor/kernels/linear/scaled_mm/marlin.py
+@@ -75,25 +75,7 @@ def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+             # Update layer with new values
+             replace_parameter(layer, "weight", weight.data)
+             replace_parameter(layer, "weight_scale_inv", weight_scale_inv.data)
+-        else:
+-            w_q, *_ = self._get_layer_params(layer)
+-            # Compressed tensors transposes the weight to (K, N)
+-            # for channel and tensor quant strategies.
+-            # So we can skip the transpose if the layout is
+-            # already (K, N).
+-            # TODO: Remove this check once the layouts have been
+-            # canonicalized to a standard (N, K) dimension. See issue
+-            # #33314 for more details.
+-            if w_q.shape != (
+-                layer.input_size_per_partition,
+-                layer.output_size_per_partition,
+-            ):
+-                # transpose the weights to (K,N)
+-                replace_parameter(
+-                    layer,
+-                    "weight",
+-                    w_q.t(),
+-                )
++        # Non-block: callers must pass weight in (K, N) layout.
+ 
+         layer.input_scale = None
+         prepare_fp8_layer_for_marlin(
+diff --git a/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a16_fp8.py b/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a16_fp8.py
+index 42b35a420cab..1301c98f45b4 100644
+--- a/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a16_fp8.py
++++ b/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a16_fp8.py
+@@ -137,6 +137,8 @@ def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+                     "weight_scale",
+                     convert_to_channelwise(layer.weight_scale, layer.logical_widths),
+                 )
++            # Canonicalize to (K, N) for the kernel.
++            replace_parameter(layer, "weight", layer.weight.t())
+ 
+         self.linear_kernel.process_weights_after_loading(layer)
+ 
+diff --git a/vllm/model_executor/layers/quantization/fp8.py b/vllm/model_executor/layers/quantization/fp8.py
+index a6461900d137..5143f3e61f84 100644
+--- a/vllm/model_executor/layers/quantization/fp8.py
++++ b/vllm/model_executor/layers/quantization/fp8.py
+@@ -384,6 +384,9 @@ def create_weights(
+ 
+     def process_weights_after_loading(self, layer: RoutedExperts) -> None:
+         if self.use_marlin:
++            if not self.block_quant:
++                # Canonicalize to (K, N) for the kernel.
++                replace_parameter(layer, "weight", layer.weight.t())
+             # Only Marlin kernels support `marlin_input_dtype`; guard to avoid
+             # AttributeError if backend selection changes.
+             if hasattr(self.fp8_linear, "marlin_input_dtype"):
+@@ -537,20 +540,15 @@ def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+         layer.input_scale = None
+         qweight, weight_scale = ops.scaled_fp8_quant(layer.weight, scale=None)
+ 
+-        # Update layer with new values.
+-        replace_parameter(layer, "weight", qweight.data)
++        # Update layer with new values. Canonicalize to (K, N) for the kernel.
++        replace_parameter(layer, "weight", qweight.t().data)
+         replace_parameter(layer, "weight_scale", weight_scale.data)
+ 
+-        if self.use_marlin:
++        if self.use_marlin and hasattr(self.fp8_linear, "marlin_input_dtype"):
+             # Only Marlin kernels support `marlin_input_dtype`; guard to avoid
+             # AttributeError if backend selection changes.
+-            if hasattr(self.fp8_linear, "marlin_input_dtype"):
+-                self.fp8_linear.marlin_input_dtype = self.marlin_input_dtype
+-            self.fp8_linear.process_weights_after_loading(layer)
+-        else:
+-            weight = qweight.t()
+-            replace_parameter(layer, "weight", weight.data)
+-            self.fp8_linear.process_weights_after_loading(layer)
++            self.fp8_linear.marlin_input_dtype = self.marlin_input_dtype
++        self.fp8_linear.process_weights_after_loading(layer)
+ 
+         # Prevent duplicate processing (e.g., during weight reload)
+         layer._already_called_process_weights_after_loading = True

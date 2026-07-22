@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/17625
+upstream_repo: vllm-project/vllm
+upstream_sha: 41aa5784
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-17625
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: f0fbdf947cd7da908fb21d8a1259853661047563f9e4a280d274a65636897817
+- local_path: key-files/csrc/attention/mla/cutlass_mla_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/attention/mla/cutlass_mla_kernels.cu
+  sha256: fbd31d6413b2f657434824955397d527e8a24e5928901f58b6d7cf2c88471e77
+- local_path: key-files/vllm/v1/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/common.py
+  sha256: c5e67276b4c9a5b4e095d23d05fdb444bade6ceaacd9605b7469b3cc5e71906e
+- local_path: key-files/vllm/v1/attention/backends/mla/cutlass_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/cutlass_mla.py
+  sha256: 92e98dc1b7ed5a1e4533ac530d73dc262c2325ac001ff7867be1f67d111ab0a6

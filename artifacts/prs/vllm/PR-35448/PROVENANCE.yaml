@@ -1,0 +1,60 @@
+origin_url: https://github.com/vllm-project/vllm/pull/35448
+upstream_repo: vllm-project/vllm
+upstream_sha: e5b80760
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-35448
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: c2c038a6b8a549f2ec581c674d13962d9322a513e62746cac393f60b94eae104
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+  sha256: ed173881f85cbe79edd8f315f8edada9c96f580b55bc589781797a9f0a075bcb
+- local_path: key-files/vllm/model_executor/layers/fused_moe/oracle/fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/oracle/fp8.py
+  sha256: 537ae0a43a3979f437e76f27005084d77fad67fcf5554e3821c791802fb17892
+- local_path: key-files/vllm/model_executor/layers/fused_moe/oracle/mxfp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/oracle/mxfp8.py
+  sha256: 17224c48ec9fdbf95a76ceae57199edff90189aee6b928d7fb790d49d1dafc08
+- local_path: key-files/vllm/model_executor/layers/fused_moe/utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/utils.py
+  sha256: bf77a1aa1880a9f78d4c8d9eb46cf3b1269c9fd8d6236ec07a51cea05a1357b8
+- local_path: key-files/vllm/model_executor/layers/quantization/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/__init__.py
+  sha256: de28504d0d1fd74c891e7e88a37458c28d7afd40115e84a2ed050d90e773f675
+- local_path: key-files/vllm/model_executor/layers/quantization/modelopt.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/modelopt.py
+  sha256: f42176bbe083e0f9a0cf96cac307b8e94a76d7f9d1162ff88777acea67dd835e
+- local_path: key-files/vllm/model_executor/layers/quantization/mxfp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/mxfp8.py
+  sha256: 43987097d177ea4c38b8a718df0b62f89136858332bb54cb03a61cf60e89ec99
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  sha256: cb693a4ae886cfcd79f63aa496ec80bfee0b65b4a23a663a8adf216e45c8ae57
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/quant_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/quant_utils.py
+  sha256: 012206124cc41350e2ddee3b975c4eafef72a5731abd38da9ca7220c718ab171
+captured_via_relaxed_allowlist: true

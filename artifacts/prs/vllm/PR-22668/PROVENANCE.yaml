@@ -1,0 +1,69 @@
+origin_url: https://github.com/vllm-project/vllm/pull/22668
+upstream_repo: vllm-project/vllm
+upstream_sha: 19fe1a05
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-22668
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 977ed71dffb0a0126df9536e123f111863c9a15cc2cfb5a27693e07dd8a67ece
+- local_path: key-files/csrc/cache.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cache.h
+  sha256: 78045e57eaf142498bc96abf56aa1c5981cae147b6c9aab5df3565d9c3652cf3
+- local_path: key-files/csrc/cache_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cache_kernels.cu
+  sha256: 119f90cbdbcee845a105720501f20f5e80d7318258a76221b3edde9ae4432be4
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 25721c3b197b975993df29c400d1a637a256310a0bdd7ad564ccd363ab88e92a
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: b8f42f4d544663505b72a3ee817e2ac19ee9ef5ea1328fe4857d4bf383be1e66
+- local_path: key-files/vllm/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/backends/mla/common.py
+  sha256: 423c7ab3afe0a59723b00c7a32ba52047114b8f8b091125dbaac442b97f90c82
+- local_path: key-files/vllm/attention/ops/flashmla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/ops/flashmla.py
+  sha256: 80455f5ac5748424caf61652b03639db34170afb48cd637ed73600d506f876a2
+- local_path: key-files/vllm/v1/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/common.py
+  sha256: 51d75b418482337e87d4e2adce0c24dad5d5fbcb14e3ab1521532bd84c33beb7
+- local_path: key-files/vllm/v1/attention/backends/mla/cutlass_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/cutlass_mla.py
+  sha256: adf08dff63c6b8f05f08910472bb1f68f02d3a5fde4333d28ad446a734233480
+- local_path: key-files/vllm/v1/attention/backends/mla/flashmla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/flashmla.py
+  sha256: fec07892ff134e8d3520050936fa0bdd8520b32aecf33980e2a8e7cc3a0799a3
+- local_path: key-files/vllm/v1/attention/backends/mla/rocm_aiter_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/rocm_aiter_mla.py
+  sha256: 65e640d69295816b6adb75e112ffacacbb08ec1f626dc8be5dadbff87d140580
+- local_path: key-files/vllm/v1/attention/backends/mla/triton_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/triton_mla.py
+  sha256: 70ebefa549f2e4e91e9a9e852c1927dd58d159516d1f9b208c030393535e132d

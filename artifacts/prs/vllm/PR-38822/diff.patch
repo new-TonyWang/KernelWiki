@@ -1,0 +1,57 @@
+diff --git a/docs/assets/contributing/dockerfile-stages-dependency.png b/docs/assets/contributing/dockerfile-stages-dependency.png
+index d9d501319595..b27e2f7832f8 100644
+Binary files a/docs/assets/contributing/dockerfile-stages-dependency.png and b/docs/assets/contributing/dockerfile-stages-dependency.png differ
+diff --git a/docs/design/attention_backends.md b/docs/design/attention_backends.md
+index 0b0df945a885..8ef81e5e776e 100644
+--- a/docs/design/attention_backends.md
++++ b/docs/design/attention_backends.md
+@@ -170,8 +170,8 @@ Priority is **1 = highest** (tried first).
+ | Backend | Version | Dtypes | KV Dtypes | Block Sizes | Head Sizes | Sink | Non-Causal | MM Prefix | DCP | Attention Types | Compute Cap. |
+ | ------- | ------- | ------ | --------- | ----------- | ---------- | ---- | ---------- | --------- | --- | --------------- | ------------ |
+ | `CPU_ATTN` | | fp16, bf16, fp32 | `auto`, `fp8`, `fp8_e4m3`, `fp8_e5m2` | %16 | 32, 64, 80, 96, 112, 128, 160, 192, 224, 256, 512 | ❌ | ❌ | ❌ | ❌ | All | N/A |
+-| `FLASHINFER` | Native† | fp16, bf16 | `auto`, `float16`, `bfloat16`, `fp8`, `fp8_e4m3`, `fp8_e5m2` | 16, 32, 64 | 64, 128, 256 | ❌ | ❌ | ❌ | ✅ | Decoder | 7.x-9.x |
+-| `FLASHINFER` | TRTLLM† | fp16, bf16 | `auto`, `float16`, `bfloat16`, `fp8`, `fp8_e4m3`, `fp8_e5m2`, `nvfp4` | 16, 32, 64 | 64, 128, 256 | ✅ | ❌ | ❌ | ✅ | Decoder | 10.x |
++| `FLASHINFER` | Native† | fp16, bf16 | `auto`, `float16`, `bfloat16`, `fp8`, `fp8_e4m3`, `fp8_e5m2` | 16, 32, 64 | 64, 128, 256, 512 | ❌ | ❌ | ❌ | ✅ | Decoder | 7.x-9.x |
++| `FLASHINFER` | TRTLLM† | fp16, bf16 | `auto`, `float16`, `bfloat16`, `fp8`, `fp8_e4m3`, `fp8_e5m2`, `nvfp4` | 16, 32, 64 | 64, 128, 256, 512 | ✅ | ❌ | ❌ | ✅ | Decoder | 10.x |
+ | `FLASH_ATTN` | FA2* | fp16, bf16 | `auto`, `float16`, `bfloat16` | %16 | Any | ❌ | ✅ | ❌ | ✅ | All | ≥8.0 |
+ | `FLASH_ATTN` | FA3* | fp16, bf16 | `auto`, `float16`, `bfloat16`, `fp8`, `fp8_e4m3`, `fp8_e5m2` | %16 | Any | ✅ | ✅ | ❌ | ✅ | All | 9.x |
+ | `FLASH_ATTN` | FA4* | fp16, bf16 | `auto`, `float16`, `bfloat16` | %16 | Any | ✅ | ✅ | ❌ | ✅ | All | ≥10.0 |
+diff --git a/vllm/v1/attention/backends/flashinfer.py b/vllm/v1/attention/backends/flashinfer.py
+index 2b206cbcf267..8e1b04929585 100755
+--- a/vllm/v1/attention/backends/flashinfer.py
++++ b/vllm/v1/attention/backends/flashinfer.py
+@@ -401,7 +401,7 @@ def get_dtype_for_flashinfer(kv_cache_dtype: str) -> torch.dtype:
+     @classmethod
+     def get_supported_head_sizes(cls) -> list[int]:
+         # https://github.com/flashinfer-ai/flashinfer/blob/3d55c71a62052c590c130897d3a3db49b14fcc34/include/flashinfer/utils.cuh#L157
+-        return [64, 128, 256]
++        return [64, 128, 256, 512]
+ 
+     @classmethod
+     def supports_compute_capability(cls, capability: DeviceCapability) -> bool:
+@@ -1449,15 +1449,16 @@ def forward(
+ 
+         num_actual_tokens = attn_metadata.num_actual_tokens
+ 
+-        # The FlashInfer api requires data to be in fp8_e4m3 or fp8_e5m2
+-        # to process the cache when the kv_cache_dtype is fp8
+-        if self.kv_sharing_target_layer_name is None and is_quantized_kv_cache(
+-            self.kv_cache_dtype
+-        ):
+-            torch_dtype = FlashInferBackend.get_dtype_for_flashinfer(
+-                self.kv_cache_dtype
+-            )
+-            kv_cache = kv_cache.view(torch_dtype)
++        # FlashInfer treats uint8 KV cache as NVFP4. vLLM stores FP8 KV cache
++        # as uint8 bytes, so pass FP8 caches with their logical dtype.
++        if not self.is_kvcache_nvfp4 and kv_cache.dtype == torch.uint8:
++            fp8_view_dtype = None
++            if self.kv_cache_dtype in ("fp8", "fp8_e4m3", torch.float8_e4m3fn):
++                fp8_view_dtype = torch.float8_e4m3fn
++            elif self.kv_cache_dtype in ("fp8_e5m2", torch.float8_e5m2):
++                fp8_view_dtype = torch.float8_e5m2
++            if fp8_view_dtype is not None:
++                kv_cache = kv_cache.view(fp8_view_dtype)
+ 
+         # Inputs and outputs may be padded for CUDA graphs
+         query = query[:num_actual_tokens]

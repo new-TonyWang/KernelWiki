@@ -1,0 +1,25 @@
+origin_url: https://github.com/vllm-project/vllm/pull/30729
+upstream_repo: vllm-project/vllm
+upstream_sha: 53ad423f
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-30729
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 64c75e133900108cc8f18300f234d3420ad1e856f8bfd67346a344129b38d168
+- local_path: key-files/vllm/model_executor/layers/rotary_embedding/base.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/rotary_embedding/base.py
+  sha256: 2068fdde2b50c3efac63ea70e61e83ac286e82634d09234b407943ed40e95241
+- local_path: key-files/vllm/model_executor/layers/rotary_embedding/deepseek_scaling_rope.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/rotary_embedding/deepseek_scaling_rope.py
+  sha256: d8c57bf3c00d6434252026d40a80c81876d60e8a27ee09f44b63c57d77c3a7ab
+captured_via_relaxed_allowlist: true

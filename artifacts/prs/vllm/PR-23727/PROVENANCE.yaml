@@ -1,0 +1,59 @@
+origin_url: https://github.com/vllm-project/vllm/pull/23727
+upstream_repo: vllm-project/vllm
+upstream_sha: adc3ddb4
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-23727
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 94e419cba6f1f240788bab6b3b69fce25064b77a4e33b1976d7af77e7432f690
+- local_path: key-files/csrc/dispatch_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/dispatch_utils.h
+  sha256: 5f55e3540e90196453407a2ef3c1e040da541721a6517adcfb26a9eb49e4c8c7
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: 8cfe819212f7d44103cb133dc30fedca325d00b3278d56822dcb0197fe0022df
+- local_path: key-files/csrc/quantization/fp4/activation_nvfp4_quant_fusion_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/activation_nvfp4_quant_fusion_kernels.cu
+  sha256: 42bd318da6d62679e58eab40aa222dd07a61a207e4eea50791dbe275b40d81f8
+- local_path: key-files/csrc/quantization/fp4/nvfp4_blockwise_moe_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_blockwise_moe_kernel.cu
+  sha256: 8a30e2bda18b44716c141a125e651d8a02cbfd0dc870894becfb6f1f5baf15d9
+- local_path: key-files/csrc/quantization/fp4/nvfp4_experts_quant.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_experts_quant.cu
+  sha256: cbb38784c4db208500464682264812dec43dc74531d95ce6fd21b737ab31fee9
+- local_path: key-files/csrc/quantization/fp4/nvfp4_quant_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_quant_entry.cu
+  sha256: cc54f2f7fe3b7f2e192007a74d17db82bb9b28b7dfba6ba40643c906bc45fe82
+- local_path: key-files/csrc/quantization/fp4/nvfp4_quant_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_quant_kernels.cu
+  sha256: 9645058e41216734a1f13eb94420538a429b51ae067ae2d1fb8c62f6e9205c9b
+- local_path: key-files/csrc/quantization/fp4/nvfp4_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_utils.cuh
+  sha256: 3ca9130e8231e90a53c14c94e1b3ca0f3a1667afbda1b9b13cd6e70ed1168c54
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 7db3b49ede42388fc774974847ce5d2b33b700c9b23d54e6f368f59e30b48059

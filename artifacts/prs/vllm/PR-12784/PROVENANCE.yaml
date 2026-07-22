@@ -1,0 +1,49 @@
+origin_url: https://github.com/vllm-project/vllm/pull/12784
+upstream_repo: vllm-project/vllm
+upstream_sha: 4fc5c23b
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-12784
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ad0db108dab38bd6affca0e3baa5bfb6f3cedca45669ef88fe774be41aef7570
+- local_path: key-files/csrc/cuda_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cuda_utils.h
+  sha256: 269b68d9e3b3d65261f5cd0d66022c06f1bb2c6098487b249e75c2c182e8d063
+- local_path: key-files/csrc/cuda_utils_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cuda_utils_kernels.cu
+  sha256: 01f61674506231183ea9c903fed1340a256548dbc5b6338e254442a7eb1f834b
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: 8a23b70396dd3c040828b7d3e17b0d9068b93a8e2c5d54bd13a4bc7e0d5e5057
+- local_path: key-files/csrc/quantization/fp4/nvfp4_quant_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_quant_entry.cu
+  sha256: 0958c24930d2ce80ebd23da84eb9d5998b65f658c21e4936f2842197d9a6556e
+- local_path: key-files/csrc/quantization/fp4/nvfp4_quant_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_quant_kernels.cu
+  sha256: 3916150c0075be8f1372083f65aa932eb892a7e3774a0d7c987f7c56ec2edabc
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 743c56741bdfe9a132288cf4d3c437924dbfc452090bf144e0fcbbf9d39254eb
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 32139ddc7bd33aa88251f6b6eac31b8d5860ab0f01f2b288a51ce766b47631c3

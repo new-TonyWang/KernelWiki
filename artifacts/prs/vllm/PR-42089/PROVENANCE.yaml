@@ -1,0 +1,65 @@
+origin_url: https://github.com/vllm-project/vllm/pull/42089
+upstream_repo: vllm-project/vllm
+upstream_sha: 8bcd8a26
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-42089
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: c13cce9e02aca364c07ee4657d0dd7b43f88bea7f4dbce88d39b89d9e1f840de
+- local_path: key-files/vllm/model_executor/layers/fused_moe/config.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/config.py
+  sha256: 2d66d8d0dc0da3ba0414c46ba9e5b0ec7aeb386b33d583d30169e6524ae02b4b
+- local_path: key-files/vllm/model_executor/layers/fused_moe/oracle/fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/oracle/fp8.py
+  sha256: c8cafc689bdb0b5c1813f67b16da254f1f6ed05c2ee328cd59307b03dd711a6d
+- local_path: key-files/vllm/model_executor/layers/fused_moe/oracle/mxfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/oracle/mxfp4.py
+  sha256: cb0a91ce94c5cc89e8cdd6f4395d332c38951a2e26c74d9b742db3cd5a72cff5
+- local_path: key-files/vllm/model_executor/layers/fused_moe/oracle/nvfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/oracle/nvfp4.py
+  sha256: 1d08d19178a94201225e0f67ad39fd9874736e4d5af0cbcce8c8cdafb238fe4e
+- local_path: key-files/vllm/model_executor/layers/fused_moe/prepare_finalize/deepep_ht.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/prepare_finalize/deepep_ht.py
+  sha256: 32fd70c306925d2a4d73217ef4d73b77a9523dae07d4369bf6ba1d6bf8761835
+- local_path: key-files/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_one_sided.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_one_sided.py
+  sha256: 0cd78f53c107522bb7969257d42c45d22a3b5ad0e1bf2c8e784b6ec3606861b7
+- local_path: key-files/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_two_sided.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_two_sided.py
+  sha256: 596a40b11314fe3b87a82c258c8c5e1952901735caf5a48836f8ac39db789f8f
+- local_path: key-files/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+  sha256: ca5c1191d22c683daef3ea9ce61edb4c8892bf6681ef27ac66f4b816519954f9
+- local_path: key-files/vllm/model_executor/layers/fused_moe/prepare_finalize/no_dp_ep.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/prepare_finalize/no_dp_ep.py
+  sha256: 8d9b17ddb344708c78844c16ebf85405eb2c96c20de092532d6d21fd51949add
+- local_path: key-files/vllm/model_executor/layers/fused_moe/utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/utils.py
+  sha256: 7e1875305c6176cefed772249d52264026f265311e0b9ab77e9713009dc811b1
+captured_via_relaxed_allowlist: true

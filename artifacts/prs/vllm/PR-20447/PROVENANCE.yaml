@@ -1,0 +1,39 @@
+origin_url: https://github.com/vllm-project/vllm/pull/20447
+upstream_repo: vllm-project/vllm
+upstream_sha: 2c8db17c
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-20447
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 603ea68f62f88fc9f9dc2d1137982b560e273da5f9f9442fa7617d0dabe1e0a2
+- local_path: key-files/csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x.cuh
+  sha256: eaf2e7a8fd04441d4e40574fb295099a4975d9d1f465c5a719d8bdda0b2589c0
+- local_path: key-files/csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x_sm100.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x_sm100.cu
+  sha256: 1f712d202877b09a4075b556cadc8ef810871cda95cfa84d8d46f428b645a9de
+- local_path: key-files/csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x_sm90.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x_sm90.cu
+  sha256: e453c09a1da64f63ed75b4fb431275048ddec4cdfb474421b0b397c06893acb2
+- local_path: key-files/csrc/quantization/cutlass_w8a8/moe/moe_data.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/moe/moe_data.cu
+  sha256: 5f94ed7957c2fb85c1234ba35e62c56a4d67b7b691c57562d8e54cf9e5f7c3cf
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  sha256: ade9449b9afdd9fbe81e039d12c6865793f634eae55c43bf88cf7036ad3c9cb9

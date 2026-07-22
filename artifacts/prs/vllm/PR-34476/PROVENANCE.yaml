@@ -1,0 +1,20 @@
+origin_url: https://github.com/vllm-project/vllm/pull/34476
+upstream_repo: vllm-project/vllm
+upstream_sha: 604b9eae
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-34476
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ac38dabd4886a114277f5adc9beddc355fdb3f67c285ba9dd11248d5fd09481d
+- local_path: key-files/vllm/model_executor/layers/mamba/mamba_mixer2.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/mamba/mamba_mixer2.py
+  sha256: a0fef8cb4ed7779724074ede459544d8860a52c446819b445e61e3c712a7860c
+captured_via_relaxed_allowlist: true

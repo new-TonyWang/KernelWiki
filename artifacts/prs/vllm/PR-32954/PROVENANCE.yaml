@@ -1,0 +1,40 @@
+origin_url: https://github.com/vllm-project/vllm/pull/32954
+upstream_repo: vllm-project/vllm
+upstream_sha: 0493d897
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-32954
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: fb511bc6fd9b181ab7defdde7d0c2087f1b4458ebcdfb33870fc306a9176ca3d
+- local_path: key-files/vllm/model_executor/layers/fused_moe/flashinfer_trtllm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/flashinfer_trtllm_moe.py
+  sha256: b3b6b8d602d5c24f457bfa9a46d8900f43e8696295b1317e0875c510fbd6d067
+- local_path: key-files/vllm/model_executor/layers/fused_moe/oracle/unquantized.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/oracle/unquantized.py
+  sha256: 7076b84889ad655d4e96770da919f09580cfc3632d46c7859cb1c45512addb1e
+- local_path: key-files/vllm/model_executor/layers/fused_moe/unquantized_fused_moe_method.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/unquantized_fused_moe_method.py
+  sha256: a9a22ec78895a22ea8509f7bc7f03bb5a7a4fb2fd4880d178cf774f326628a51
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  sha256: a2c78342fbb85c40451ca3fb845a8ec788cc101d0a400eb3139343bf7bd8de30
+- local_path: key-files/vllm/utils/flashinfer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/utils/flashinfer.py
+  sha256: fedd96fb70a27ed840139d4621cf01ea05fdc1f1793e49e3f4e3d89ae2993d70
+captured_via_relaxed_allowlist: true
