@@ -923,7 +923,7 @@
 
 <a id="sgl-projectsgl-kernel-npu"></a>
 ## sgl-project/sgl-kernel-npu
-144 PRs
+145 PRs
 
 | PR | Title | Date | Techniques | Tags |
 |-----|-------|------|------------|------|
@@ -935,6 +935,7 @@
 | [#585](../sources/prs/sgl-kernel-npu/PR-585.md) | fix solve tril | 2026-07-02 |  | ai-core |
 | [#581](../sources/prs/sgl-kernel-npu/PR-581.md) | add gemma rmsnorm no residual | 2026-06-30 |  | ai-core, gemm |
 | [#572](../sources/prs/sgl-kernel-npu/PR-572.md) |  causal_conv1d: PTO-ISA rewrite — variable width, ~2.5× faster, correct at scale | 2026-06-25 |  | ai-core, prefill, ub |
+| [#566](../sources/prs/sgl-kernel-npu/PR-566.md) | [DeepEP] support MXFP4 quant | 2026-06-23 |  | ai-core, fp4, moe |
 | [#557](../sources/prs/sgl-kernel-npu/PR-557.md) | fused_rope_qk_mqa optimize & fix glm5 bf16 no bias | 2026-06-16 | kernel-fusion | ai-core, kernel-fusion |
 | [#548](../sources/prs/sgl-kernel-npu/PR-548.md) | Add mxfp4 for normal a5 | 2026-06-10 |  | ai-core, fp4, moe |
 | [#549](../sources/prs/sgl-kernel-npu/PR-549.md) | feat: add MXFP8 support for low_latency_dispatch | 2026-06-10 |  | ai-core, fp8, moe |
