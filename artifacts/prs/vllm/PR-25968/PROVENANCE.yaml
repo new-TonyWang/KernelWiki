@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/25968
+upstream_repo: vllm-project/vllm
+upstream_sha: a2691733
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-25968
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ab5992a24ce073e272ecc571ffba76a54ff514d825aaf0772b2ad35282490f05
+- local_path: key-files/vllm/model_executor/layers/quantization/kv_cache.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/kv_cache.py
+  sha256: 1592d46d9105390156b3c1836f9ad27963e0a652dcc275cef5511d5893694956
+- local_path: key-files/vllm/model_executor/layers/quantization/modelopt.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/modelopt.py
+  sha256: 9c72d363b36e126d48b41094c2f9ad21190572a7df1d00715e6b8e1f704483d0
+- local_path: key-files/vllm/model_executor/model_loader/weight_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/model_loader/weight_utils.py
+  sha256: 41c079eb749006598b5215437648bed7c90a811b4c0bff4427a77d1dbb91806e
+captured_via_relaxed_allowlist: true

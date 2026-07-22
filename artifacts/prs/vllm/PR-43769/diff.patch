@@ -1,0 +1,36 @@
+diff --git a/tests/kernels/moe/test_moe.py b/tests/kernels/moe/test_moe.py
+index 23ea85b52d76..781b5e383e06 100644
+--- a/tests/kernels/moe/test_moe.py
++++ b/tests/kernels/moe/test_moe.py
+@@ -1656,7 +1656,7 @@ def test_unquantized_bf16_flashinfer_trtllm_backend(
+         layer.routing_method_type = RoutingMethodType.Renormalize
+         layer.expert_map = None
+         layer.apply_router_weight_on_input = False
+-        layer.routed_scaling_factor = None
++        layer.routed_scaling_factor = 2.446
+         layer.shared_experts = None
+         layer._expert_routing_tables = lambda: None
+ 
+@@ -1678,7 +1678,10 @@ def test_unquantized_bf16_flashinfer_trtllm_backend(
+         # Compute torch baseline
+         w1_original = w1.clone()
+         w2_original = w2.clone()
+-        baseline_output = torch_moe(a, w1_original, w2_original, router_logits, topk)
++        baseline_output = (
++            torch_moe(a, w1_original, w2_original, router_logits, topk)
++            * layer.routed_scaling_factor
++        )
+ 
+     close = torch.isclose(trtllm_output, baseline_output, atol=1e-1, rtol=0.85)
+     assert close.float().mean() > 0.925
+diff --git a/vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py b/vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py
+index 0b679b78c929..18423a81bfc7 100644
+--- a/vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py
++++ b/vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py
+@@ -140,5 +140,6 @@ def apply(
+             intermediate_size=self.intermediate_size_per_partition,
+             local_expert_offset=self.ep_rank * self.local_num_experts,
+             local_num_experts=self.local_num_experts,
++            routed_scaling_factor=routed_scaling_factor,
+             routing_method_type=self.routing_method_type,
+         )

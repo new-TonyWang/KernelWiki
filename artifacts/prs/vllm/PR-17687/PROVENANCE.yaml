@@ -1,0 +1,79 @@
+origin_url: https://github.com/vllm-project/vllm/pull/17687
+upstream_repo: vllm-project/vllm
+upstream_sha: d74e5f37
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-17687
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: f2e032f4d5c61ff628d9f16ba1853fa5b0fe9ed24035fede62d6deefa4a0b22d
+- local_path: key-files/csrc/core/scalar_type.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/core/scalar_type.hpp
+  sha256: 087dc858355cd4a8871ce341a548584b9bbfbba54c5f47b69d16300736a7f831
+- local_path: key-files/csrc/moe/marlin_moe_wna16/generate_kernels.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/marlin_moe_wna16/generate_kernels.py
+  sha256: 2eab4f584a5ea5294151a3e5552e6cde43dc5779eae8675ca71b935a8516f41c
+- local_path: key-files/csrc/moe/marlin_moe_wna16/kernel.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/marlin_moe_wna16/kernel.h
+  sha256: 92702ac1fc715da869bb7be79ae4bf605f04bb46e2ff1ab3c30473c812fb731b
+- local_path: key-files/csrc/moe/marlin_moe_wna16/marlin_template.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/marlin_moe_wna16/marlin_template.h
+  sha256: ba063b4121eb1b394256fb1bab1fa38df947324c839ce5fed35a6c4ccb3c6ebd
+- local_path: key-files/csrc/moe/marlin_moe_wna16/ops.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/marlin_moe_wna16/ops.cu
+  sha256: eca3fede9339e73cfeb1186b5c24136342f22e0647423fc15f785bc231ad4908
+- local_path: key-files/csrc/moe/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/torch_bindings.cpp
+  sha256: f3615b30fac409127da3be18e34df5161636d6d584ebe4c9a893ed630b569298
+- local_path: key-files/csrc/quantization/gptq_marlin/dequant.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/gptq_marlin/dequant.h
+  sha256: db7d1c27d24037f6a9ddf36286a51e54648bd0283b6c86682a58decb26d0947c
+- local_path: key-files/csrc/quantization/gptq_marlin/generate_kernels.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/gptq_marlin/generate_kernels.py
+  sha256: 5606debef2ce6b581c9d7acfb61edd86ede644012fcd3cc61d552731b707d352
+- local_path: key-files/csrc/quantization/gptq_marlin/gptq_marlin.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/gptq_marlin/gptq_marlin.cu
+  sha256: a40da0194cb23e750c2abed944e7193cac01713f491c43982e25040da1e8151b
+- local_path: key-files/csrc/quantization/gptq_marlin/kernel.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/gptq_marlin/kernel.h
+  sha256: fd29f1eb11fa20deb156b686d7ee679243ff466721e5071a2445f3a55dcf0b5d
+- local_path: key-files/csrc/quantization/gptq_marlin/marlin_template.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/gptq_marlin/marlin_template.h
+  sha256: 94f00eae54e781c2884e6afdbf94be491d9bfad83036aa52e5023aa2656f2a66
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: cefb2214bde7b4db2e6627991bedfd45b6c132678caafd8f6b5fcf159ae7c51f
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 925ccc59d0581c36712a1e0d4677967bffc07636f8026bfd33aaac4944da11f8

@@ -1,0 +1,50 @@
+origin_url: https://github.com/vllm-project/vllm/pull/42209
+upstream_repo: vllm-project/vllm
+upstream_sha: fb21d8b4
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-42209
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: df9f4b0f3db1ac4f6fada4c29fa12caf8fee79b02670ecd4921dd37ec20368dd
+- local_path: key-files/vllm/model_executor/layers/fused_moe/config.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/config.py
+  sha256: 4eeb0760df331550dd5e24a075c4bbfd000a78a755c984b102adb95c33bf3de4
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/trtllm_nvfp4_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/trtllm_nvfp4_moe.py
+  sha256: bc799cb2614c5a889eb7b03f52a51ba1fc2a1e54037b9b5c081bde6fdbaea656
+- local_path: key-files/vllm/model_executor/layers/fused_moe/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/layer.py
+  sha256: 8936735c360c86f8ffa8e9842fc5bfac9ef0ca70fa93cec2707fec41609bf4f2
+- local_path: key-files/vllm/model_executor/layers/fused_moe/oracle/nvfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/oracle/nvfp4.py
+  sha256: 1f718518619dce79f7748d008586160dcb1741c39eb7f093fbb38ed9cc737976
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w4a4_nvfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe/compressed_tensors_moe_w4a4_nvfp4.py
+  sha256: 2e705ddc2b44a6efb1c216071ac9472764187022f978cb38a5c2cfa61435fa66
+- local_path: key-files/vllm/model_executor/layers/quantization/modelopt.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/modelopt.py
+  sha256: c377f363f397acb5905eda92083a19a06827af8a6e6bfad939187e832b894b2a
+- local_path: key-files/vllm/models/deepseek_v4/quant_config.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/models/deepseek_v4/quant_config.py
+  sha256: 4a27fb1b56363b3a283b3677670616d57f0f195b33f7a26c003875e8ffe1c7aa
+captured_via_relaxed_allowlist: true

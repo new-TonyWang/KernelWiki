@@ -1,0 +1,44 @@
+origin_url: https://github.com/vllm-project/vllm/pull/33255
+upstream_repo: vllm-project/vllm
+upstream_sha: a88b3be7
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-33255
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 5854f46051da6a863cc636c74cb8df1eb27917f7fb3401e1671cb9d5a67f010b
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: 2b7ad11b00bddd2a3b6dc735798a23f270257c3a5cf5abbd740ee692fc5a4f6d
+- local_path: key-files/csrc/quantization/fused_kernels/fused_layernorm_dynamic_per_token_quant.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fused_kernels/fused_layernorm_dynamic_per_token_quant.cu
+  sha256: 1da9c492f22d39dfd6eb72258bcdb285cbcd51864c3cf86826349087df6e1bec
+- local_path: key-files/csrc/quantization/fused_kernels/layernorm_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fused_kernels/layernorm_utils.cuh
+  sha256: 10e10f27194be45493f3e8de406846948ad8ecc86d3c5e13de957bc5de3dac28
+- local_path: key-files/csrc/quantization/w8a8/fp8/per_token_group_quant.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/w8a8/fp8/per_token_group_quant.cu
+  sha256: 13a97fb31b13784cb4762e671edb4654620c74e68b02ac4bb5acd30051a4eba8
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 3e79a84b334f014e27e113354fed64d601985dcf6726751192f8b9ab988e8f79
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 838a6babaaa912cfca423ce6e5736572f9f875ba3e5326125cce86677e56c2a7

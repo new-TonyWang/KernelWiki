@@ -1,0 +1,1180 @@
+diff --git a/tests/v1/attention/test_attention_backends.py b/tests/v1/attention/test_attention_backends.py
+index 46d25c017f27..62643032edb4 100644
+--- a/tests/v1/attention/test_attention_backends.py
++++ b/tests/v1/attention/test_attention_backends.py
+@@ -136,7 +136,8 @@ def create_and_prepopulate_kv_cache(
+     block_table = common_attn_metadata.block_table_tensor
+     slot_mapping = common_attn_metadata.slot_mapping
+ 
+-    # Create KV cache
++    # Create KV cache and populate in (2, num_blocks, ...) layout for easy
++    # flat indexing, then transpose to (num_blocks, 2, ...) layout.
+     kv_cache = torch.zeros(
+         2, num_blocks, block_size, num_kv_heads, head_size, dtype=dtype, device=device
+     )
+@@ -155,6 +156,9 @@ def create_and_prepopulate_kv_cache(
+         # Stay block aligned and allocate enough blocks for the new tokens
+         start_block_idx += cdiv(int(seq_lens[i]), block_size)
+ 
++    # Transpose to (num_blocks, 2, ...) layout
++    kv_cache = kv_cache.transpose(0, 1).contiguous()
++
+     blocks_end = start_block_idx
+ 
+     # Permute the context blocks (excluding block 0 which is null)
+@@ -168,7 +172,7 @@ def create_and_prepopulate_kv_cache(
+     inv_perm = torch.zeros(blocks_end, dtype=torch.long, device=device)
+     # Add 1 to account for starting from block 1
+     inv_perm[1:] = torch.argsort(perm) + 1
+-    kv_cache[:, 1:blocks_end, ...] = kv_cache[:, perm, ...]
++    kv_cache[1:blocks_end, ...] = kv_cache[perm, ...]
+ 
+     # Construct the right block table
+     # Start from block_id=1 since block_id=0 is considered the null block
+@@ -473,28 +477,35 @@ def _test_backend_correctness(
+     # Note: flex_attention has known Triton kernel compatibility issues
+     # with test infrastructures
+     for backend_name in backend_to_test:
+-        # FlashAttentionm + FlexAttention:
+-        #   [2, num_blocks, block_size, num_kv_heads, head_size]
+-        # FlashInfer + Triton:
+-        #   [num_blocks, 2, block_size, num_kv_heads, head_size]
+-        # Select the appropriate KV cache format for each backend
+-        kv_cache_for_backend = kv_cache
+         reset_kv_cache_layout = False
+-        if backend_name in (
+-            AttentionBackendEnum.FLASHINFER,
+-            AttentionBackendEnum.TRITON_ATTN,
+-        ):
+-            kv_cache_for_backend = kv_cache.transpose(0, 1)
++
++        # Resolve backend class for both enum and string names.
++        actual_backend = backend_name
++        if backend_name == "FLEX_ATTENTION_SLOW":
++            actual_backend = AttentionBackendEnum.FLEX_ATTENTION
++        if hasattr(actual_backend, "get_class"):
++            backend_cls = actual_backend.get_class()
++        else:
++            backend_cls = None
+ 
+         if backend_name == AttentionBackendEnum.FLASHINFER:
+-            # For FlashInfer default to HND layout and
+-            kv_cache_for_backend = (
+-                kv_cache_for_backend.transpose(2, 3).contiguous().transpose(2, 3)
+-            )
+             set_kv_cache_layout("HND")
+             reset_kv_cache_layout = True
+-        elif backend_name == AttentionBackendEnum.TRITON_ATTN:
+-            kv_cache_for_backend = kv_cache_for_backend.contiguous()
++
++        # Apply stride order like runtime does in
++        # _reshape_kv_cache (attn_utils.py:182-210): permute to physical
++        # layout, make contiguous, then permute to logical layout.
++        kv_cache_for_backend = kv_cache
++        if backend_cls is not None:
++            try:
++                stride_order = backend_cls.get_kv_cache_stride_order()
++            except (AttributeError, NotImplementedError):
++                stride_order = tuple(range(kv_cache.ndim))
++            if stride_order != tuple(range(kv_cache.ndim)):
++                inv_order = [stride_order.index(i) for i in range(len(stride_order))]
++                kv_cache_for_backend = (
++                    kv_cache.permute(*stride_order).contiguous().permute(*inv_order)
++                )
+ 
+         try:
+             backend_output = run_attention_backend(
+diff --git a/tests/v1/attention/test_kv_head_stride_canonicalization.py b/tests/v1/attention/test_kv_head_stride_canonicalization.py
+index 635f46390cfc..71c34473f925 100644
+--- a/tests/v1/attention/test_kv_head_stride_canonicalization.py
++++ b/tests/v1/attention/test_kv_head_stride_canonicalization.py
+@@ -19,7 +19,7 @@
+ 
+ The degenerate stride manifests at different positions in different backends:
+ - FlashInfer: stride(-3) after kv_cache.permute() → shape [..., 1, B, D]
+-- FlashAttention: stride(-2) after kv_cache.unbind(0) → shape [N, B, 1, D]
++- FlashAttention: stride(-2) after kv_cache.unbind(1) → shape [N, B, 1, D]
+ """
+ 
+ import torch
+diff --git a/tests/v1/kv_connector/unit/offloading_connector/test_worker.py b/tests/v1/kv_connector/unit/offloading_connector/test_worker.py
+index b2fb0846d912..36294632bb9f 100644
+--- a/tests/v1/kv_connector/unit/offloading_connector/test_worker.py
++++ b/tests/v1/kv_connector/unit/offloading_connector/test_worker.py
+@@ -1,14 +1,13 @@
+ # SPDX-License-Identifier: Apache-2.0
+ # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+ from collections import defaultdict
+-from unittest.mock import MagicMock, patch
++from unittest.mock import MagicMock
+ 
+ import pytest
+ import torch
+ 
+ from vllm.platforms import current_platform
+ from vllm.utils.torch_utils import get_dtype_size
+-from vllm.v1.attention.backend import AttentionBackend
+ from vllm.v1.attention.backends.registry import AttentionBackendEnum
+ from vllm.v1.attention.backends.utils import set_kv_cache_layout
+ from vllm.v1.kv_cache_interface import (
+@@ -85,15 +84,6 @@ def _allocate_and_reshape_kv_caches(
+         set_kv_cache_layout(None)
+ 
+ 
+-def _make_mock_layer(backend_cls: type[AttentionBackend]):
+-    """
+-    Create a mock AttentionLayerBase whose get_attn_backend returns backend_cls.
+-    """
+-    layer = MagicMock()
+-    layer.get_attn_backend.return_value = backend_cls
+-    return layer
+-
+-
+ def _make_worker(kv_cache_config: KVCacheConfig):
+     """
+     Create an OffloadingConnectorWorker with mocked dependencies.
+@@ -119,11 +109,7 @@ def _make_worker(kv_cache_config: KVCacheConfig):
+ 
+ 
+ @pytest.mark.parametrize("backend", ATTN_BACKENDS)
+-@patch(
+-    "vllm.distributed.kv_transfer.kv_connector.v1.offloading"
+-    ".worker.get_layers_from_vllm_config"
+-)
+-def test_register_kv_caches(mock_get_layers, backend):
++def test_register_kv_caches(backend):
+     """Test register_kv_caches with multiple groups covering all layer types.
+ 
+     Creates one FullAttention group, one MLA group, one Mamba group, and
+@@ -287,13 +273,6 @@ def test_register_kv_caches(mock_get_layers, backend):
+         device=torch.device("cuda:0"),
+     )
+ 
+-    mock_layers: dict[str, MagicMock] = {}
+-    for layer_name in attn_layer_names:
+-        mock_layers[layer_name] = _make_mock_layer(backend_cls)
+-    for layer_name in mla_layer_names:
+-        mock_layers[layer_name] = _make_mock_layer(DeepseekV32IndexerBackend)
+-    mock_get_layers.return_value = mock_layers
+-
+     worker, spec = _make_worker(kv_cache_config)
+     worker.register_kv_caches(kv_caches)
+ 
+@@ -360,11 +339,7 @@ def test_register_kv_caches(mock_get_layers, backend):
+ 
+ 
+ @pytest.mark.parametrize("backend", ATTN_BACKENDS)
+-@patch(
+-    "vllm.distributed.kv_transfer.kv_connector.v1.offloading"
+-    ".worker.get_layers_from_vllm_config"
+-)
+-def test_register_kv_caches_uniform_type(mock_get_layers, backend):
++def test_register_kv_caches_uniform_type(backend):
+     """Test register_kv_caches with UniformTypeKVCacheSpecs.
+ 
+     Two attention layers use the same backend but different num_kv_heads,
+@@ -441,64 +416,29 @@ def test_register_kv_caches_uniform_type(mock_get_layers, backend):
+         device=torch.device("cuda:0"),
+     )
+ 
+-    mock_get_layers.return_value = {
+-        layer_a: _make_mock_layer(backend_cls),
+-        layer_b: _make_mock_layer(backend_cls),
+-    }
+-
+     worker, spec = _make_worker(kv_cache_config)
+     worker.register_kv_caches(kv_caches)
+ 
+     canonical = spec.get_handlers.call_args[0][0]
+     assert isinstance(canonical, CanonicalKVCaches)
+ 
+-    unbinds = backend_cls.get_name() in ("FLASH_ATTN", "FLEX_ATTENTION")
+-    tensors_per_layer = 2 if unbinds else 1
+-
+     for block_tensor in canonical.tensors:
+         assert block_tensor.tensor.dtype == torch.int8
+ 
+     # Single group with refs from both layers
+     assert len(canonical.group_data_refs) == 1
+     group_refs = canonical.group_data_refs[0]
+-    assert len(group_refs) == 2 * tensors_per_layer
+-
+-    if unbinds:
+-        half_a = spec_a.page_size_bytes // 2
+-        half_b = spec_b.page_size_bytes // 2
+-
+-        assert len(canonical.tensors) == 4
+-        assert canonical.tensors[0].page_size_bytes == half_a
+-        assert canonical.tensors[1].page_size_bytes == half_a
+-        assert canonical.tensors[2].page_size_bytes == half_b
+-        assert canonical.tensors[3].page_size_bytes == half_b
+-        assert canonical.tensors[0].tensor.shape == (NUM_BLOCKS, half_a)
+-        assert canonical.tensors[1].tensor.shape == (NUM_BLOCKS, half_a)
+-        assert canonical.tensors[2].tensor.shape == (NUM_BLOCKS, half_b)
+-        assert canonical.tensors[3].tensor.shape == (NUM_BLOCKS, half_b)
+-
+-        assert group_refs[0] == CanonicalKVCacheRef(
+-            tensor_idx=0, page_size_bytes=half_a
+-        )
+-        assert group_refs[1] == CanonicalKVCacheRef(
+-            tensor_idx=1, page_size_bytes=half_a
+-        )
+-        assert group_refs[2] == CanonicalKVCacheRef(
+-            tensor_idx=2, page_size_bytes=half_b
+-        )
+-        assert group_refs[3] == CanonicalKVCacheRef(
+-            tensor_idx=3, page_size_bytes=half_b
+-        )
+-    else:
+-        assert len(canonical.tensors) == 2
+-        assert canonical.tensors[0].page_size_bytes == spec_a.page_size_bytes
+-        assert canonical.tensors[1].page_size_bytes == spec_b.page_size_bytes
+-        assert canonical.tensors[0].tensor.shape == (NUM_BLOCKS, spec_a.page_size_bytes)
+-        assert canonical.tensors[1].tensor.shape == (NUM_BLOCKS, spec_b.page_size_bytes)
+-
+-        assert group_refs[0] == CanonicalKVCacheRef(
+-            tensor_idx=0, page_size_bytes=spec_a.page_size_bytes
+-        )
+-        assert group_refs[1] == CanonicalKVCacheRef(
+-            tensor_idx=1, page_size_bytes=spec_b.page_size_bytes
+-        )
++    assert len(group_refs) == 2
++
++    assert len(canonical.tensors) == 2
++    assert canonical.tensors[0].page_size_bytes == spec_a.page_size_bytes
++    assert canonical.tensors[1].page_size_bytes == spec_b.page_size_bytes
++    assert canonical.tensors[0].tensor.shape == (NUM_BLOCKS, spec_a.page_size_bytes)
++    assert canonical.tensors[1].tensor.shape == (NUM_BLOCKS, spec_b.page_size_bytes)
++
++    assert group_refs[0] == CanonicalKVCacheRef(
++        tensor_idx=0, page_size_bytes=spec_a.page_size_bytes
++    )
++    assert group_refs[1] == CanonicalKVCacheRef(
++        tensor_idx=1, page_size_bytes=spec_b.page_size_bytes
++    )
+diff --git a/tests/v1/kv_connector/unit/offloading_connector/utils.py b/tests/v1/kv_connector/unit/offloading_connector/utils.py
+index bac8dbdf9464..ad4d1ae24922 100644
+--- a/tests/v1/kv_connector/unit/offloading_connector/utils.py
++++ b/tests/v1/kv_connector/unit/offloading_connector/utils.py
+@@ -3,7 +3,7 @@
+ from collections.abc import Iterable, Iterator
+ from dataclasses import dataclass
+ from typing import Any
+-from unittest.mock import MagicMock, patch
++from unittest.mock import MagicMock
+ 
+ import pytest
+ import torch
+@@ -25,7 +25,6 @@
+ )
+ from vllm.forward_context import ForwardContext
+ from vllm.utils.hashing import sha256
+-from vllm.v1.attention.backends.flash_attn import FlashAttentionBackend
+ from vllm.v1.core.kv_cache_utils import (
+     get_request_block_hasher,
+     init_none_hash,
+@@ -239,37 +238,22 @@ def __init__(
+ 
+         # register worker kv_caches to enable OffloadingWorker creations
+         # set_current_vllm_config is needed for get_kv_cache_layout() to work
+-        # Mock get_layers_from_vllm_config so that mock layer names
+-        # resolve to layers whose get_attn_backend() returns
+-        # FlashAttentionBackend.
+-        def _mock_get_layers(_vllm_config, _layer_type, layer_names):
+-            mock_layer = MagicMock()
+-            mock_layer.get_attn_backend.return_value = FlashAttentionBackend
+-            return {name: mock_layer for name in layer_names}
+-
+         kv_caches: dict[str, torch.Tensor] = {}
+         for group in kv_cache_groups:
+             spec = group.kv_cache_spec
+             for layer_name in group.layer_names:
+                 # Shape follows FlashAttention layout:
+-                # (2, num_blocks, block_size, num_kv_heads, head_size)
++                # Shape: (num_blocks, 2, block_size, num_kv_heads, head_size)
+                 kv_caches[layer_name] = torch.empty(
+-                    2,
+                     num_gpu_blocks,
++                    2,
+                     spec.block_size,
+                     spec.num_kv_heads,
+                     spec.head_size,
+                     dtype=spec.dtype,
+                 )
+ 
+-        with (
+-            set_current_vllm_config(vllm_config),
+-            patch(
+-                "vllm.distributed.kv_transfer.kv_connector.v1"
+-                ".offloading.worker.get_layers_from_vllm_config",
+-                side_effect=_mock_get_layers,
+-            ),
+-        ):
++        with set_current_vllm_config(vllm_config):
+             self.worker_connector.register_kv_caches(kv_caches)
+ 
+         # extract connector of scheduler
+diff --git a/tests/v1/kv_connector/unit/test_mooncake_connector.py b/tests/v1/kv_connector/unit/test_mooncake_connector.py
+index 44292d94e147..a10ae1f456ed 100644
+--- a/tests/v1/kv_connector/unit/test_mooncake_connector.py
++++ b/tests/v1/kv_connector/unit/test_mooncake_connector.py
+@@ -369,15 +369,31 @@ async def test_kv_producer(monkeypatch):
+         with patch.object(
+             prefill_worker, "_send_blocks", return_value=0
+         ) as mock_send_blocks:
++            # With blocks-first layout, each block is virtually split
++            # into K and V halves, producing non-coalesced transfers.
++            kv_half = block_len // 2
++
++            def expected_split_transfers(src_base, dst_base, src_blocks, dst_blocks):
++                """Build expected (src_ptrs, dst_ptrs, lengths) for
++                virtual-split K/V transfers."""
++                src_ptrs, dst_ptrs, lengths = [], [], []
++                for kv_offset in (0, kv_half):
++                    for sb, db in zip(src_blocks, dst_blocks):
++                        src_ptrs.append(src_base + sb * block_len + kv_offset)
++                        dst_ptrs.append(dst_base + db * block_len + kv_offset)
++                        lengths.append(kv_half)
++                return src_ptrs, dst_ptrs, lengths
++
+             # Normal case: 2 blocks to 2 blocks
+-            # Worker processes the consumer's request
+             await prefill_worker.send_kv_to_decode(identity, mock_socket, xfer_meta)
+-            # Verify transfer parameters are correct
+-            src_ptr = 0x1000 + 10 * block_len
+-            dst_ptr = 0x2000 + 20 * block_len
+-            length = 2 * block_len
++            src, dst, lens = expected_split_transfers(
++                0x1000, 0x2000, [10, 11], [20, 21]
++            )
+             mock_send_blocks.assert_called_once_with(
+-                "consumer-host:54321", [src_ptr], [dst_ptr], [length]
++                "consumer-host:54321",
++                src,
++                dst,
++                lens,
+             )
+             mock_socket.send_multipart.assert_called_once()
+ 
+@@ -404,11 +420,12 @@ async def test_kv_producer(monkeypatch):
+             # Worker processes the consumer's request
+             await prefill_worker.send_kv_to_decode(identity, mock_socket, xfer_meta)
+             # Verify transfer parameters are correct: 11 to 20
+-            src_ptr = 0x1000 + 11 * block_len
+-            dst_ptr = 0x2000 + 20 * block_len
+-            length = 1 * block_len
++            src, dst, lens = expected_split_transfers(0x1000, 0x2000, [11], [20])
+             mock_send_blocks.assert_called_once_with(
+-                "consumer-host:54321", [src_ptr], [dst_ptr], [length]
++                "consumer-host:54321",
++                src,
++                dst,
++                lens,
+             )
+             mock_socket.send_multipart.assert_called_once()
+ 
+@@ -618,18 +635,14 @@ def test_register_kv_caches():
+ 
+             mock_batch_register.assert_called_once()
+             registered_ptrs, registered_lens = mock_batch_register.call_args[0]
+-            expected_ptrs = {
+-                tensor.data_ptr()
+-                for kv_pair in kv_caches.values()
+-                for tensor in kv_pair
+-            }
++            expected_ptrs = {tensor.data_ptr() for tensor in kv_caches.values()}
+             assert set(registered_ptrs) == expected_ptrs
+-            assert set(registered_lens) == {tensor1[0].nbytes}
++            assert set(registered_lens) == {tensor1.nbytes}
+ 
+             # Verify block_len_per_layer is set correctly.
+             assert len(worker.block_len_per_layer) == len(registered_ptrs)
+             for bl in worker.block_len_per_layer:
+-                assert bl == tensor1[0].nbytes // tensor1.shape[1]
++                assert bl == tensor1.nbytes // tensor1.shape[0]
+ 
+ 
+ def test_register_kv_caches_supports_mixed_mla_and_eagle_shapes():
+@@ -791,33 +804,49 @@ async def test_kv_producer_heterogeneous_tp(monkeypatch, d_tp_size):
+                 # Flatten nested per-group block IDs for assertions
+                 flat_local = [b for g in local_block_ids for b in g]
+                 flat_remote = [b for g in remote_block_ids for b in g]
++                num_blocks = len(flat_local)
+ 
+-                # Heterogeneous TP: blocks cannot be coalesced because
+-                # local and remote block_lens differ
+-                assert len(src_ptrs) == len(flat_local)
+-                assert len(dst_ptrs) == len(flat_local)
+-                assert len(lengths) == len(flat_local)
++                # With blocks-first layout, virtual split halves block
++                # lengths and doubles transfer regions (K + V).
++                local_kv_block_len = local_block_len // 2
++                remote_kv_block_len = remote_block_len // 2
+ 
+-                # Compute expected offsets based on TP ratio
++                assert len(src_ptrs) == 2 * num_blocks
++                assert len(dst_ptrs) == 2 * num_blocks
++                assert len(lengths) == 2 * num_blocks
++
++                # Compute expected offsets using kv_block_len
+                 if d_tp_size <= P_TP_SIZE:
+                     tp_ratio = P_TP_SIZE // d_tp_size
+                     expected_src_off = 0
+-                    expected_dst_off = (P_TP_RANK % tp_ratio) * local_block_len
+-                    expected_xfer_len = local_block_len
++                    expected_dst_off = (P_TP_RANK % tp_ratio) * local_kv_block_len
++                    expected_xfer_len = local_kv_block_len
+                 else:
+                     ratio_abs = d_tp_size // P_TP_SIZE
+-                    expected_src_off = (d_rank % ratio_abs) * remote_block_len
++                    expected_src_off = (d_rank % ratio_abs) * remote_kv_block_len
+                     expected_dst_off = 0
+-                    expected_xfer_len = remote_block_len
+-
+-                for idx, (lblk, rblk) in enumerate(zip(flat_local, flat_remote)):
+-                    assert src_ptrs[idx] == (
+-                        0x1000 + lblk * local_block_len + expected_src_off
+-                    )
+-                    assert dst_ptrs[idx] == (
+-                        0x2000 + rblk * remote_block_len + expected_dst_off
+-                    )
+-                    assert lengths[idx] == expected_xfer_len
++                    expected_xfer_len = remote_kv_block_len
++
++                # First num_blocks entries are K region,
++                # next num_blocks are V region.
++                for region_idx in range(2):
++                    local_region_base = 0x1000 + region_idx * local_kv_block_len
++                    remote_region_base = 0x2000 + region_idx * remote_kv_block_len
++                    for blk_idx, (lblk, rblk) in enumerate(
++                        zip(flat_local, flat_remote)
++                    ):
++                        idx = region_idx * num_blocks + blk_idx
++                        assert src_ptrs[idx] == (
++                            local_region_base
++                            + lblk * local_block_len
++                            + expected_src_off
++                        )
++                        assert dst_ptrs[idx] == (
++                            remote_region_base
++                            + rblk * remote_block_len
++                            + expected_dst_off
++                        )
++                        assert lengths[idx] == expected_xfer_len
+ 
+                 # Verify successful response sent back to consumer
+                 mock_socket.send_multipart.assert_called_once()
+diff --git a/tests/v1/kv_connector/unit/test_nixl_connector.py b/tests/v1/kv_connector/unit/test_nixl_connector.py
+index 3f92b183dca7..f07a8352e735 100644
+--- a/tests/v1/kv_connector/unit/test_nixl_connector.py
++++ b/tests/v1/kv_connector/unit/test_nixl_connector.py
+@@ -1635,6 +1635,7 @@ def test_register_kv_caches(
+             num_blocks=1, block_size=16, num_kv_heads=1, head_size=1
+         )
+         is_blocks_first = len(test_shape) == 5 and test_shape[0] == 1
++        virtually_split = is_blocks_first and not connector.prefer_cross_layer_blocks
+ 
+         if connector.prefer_cross_layer_blocks:
+             with set_current_vllm_config(vllm_config):
+@@ -1665,7 +1666,7 @@ def test_register_kv_caches(
+             ]
+             expected_num_entries = 1
+ 
+-            expected_blocks_count = num_blocks * (2 if is_blocks_first else 1)
++            expected_blocks_count = num_blocks * (2 if virtually_split else 1)
+ 
+             kv_caches = {"all-layers": cross_layers_kv_cache}
+         else:
+@@ -1739,7 +1740,7 @@ def test_register_kv_caches(
+         else:
+             num_blocks = kv_cache_config.num_blocks
+ 
+-        if is_blocks_first:
++        if virtually_split:
+             expected_block_len = expected_tensor_size // num_blocks // 2
+         else:
+             expected_block_len = expected_tensor_size // num_blocks
+diff --git a/tests/v1/worker/test_gpu_model_runner.py b/tests/v1/worker/test_gpu_model_runner.py
+index 1da5d9570737..ffb4d7f474bd 100644
+--- a/tests/v1/worker/test_gpu_model_runner.py
++++ b/tests/v1/worker/test_gpu_model_runner.py
+@@ -34,7 +34,6 @@
+ from vllm.v1.core.kv_cache_utils import estimate_max_model_len, get_kv_cache_configs
+ from vllm.v1.core.sched.output import CachedRequestData, NewRequestData, SchedulerOutput
+ from vllm.v1.kv_cache_interface import (
+-    AttentionSpec,
+     FullAttentionSpec,
+     KVCacheConfig,
+     KVCacheGroupSpec,
+@@ -44,7 +43,7 @@
+ from vllm.v1.spec_decode.metadata import SpecDecodeMetadata
+ from vllm.v1.worker.gpu_input_batch import InputBatch
+ from vllm.v1.worker.gpu_model_runner import GPUModelRunner
+-from vllm.v1.worker.utils import AttentionGroup, select_common_block_size
++from vllm.v1.worker.utils import select_common_block_size
+ 
+ BLOCK_SIZE = 16
+ NUM_BLOCKS = 10
+@@ -1195,33 +1194,6 @@ def test_hybrid_attention_mamba_tensor_shapes():
+             assert torch.equal(actual_ssm, expected_ssm)
+ 
+ 
+-def test_update_hybrid_attention_mamba_layout_with_num_block_2_rewrites_stride():
+-    from vllm.v1.attention.backends.flash_attn import FlashAttentionBackend
+-
+-    ambiguous_cache = torch.empty((2, 2, BLOCK_SIZE, 1, 8), dtype=torch.float16)
+-    """Ambiguous, because both dims[0=kv_dim] and dims[1=num_blocks] == 2"""
+-    hidden_size = ambiguous_cache.shape[2:].numel()
+-    assert ambiguous_cache.stride()[:2] == (2 * hidden_size, hidden_size)
+-
+-    attention_spec = AttentionSpec(
+-        block_size=BLOCK_SIZE, num_kv_heads=1, head_size=8, dtype=torch.float16
+-    )
+-    runner_stub = SimpleNamespace(
+-        cache_config=SimpleNamespace(cache_dtype="auto"),
+-        _kv_cache_spec_attn_group_iterator=lambda: iter(
+-            [AttentionGroup(FlashAttentionBackend, ["attn"], attention_spec, 0)]
+-        ),
+-    )
+-    GPUModelRunner._update_hybrid_attention_mamba_layout(
+-        runner_stub, {"attn": ambiguous_cache}, [BLOCK_SIZE]
+-    )
+-
+-    assert ambiguous_cache.stride()[:2] == (hidden_size, 2 * hidden_size), """\
+-        We expect _update_hybrid_attention_mamba_layout to re-stride the cache from:
+-        (2, num_blocks) -> (num_blocks, 2), even when num_blocks==2, 
+-        which was ambiguous before get_kv_cache_block_dim was used"""
+-
+-
+ def test_hybrid_block_table_initialization():
+     """Test hybrid block table with different kernel and kvcache_manager block
+     sizes."""
+diff --git a/vllm/distributed/kv_transfer/kv_connector/utils.py b/vllm/distributed/kv_transfer/kv_connector/utils.py
+index a86b25c75a4f..d7a595716f08 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/utils.py
++++ b/vllm/distributed/kv_transfer/kv_connector/utils.py
+@@ -420,7 +420,7 @@ def __post_init__(self):
+                 head_size=1,
+             )
+             logger.debug("Test kv_cache_shape: %s", kv_cache_shape)
+-        # Non-MLA backends caches have 5 dims [2, num_blocks, H,N,D],
++        # Non-MLA backends caches have 5 dims [num_blocks, 2, H,N,D],
+         # we just mock num_blocks to 1 for the dimension check below.
+         # Hybrid SSM models assume a single blocks_first layout
+         self._is_kv_layout_blocks_first = self.is_mamba or (
+@@ -484,6 +484,15 @@ def is_kv_layout_blocks_first(self) -> bool:
+     def cross_layers_blocks(self) -> bool:
+         return self._cross_layers_blocks
+ 
++    @property
++    def virtually_split_kv_in_blocks(self) -> bool:
++        # Whether to logically split each block into K and V halves.
++        # Applies when K/V are interleaved within each block (blocks-first),
++        # but NOT when cross-layer blocks are used — cross-layer blocks have
++        # per-layer K/V interleaving (L0_K, L0_V, L1_K, L1_V, ...) so a
++        # simple half-split does not separate K from V.
++        return self._is_kv_layout_blocks_first and not self._cross_layers_blocks
++
+     @property
+     def split_k_and_v(self) -> bool:
+         # Whether to register regions for K and V separately (when present).
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/example_connector.py b/vllm/distributed/kv_transfer/kv_connector/v1/example_connector.py
+index 8ed18894e8a3..db64b893e93e 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/v1/example_connector.py
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/example_connector.py
+@@ -17,7 +17,6 @@
+ from vllm.model_executor.layers.attention.mla_attention import MLACommonMetadata
+ from vllm.utils.hashing import safe_hash
+ from vllm.v1.attention.backend import AttentionMetadata
+-from vllm.v1.attention.backends.triton_attn import TritonAttentionMetadata
+ from vllm.v1.core.sched.output import SchedulerOutput
+ 
+ if TYPE_CHECKING:
+@@ -130,33 +129,24 @@ def inject_kv_into_layer(
+ 
+             Args:
+                 dst_kv_cache_layer (torch.Tensor): the destination KV cache
+-                    layer. In shape [2, num_pages, page_size, xxx] if not
+-                    using MLA, [num_pages, page_size, xxx] otherwise.
+-                src_kv_cache (torch.Tensor): the source KV cache. In shape
+-                    [2, num_tokens, xxx] if not using MLA, [num_tokens, xxx]
+-                    otherwise.
++                    layer. In shape [num_pages, page_size, xxx] for MLA,
++                    [num_pages, 2, page_size, xxx] otherwise.
++                src_kv_cache (torch.Tensor): the source KV cache.
+                 slot_mapping (torch.Tensor): the slot mapping. In shape
+                     [num_tokens].
+             """
+-            dst_kv_cache_layer_shape = dst_kv_cache_layer.shape
+             if isinstance(attn_metadata, MLACommonMetadata):
++                dst_kv_cache_layer_shape = dst_kv_cache_layer.shape
+                 num_pages = dst_kv_cache_layer_shape[0]
+                 page_size = dst_kv_cache_layer_shape[1]
+                 dst_kv_cache_layer = dst_kv_cache_layer.reshape(
+                     num_pages * page_size, -1
+                 )
+                 dst_kv_cache_layer[slot_mapping, ...] = src_kv_cache
+-            elif isinstance(attn_metadata, TritonAttentionMetadata):
++            else:
+                 block_idxs = slot_mapping // self._block_size
+                 offsets = slot_mapping % self._block_size
+                 dst_kv_cache_layer[block_idxs, :, offsets] = src_kv_cache
+-            else:
+-                num_pages = dst_kv_cache_layer_shape[1]
+-                page_size = dst_kv_cache_layer_shape[2]
+-                dst_kv_cache_layer = dst_kv_cache_layer.reshape(
+-                    2, num_pages * page_size, -1
+-                )
+-                dst_kv_cache_layer[:, slot_mapping, ...] = src_kv_cache
+ 
+         # Get the metadata
+         metadata: KVConnectorMetadata = self._get_connector_metadata()
+@@ -234,18 +224,15 @@ def extract_kv_from_layer(
+         ) -> torch.Tensor:
+             """Extract the KV cache from the layer.
+ 
+-            Assume the shape of the layer is (2, num_pages, page_size, xxx)
+-            if MLA is not used, and (num_pages, page_size, xxx) otherwise.
++            Assume the shape of the layer is (num_pages, page_size, xxx)
++            for MLA, and (num_pages, 2, page_size, xxx) otherwise.
+             """
+             if isinstance(attn_metadata, MLACommonMetadata):
+                 num_pages, page_size = layer.shape[0], layer.shape[1]
+                 return layer.reshape(num_pages * page_size, -1)[slot_mapping, ...]
+-            elif isinstance(attn_metadata, TritonAttentionMetadata):
+-                block_idxs = slot_mapping // self._block_size
+-                offsets = slot_mapping % self._block_size
+-                return layer[block_idxs, :, offsets]
+-            num_pages, page_size = layer.shape[1], layer.shape[2]
+-            return layer.reshape(2, num_pages * page_size, -1)[:, slot_mapping, ...]
++            block_idxs = slot_mapping // self._block_size
++            offsets = slot_mapping % self._block_size
++            return layer[block_idxs, :, offsets]
+ 
+         connector_metadata = self._get_connector_metadata()
+         assert isinstance(connector_metadata, ExampleConnectorMetadata)
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py b/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+index c693902e6132..ccb7257c88c4 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/mooncake/mooncake_connector.py
+@@ -1745,7 +1745,7 @@ def _get_transfer_regions(
+         return _expand_transfer_regions(
+             base_addrs=base_addrs,
+             block_lens=block_lens,
+-            is_kv_layout_blocks_first=self.transfer_topo.is_kv_layout_blocks_first,
++            is_kv_layout_blocks_first=self.transfer_topo.virtually_split_kv_in_blocks,
+         )
+ 
+     def _get_sender_transfer_plan(
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/nixl/worker.py b/vllm/distributed/kv_transfer/kv_connector/v1/nixl/worker.py
+index ea8b46c28f9c..0d30d4a692ad 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/v1/nixl/worker.py
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/nixl/worker.py
+@@ -943,7 +943,7 @@ def register_kv_caches(self, kv_caches: dict[str, torch.Tensor]):
+         self.kv_caches_base_addr[self.engine_id][self.tp_rank] = seen_base_addresses
+         self.num_regions = len(caches_data)
+ 
+-        if self.transfer_topo.is_kv_layout_blocks_first:
++        if self.transfer_topo.virtually_split_kv_in_blocks:
+             # NOTE (NickLucche) When FlashInfer is used, memory is registered
+             # with joint KV for each block. This minimizes the overhead in
+             # registerMem allowing faster descs queries. In order to be able to
+@@ -1118,7 +1118,7 @@ def _build_fa_local(
+                 addr = base_addr + block_offset
+                 result.append((addr, kv_block_len, self.device_id))
+ 
+-            if self.transfer_topo.is_kv_layout_blocks_first:
++            if self.transfer_topo.virtually_split_kv_in_blocks:
+                 # Separate and interleave K/V regions to maintain the same
+                 # descs ordering. This is needed for selecting contiguous heads
+                 # when split across TP ranks.
+@@ -1167,7 +1167,7 @@ def _build_fa_remote(
+                 addr = base_addr + block_offset + rank_offset
+                 result.append((addr, local_block_len, nixl_agent_meta.device_id))
+ 
+-            if self.transfer_topo.is_kv_layout_blocks_first:
++            if self.transfer_topo.virtually_split_kv_in_blocks:
+                 # With FlashInfer index V separately to allow head splitting.
+                 second_split = self.get_backend_aware_kv_block_len(
+                     layer_idx=i, first_split=False, mamba_view=False
+@@ -2416,7 +2416,7 @@ def get_backend_aware_kv_block_len(
+            |1st_split-2nd_split|         |1st_split-2nd_split |
+         """
+         assert self.transfer_topo is not None
+-        if self.transfer_topo.is_kv_layout_blocks_first:
++        if self.transfer_topo.virtually_split_kv_in_blocks:
+             if mamba_view:
+                 block_len = self._mamba_ssm_size[not first_split]
+             else:
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/offloading/worker.py b/vllm/distributed/kv_transfer/kv_connector/v1/offloading/worker.py
+index 6c074bd2a608..8957ce3445ae 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/v1/offloading/worker.py
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/offloading/worker.py
+@@ -5,7 +5,6 @@
+ 
+ import torch
+ 
+-from vllm.config import get_layers_from_vllm_config
+ from vllm.distributed.kv_transfer.kv_connector.v1.metrics import (
+     KVConnectorStats,
+ )
+@@ -18,7 +17,6 @@
+     OffloadingConnectorStats,
+ )
+ from vllm.logger import init_logger
+-from vllm.model_executor.layers.attention_layer_base import AttentionLayerBase
+ from vllm.v1.attention.backend import AttentionBackend
+ from vllm.v1.kv_cache_interface import (
+     AttentionSpec,
+@@ -59,25 +57,9 @@ def _register_handlers(self, kv_caches: CanonicalKVCaches):
+     def register_kv_caches(
+         self, kv_caches: dict[str, torch.Tensor | list[torch.Tensor]]
+     ):
+-        layer_names = list(kv_caches.keys())
+-        layers = get_layers_from_vllm_config(
+-            self.spec.vllm_config,
+-            AttentionLayerBase,  # type: ignore[type-abstract]
+-            layer_names,
+-        )
+-        attn_backends = {
+-            layer_name: layers[layer_name].get_attn_backend()
+-            for layer_name in layer_names
+-            if layer_name in layers
+-        }
+-
+         num_blocks = self.spec.kv_cache_config.num_blocks
+ 
+-        # layer_name -> list of matching KV cache tensors
+-        # such that each tensor starts with the num_blocks dimension.
+-        # FlashAttention layers which use the (2, num_blocks, ...) layout
+-        # will possibly map to 2 tensors, one per K and one per V.
+-        # All other layers will probably map to a single tensor.
++        # layer_name -> (num_blocks, page_size_bytes) tensor
+         tensors_per_block: dict[str, tuple[torch.Tensor, ...]] = {}
+         # layer_name -> size of (un-padded) page in bytes
+         unpadded_page_size_bytes: dict[str, int] = {}
+@@ -99,70 +81,21 @@ def register_kv_caches(
+                     assert isinstance(layer_kv_cache, torch.Tensor)
+                     assert layer_kv_cache.storage_offset() == 0
+ 
+-                    # get the logical dimension for num_blocks
+-                    test_shape = attn_backends[layer_name].get_kv_cache_shape(
+-                        num_blocks=1234,
+-                        block_size=16,
+-                        num_kv_heads=1,
+-                        head_size=256,
+-                    )
+-                    num_blocks_logical_dim = test_shape.index(1234)
+-
+-                    # sort the logical dimensions by stride (high to low)
+-                    # to get a physical-to-logical mapping:
+-                    # physical_to_logical[physical_pos] = logical_dim
+-                    logical_strides = layer_kv_cache.stride()
+-                    physical_to_logical = sorted(
+-                        range(len(logical_strides)),
+-                        key=lambda idx: logical_strides[idx],
+-                        reverse=True,
++                    storage = layer_kv_cache.untyped_storage()
++                    page = layer_kv_cache_spec.page_size_bytes
++                    tensors_per_block[layer_name] = (
++                        torch.tensor(
++                            [],
++                            dtype=torch.int8,
++                            device=layer_kv_cache.device,
++                        )
++                        .set_(storage)
++                        .view(num_blocks, page),
+                     )
+-
+-                    num_blocks_physical_dim = physical_to_logical.index(
+-                        num_blocks_logical_dim
++                    page_size_bytes[layer_name] = layer_kv_cache_spec.page_size_bytes
++                    unpadded_page_size_bytes[layer_name] = (
++                        layer_kv_cache_spec.real_page_size_bytes
+                     )
+-                    if num_blocks_physical_dim == 0:
+-                        storage = layer_kv_cache.untyped_storage()
+-                        page = layer_kv_cache_spec.page_size_bytes
+-                        tensors_per_block[layer_name] = (
+-                            torch.tensor(
+-                                [],
+-                                dtype=torch.int8,
+-                                device=layer_kv_cache.device,
+-                            )
+-                            .set_(storage)
+-                            .view(num_blocks, page),
+-                        )
+-                        page_size_bytes[layer_name] = (
+-                            layer_kv_cache_spec.page_size_bytes
+-                        )
+-                        unpadded_page_size_bytes[layer_name] = (
+-                            layer_kv_cache_spec.real_page_size_bytes
+-                        )
+-                    else:
+-                        # Flash Attention case: (2, num_blocks, ...)
+-                        assert test_shape[0] == 2
+-                        assert physical_to_logical[0] == 0
+-                        assert num_blocks_physical_dim == 1
+-
+-                        # unbind the tensor to separate K and V tensors
+-                        half_page_size = layer_kv_cache_spec.page_size_bytes // 2
+-                        storage = layer_kv_cache.untyped_storage()
+-                        raw = (
+-                            torch.tensor(
+-                                [],
+-                                dtype=torch.int8,
+-                                device=layer_kv_cache.device,
+-                            )
+-                            .set_(storage)
+-                            .view(2, num_blocks, half_page_size)
+-                        )
+-                        tensors_per_block[layer_name] = tuple(raw.unbind(0))
+-
+-                        page_size_bytes[layer_name] = half_page_size
+-                        unpadded_page_size_bytes[layer_name] = (
+-                            layer_kv_cache_spec.real_page_size_bytes // 2
+-                        )
+ 
+                 elif isinstance(layer_kv_cache_spec, MambaSpec):
+                     state_tensors = kv_caches[layer_name]
+diff --git a/vllm/distributed/kv_transfer/kv_connector/v1/p2p/p2p_nccl_connector.py b/vllm/distributed/kv_transfer/kv_connector/v1/p2p/p2p_nccl_connector.py
+index aa791921be1a..d4b7b796479d 100644
+--- a/vllm/distributed/kv_transfer/kv_connector/v1/p2p/p2p_nccl_connector.py
++++ b/vllm/distributed/kv_transfer/kv_connector/v1/p2p/p2p_nccl_connector.py
+@@ -18,7 +18,6 @@
+ )
+ from vllm.distributed.parallel_state import get_world_group
+ from vllm.logger import init_logger
+-from vllm.model_executor.layers.attention.mla_attention import MLACommonMetadata
+ from vllm.v1.attention.backend import AttentionMetadata
+ from vllm.v1.core.sched.output import SchedulerOutput
+ 
+@@ -140,12 +139,9 @@ def inject_kv_into_layer(
+             """
+             Inject KV cache data into a given attention layer tensor.
+ 
+-            This function updates `layer` in-place with values from `kv_cache`,
+-            handling different backend layouts:
+-              - MLA (Multi-Linear Attention) or FlashInfer: KV tensors are
+-                indexed along the first dimension.
+-              - FlashAttention: KV tensors are indexed along the second
+-                dimension.
++            This function updates `layer` in-place with values from `kv_cache`.
++            All backends (MLA, FlashAttention, FlashInfer, TritonAttention)
++            are indexed along the first dimension (block index).
+ 
+             If the number of provided block IDs does not match the number of KV
+             blocks, only the overlapping portion is updated, and a warning is
+@@ -160,37 +156,19 @@ def inject_kv_into_layer(
+             Returns:
+                 None. The function modifies `layer` in-place.
+             """
+-            if (
+-                isinstance(attn_metadata, MLACommonMetadata) or layer.shape[1] == 2
+-            ):  # MLA or FlashInfer
+-                num_block = kv_cache.shape[0]
+-                self.check_tensors_except_dim(layer, kv_cache, 0)
+-                if len(block_ids) == num_block:
+-                    layer[block_ids, ...] = kv_cache
+-                else:
+-                    layer[block_ids[:num_block], ...] = kv_cache
+-                    logger.warning(
+-                        "🚧kv_cache does not match, block_ids:%d, "
+-                        "num_block:%d, request_id:%s",
+-                        len(block_ids),
+-                        num_block,
+-                        request_id,
+-                    )
+-
+-            elif layer.shape[0] == 2:  # FlashAttention
+-                num_block = kv_cache.shape[1]
+-                self.check_tensors_except_dim(layer, kv_cache, 1)
+-                if len(block_ids) == num_block:
+-                    layer[:, block_ids, ...] = kv_cache
+-                else:
+-                    layer[:, block_ids[:num_block], ...] = kv_cache
+-                    logger.warning(
+-                        "🚧kv_cache does not match, block_ids:%d, "
+-                        "num_block:%d, request_id:%s",
+-                        len(block_ids),
+-                        num_block,
+-                        request_id,
+-                    )
++            num_block = kv_cache.shape[0]
++            self.check_tensors_except_dim(layer, kv_cache, 0)
++            if len(block_ids) == num_block:
++                layer[block_ids, ...] = kv_cache
++            else:
++                layer[block_ids[:num_block], ...] = kv_cache
++                logger.warning(
++                    "🚧kv_cache does not match, block_ids:%d, "
++                    "num_block:%d, request_id:%s",
++                    len(block_ids),
++                    num_block,
++                    request_id,
++                )
+ 
+         # Get the metadata
+         metadata: KVConnectorMetadata = self._get_connector_metadata()
+@@ -263,37 +241,6 @@ def save_kv_layer(
+ 
+         assert self.p2p_nccl_engine is not None
+ 
+-        def extract_kv_from_layer(
+-            layer: torch.Tensor,
+-            block_ids: torch.Tensor,
+-        ) -> torch.Tensor:
+-            """
+-            Extract KV cache slices from a given attention layer tensor.
+-
+-            This function handles multiple backend layouts:
+-              - MLA (Multi-Linear Attention) or FlashInfer: KV tensors are
+-                indexed along the first dimension.
+-              - FlashAttention: KV tensors are indexed along the second
+-                dimension.
+-
+-            Args:
+-                layer (torch.Tensor): The KV cache from the attention layer.
+-                block_ids (torch.Tensor): Indices of blocks to extract.
+-
+-            Returns:
+-                torch.Tensor: A tensor containing the extracted KV slices.
+-                Returns None if the layout is unsupported.
+-            """
+-            if (
+-                isinstance(attn_metadata, MLACommonMetadata) or layer.shape[1] == 2
+-            ):  # MLA or FlashInfer
+-                return layer[block_ids, ...]
+-
+-            if layer.shape[0] == 2:  # FlashAttention
+-                return layer[:, block_ids, ...]
+-
+-            return None
+-
+         connector_metadata = self._get_connector_metadata()
+         assert isinstance(connector_metadata, P2pNcclConnectorMetadata)
+         for request in connector_metadata.requests:
+@@ -301,7 +248,7 @@ def extract_kv_from_layer(
+             ip, port = self.parse_request_id(request_id, True)
+             remote_address = ip + ":" + str(port + self._rank)
+ 
+-            kv_cache = extract_kv_from_layer(kv_layer, request.block_ids)
++            kv_cache = kv_layer[request.block_ids, ...]
+             self.p2p_nccl_engine.send_tensor(
+                 request_id + "#" + layer_name, kv_cache, remote_address
+             )
+diff --git a/vllm/platforms/cuda.py b/vllm/platforms/cuda.py
+index 4a5be741d06b..78a5be4e84c7 100644
+--- a/vllm/platforms/cuda.py
++++ b/vllm/platforms/cuda.py
+@@ -530,8 +530,8 @@ def insert_blocks_to_device(
+         dst_block_indices: torch.Tensor,
+     ) -> None:
+         """Copy blocks from src_cache to dst_cache on GPU."""
+-        _src_cache = src_cache[:, src_block_indices]
+-        dst_cache[:, dst_block_indices] = _src_cache.to(dst_cache.device)
++        _src_cache = src_cache[src_block_indices]
++        dst_cache[dst_block_indices] = _src_cache.to(dst_cache.device)
+ 
+     @classmethod
+     def swap_out_blocks_to_host(
+@@ -542,8 +542,8 @@ def swap_out_blocks_to_host(
+         dst_block_indices: torch.Tensor,
+     ) -> None:
+         """Copy blocks from GPU to host (CPU)."""
+-        _src_cache = src_cache[:, src_block_indices]
+-        dst_cache[:, dst_block_indices] = _src_cache.cpu()
++        _src_cache = src_cache[src_block_indices]
++        dst_cache[dst_block_indices] = _src_cache.cpu()
+ 
+     @classmethod
+     def support_hybrid_kv_cache(cls) -> bool:
+diff --git a/vllm/platforms/rocm.py b/vllm/platforms/rocm.py
+index 114d236f1319..21e6ca18ea25 100644
+--- a/vllm/platforms/rocm.py
++++ b/vllm/platforms/rocm.py
+@@ -901,8 +901,8 @@ def insert_blocks_to_device(
+         dst_block_indices: torch.Tensor,
+     ) -> None:
+         """Copy blocks from src_cache to dst_cache on GPU."""
+-        _src_cache = src_cache[:, src_block_indices]
+-        dst_cache[:, dst_block_indices] = _src_cache.to(dst_cache.device)
++        _src_cache = src_cache[src_block_indices]
++        dst_cache[dst_block_indices] = _src_cache.to(dst_cache.device)
+ 
+     @classmethod
+     def swap_out_blocks_to_host(
+@@ -913,8 +913,8 @@ def swap_out_blocks_to_host(
+         dst_block_indices: torch.Tensor,
+     ) -> None:
+         """Copy blocks from GPU to host (CPU)."""
+-        _src_cache = src_cache[:, src_block_indices]
+-        dst_cache[:, dst_block_indices] = _src_cache.cpu()
++        _src_cache = src_cache[src_block_indices]
++        dst_cache[dst_block_indices] = _src_cache.cpu()
+ 
+     @classmethod
+     def support_hybrid_kv_cache(cls) -> bool:
+diff --git a/vllm/platforms/xpu.py b/vllm/platforms/xpu.py
+index fdffdac43003..c2be7ff03ab3 100644
+--- a/vllm/platforms/xpu.py
++++ b/vllm/platforms/xpu.py
+@@ -374,8 +374,8 @@ def insert_blocks_to_device(
+         dst_block_indices: torch.Tensor,
+     ) -> None:
+         """Copy blocks from src_cache to dst_cache on XPU."""
+-        _src_cache = src_cache[:, src_block_indices]
+-        dst_cache[:, dst_block_indices] = _src_cache.to(dst_cache.device)
++        _src_cache = src_cache[src_block_indices]
++        dst_cache[dst_block_indices] = _src_cache.to(dst_cache.device)
+ 
+     @classmethod
+     def swap_out_blocks_to_host(
+@@ -386,8 +386,8 @@ def swap_out_blocks_to_host(
+         dst_block_indices: torch.Tensor,
+     ) -> None:
+         """Copy blocks from XPU to host (CPU)."""
+-        _src_cache = src_cache[:, src_block_indices]
+-        dst_cache[:, dst_block_indices] = _src_cache.cpu()
++        _src_cache = src_cache[src_block_indices]
++        dst_cache[dst_block_indices] = _src_cache.cpu()
+ 
+     @classmethod
+     def num_compute_units(cls, device_id: int = 0) -> int:
+diff --git a/vllm/v1/attention/backends/flash_attn.py b/vllm/v1/attention/backends/flash_attn.py
+index dc041485bd12..c56c4ee6e1ff 100755
+--- a/vllm/v1/attention/backends/flash_attn.py
++++ b/vllm/v1/attention/backends/flash_attn.py
+@@ -146,7 +146,7 @@ def get_kv_cache_shape(
+     ) -> tuple[int, ...]:
+         if block_size % 16 != 0:
+             raise ValueError("Block size must be a multiple of 16.")
+-        return (2, num_blocks, block_size, num_kv_heads, head_size)
++        return (num_blocks, 2, block_size, num_kv_heads, head_size)
+ 
+     @staticmethod
+     def get_kv_cache_stride_order(
+@@ -157,12 +157,12 @@ def get_kv_cache_stride_order(
+         cache_layout = get_kv_cache_layout()
+         if cache_layout == "NHD" and include_num_layers_dimension:
+             # (num_blocks, num_layers, 2, block_size, num_kv_heads, head_size)
+-            return (2, 0, 1, 3, 4, 5)
++            return (1, 0, 2, 3, 4, 5)
+         elif cache_layout == "NHD":
+             stride_order = (0, 1, 2, 3, 4)
+         elif cache_layout == "HND" and include_num_layers_dimension:
+             # (num_blocks, num_kv_heads, num_layers, 2, block_size, head_size)
+-            return (2, 4, 0, 1, 3, 5)
++            return (1, 4, 0, 2, 3, 5)
+         elif cache_layout == "HND":
+             stride_order = (0, 1, 3, 2, 4)
+         else:
+@@ -683,7 +683,7 @@ def forward(
+             key: shape = [num_tokens, num_kv_heads, head_size]
+             value: shape = [num_tokens, num_kv_heads, head_size]
+             kv_cache: shape =
+-                [2, num_blocks, block_size, num_kv_heads, head_size]
++                [num_blocks, 2, block_size, num_kv_heads, head_size]
+             attn_metadata: Metadata for attention.
+         Returns:
+             shape = [num_tokens, num_heads * head_size]
+@@ -731,7 +731,7 @@ def forward(
+             )
+ 
+         # For decoder and cross-attention, use KV cache as before
+-        key_cache, value_cache = kv_cache.unbind(0)
++        key_cache, value_cache = kv_cache.unbind(1)
+         # Fix degenerate strides on size-1 dims (e.g. num_kv_heads=1 with TP).
+         # FA3/4 on H100+ uses TMA, which requires ≥16-byte stride alignment.
+         # See vllm.utils.torch_utils.canonicalize_singleton_dim_strides.
+@@ -862,7 +862,7 @@ def do_kv_cache_update(
+ 
+         # Scatter write into the KV cache using slot_mapping indices.
+         # No TMA kernel is invoked here, so stride canonicalization is not needed.
+-        key_cache, value_cache = kv_cache.unbind(0)
++        key_cache, value_cache = kv_cache.unbind(1)
+ 
+         # Reshape the input keys and values and store them in the cache.
+         # Skip this if sharing KV cache with an earlier attention layer.
+diff --git a/vllm/v1/attention/backends/flex_attention.py b/vllm/v1/attention/backends/flex_attention.py
+index 3995f67ddc91..b87014252018 100644
+--- a/vllm/v1/attention/backends/flex_attention.py
++++ b/vllm/v1/attention/backends/flex_attention.py
+@@ -125,7 +125,15 @@ def get_kv_cache_shape(
+         head_size: int,
+         cache_dtype_str: str = "auto",
+     ) -> tuple[int, ...]:
+-        return (2, num_blocks, block_size, num_kv_heads, head_size)
++        return (num_blocks, 2, block_size, num_kv_heads, head_size)
++
++    @staticmethod
++    def get_kv_cache_stride_order(
++        include_num_layers_dimension: bool = False,
++    ) -> tuple[int, ...]:
++        if include_num_layers_dimension:
++            return (1, 0, 3, 2, 4, 5)
++        return (0, 2, 1, 3, 4)
+ 
+     @staticmethod
+     def get_builder_cls() -> type["FlexAttentionMetadataBuilder"]:
+@@ -1055,7 +1063,7 @@ def do_kv_cache_update(
+         if self.attn_type == AttentionType.ENCODER_ONLY:
+             return
+ 
+-        key_cache, value_cache = kv_cache.unbind(0)
++        key_cache, value_cache = kv_cache.unbind(1)
+         torch.ops._C_cache_ops.reshape_and_cache_flash(
+             key,
+             value,
+@@ -1086,7 +1094,7 @@ def forward(
+             key: shape = [num_tokens, num_kv_heads, head_size]
+             value: shape = [num_tokens, num_kv_heads, head_size]
+             kv_cache: shape =
+-                [2, num_blocks, block_size, num_kv_heads, head_size]
++                [num_blocks, 2, block_size, num_kv_heads, head_size]
+             attn_metadata: Metadata for attention.
+         Returns:
+             shape = [num_tokens, num_heads * head_size]
+@@ -1160,9 +1168,9 @@ def forward(
+ 
+         else:
+             assert self.attn_type == AttentionType.DECODER
+-            key_cache, value_cache = kv_cache.unbind(0)
++            key_cache, value_cache = kv_cache.unbind(1)
+ 
+-            # View out the block_size dim
++            # Flatten (num_blocks, block_size) into a single token dim
+             key_cache = key_cache.view(-1, self.num_kv_heads, self.head_size)
+             value_cache = value_cache.view(-1, self.num_kv_heads, self.head_size)
+             query, key_tensor, value_tensor = map(
+diff --git a/vllm/v1/attention/backends/triton_attn.py b/vllm/v1/attention/backends/triton_attn.py
+index b68776375fc0..008b74c9ff70 100644
+--- a/vllm/v1/attention/backends/triton_attn.py
++++ b/vllm/v1/attention/backends/triton_attn.py
+@@ -346,8 +346,8 @@ def get_kv_cache_stride_order(
+         elif cache_layout == "NHD":
+             stride_order = (0, 1, 2, 3, 4)
+         elif cache_layout == "HND" and include_num_layers_dimension:
+-            # (num_blocks, 2, num_kv_heads, num_layers, block_size, head_size)
+-            return (1, 2, 4, 0, 3, 5)
++            # (num_blocks, num_kv_heads, num_layers, 2, block_size, head_size)
++            return (1, 4, 0, 2, 3, 5)
+         elif cache_layout == "HND":
+             stride_order = (0, 1, 3, 2, 4)
+         else:
+diff --git a/vllm/v1/worker/gpu/attn_utils.py b/vllm/v1/worker/gpu/attn_utils.py
+index 8b4e0c3c0a92..8844f06a8827 100644
+--- a/vllm/v1/worker/gpu/attn_utils.py
++++ b/vllm/v1/worker/gpu/attn_utils.py
+@@ -248,9 +248,8 @@ def _reshape_kv_cache(
+                     # MambaSpec handling in gpu_model_runner.py.
+                     # NOTE: This assumes kv_cache_shape[0] == num_blocks
+                     # (i.e. the first physical dimension is the block
+-                    # index), which holds for MLA backends but NOT for
+-                    # standard attention backends whose shape starts with
+-                    # a K/V dimension of size 2.
++                    # index), which holds for all current backends
++                    # (MLA, FlashAttention, TritonAttention, etc.).
+                     dtype_size = get_dtype_size(dtype)
+                     page_stride = kv_cache_spec.page_size_bytes // dtype_size
+                     strides = list(torch.empty(kv_cache_shape).stride())

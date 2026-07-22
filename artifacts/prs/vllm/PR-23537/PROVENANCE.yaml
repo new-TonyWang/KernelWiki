@@ -1,0 +1,35 @@
+origin_url: https://github.com/vllm-project/vllm/pull/23537
+upstream_repo: vllm-project/vllm
+upstream_sha: ae067888
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-23537
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 43a42656f1079a0e750e61cc37beefd9ff4ba1b07645aeb39bcca9f157bee73a
+- local_path: key-files/setup.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: setup.py
+  sha256: 85668d5fca7dd6eaeb8853d4cd5add726474d6c1aee4fedac956791082ed17f3
+- local_path: key-files/vllm/compilation/collective_fusion.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/compilation/collective_fusion.py
+  sha256: 578892c98f84aafa576d38bf7f59ce10d8e8393bba53bcbb38962b11b9ca963b
+- local_path: key-files/vllm/model_executor/layers/quantization/mxfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/mxfp4.py
+  sha256: 30ac0a2d8c1a798474dc00aa27f700f98ab2c4f152f320e18f778f8fc982c2c6
+- local_path: key-files/vllm/v1/worker/gpu_worker.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/worker/gpu_worker.py
+  sha256: 976151362cc782f1af9913067dfaf1c5e4a1f71b77c0b965c16f6aaa4a7d62f6
+captured_via_relaxed_allowlist: true

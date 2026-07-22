@@ -1,0 +1,39 @@
+origin_url: https://github.com/vllm-project/vllm/pull/23198
+upstream_repo: vllm-project/vllm
+upstream_sha: e76e2335
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-23198
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 980953df06e8dc6abbdd8880e364d1a31b1e66d7c1c8d2c762aeb336f9bb04b4
+- local_path: key-files/csrc/quantization/cutlass_w4a8/w4a8_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w4a8/w4a8_mm_entry.cu
+  sha256: 15446adc8241f845ea4c3106c7e87987cd40eb9fee6620a06b0e34658cc21e25
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 1c492b5633db746fb1401fe4326e585f17ac2a78697428c14d3d822635c10bf1
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 87f555d4cc9ff2903f98b1ecc09cf55fa36df8e16dd45261f45c776196a2fe94
+- local_path: key-files/vllm/model_executor/layers/quantization/kernels/mixed_precision/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/kernels/mixed_precision/__init__.py
+  sha256: 3bc6488d6f5a0abd6b22c47676d10df57978b6cf00f7af96b9d70552783e4284
+- local_path: key-files/vllm/model_executor/layers/quantization/kernels/mixed_precision/cutlass.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/kernels/mixed_precision/cutlass.py
+  sha256: e9e0421465c076c1c015766cfac7216947d7000e125deb33c85e6c98d80fbb91

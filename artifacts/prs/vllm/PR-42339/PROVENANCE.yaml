@@ -1,0 +1,109 @@
+origin_url: https://github.com/vllm-project/vllm/pull/42339
+upstream_repo: vllm-project/vllm
+upstream_sha: 85b2feca
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-42339
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 320b8d7c881d5876f71c142618f8eb12a20214fe9471d4ef8a6f499a642be0d8
+- local_path: key-files/csrc/core/scalar_type.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/core/scalar_type.hpp
+  sha256: e686c58bbb6f321502734d094719f061da640558dba0a04489ff11e0d94acc1b
+- local_path: key-files/csrc/libtorch_stable/attention/mla/cutlass_sm100_mla/device/sm100_mla.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/attention/mla/cutlass_sm100_mla/device/sm100_mla.hpp
+  sha256: 7ae2af7c2ebc7644d607004f4ab931dec52449d96c12d42d722d911790b2e933
+- local_path: key-files/csrc/libtorch_stable/attention/mla/cutlass_sm100_mla/kernel/sm100_fmha_mla_reduction.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/attention/mla/cutlass_sm100_mla/kernel/sm100_fmha_mla_reduction.hpp
+  sha256: b48280f7769e27c143c3ced5e804cd4525917c2521703563684d17124549b8c6
+- local_path: key-files/csrc/libtorch_stable/attention/mla/cutlass_sm100_mla/kernel/sm100_fmha_mla_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/attention/mla/cutlass_sm100_mla/kernel/sm100_fmha_mla_tma_warpspecialized.hpp
+  sha256: a5df47a49e859cb6aa5469ad2a11ce012e55230121ba3eaacaed96d6e76020b5
+- local_path: key-files/csrc/libtorch_stable/attention/mla/cutlass_sm100_mla/kernel/sm100_mla_tile_scheduler.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/attention/mla/cutlass_sm100_mla/kernel/sm100_mla_tile_scheduler.hpp
+  sha256: 22f3bb1eeb119f06ba31c9a43ae73ac500770e5f913ecb63ac62ca7306021dd1
+- local_path: key-files/csrc/libtorch_stable/attention/mla/sm100_cutlass_mla_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/attention/mla/sm100_cutlass_mla_kernel.cu
+  sha256: 2dea5bbf9fa480b8c0f109ed904af842a3af45618fdacc0216fc946306a814cb
+- local_path: key-files/csrc/libtorch_stable/dsv3_fused_a_gemm.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/dsv3_fused_a_gemm.cu
+  sha256: d47d8f15b7ec686053cf1aaee9c63a0132f6e9844d8e63e5962045abffe555e7
+- local_path: key-files/csrc/libtorch_stable/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/ops.h
+  sha256: 4b58f94523710ed4351ddf6c4fe96e7d7b1558a797dc5fd8553a4793254dabab
+- local_path: key-files/csrc/libtorch_stable/quantization/awq/dequantize.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/awq/dequantize.cuh
+  sha256: 9d37e6f03fc4c531d254ed93a10145cdffec37067efed61d9da5ec3076f3a31d
+- local_path: key-files/csrc/libtorch_stable/quantization/awq/gemm_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/awq/gemm_kernels.cu
+  sha256: 8cdf41616db997cd2257fb5fe4423dcd8e7088101239b77fc1ece97d0eceff2e
+- local_path: key-files/csrc/libtorch_stable/quantization/gptq_allspark/allspark_qgemm_w8a16.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/gptq_allspark/allspark_qgemm_w8a16.cu
+  sha256: 9c6d16c97da5741345180805869c8f3cb1255b8fe30fc6696ddb4e070afbcfac
+- local_path: key-files/csrc/libtorch_stable/quantization/gptq_allspark/allspark_repack.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/gptq_allspark/allspark_repack.cu
+  sha256: 6d0955caedd62873c9716c04acd7e45b7e2259de7b60e529d884f26d16bebd47
+- local_path: key-files/csrc/libtorch_stable/quantization/gptq_allspark/allspark_utils.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/gptq_allspark/allspark_utils.cuh
+  sha256: 0bc7ed01f36d613bba8c0bf561bf94af7e5788c1c8bc15dc0b0fa8b108549f4b
+- local_path: key-files/csrc/libtorch_stable/quantization/hadamard/hadacore/hadamard_transform_cuda.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/hadamard/hadacore/hadamard_transform_cuda.cu
+  sha256: 3fd7aaa77c661021686d90d215ece9869e24e4dfaca5fa9bb55956b01eb472d1
+- local_path: key-files/csrc/libtorch_stable/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/torch_bindings.cpp
+  sha256: bda70ffcbda0f65a4b126fad569224d87cde6009e5f2678a782e7a5e17f1e3a1
+- local_path: key-files/csrc/libtorch_stable/torch_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/torch_utils.h
+  sha256: c165d477d118fe7d732542e74d245707d15185df3ea7f83e80c97229c1428570
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: 65ccaf31e0f110433051f9285050ca90c353656fa097443df4811ce5fe651f5d
+- local_path: key-files/csrc/quantization/marlin/marlin.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/marlin/marlin.cuh
+  sha256: d39d7966c6614e8ef9fb29a4b813150b02e55bc9f3443ac2240a32a9268edf11
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 0591542a4d5bf5845e5e9332f89c555fe1a2af5db45d287c944475fd93156287

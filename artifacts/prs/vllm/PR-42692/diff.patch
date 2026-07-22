@@ -1,0 +1,29 @@
+diff --git a/vllm/model_executor/models/qwen3_dflash.py b/vllm/model_executor/models/qwen3_dflash.py
+index dcc23bc40954..231ed646e094 100644
+--- a/vllm/model_executor/models/qwen3_dflash.py
++++ b/vllm/model_executor/models/qwen3_dflash.py
+@@ -247,8 +247,10 @@ def __init__(
+             [
+                 DFlashQwen3DecoderLayer(
+                     current_vllm_config,
+-                    prefix=maybe_prefix(prefix, f"layers.{layer_idx + start_layer_id}"),
+                     config=self.config,
++                    cache_config=current_vllm_config.cache_config,
++                    quant_config=self.quant_config,
++                    prefix=maybe_prefix(prefix, f"layers.{layer_idx + start_layer_id}"),
+                 )
+                 for layer_idx in range(self.config.num_hidden_layers)
+             ]
+diff --git a/vllm/v1/spec_decode/llm_base_proposer.py b/vllm/v1/spec_decode/llm_base_proposer.py
+index cc113025c129..c358ee25a1cc 100644
+--- a/vllm/v1/spec_decode/llm_base_proposer.py
++++ b/vllm/v1/spec_decode/llm_base_proposer.py
+@@ -116,7 +116,7 @@ def __init__(
+ 
+         self.max_batch_size = vllm_config.scheduler_config.max_num_seqs
+         self.max_num_tokens = vllm_config.scheduler_config.max_num_batched_tokens
+-        self.token_arange_np = np.arange(self.max_num_tokens)
++        self.token_arange_np = np.arange(self.max_num_tokens, dtype=np.int32)
+ 
+         # Can be specialized by methods like DFlash to reduce the limit
+         self.max_query_tokens = self.max_num_tokens

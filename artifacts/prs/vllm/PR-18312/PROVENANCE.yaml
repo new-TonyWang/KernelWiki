@@ -1,0 +1,40 @@
+origin_url: https://github.com/vllm-project/vllm/pull/18312
+upstream_repo: vllm-project/vllm
+upstream_sha: c123bc33
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-18312
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ba37537b287527959d2ad27c1f975dfbd0fd2d20551b03632f0d92215e0d82f0
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors.py
+  sha256: 1df46f4d405a3f786dfe1018dc646270a5adc59a503975bd7230b30ad6fddc22
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/schemes/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/schemes/__init__.py
+  sha256: b2a98c26256db69523b3e4a626b9378cee152ac35ee5da667ff68ac56059794e
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w4a4_nvfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w4a4_nvfp4.py
+  sha256: 4353138fd9454db38c1c829221d7b4f0720a4ef369d73f4d50303d22a54c2c00
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/utils.py
+  sha256: 408a273c8ec2b8c089c116206a3b93d6886feade3393df90d7ae5345ee9be77c
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/nvfp4_emulation_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/nvfp4_emulation_utils.py
+  sha256: 14a601637cbda4cdcefb78768a89bb864712ed8681db2d3f94c330c062a95395
+captured_via_relaxed_allowlist: true

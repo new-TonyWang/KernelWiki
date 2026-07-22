@@ -1,0 +1,40 @@
+origin_url: https://github.com/vllm-project/vllm/pull/25987
+upstream_repo: vllm-project/vllm
+upstream_sha: 2161efe9
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-25987
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 0d3749434ba3724756a9ead167759f37317775da81a845721463c8b38a8ab062
+- local_path: key-files/vllm/model_executor/layers/fused_moe/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/layer.py
+  sha256: 9df223601d96abb6f0581eeeae3a851e86828a099ad79f280be745453a332ca8
+- local_path: key-files/vllm/model_executor/layers/quantization/modelopt.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/modelopt.py
+  sha256: 03b79d21f2339e990c9c4d65bb7d48c876da80d59c62902c49eb7a37f1dc9714
+- local_path: key-files/vllm/model_executor/models/deepseek_eagle.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/deepseek_eagle.py
+  sha256: da1e50c4d84f0893c0d4a9f76ba3ef9a731379e182664cc9e2ee923e0a93f9a4
+- local_path: key-files/vllm/model_executor/models/deepseek_mtp.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/deepseek_mtp.py
+  sha256: 4edcfed92f10e62aeed2dc8e6aa192f3a1ae6506e33c2240339b770feec5b1f2
+- local_path: key-files/vllm/model_executor/models/deepseek_v2.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/deepseek_v2.py
+  sha256: 1892b9f657e1a7aca0a2dcefffeacdb73ca64ec568a57c703437468a62365b45
+captured_via_relaxed_allowlist: true

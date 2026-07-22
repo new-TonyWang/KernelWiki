@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/27146
+upstream_repo: vllm-project/vllm
+upstream_sha: ab3e8004
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-27146
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: b4c8caeb7a0a7d8f021a3a09e63d3f0654b7d2b2b73ad39f8bcc2a6465f828a9
+- local_path: key-files/vllm/compilation/activation_quant_fusion.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/compilation/activation_quant_fusion.py
+  sha256: 1dc2892e89f46caed548f1d057e7f14930db79f796ffe1bb7401fff5f3feb63a
+- local_path: key-files/vllm/compilation/matcher_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/compilation/matcher_utils.py
+  sha256: 708becfbda970445a92cdb2881daffb0355c9173994c4ed87557b609535c2d5c
+- local_path: key-files/vllm/model_executor/layers/activation.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/activation.py
+  sha256: 9da9d90d6c0fb2d79893d079e20207b212526334af3c4815b1f4c99e0144d48a
+captured_via_relaxed_allowlist: true

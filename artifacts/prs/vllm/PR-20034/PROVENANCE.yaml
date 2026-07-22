@@ -1,0 +1,44 @@
+origin_url: https://github.com/vllm-project/vllm/pull/20034
+upstream_repo: vllm-project/vllm
+upstream_sha: 5b032352
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-20034
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 08a4e2cd5c9517209068c2b4903b889c183a9b1afb9284565592d6bfe3c6487a
+- local_path: key-files/vllm/attention/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/layer.py
+  sha256: d614e026d46601de55e9776dee31d2a367d5f9ac3b35c050364404f00deb95be
+- local_path: key-files/vllm/attention/utils/kv_sharing_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/utils/kv_sharing_utils.py
+  sha256: 52c180d71981b1f2650ab3f0140fb6f1bc9d1d7d9ff3de614cf5b3210e38c778
+- local_path: key-files/vllm/v1/attention/backends/flashinfer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/flashinfer.py
+  sha256: 3cbf99e4f7a1b5adf26d54ccbd56a0e99218af0e4bad88ea019f6333dce9fcf7
+- local_path: key-files/vllm/v1/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/common.py
+  sha256: f0fe38a62f65e3e1d6bf45d1b18b5b140ecade80ee1a70d40a989dc97ff9b6ac
+- local_path: key-files/vllm/v1/attention/backends/mla/cutlass_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/cutlass_mla.py
+  sha256: cc05e06441a22d57ee540672c0a656140bac0fe5120da26809c9f852aa2ef6fc
+- local_path: key-files/vllm/v1/attention/backends/utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/utils.py
+  sha256: cfed460320dfbc287664e6a89b93f600e570d9ec9ac682680038dc186238c75f

@@ -1,0 +1,55 @@
+origin_url: https://github.com/vllm-project/vllm/pull/24666
+upstream_repo: vllm-project/vllm
+upstream_sha: '63400259'
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-24666
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: d3c59b6e213b4aaf17873e8b93dcd6e3b569de2afd0ed19a0395d07bfab78027
+- local_path: key-files/vllm/config/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/config/__init__.py
+  sha256: c243b8af1db42b2c25210c957a0602d64c0c5470df050ae92b76b80720b91c0e
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors.py
+  sha256: 163324ded6e4ba9b3407c74275e235a8ab43d9dcacd9a597d3a2f788e277e4c2
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w8a8_fp8.py
+  sha256: 313334475db48b3efaa77adeb0065b994d832b71891894254d60d3b67c149831
+- local_path: key-files/vllm/model_executor/layers/quantization/deepgemm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/deepgemm.py
+  sha256: 627ea4977a8bccd0920964568dac58bc4e484b45047d379a2b01e33f8604ed2a
+- local_path: key-files/vllm/model_executor/layers/quantization/fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/fp8.py
+  sha256: 433f743e35e01bb1d5d8b8331f18d7da8c40fcb09c29a8e3cf4ef094c97c57fb
+- local_path: key-files/vllm/model_executor/layers/quantization/input_quant_fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/input_quant_fp8.py
+  sha256: 4b1321f0dfd5f7170d9f70a6077c3332c6c885daee1cdc8341addc5579cc3365
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/fp8_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/fp8_utils.py
+  sha256: 182fd8ff3e384e5fd930a67689d75af0634f1c364def009647a9a5aca5ecc008
+- local_path: key-files/vllm/utils/deep_gemm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/utils/deep_gemm.py
+  sha256: 63e7a3a6892219f08c94a647e3b3ab8f490e51bf923e2063417a5399e90368fe
+captured_via_relaxed_allowlist: true

@@ -1,0 +1,34 @@
+origin_url: https://github.com/vllm-project/vllm/pull/23958
+upstream_repo: vllm-project/vllm
+upstream_sha: 620db1fc
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-23958
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 50ad0f6d2503a19afc1bfbc764b0ef72298f0311769e52ea2e860cbff916ce50
+- local_path: key-files/vllm/v1/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/common.py
+  sha256: a226c71d53d6e5ecdaeb43c0efa6c42be425a81c2b2df28bb86fd494f08f4d07
+- local_path: key-files/vllm/v1/attention/backends/mla/flashattn_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/flashattn_mla.py
+  sha256: 23ea0e02d77909cd616df30c401e8eb5f1ca5ea53b8f3402206a67770be3ecb1
+- local_path: key-files/vllm/v1/attention/backends/mla/flashmla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/flashmla.py
+  sha256: 8f2c6049e3adfeec2f16b8a3c202f02492975d3be5b45a3ad84344f547590575
+- local_path: key-files/vllm/v1/attention/backends/mla/rocm_aiter_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/rocm_aiter_mla.py
+  sha256: 62e37bdd899f1fb634f3441ffe5bb5fbe15120539d6e32ad23f660adeea0c9fe

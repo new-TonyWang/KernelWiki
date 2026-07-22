@@ -1,0 +1,19 @@
+origin_url: https://github.com/vllm-project/vllm/pull/16745
+upstream_repo: vllm-project/vllm
+upstream_sha: 868c546d
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-16745
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 32b49e81a140083b97f1269263f32402937f3123abe6a107e4361b7c3aecf0ec
+- local_path: key-files/vllm/model_executor/layers/quantization/kernels/scaled_mm/cutlass.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/kernels/scaled_mm/cutlass.py
+  sha256: ee7b75a8d409ed31b2904ba1178fdc3b4e6dacce31459eb9c32fb041aef96b8f

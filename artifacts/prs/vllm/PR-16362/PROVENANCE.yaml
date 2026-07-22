@@ -1,0 +1,49 @@
+origin_url: https://github.com/vllm-project/vllm/pull/16362
+upstream_repo: vllm-project/vllm
+upstream_sha: 0c0fdae8
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-16362
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 046d067277ca3bfddb8de47f91beb423dc796b5fa32d397215b981cc2a21ad72
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: bae363e18e8f506010f1e3f6d1213b5605bf0520f85e80c1da1e6d2f0422be39
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  sha256: 5b25dc4b1fdc38ee71d9442d67c1b7ea4ceb6734fccb91f8d5072e3e1d2a831d
+- local_path: key-files/csrc/quantization/fp4/nvfp4_blockwise_moe_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_blockwise_moe_kernel.cu
+  sha256: e4b0999ac350d0f9938838c41ffb26688de49fd29e63440d7ad9b1c21fa7d7f3
+- local_path: key-files/csrc/quantization/fp4/nvfp4_experts_quant.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_experts_quant.cu
+  sha256: 8ffe4a57d45559f492cd71f61f292f11d9a04032071b305f7b768b88ff6dc0c8
+- local_path: key-files/csrc/quantization/fp4/nvfp4_quant_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/nvfp4_quant_entry.cu
+  sha256: bd15da4f60f638a6c5c8e77f53a8518b784c5b509d6573568819e11092c934e6
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: d0c561ad6f2e5d2c837eccfb6505226a2eb5287f128a29a035724c7b2ac1ba3b
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: f7cd5355eeddbc270c75d5c1d3f17ad48ff80ac26cf915271357ad2fe0196aae

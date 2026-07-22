@@ -1,0 +1,45 @@
+origin_url: https://github.com/vllm-project/vllm/pull/20645
+upstream_repo: vllm-project/vllm
+upstream_sha: 6d0734c5
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-20645
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 04993ddf7931240c8d12afc0d96b9ab89436865a306761ddba23cc6a8c0d933e
+- local_path: key-files/vllm/envs.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/envs.py
+  sha256: acae6bcd58cb863b1997b63f1148a25318c641605026bdb88fefb302dea25ce6
+- local_path: key-files/vllm/model_executor/layers/fused_moe/config.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/config.py
+  sha256: 6d88c7cb1199be0bf8c1ad0b4aea7b1ec8c416059854452f8168dd5a686db6a2
+- local_path: key-files/vllm/model_executor/layers/fused_moe/fused_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/fused_moe.py
+  sha256: ae0edb4d45d654f5161afd4e311ddcd3396f3edec71b0eace815b08924dc0fe8
+- local_path: key-files/vllm/model_executor/layers/quantization/fp8.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/fp8.py
+  sha256: fe3124b2b9bfa3a46802f7658cddb8b6b46b7b07e86d1ee25b2eb811ef73f1da
+- local_path: key-files/vllm/model_executor/layers/quantization/modelopt.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/modelopt.py
+  sha256: db9d706c5c6efd400a8e33dc9b99fdaf527c03a64ec18dc2228404a234305bf0
+- local_path: key-files/vllm/utils/flashinfer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/utils/flashinfer.py
+  sha256: f37e954a10c60b079372175a039fe27b01beabde491f9c59569030668b4b9ce0
+captured_via_relaxed_allowlist: true

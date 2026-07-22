@@ -1,0 +1,50 @@
+origin_url: https://github.com/vllm-project/vllm/pull/21331
+upstream_repo: vllm-project/vllm
+upstream_sha: a3b9c17b
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-21331
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 65d907017874d9b4ea6ad743f9a130d887a73a76ef2214570c1f60bc7299b9b8
+- local_path: key-files/vllm/envs.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/envs.py
+  sha256: 9bc753afc95583b502675893726f0bd1d86ec9e32e943529ca05e84894a20704
+- local_path: key-files/vllm/model_executor/layers/fused_moe/config.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/config.py
+  sha256: 6cc215465bf021374dad1df0c3d5cfd2f9e91fd2d25fa03067083776c0cd8573
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe.py
+  sha256: 6d98fada31f40976162f9332578f797651266fadbcb3d394f7e28f3cd914f84f
+- local_path: key-files/vllm/model_executor/layers/quantization/modelopt.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/modelopt.py
+  sha256: d6b3239bde3f1ed2cbb13d0e7ac09339384566ff134bd733e1b853079870d861
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/flashinfer_fp4_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/flashinfer_fp4_moe.py
+  sha256: 63f7f127d41cac6ddf5498cbd288a6e73677d3fabd7a8dd6dfa0b81c4ece4cc3
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/nvfp4_moe_support.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/nvfp4_moe_support.py
+  sha256: d85e63ec16cc8abead67ad6999b5be331c23d2d22300e070b16ea36e50d17679
+- local_path: key-files/vllm/utils/flashinfer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/utils/flashinfer.py
+  sha256: 77a00aac3cb32a39d079256fddf5e21939073f077eafb47c6d876cb012b56225
+captured_via_relaxed_allowlist: true

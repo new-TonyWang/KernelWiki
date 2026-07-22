@@ -1,0 +1,25 @@
+origin_url: https://github.com/vllm-project/vllm/pull/25851
+upstream_repo: vllm-project/vllm
+upstream_sha: 65ecb4f1
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-25851
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 244eb9c2697f81761faa3a1a526cde9c3c33eb89dbfc742cd1a2bde40d87b6db
+- local_path: key-files/vllm/model_executor/models/qwen3_vl.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/qwen3_vl.py
+  sha256: 72b18de7f8ae31b4b38d797052bdfc79a377a331ca1cc53d4b73cbcf98214767
+- local_path: key-files/vllm/platforms/cuda.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/platforms/cuda.py
+  sha256: 14ee3082e0d56297397f8e447dad84892a0d4c077c9fc38b9b7ef6a150af03d0
+captured_via_relaxed_allowlist: true

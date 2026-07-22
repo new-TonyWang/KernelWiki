@@ -1,0 +1,49 @@
+origin_url: https://github.com/vllm-project/vllm/pull/23045
+upstream_repo: vllm-project/vllm
+upstream_sha: b17109be
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-23045
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 9c941987aa14459067da37e54bca9a7526ebf2eb04b5abe08fa017b23aa9f35a
+- local_path: key-files/csrc/moe/moe_permute_unpermute_op.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/moe/moe_permute_unpermute_op.cu
+  sha256: 2beb7d20140b51a3efe11d17e9585558ab218e6eb10756fb5fe3adf9e9f148af
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: c6528d3a0fd108806097893e4425e0bfedcf766fb1f3acb8a22e75d28a5c14d6
+- local_path: key-files/csrc/quantization/cutlass_w8a8/moe/get_group_starts.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/moe/get_group_starts.cuh
+  sha256: 4750c18b2608ae75fb462344f2f66766d1af425bbac1805612011698fbbdeab6
+- local_path: key-files/csrc/quantization/cutlass_w8a8/moe/moe_data.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/moe/moe_data.cu
+  sha256: fc0c432fc5471a2a3a9394f422ea00ffb6372169f0be4b02294d2e8abf3cd728
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  sha256: 5e19feb3992efb401682e1e4b9f5e13e6036171c760b52e6343d69057b83532e
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 97796798c6da8a9dbc355e0062fc85af4202240ddfcb2fedd7ee0bb5d8894beb
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 1a8e3da4b548b747b1f93fedead6d0f6c99eb49f30dc262710f0038fc132f118

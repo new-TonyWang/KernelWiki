@@ -1,0 +1,39 @@
+origin_url: https://github.com/vllm-project/vllm/pull/22131
+upstream_repo: vllm-project/vllm
+upstream_sha: 3303f134
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-22131
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ea3ead06753dd47cec7fdf088ad5bd2081340c46bac43a2f0f2f59ce521ad87a
+- local_path: key-files/csrc/cutlass_extensions/common.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/common.hpp
+  sha256: 901cd4ed3a21c7144902f21a7d85dbb0cb98953ef98ab565a07842fff8aefb7e
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm120_fp8.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm120_fp8.cu
+  sha256: 95694c1094bcdce289bc8ce7147c3fb7647a05e1b4e1e4d04160144511570730
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm120_fp8_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm120_fp8_dispatch.cuh
+  sha256: e7390e76585393d828708379b2ed0d362dd2104e8e84688bdad8ad50052b2c12
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_kernels.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_kernels.hpp
+  sha256: 658e00f66b6f990d423af2c44d2ac5e50fb32cd4be29f5136eb6ee5315f74957
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_c3x_sm120.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_c3x_sm120.cu
+  sha256: 177f1f9062d3fe13e357c0bdc7210535f2dbe84aa34f437af4c7e8df3b1284c9

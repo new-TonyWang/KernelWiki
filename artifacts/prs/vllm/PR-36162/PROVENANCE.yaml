@@ -1,0 +1,24 @@
+origin_url: https://github.com/vllm-project/vllm/pull/36162
+upstream_repo: vllm-project/vllm
+upstream_sha: ecf5ff7c
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-36162
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 69e4197c1580fa5043e08f23515fc440a743cf0e1d2aa611ce51667bb369c9df
+- local_path: key-files/vllm/model_executor/layers/mamba/ops/mamba_ssm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/mamba/ops/mamba_ssm.py
+  sha256: e793eb34f3ef12f3e2ba8185d9fba389aee11f543bf36376297c20d4460c9373
+- local_path: key-files/vllm/model_executor/layers/mamba/ops/ssu_dispatch.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/mamba/ops/ssu_dispatch.py
+  sha256: 43cc2364bff801c1715d71dee2e9249c0be1007dc15aa287942bae85def63a50

@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/26135
+upstream_repo: vllm-project/vllm
+upstream_sha: f95da13c
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-26135
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 03b95ce91a24520953e713a52b269f2b2ad71b7cc215b610d302ae019a4ad331
+- local_path: key-files/vllm/model_executor/layers/fused_moe/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/layer.py
+  sha256: 6629d5a60797ae6a4c08c96ea0e9ee3c7c1dc56b8b1638006e9d5ad7589ad0a0
+- local_path: key-files/vllm/model_executor/layers/quantization/modelopt.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/modelopt.py
+  sha256: 32f2dc6e78daddc752aca96f923b19bd7207bedc6abcfd563e67c6c408bdb2f6
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  sha256: 5ece28d9cffc8fff5f9b850cd5336dc49fe35535825774b29ba60180756e73f1
+captured_via_relaxed_allowlist: true

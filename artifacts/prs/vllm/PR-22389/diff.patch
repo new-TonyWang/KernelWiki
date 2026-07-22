@@ -1,0 +1,26 @@
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index d444087a3eff..04a63f5d68e6 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -392,7 +392,7 @@ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist
+ ARG FLASHINFER_GIT_REPO="https://github.com/flashinfer-ai/flashinfer.git"
+ # Keep this in sync with https://github.com/vllm-project/vllm/blob/main/requirements/cuda.txt
+ # We use `--force-reinstall --no-deps` to avoid issues with the existing FlashInfer wheel.
+-ARG FLASHINFER_GIT_REF="v0.2.9"
++ARG FLASHINFER_GIT_REF="v0.2.10"
+ RUN --mount=type=cache,target=/root/.cache/uv bash - <<'BASH'
+   . /etc/environment
+     git clone --depth 1 --recursive --shallow-submodules \
+diff --git a/setup.py b/setup.py
+index c6f4985c5930..e374fcb816e7 100644
+--- a/setup.py
++++ b/setup.py
+@@ -665,7 +665,7 @@ def _read_requirements(filename: str) -> list[str]:
+                   "mistral_common[audio]"],  # Required for audio processing
+         "video": [],  # Kept for backwards compatibility
+         # FlashInfer should be updated together with the Dockerfile
+-        "flashinfer": ["flashinfer-python==0.2.9"],
++        "flashinfer": ["flashinfer-python==0.2.10"],
+     },
+     cmdclass=cmdclass,
+     package_data=package_data,

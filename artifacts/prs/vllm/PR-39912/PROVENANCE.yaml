@@ -1,0 +1,29 @@
+origin_url: https://github.com/vllm-project/vllm/pull/39912
+upstream_repo: vllm-project/vllm
+upstream_sha: 5bb8d276
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-39912
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: a83434a4dff7b51b2174af3287e4d40cff4b6351ea7011302a1eb6925c801db3
+- local_path: key-files/csrc/libtorch_stable/quantization/fp4/nvfp4_scaled_mm_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/fp4/nvfp4_scaled_mm_kernels.cu
+  sha256: 0808690d830887b78d10e10211b7ef611722b632fb6f611d83ba1cd4543e60bc
+- local_path: key-files/csrc/libtorch_stable/quantization/fp4/nvfp4_scaled_mm_sm120_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/fp4/nvfp4_scaled_mm_sm120_kernels.cu
+  sha256: 6e8a596aceba6f453ac1d72424130ee2e505242ad0c52695ffbc390326b58fd4
+- local_path: key-files/vllm/model_executor/kernels/linear/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/kernels/linear/__init__.py
+  sha256: 0b12c4caea03684c87738e02a0065e0525f09cfc5d5bba047562e5b8117df1cf

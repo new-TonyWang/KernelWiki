@@ -1,0 +1,13 @@
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index 2e8c15bbd32f..b87401c59357 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -386,7 +386,7 @@ RUN --mount=type=bind,from=build,src=/workspace/dist,target=/vllm-workspace/dist
+ 
+ # Install FlashInfer from source
+ ARG FLASHINFER_GIT_REPO="https://github.com/flashinfer-ai/flashinfer.git"
+-ARG FLASHINFER_GIT_REF="v0.2.9rc1"
++ARG FLASHINFER_GIT_REF="v0.2.9rc2"
+ RUN --mount=type=cache,target=/root/.cache/uv bash - <<'BASH'
+   . /etc/environment
+     git clone --depth 1 --recursive --shallow-submodules \

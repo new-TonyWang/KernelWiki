@@ -1,0 +1,95 @@
+origin_url: https://github.com/vllm-project/vllm/pull/36022
+upstream_repo: vllm-project/vllm
+upstream_sha: 2754231b
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-36022
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 8018df0b4b05d283362c8c0d0e18c9b33ff203bef7621f5473f17c3b86e96cfb
+- local_path: key-files/vllm/config/parallel.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/config/parallel.py
+  sha256: bb4e4c9d1c0510793340c1ff9bcc48c016113d98d27ea8f3ea682537b0e9afc7
+- local_path: key-files/vllm/distributed/device_communicators/all2all.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/distributed/device_communicators/all2all.py
+  sha256: 6de4ea82ea06132947672ae2952ccac6883372b090c818707a774b5a98c0ff05
+- local_path: key-files/vllm/distributed/device_communicators/cuda_communicator.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/distributed/device_communicators/cuda_communicator.py
+  sha256: 113eeaa0dd3bb4373b4c212bdba92abdaa42f692e9f59bfdf62bbaf6c6bb6314
+- local_path: key-files/vllm/distributed/device_communicators/mnnvl_compat.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/distributed/device_communicators/mnnvl_compat.py
+  sha256: 72ee1e6f9571b4c8ecbd9f60cd469d1b565cb79cab519a688a93f290906a2615
+- local_path: key-files/vllm/model_executor/layers/fused_moe/all2all_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/all2all_utils.py
+  sha256: 98ae2386339b173d1402c2b31a1d502bb4f2e6a0295255fc5d68be1d5e7f7bb2
+- local_path: key-files/vllm/model_executor/layers/fused_moe/config.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/config.py
+  sha256: 13b1145e5862cbddf735f3c57cc60ad6fed082d45fbc796a709feb112ada97b9
+- local_path: key-files/vllm/model_executor/layers/fused_moe/cutlass_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/cutlass_moe.py
+  sha256: c3f9454681e14ec845c8fae499cadc4b50533d1c0a9fe4dd7883856d6a0a3876
+- local_path: key-files/vllm/model_executor/layers/fused_moe/deep_gemm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/deep_gemm_moe.py
+  sha256: fc3a243be5bee3014358ac894a2da428e3bc336d1a7af188f36d9de3a443615d
+- local_path: key-files/vllm/model_executor/layers/fused_moe/flashinfer_nvlink_one_sided_prepare_finalize.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/flashinfer_nvlink_one_sided_prepare_finalize.py
+  sha256: fb4571b38753bb1d547f9a707c9e2cfb33e4676094d4e9dd5a5f01b11eb12bca
+- local_path: key-files/vllm/model_executor/layers/fused_moe/flashinfer_nvlink_two_sided_prepare_finalize.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/flashinfer_nvlink_two_sided_prepare_finalize.py
+  sha256: 6ffefb59839aed88f24856c22f2cb9b6b3a5b45e01c7d791d12c9996fc1ce581
+- local_path: key-files/vllm/model_executor/layers/fused_moe/fused_marlin_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/fused_marlin_moe.py
+  sha256: 09bafebaea00a8fa4de3335d5680d183fdbd3bcd41cfc3acbc163d323ab8d843
+- local_path: key-files/vllm/model_executor/layers/fused_moe/fused_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/fused_moe.py
+  sha256: eee903361076c25cf96b4e157a5bed9d11d2d2d03fd73bbcbfb52e33c1890e63
+- local_path: key-files/vllm/model_executor/layers/fused_moe/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/layer.py
+  sha256: aa64b6debf78ac5b48bfa1db5d05e459781a7c3f8d00b5717d5c4f12dda3940b
+- local_path: key-files/vllm/model_executor/layers/fused_moe/rocm_aiter_fused_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/rocm_aiter_fused_moe.py
+  sha256: 796af01be8da0d3332811be818fca566cd0e059f5e76875ba5cf78db58b91e04
+- local_path: key-files/vllm/model_executor/layers/fused_moe/runner/default_moe_runner.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/runner/default_moe_runner.py
+  sha256: e58081076104b325695cf5d95f0f3523eb67ea53dfc6d6fda6424ade664e9f79
+- local_path: key-files/vllm/utils/flashinfer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/utils/flashinfer.py
+  sha256: ce60b0add092aaf28f6a186e7daee893d274d8f5982aa2eef9c325e907ddac1f
+captured_via_relaxed_allowlist: true

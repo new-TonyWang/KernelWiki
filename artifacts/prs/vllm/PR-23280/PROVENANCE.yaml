@@ -1,0 +1,71 @@
+origin_url: https://github.com/vllm-project/vllm/pull/23280
+upstream_repo: vllm-project/vllm
+upstream_sha: c3aea10d
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-23280
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 3cc00f5ce9bee46ab7d96d2b0f1c46bd38c612aa18a689c88ed8a83138ee8d99
+- local_path: key-files/csrc/cutlass_extensions/gemm/collective/collective_builder.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/gemm/collective/collective_builder.hpp
+  sha256: 3c26d330f0d232f647f4828a2de0d1a713c6014838991eed3c95b09c62e2258a
+  upstream_sha: a892b259b4503526511d9ec17d5f8961e46969a6
+  captured_at_base_sha_note: 'PR #23280 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/cutlass_extensions/gemm/collective/fp8_accumulation.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/gemm/collective/fp8_accumulation.hpp
+  sha256: 7a5fdfeca4b4ff2e4cca8edae341e5e00119870b16d5054c410a0e7c3e18d4b7
+  upstream_sha: a892b259b4503526511d9ec17d5f8961e46969a6
+  captured_at_base_sha_note: 'PR #23280 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/cutlass_extensions/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/gemm/collective/sm90_mma_tma_gmma_ss_warpspecialized_fp8_blockwise_scaling.hpp
+  sha256: 224f972889df41a15cd78600055d0bface0eeab45ecdb110820d6705cc78b156
+  upstream_sha: a892b259b4503526511d9ec17d5f8961e46969a6
+  captured_at_base_sha_note: 'PR #23280 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/cutlass_extensions/gemm/dispatch_policy.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/gemm/dispatch_policy.hpp
+  sha256: 02eba6622496740ef295042447af609013fd0273dcb4b058efe738e8113fecde
+  upstream_sha: a892b259b4503526511d9ec17d5f8961e46969a6
+  captured_at_base_sha_note: 'PR #23280 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/cutlass_extensions/vllm_collective_builder.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cutlass_extensions/vllm_collective_builder.cuh
+  sha256: 2cc721b442009222df650748fee15fa1f98e6fbfad510187afce2ff5539d0938
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm100_fp8_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm100_fp8_dispatch.cuh
+  sha256: e832927d3fa7ab3550c744ff997fe68f760bd140e077dc84846db02b67169064
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm120_fp8_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm120_fp8_dispatch.cuh
+  sha256: 7ee1b625c7fb42de17d240a2ad96ab4eae26d19373eaacf414ac0ed8f961ea44
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm90_fp8_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_blockwise_sm90_fp8_dispatch.cuh
+  sha256: 90ce3a912ef8df981da5ea391732641791bee1304a7aad8a9e49c1e5184aaf8b
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_helper.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_helper.hpp
+  sha256: c44eec3bae75b92785168c5ec10861bf127e24e5d80b73cc4fd2d6d6d0610763

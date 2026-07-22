@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/26197
+upstream_repo: vllm-project/vllm
+upstream_sha: f8607863
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-26197
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 654a1e1c20ed335eb433ec78fd04517ccfb5e7c308cb7a510850fb3309d10852
+- local_path: key-files/vllm/envs.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/envs.py
+  sha256: 94bea6918fc1d7f21502cb3894dce280ab7fad05cdf8d13384331d83f061a777
+- local_path: key-files/vllm/transformers_utils/config.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/transformers_utils/config.py
+  sha256: 70bd68f75a8fcf96c3a2c267cf336cae494bda376e2a13bfa9520381283989b8
+- local_path: key-files/vllm/utils/deep_gemm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/utils/deep_gemm.py
+  sha256: 620456656f85b5fdfb7465be20bb68acfbf6ec2ef400ce46708a4b4f2860e53f
+captured_via_relaxed_allowlist: true

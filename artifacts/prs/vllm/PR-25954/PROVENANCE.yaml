@@ -1,0 +1,34 @@
+origin_url: https://github.com/vllm-project/vllm/pull/25954
+upstream_repo: vllm-project/vllm
+upstream_sha: a28b94e6
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-25954
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 002da41338757f033f2faac3a80216f5ecdc4cff4760a55a3f7e618a3cd45324
+- local_path: key-files/vllm/attention/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/attention/layer.py
+  sha256: 74f359628f762892ab9b28fc6b8d86ba1d04df1d3e4dbe957ee5a3c6cd290086
+- local_path: key-files/vllm/model_executor/layers/attention/cross_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/attention/cross_attention.py
+  sha256: 3ceea9b598500dfa81e028e2c68eb3ae480eba8051c7263ce5744d82203bcee5
+- local_path: key-files/vllm/v1/attention/backend.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backend.py
+  sha256: 661457d4bef94b7f3faa552e0e1680ece59184e25eac219f8ce6ba90eab5733b
+- local_path: key-files/vllm/v1/attention/backends/flash_attn.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/flash_attn.py
+  sha256: 4e49b3dcfe7f6336e37b3c88bce60761cc5a7df4eeed56c91f3515c596569542

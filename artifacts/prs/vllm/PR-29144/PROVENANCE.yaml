@@ -1,0 +1,20 @@
+origin_url: https://github.com/vllm-project/vllm/pull/29144
+upstream_repo: vllm-project/vllm
+upstream_sha: 5f96c00c
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-29144
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: c95afe5e3edbf8f3e35f66694ee59f894dd08f76fee25a9504a0261fea576a6b
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  sha256: 27770e221bc448b9344ba50a71a55614229419b39cebd5988416f0e4e004899b
+captured_via_relaxed_allowlist: true

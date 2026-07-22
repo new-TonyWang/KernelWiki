@@ -1,0 +1,20 @@
+origin_url: https://github.com/vllm-project/vllm/pull/36674
+upstream_repo: vllm-project/vllm
+upstream_sha: bdb903bb
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-36674
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 300188bab220f5a9daaf9bbbbbe97ea58c3b745629b4aec90dd99e304ec37471
+- local_path: key-files/vllm/distributed/device_communicators/flashinfer_all_reduce.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/distributed/device_communicators/flashinfer_all_reduce.py
+  sha256: 2d8bdbdccb36794aecce21e802d706a3e894975eb93ef2f81ef159b5bfde35ad
+captured_via_relaxed_allowlist: true

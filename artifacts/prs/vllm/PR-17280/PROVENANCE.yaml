@@ -1,0 +1,44 @@
+origin_url: https://github.com/vllm-project/vllm/pull/17280
+upstream_repo: vllm-project/vllm
+upstream_sha: 9e5552aa
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-17280
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 727b93db254c6b1fb05b738fc32d43ca99629efde6f485ebbf564fe52e6f23fa
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm.cuh
+  sha256: 8e7054592432f598ca494e7b917e75c1dfd6544321ff5dccbfb90a6e310e8555
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_kernels.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_kernels.hpp
+  sha256: 74a03a471783dc235214a09b2a94a8b4d863f3ed4786f16d144975737086efb4
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_sm120_fp8.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_sm120_fp8.cu
+  sha256: 1aedaa6aebbb2419537f554af49de6c2f6e92ee50c9dd9ac92ed955c4e0dedcf
+- local_path: key-files/csrc/quantization/cutlass_w8a8/c3x/scaled_mm_sm120_fp8_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/c3x/scaled_mm_sm120_fp8_dispatch.cuh
+  sha256: 4f176ad626999323c7684206ba7fc8a588848e15d8fd9151b8888492bfd2a71d
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_c3x_sm120.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_c3x_sm120.cu
+  sha256: 489596cb9b485ee8b10b9f70ef1b0ee55dac693a77232108118f491a0b16965f
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  sha256: 1c745e4a9f530d63bbe5d29a50c88bc26c4ea5bbecb45c50473badc5af2b17c5

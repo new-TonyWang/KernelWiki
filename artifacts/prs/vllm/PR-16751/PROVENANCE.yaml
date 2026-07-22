@@ -1,0 +1,24 @@
+origin_url: https://github.com/vllm-project/vllm/pull/16751
+upstream_repo: vllm-project/vllm
+upstream_sha: c12df53b
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-16751
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 5384913df3d2f427666b24c1a86fc630edd958057c46ed2babd7feb0608493b2
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_c2x_sm89_fp8_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_c2x_sm89_fp8_dispatch.cuh
+  sha256: e038c18fcc3683ee4da5863e24b34424191e03a26e6ccee925d1cb0d8999733b
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_c2x_sm89_int8_dispatch.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_c2x_sm89_int8_dispatch.cuh
+  sha256: a7ffe9751fe0533a354fea6661ef6b1f8a25ca72565677e539fded9858bb6b09

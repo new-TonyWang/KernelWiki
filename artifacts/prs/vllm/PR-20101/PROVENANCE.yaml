@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/20101
+upstream_repo: vllm-project/vllm
+upstream_sha: d57dc236
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-20101
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: e7813f283a468baffd1e8d29718bce1b879237ce1abb999811ae2411625397f3
+- local_path: key-files/vllm/model_executor/model_loader/weight_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/model_loader/weight_utils.py
+  sha256: a5c047d6de2e7db3d8a979d6b1ed2ac456c9d907b5f1cdb9742bb780e8c7af57
+- local_path: key-files/vllm/model_executor/models/qwen2.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/qwen2.py
+  sha256: 7b607b61d15045b9aa481847c5bf5ac5a9e75325aec3a745a484782d39514930
+- local_path: key-files/vllm/model_executor/models/qwen3_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/qwen3_moe.py
+  sha256: aa796730c02138a7c769a1745c3b8bd7c3870138db2f31a134a5759b27040677
+captured_via_relaxed_allowlist: true

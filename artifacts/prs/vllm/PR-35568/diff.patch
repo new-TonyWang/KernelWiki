@@ -1,0 +1,147 @@
+diff --git a/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm.cuh b/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm.cuh
+index e98433bed25e..952931103c67 100644
+--- a/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm.cuh
++++ b/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm.cuh
+@@ -202,7 +202,7 @@ struct cutlass_3x_gemm_sm120 {
+               sizeof(typename CollectiveEpilogue::SharedStorage))>,
+           KernelSchedule>::CollectiveOp;
+ 
+-  using GemmKernel = enable_sm120_only<cutlass::gemm::kernel::GemmUniversal<
++  using GemmKernel = enable_sm120_family<cutlass::gemm::kernel::GemmUniversal<
+       Shape<int, int, int, int>, CollectiveMainloop, CollectiveEpilogue, void>>;
+ };
+ 
+diff --git a/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm_sm120_fp8_dispatch.cuh b/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm_sm120_fp8_dispatch.cuh
+index 245f5c10fcad..a2850c92c88a 100644
+--- a/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm_sm120_fp8_dispatch.cuh
++++ b/csrc/libtorch_stable/quantization/w8a8/cutlass/c3x/scaled_mm_sm120_fp8_dispatch.cuh
+@@ -72,7 +72,7 @@ struct cutlass_3x_gemm_sm120_custom {
+               sizeof(typename CollectiveEpilogue::SharedStorage))>,
+           KernelSchedule, void>::CollectiveOp;
+ 
+-  using GemmKernel = enable_sm120_only<cutlass::gemm::kernel::GemmUniversal<
++  using GemmKernel = enable_sm120_family<cutlass::gemm::kernel::GemmUniversal<
+       Shape<int, int, int, int>, CollectiveMainloop, CollectiveEpilogue, void>>;
+ };
+ 
+diff --git a/csrc/moe/marlin_moe_wna16/generate_kernels.py b/csrc/moe/marlin_moe_wna16/generate_kernels.py
+index bca697cae925..6ddda1d51db5 100644
+--- a/csrc/moe/marlin_moe_wna16/generate_kernels.py
++++ b/csrc/moe/marlin_moe_wna16/generate_kernels.py
+@@ -15,11 +15,11 @@
+ for arch in sys.argv[1].split(","):
+     arch = arch[: arch.index(".") + 2].replace(".", "")
+     arch = int(arch)
+-    # only SM89 and SM120 fully support
+-    # mma.sync.aligned.m16n8k32.row.col.f32.e4m3.e4m3.f32.
++    # SM89 and the SM12x family (SM120 RTX 5090, SM121 DGX Spark GB10)
++    # fully support mma.sync.aligned.m16n8k32.row.col.f32.e4m3.e4m3.f32.
+     # SM90 and SM100 can use this PTX, but it’s simulated
+     # with FP16 MMA, so it cannot achieve any acceleration.
+-    if arch in [89, 120]:
++    if arch == 89 or arch // 10 == 12:
+         SUPPORT_FP8 = True
+     if arch >= 80:
+         SUPPORT_SM80 = True
+diff --git a/csrc/moe/marlin_moe_wna16/ops.cu b/csrc/moe/marlin_moe_wna16/ops.cu
+index cf97f95a8fc2..82cba2978b10 100644
+--- a/csrc/moe/marlin_moe_wna16/ops.cu
++++ b/csrc/moe/marlin_moe_wna16/ops.cu
+@@ -448,8 +448,8 @@ void marlin_mm(const void* A, const void* B, void* C, void* C_tmp, void* b_bias,
+                 "FP8 only support Ada Lovelace or newer GPUs.");
+     TORCH_CHECK(
+         major_capability * 10 + minor_capability == 89 ||
+-            major_capability * 10 + minor_capability == 120,
+-        "Marlin W4A8-FP8 only support SM89 or SM120 device (It is slower than "
++            major_capability == 12,
++        "Marlin W4A8-FP8 only support SM89 or SM12x device (It is slower than "
+         "Marlin W4A16 on other devices).");
+   }
+ 
+diff --git a/csrc/quantization/marlin/generate_kernels.py b/csrc/quantization/marlin/generate_kernels.py
+index 19a42de1f870..7b316037ec63 100644
+--- a/csrc/quantization/marlin/generate_kernels.py
++++ b/csrc/quantization/marlin/generate_kernels.py
+@@ -15,11 +15,11 @@
+ for arch in sys.argv[1].split(","):
+     arch = arch[: arch.index(".") + 2].replace(".", "")
+     arch = int(arch)
+-    # only SM89 and SM120 fully support
+-    # mma.sync.aligned.m16n8k32.row.col.f32.e4m3.e4m3.f32.
++    # SM89 and the SM12x family (SM120 RTX 5090, SM121 DGX Spark GB10)
++    # fully support mma.sync.aligned.m16n8k32.row.col.f32.e4m3.e4m3.f32.
+     # SM90 and SM100 can use this PTX, but it’s simulated
+     # with FP16 MMA, so it cannot achieve any acceleration.
+-    if arch in [89, 120]:
++    if arch == 89 or arch // 10 == 12:
+         SUPPORT_FP8 = True
+     if arch >= 80:
+         SUPPORT_SM80 = True
+diff --git a/tests/kernels/moe/test_moe.py b/tests/kernels/moe/test_moe.py
+index ebc3256b548f..6f269cb18bc1 100644
+--- a/tests/kernels/moe/test_moe.py
++++ b/tests/kernels/moe/test_moe.py
+@@ -746,7 +746,8 @@ def is_valid(
+         for sub_case in inner_combinations:
+             if (
+                 sub_case[0] == scalar_types.float8_e4m3fn
+-                and current_platform.get_device_capability() not in [89, 120]
++                and not current_platform.is_device_capability(89)
++                and not current_platform.is_device_capability_family(120)
+             ):
+                 continue
+ 
+@@ -897,6 +898,7 @@ def make(
+     marlin_moe_generate_valid_test_cases(),
+ )
+ @pytest.mark.skipif(current_platform.is_rocm(), reason="Skip for rocm")
++@pytest.mark.usefixtures("default_vllm_config")
+ def test_fused_marlin_moe(
+     a_type: ScalarType,
+     b_type: ScalarType,
+@@ -1009,6 +1011,7 @@ def test_fused_marlin_moe(
+ 
+ @pytest.mark.flaky(reruns=2)
+ @pytest.mark.skipif(current_platform.is_rocm(), reason="Skip for rocm")
++@pytest.mark.usefixtures("default_vllm_config")
+ @pytest.mark.parametrize("m", [1, 256])
+ def test_fused_marlin_moe_with_bias(m):
+     set_random_seed(0)
+@@ -1081,6 +1084,7 @@ def test_fused_marlin_moe_with_bias(m):
+ 
+ @pytest.mark.flaky(reruns=2)
+ @pytest.mark.skipif(current_platform.is_rocm(), reason="Skip for rocm")
++@pytest.mark.usefixtures("default_vllm_config")
+ @pytest.mark.parametrize("m", [1, 64, 256])
+ @pytest.mark.parametrize("n,k", [(1024, 1024), (2048, 2048)])
+ @pytest.mark.parametrize("e,topk", [(8, 2), (64, 4)])
+diff --git a/tests/kernels/quantization/test_marlin_gemm.py b/tests/kernels/quantization/test_marlin_gemm.py
+index f918212f763c..8b35fab81ef8 100644
+--- a/tests/kernels/quantization/test_marlin_gemm.py
++++ b/tests/kernels/quantization/test_marlin_gemm.py
+@@ -381,7 +381,8 @@ def is_invalid(
+         for sub_case in inner_combinations:
+             if (
+                 sub_case[0] == scalar_types.float8_e4m3fn
+-                and current_platform.get_device_capability() not in [89, 120]
++                and not current_platform.is_device_capability(89)
++                and not current_platform.is_device_capability_family(120)
+             ):
+                 continue
+             args = sub_case + (size_m, size_n, size_k) + case[4:]
+diff --git a/vllm/model_executor/layers/quantization/utils/marlin_utils.py b/vllm/model_executor/layers/quantization/utils/marlin_utils.py
+index d659effd70ff..69bb47f71783 100644
+--- a/vllm/model_executor/layers/quantization/utils/marlin_utils.py
++++ b/vllm/model_executor/layers/quantization/utils/marlin_utils.py
+@@ -479,9 +479,9 @@ def get_marlin_input_dtype(prefix: str | None = None):
+     elif envs.VLLM_MARLIN_INPUT_DTYPE.lower() == "fp8":
+         if not current_platform.is_device_capability(
+             89
+-        ) and not current_platform.is_device_capability(120):
++        ) and not current_platform.is_device_capability_family(120):
+             raise ValueError(
+-                "Marlin W4A8-FP8 only support SM89 or SM120 device "
++                "Marlin W4A8-FP8 only support SM89 or SM12x device "
+                 "(It is slower than Marlin W4A16 on other devices). "
+                 "You can consider using W4A8-INT8 instead"
+                 "(set VLLM_MARLIN_INPUT_DTYPE=int8)."

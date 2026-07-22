@@ -1,0 +1,64 @@
+origin_url: https://github.com/vllm-project/vllm/pull/20769
+upstream_repo: vllm-project/vllm
+upstream_sha: 8cdc3712
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-20769
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 0cb29317c8f5054f427b4125f227242b46fb754b3de40e56b25120a6b1ac6b5f
+- local_path: key-files/csrc/attention/mla/cutlass_sm100_mla/device/sm100_mla.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/attention/mla/cutlass_sm100_mla/device/sm100_mla.hpp
+  sha256: 7add496596cae0114e8cf39a8657e813876ed79b8d553c9bf056e02533348079
+- local_path: key-files/csrc/attention/mla/cutlass_sm100_mla/kernel/sm100_fmha_mla_reduction.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/attention/mla/cutlass_sm100_mla/kernel/sm100_fmha_mla_reduction.hpp
+  sha256: b48280f7769e27c143c3ced5e804cd4525917c2521703563684d17124549b8c6
+- local_path: key-files/csrc/attention/mla/cutlass_sm100_mla/kernel/sm100_fmha_mla_tma_warpspecialized.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/attention/mla/cutlass_sm100_mla/kernel/sm100_fmha_mla_tma_warpspecialized.hpp
+  sha256: 116d491eee95c6f781b469eeddb68e1fd61677802c0a9d0fd587b0b2f7ccf6f8
+- local_path: key-files/csrc/attention/mla/cutlass_sm100_mla/kernel/sm100_mla_tile_scheduler.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/attention/mla/cutlass_sm100_mla/kernel/sm100_mla_tile_scheduler.hpp
+  sha256: 22f3bb1eeb119f06ba31c9a43ae73ac500770e5f913ecb63ac62ca7306021dd1
+- local_path: key-files/csrc/attention/mla/sm100_cutlass_mla_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/attention/mla/sm100_cutlass_mla_kernel.cu
+  sha256: b671e72e4791aefc32c667b4c4726b92381164b37a1f45ca26bc06daa4fb315b
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: 00840a8899d37a8dbeb2b7a45560239fecaf406d4ed564d34cb48a8a4f6a86c8
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: b24246746711cb081e7096794e8595c2aeb75f3c04462529f3e082ac7c3417f1
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 9232f69996da8b874d2d4ad3997d2a24edd777edd3eea0148473540820591a06
+- local_path: key-files/vllm/v1/attention/backends/mla/common.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/common.py
+  sha256: 52dfd59d9d954a1fe21682157c9d3206e8ed7e986963bf2bedfd2336c8049725
+- local_path: key-files/vllm/v1/attention/backends/mla/cutlass_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/cutlass_mla.py
+  sha256: 02ee32cb94cc75919879d4ee01a52e1b6176f45c7f0fd9c608337928bbdca887

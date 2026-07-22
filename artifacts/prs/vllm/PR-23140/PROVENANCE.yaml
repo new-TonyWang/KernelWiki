@@ -1,0 +1,25 @@
+origin_url: https://github.com/vllm-project/vllm/pull/23140
+upstream_repo: vllm-project/vllm
+upstream_sha: 0278f1ac
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-23140
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 1e6889606e8942569decf41dbb1668d98d35ff2f2671de6cbbc88e85276e1d02
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w4a4_nvfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w4a4_nvfp4.py
+  sha256: 8b0a82e519f5011c267dda36ac2c99638cfe134810c449084102ef5cdfba7726
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/quant_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/quant_utils.py
+  sha256: eb8736d84a08f87e7f3805b28774e9b40d4b94e636dcb7a6d35fc93f6c6b59ec
+captured_via_relaxed_allowlist: true

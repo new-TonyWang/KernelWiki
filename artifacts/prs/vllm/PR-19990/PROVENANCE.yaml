@@ -1,0 +1,40 @@
+origin_url: https://github.com/vllm-project/vllm/pull/19990
+upstream_repo: vllm-project/vllm
+upstream_sha: 6f2f53a8
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-19990
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: e56b3604affb22d3095e094b94577566c5b74963f7a3059206a2441cf21b2fe0
+- local_path: key-files/vllm/model_executor/layers/fused_moe/layer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/layer.py
+  sha256: 4babd4cdf21b3d78b821135d62611dcd01d801b44832ba8577a7c4bc50d72be0
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors.py
+  sha256: 76b8cb59ddd00a301c3610a601298e1e7acd83c8d65cea8c4d724098fb1f1a49
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/compressed_tensors_moe.py
+  sha256: 3230de3c8d6a122f41f0d61452a2db146defb58aed5dff0bfb483d7acf9735ca
+- local_path: key-files/vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w4a4_nvfp4.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/compressed_tensors/schemes/compressed_tensors_w4a4_nvfp4.py
+  sha256: be0dbdde60d959105762d22f3b85ed26aa174061199d9c47b28a0fcbbf5dd201
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/nvfp4_emulation_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/nvfp4_emulation_utils.py
+  sha256: a5e3de6dc1f476d01f9eb98a2b9f1bc9b0b43143458406b90c28b6cf78cb0de8
+captured_via_relaxed_allowlist: true

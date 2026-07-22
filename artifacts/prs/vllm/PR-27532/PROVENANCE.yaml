@@ -1,0 +1,54 @@
+origin_url: https://github.com/vllm-project/vllm/pull/27532
+upstream_repo: vllm-project/vllm
+upstream_sha: 3e41992f
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-27532
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: b9a6315446af16b21ad169048daf73d6427bfeddc633c7bc39bbd4b4a912cc79
+- local_path: key-files/csrc/cache.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cache.h
+  sha256: c32724e783cc5f489c7c176de52f87f57b03368155f50a420c5f90afa15070ab
+- local_path: key-files/csrc/cache_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cache_kernels.cu
+  sha256: f0e2a5f428f0563678122b0359fd8e34b994ebf4a7a0cc5afc9517d120534656
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 656f8a04e9ba4660f9326b05c167ec421349e9306f7192757e348f661e24b6ef
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: e873ca2dd9601fe3cb8c67949941e501b4f503380937ad3f8984824bfff619ea
+- local_path: key-files/vllm/model_executor/layers/fused_moe/modular_kernel.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/modular_kernel.py
+  sha256: dac788d5a04c15210e2c23bb4c42361bf68ac3de2067afd41a0dd4ee5de2fe54
+- local_path: key-files/vllm/v1/attention/backends/mla/flashmla_sparse.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/flashmla_sparse.py
+  sha256: 55a0488dfb2ada6ea42a5d8ace3a2e0467c3da0ae0301448e46e0a898b9ccc53
+- local_path: key-files/vllm/v1/attention/backends/mla/indexer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/indexer.py
+  sha256: c54278b7c30cdaf3c02b7bfccd897cce36ecba4b73f65eb09389a26e092f4572
+- local_path: key-files/vllm/v1/attention/backends/utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/utils.py
+  sha256: 4a9aa2e15ed93fcbd36313482255df3a940738ca098e9ade4b9b751d3bbe3ce8

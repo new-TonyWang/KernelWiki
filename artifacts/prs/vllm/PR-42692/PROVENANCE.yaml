@@ -1,0 +1,25 @@
+origin_url: https://github.com/vllm-project/vllm/pull/42692
+upstream_repo: vllm-project/vllm
+upstream_sha: 0fe75502
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-42692
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ae426c7cc501b29d654a53db350148942e1d352338c5acea6c9608aa25842160
+- local_path: key-files/vllm/model_executor/models/qwen3_dflash.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/qwen3_dflash.py
+  sha256: 7c99f26d24ac1f31dc317284009d05165155d32e05b3cf1277914ad3f747d82a
+- local_path: key-files/vllm/v1/spec_decode/llm_base_proposer.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/spec_decode/llm_base_proposer.py
+  sha256: c0ce590583d95277db0774d817b22d28d18c6454e3b2e03c049d78cc19be9bf1
+captured_via_relaxed_allowlist: true

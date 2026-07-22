@@ -1,0 +1,30 @@
+origin_url: https://github.com/vllm-project/vllm/pull/33174
+upstream_repo: vllm-project/vllm
+upstream_sha: f0bca83e
+license: inherits-from-upstream
+retrieved_at: '2026-07-21'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-33174
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: ce001e4cae4eae8cb872121a2429ecee63404f415ae2b003882de74521a8acf7
+- local_path: key-files/vllm/model_executor/layers/fused_moe/flashinfer_trtllm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/flashinfer_trtllm_moe.py
+  sha256: 4db768315b3b0a1329f3a874aa3b415746b2abf0b53e9c0dc3e7cd15210bfb9c
+- local_path: key-files/vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/quantization/utils/flashinfer_utils.py
+  sha256: 797b3bc74bf0097047c203e457f57c4a11a78d5023cc36aa1d35381dfc402517
+- local_path: key-files/vllm/model_executor/models/deepseek_v2.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/models/deepseek_v2.py
+  sha256: fdeb28db6085906538cc3c795353515913cadee094d69eff5edf7c747991eba4
+captured_via_relaxed_allowlist: true

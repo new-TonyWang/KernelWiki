@@ -1,0 +1,35 @@
+origin_url: https://github.com/vllm-project/vllm/pull/43599
+upstream_repo: vllm-project/vllm
+upstream_sha: 381edde1
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-43599
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 2c37252e00c62490a740ff71208282966674ae604423b03d18325fcd2c82396c
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/trtllm_bf16_moe.py
+  sha256: 76532d3b1a095238de79e355a44bc964c31efe22adafd0b20aa2390f2eedfa56
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/trtllm_fp8_moe.py
+  sha256: de576c004e678369e5be31d22253fbfa5089c2cec30e5167ee1976969c537595
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/trtllm_mxfp4_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/trtllm_mxfp4_moe.py
+  sha256: 326058c2444e9be2cf2cb0e5c4d51ed648f964177be8ef406d75b36486d93b03
+- local_path: key-files/vllm/model_executor/layers/fused_moe/experts/trtllm_nvfp4_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/experts/trtllm_nvfp4_moe.py
+  sha256: 1a1b61cef66bc6299a4439a3cd928d505406b4d5a2a5a7df288fbf9ea0d95f9a
+captured_via_relaxed_allowlist: true

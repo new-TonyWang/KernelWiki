@@ -1,0 +1,34 @@
+origin_url: https://github.com/vllm-project/vllm/pull/23671
+upstream_repo: vllm-project/vllm
+upstream_sha: 16a45b3a
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-23671
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 06c8472498579979715a7f9246d5a833ad083478fc47fb3b0b56885ebf7653a6
+- local_path: key-files/csrc/dispatch_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/dispatch_utils.h
+  sha256: f7877585bc7b88d6b18bc05ff600f78ce7731b4b8587ed1511dfa919c7bb102d
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: 47953d05b76453ac03ff538888f9e6c856bd0db23f07a3b361b434ba2f4835a1
+- local_path: key-files/csrc/quantization/fp4/activation_nvfp4_quant_fusion_kernels.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/fp4/activation_nvfp4_quant_fusion_kernels.cu
+  sha256: b3d3463005aad97d952284ab1215cee1e63682822dca66dd28b08167a2cb664b
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: 7db3b49ede42388fc774974847ce5d2b33b700c9b23d54e6f368f59e30b48059

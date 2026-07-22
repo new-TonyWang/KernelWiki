@@ -1,0 +1,72 @@
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+index ac6494ae9e58..23fe30704477 100644
+--- a/docker/Dockerfile
++++ b/docker/Dockerfile
+@@ -586,7 +586,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
+ # This is ~1.1GB and only changes when FlashInfer version bumps
+ # https://docs.flashinfer.ai/installation.html
+ # From versions.json: .flashinfer.version
+-ARG FLASHINFER_VERSION=0.6.4
++ARG FLASHINFER_VERSION=0.6.6
+ RUN --mount=type=cache,target=/root/.cache/uv \
+     uv pip install --system flashinfer-cubin==${FLASHINFER_VERSION} \
+     && uv pip install --system flashinfer-jit-cache==${FLASHINFER_VERSION} \
+diff --git a/docker/Dockerfile.nightly_torch b/docker/Dockerfile.nightly_torch
+index 6f6f147c4382..5c424980ee2d 100644
+--- a/docker/Dockerfile.nightly_torch
++++ b/docker/Dockerfile.nightly_torch
+@@ -217,13 +217,13 @@ RUN pip install setuptools==75.6.0 packaging==23.2 ninja==1.11.1.3 build==1.2.2.
+ 
+ 
+ # build flashinfer for torch nightly from source around 10 mins
+-# release version: v0.6.4
++# release version: v0.6.6
+ # todo(elainewy): cache flashinfer build result for faster build
+ ENV CCACHE_DIR=/root/.cache/ccache
+ RUN --mount=type=cache,target=/root/.cache/ccache \
+     --mount=type=cache,target=/root/.cache/uv \
+     echo "git clone flashinfer..." \
+-    && git clone --depth 1 --branch v0.6.4 --recursive https://github.com/flashinfer-ai/flashinfer.git \
++    && git clone --depth 1 --branch v0.6.6 --recursive https://github.com/flashinfer-ai/flashinfer.git \
+     && cd flashinfer \
+     && git submodule update --init --recursive \
+     && echo "finish git clone flashinfer..." \
+diff --git a/docker/versions.json b/docker/versions.json
+index fa090c10c443..d7c2a06baa5c 100644
+--- a/docker/versions.json
++++ b/docker/versions.json
+@@ -65,7 +65,7 @@
+       "default": "true"
+     },
+     "FLASHINFER_VERSION": {
+-      "default": "0.6.4"
++      "default": "0.6.6"
+     },
+     "GDRCOPY_CUDA_VERSION": {
+       "default": "12.8"
+diff --git a/requirements/cuda.txt b/requirements/cuda.txt
+index d5cef831a1f1..44b7c38093d2 100644
+--- a/requirements/cuda.txt
++++ b/requirements/cuda.txt
+@@ -9,7 +9,7 @@ torchaudio==2.10.0
+ # These must be updated alongside torch
+ torchvision==0.25.0 # Required for phi3v processor. See https://github.com/pytorch/vision?tab=readme-ov-file#installation for corresponding version
+ # FlashInfer should be updated together with the Dockerfile
+-flashinfer-python==0.6.4
++flashinfer-python==0.6.6
+ # Cap nvidia-cudnn-frontend (transitive dep of flashinfer) due to
+ # breaking changes in 1.19.0
+ nvidia-cudnn-frontend>=1.13.0,<1.19.0
+diff --git a/tools/pre_commit/update-dockerfile-graph.sh b/tools/pre_commit/update-dockerfile-graph.sh
+index 88189e8ab208..dc2b26301488 100755
+--- a/tools/pre_commit/update-dockerfile-graph.sh
++++ b/tools/pre_commit/update-dockerfile-graph.sh
+@@ -41,7 +41,7 @@ if printf '%s\n' "${FILES[@]}" | grep -q "^docker/Dockerfile$"; then
+     --rm \
+     --user "$(id -u):$(id -g)" \
+     --workdir /workspace \
+-    --volume "$(pwd)":/workspace \
++    --volume "$(pwd -P)":/workspace \
+     ghcr.io/patrickhoefler/dockerfilegraph:alpine \
+     --output png \
+     --dpi 200 \

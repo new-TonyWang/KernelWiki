@@ -1,0 +1,39 @@
+origin_url: https://github.com/vllm-project/vllm/pull/37463
+upstream_repo: vllm-project/vllm
+upstream_sha: a8bffaa1
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-37463
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: acc4af661373f618741e6db7dd3cbb7c18acf8935593aabe67deafb982df2c78
+- local_path: key-files/csrc/libtorch_stable/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/ops.h
+  sha256: 83b65f483869b3a03a3355d46d914429ba2722e1f5a1d862b38e712ddca57e13
+- local_path: key-files/csrc/libtorch_stable/quantization/fp4/mxfp4_blockwise_moe_kernel.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/fp4/mxfp4_blockwise_moe_kernel.cu
+  sha256: 309ef8904b43f3ebccef55a0cc7b77c43ecd3aa4d85da55010393726c7c095ec
+- local_path: key-files/csrc/libtorch_stable/quantization/fp4/mxfp4_experts_quant.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/quantization/fp4/mxfp4_experts_quant.cu
+  sha256: b48051db76df314a9ae452d9bb34e19274affe7a1b11d755a1fccf843d53d227
+- local_path: key-files/csrc/libtorch_stable/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/libtorch_stable/torch_bindings.cpp
+  sha256: 8cd4715616bbb2184fcaf9648cc7026b779acbc42e5d829aad4b27c2767818ab
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 98a6a1b3017cef6fe842c7cc8d58ca8c4761fbe6fad3fc252ce6438a5f2738e0

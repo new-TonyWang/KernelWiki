@@ -1,0 +1,64 @@
+origin_url: https://github.com/vllm-project/vllm/pull/18762
+upstream_repo: vllm-project/vllm
+upstream_sha: 84166fee
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-18762
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 6dcbb812a1c35076fa29457c3eea611f4719e4330885573261849a4721a83d99
+- local_path: key-files/csrc/ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/ops.h
+  sha256: 008470b630e31669d471212be10461c07f03465324f1373d83e7f0a5633383de
+- local_path: key-files/csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x.cu
+  sha256: bdc82406731cccf03b9789c5cfbcd4177dec4e5e1e54a43c490a4737e380d6e1
+- local_path: key-files/csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x.cuh
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/moe/grouped_mm_c3x.cuh
+  sha256: d05320a42a7337e9137c624a278c7c1cf6a941b55748e8590ee5934079c84d2a
+- local_path: key-files/csrc/quantization/cutlass_w8a8/moe/moe_data.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/moe/moe_data.cu
+  sha256: 809a09000bd5508c4a900db8ca69bd81925bb2108dd8140aba13cf76dde990ad
+- local_path: key-files/csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu
+  sha256: 35659a9997d3c55991fb148dcd579385d98bb656a6318dc581da1a151519c6fe
+- local_path: key-files/csrc/torch_bindings.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/torch_bindings.cpp
+  sha256: a5b6ad4c6fb1a48fbf8b2b659e6bf359ee4fd04eee55c6beba72a804473554b8
+- local_path: key-files/vllm/_custom_ops.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/_custom_ops.py
+  sha256: 67665c3f41a7f96cdc1e1854b7c5b34155a3de92050aa8b4eed98c0c87236665
+- local_path: key-files/vllm/model_executor/layers/fused_moe/batched_triton_or_deep_gemm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/batched_triton_or_deep_gemm_moe.py
+  sha256: fae064d8a1066bacdfd715eeccacb32dd6ac87adf4084ee72e882a6419401eb4
+- local_path: key-files/vllm/model_executor/layers/fused_moe/modular_kernel.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/modular_kernel.py
+  sha256: 970d26a736c4318b22a749198ade844408aca417442ed51f9a8368d65666f8e2
+- local_path: key-files/vllm/model_executor/layers/fused_moe/triton_deep_gemm_moe.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/fused_moe/triton_deep_gemm_moe.py
+  sha256: e237f0e12fe207c92800691db58c5e6fc77bdb40c8ec74c3cbbb6a971eb87147

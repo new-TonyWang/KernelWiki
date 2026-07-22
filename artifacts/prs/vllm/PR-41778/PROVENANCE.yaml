@@ -1,0 +1,44 @@
+origin_url: https://github.com/vllm-project/vllm/pull/41778
+upstream_repo: vllm-project/vllm
+upstream_sha: 0d2732dd
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-vllm-41778
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 827a47236c95af4c8588c80c5dc5d9b530600f884f9d5937d46214007efc9522
+- local_path: key-files/vllm/model_executor/layers/attention/mla_attention.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/model_executor/layers/attention/mla_attention.py
+  sha256: adfcd62473c28ba76c4b13528cb79eb3fd0f3a72bc3efb8909149e6a2aa30c8d
+- local_path: key-files/vllm/v1/attention/backends/mla/prefill/registry.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/prefill/registry.py
+  sha256: 29fe985600f28ac1bab3e19e2830834bf73373c80ecc055e21018fc305d1929c
+- local_path: key-files/vllm/v1/attention/backends/mla/prefill/selector.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/prefill/selector.py
+  sha256: 62ff171d459485c32bc4cccc3574a41f2d4829c234e28adf7458f7782e36866a
+- local_path: key-files/vllm/v1/attention/backends/mla/prefill/tokenspeed_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/prefill/tokenspeed_mla.py
+  sha256: fa48eda42b2b9aab8cb8a9395de90246634a18764190e60d261902b5dac6a09b
+- local_path: key-files/vllm/v1/attention/backends/mla/tokenspeed_mla.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/mla/tokenspeed_mla.py
+  sha256: 48e2918380c05e410f9024a78fcb44027c607f0cd0d0b2e460eb65c021073e39
+- local_path: key-files/vllm/v1/attention/backends/registry.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: vllm/v1/attention/backends/registry.py
+  sha256: 7fb25011963b6de204f2343b9230287cc195acc8284dbc2eb026fda0dcd26a79

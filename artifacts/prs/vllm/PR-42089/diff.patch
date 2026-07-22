@@ -1,0 +1,296 @@
+diff --git a/tests/kernels/moe/test_trtllm_nvfp4_moe.py b/tests/kernels/moe/test_trtllm_nvfp4_moe.py
+index 84fa7247e907..e59519740516 100644
+--- a/tests/kernels/moe/test_trtllm_nvfp4_moe.py
++++ b/tests/kernels/moe/test_trtllm_nvfp4_moe.py
+@@ -111,7 +111,7 @@ def test_trtllm_fp4_moe_no_graph(
+             # The TRT-LLM FP4 MoE kernel rejects swizzled (padded) activation
+             # scales — its numel-based vec_size check requires numel == M*K/16.
+             # Match what oracle/nvfp4.py does for this backend.
+-            is_nvfp4_scale_swizzled=False,
++            is_scale_swizzled=False,
+         )
+ 
+         score = torch.randn((m, e), device="cuda", dtype=dtype)
+diff --git a/tests/kernels/moe/utils.py b/tests/kernels/moe/utils.py
+index a1594634f457..a5d6afc489f5 100644
+--- a/tests/kernels/moe/utils.py
++++ b/tests/kernels/moe/utils.py
+@@ -402,7 +402,7 @@ def make_test_quant_config(
+     per_act_token_quant: bool = False,
+     block_shape: list[int] | None = None,
+     make_gate: bool = True,
+-    is_nvfp4_scale_swizzled: bool = True,
++    is_scale_swizzled: bool = True,
+ ) -> tuple[torch.Tensor, torch.Tensor, FusedMoEQuantConfig]:
+     (_, w1, w1_s, w1_gs), (_, w2, w2_s, w2_gs) = make_test_weights(
+         e,
+@@ -443,7 +443,7 @@ def make_test_quant_config(
+             # TODO: make sure this is handled properly
+             g1_alphas=(1 / w1_gs) if w1_gs is not None else None,
+             g2_alphas=(1 / w2_gs) if w2_gs is not None else None,
+-            is_nvfp4_scale_swizzled=is_nvfp4_scale_swizzled,
++            is_scale_swizzled=is_scale_swizzled,
+         ),
+     )
+ 
+diff --git a/vllm/model_executor/layers/fused_moe/config.py b/vllm/model_executor/layers/fused_moe/config.py
+index 8ffa5cffb551..d5435261327f 100644
+--- a/vllm/model_executor/layers/fused_moe/config.py
++++ b/vllm/model_executor/layers/fused_moe/config.py
+@@ -245,7 +245,7 @@ class FusedMoEQuantConfig:
+     _a2: FusedMoEQuantDesc
+     _w1: FusedMoEQuantDesc
+     _w2: FusedMoEQuantDesc
+-    is_nvfp4_scale_swizzled: bool = True
++    is_scale_swizzled: bool = True
+ 
+     # MXFP4-specific TRTLLM parameters for SwiGLU activation clamping.
+     # These correspond to gemm1_alpha, gemm1_beta, gemm1_clamp_limit
+@@ -502,7 +502,7 @@ def make(
+         w1_zp: torch.Tensor | None = None,
+         w2_zp: torch.Tensor | None = None,
+         weight_dtype: torch.dtype | str | None = None,
+-        is_nvfp4_scale_swizzled: bool = True,
++        is_scale_swizzled: bool = True,
+         gemm1_alpha: float | None = None,
+         gemm1_beta: float | None = None,
+         gemm1_clamp_limit: float | None = None,
+@@ -535,7 +535,9 @@ def make(
+         - w2_bias: Optional biases for w1 (GPT OSS Triton).
+         - w1_zp: Optional w1 zero points for int4/int8 quantization.
+         - w2_zp: Optional w2 zero points for int4/int8 quantization.
+-        - is_nvfp4_scale_swizzled: Whether to swizzle the nvfp4 scale swizzling.
++        - is_scale_swizzled: Whether the activation scale-factor layout is
++          swizzled. Pass through to the underlying quantization kernel for
++          dtypes that distinguish layouts (nvfp4, mxfp8). Defaults to True.
+         - gemm1_alpha: Optional MXFP4 TRTLLM SwiGLU alpha parameter.
+         - gemm1_beta: Optional MXFP4 TRTLLM SwiGLU beta parameter.
+         - gemm1_clamp_limit: Optional MXFP4 TRTLLM SwiGLU clamp limit.
+@@ -571,7 +573,7 @@ def make(
+             _w2=FusedMoEQuantDesc(
+                 weight_dtype, w_shape, w2_scale, g2_alphas, w2_zp, w2_bias
+             ),
+-            is_nvfp4_scale_swizzled=is_nvfp4_scale_swizzled,
++            is_scale_swizzled=is_scale_swizzled,
+             gemm1_alpha=gemm1_alpha,
+             gemm1_beta=gemm1_beta,
+             gemm1_clamp_limit=gemm1_clamp_limit,
+@@ -715,6 +717,7 @@ def mxfp4_mxfp8_moe_quant_config(
+     gemm1_beta: float | None = None,
+     gemm1_clamp_limit: float | None = None,
+     mx_alignment: int = 0,
++    is_scale_swizzled: bool = True,
+ ) -> FusedMoEQuantConfig:
+     """
+     Construct a quant config for mxfp4 activations and mxfp4 weights.
+@@ -728,6 +731,7 @@ def mxfp4_mxfp8_moe_quant_config(
+         gemm1_beta=gemm1_beta,
+         gemm1_clamp_limit=gemm1_clamp_limit,
+         mx_alignment=mx_alignment,
++        is_scale_swizzled=is_scale_swizzled,
+     )
+ 
+ 
+@@ -796,7 +800,7 @@ def nvfp4_moe_quant_config(
+     w2_scale: torch.Tensor,
+     w1_bias: torch.Tensor | None = None,
+     w2_bias: torch.Tensor | None = None,
+-    is_nvfp4_scale_swizzled: bool = True,
++    is_scale_swizzled: bool = True,
+ ) -> FusedMoEQuantConfig:
+     """
+     Construct a quant config for mxfp4 activations and nvp4 weights.
+@@ -814,7 +818,7 @@ def nvfp4_moe_quant_config(
+         per_act_token_quant=False,
+         per_out_ch_quant=False,
+         block_shape=None,
+-        is_nvfp4_scale_swizzled=is_nvfp4_scale_swizzled,
++        is_scale_swizzled=is_scale_swizzled,
+     )
+ 
+ 
+diff --git a/vllm/model_executor/layers/fused_moe/oracle/fp8.py b/vllm/model_executor/layers/fused_moe/oracle/fp8.py
+index 7ce0c58b7112..b65f8efa4a70 100644
+--- a/vllm/model_executor/layers/fused_moe/oracle/fp8.py
++++ b/vllm/model_executor/layers/fused_moe/oracle/fp8.py
+@@ -569,7 +569,7 @@ def make_fp8_moe_quant_config(
+             a1_scale=a1_scale,
+             a2_scale=a2_scale,
+             block_shape=block_shape,
+-            is_nvfp4_scale_swizzled=False,
++            is_scale_swizzled=False,
+         )
+ 
+     # All other backends use normal config.
+diff --git a/vllm/model_executor/layers/fused_moe/oracle/mxfp4.py b/vllm/model_executor/layers/fused_moe/oracle/mxfp4.py
+index 7c596d52a653..1cc94a347c42 100644
+--- a/vllm/model_executor/layers/fused_moe/oracle/mxfp4.py
++++ b/vllm/model_executor/layers/fused_moe/oracle/mxfp4.py
+@@ -1421,6 +1421,7 @@ def make_mxfp4_moe_quant_config(
+             gemm1_clamp_limit=swiglu_limit,
+         )
+     elif mxfp4_backend == Mxfp4MoeBackend.FLASHINFER_TRTLLM_MXFP4_MXFP8:
++        # TRTLLM kernel expects non-swizzled mxfp8 activation scales.
+         return mxfp4_mxfp8_moe_quant_config(
+             w1_bias=w1_bias,
+             w2_bias=w2_bias,
+@@ -1430,8 +1431,10 @@ def make_mxfp4_moe_quant_config(
+             gemm1_beta=gemm1_beta,
+             gemm1_clamp_limit=swiglu_limit,
+             mx_alignment=256,
++            is_scale_swizzled=False,
+         )
+     elif mxfp4_backend == Mxfp4MoeBackend.FLASHINFER_CUTLASS_MXFP4_MXFP8:
++        # CUTLASS kernel expects swizzled mxfp8 activation scales.
+         return mxfp4_mxfp8_moe_quant_config(
+             w1_bias=w1_bias,
+             w2_bias=w2_bias,
+@@ -1440,6 +1443,7 @@ def make_mxfp4_moe_quant_config(
+             gemm1_alpha=gemm1_alpha,
+             gemm1_beta=gemm1_beta,
+             gemm1_clamp_limit=swiglu_limit,
++            is_scale_swizzled=True,
+         )
+     elif mxfp4_backend == Mxfp4MoeBackend.AITER_MXFP4_FP8:
+         # W4A8: MXFP4 weights + static FP8 activations
+diff --git a/vllm/model_executor/layers/fused_moe/oracle/nvfp4.py b/vllm/model_executor/layers/fused_moe/oracle/nvfp4.py
+index f4796243e013..12c543b419fb 100644
+--- a/vllm/model_executor/layers/fused_moe/oracle/nvfp4.py
++++ b/vllm/model_executor/layers/fused_moe/oracle/nvfp4.py
+@@ -461,7 +461,7 @@ def make_nvfp4_moe_quant_config(
+         # NOTE(rob): this is a hack until the MoE kernels
+         # create their own quant configs. TRTLLM kernel
+         # does not accept swizzled input quant scales.
+-        is_nvfp4_scale_swizzled=(
++        is_scale_swizzled=(
+             backend
+             not in (
+                 NvFp4MoeBackend.FLASHINFER_TRTLLM,
+diff --git a/vllm/model_executor/layers/fused_moe/prepare_finalize/deepep_ht.py b/vllm/model_executor/layers/fused_moe/prepare_finalize/deepep_ht.py
+index 61777fd99031..9ca94521363e 100644
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/deepep_ht.py
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/deepep_ht.py
+@@ -241,7 +241,7 @@ def _receiver(
+                     quant_dtype=quant_config.quant_dtype,
+                     per_act_token_quant=False,
+                     block_shape=quant_config.block_shape,
+-                    is_fp4_scale_swizzled=quant_config.is_nvfp4_scale_swizzled,
++                    is_scale_swizzled=quant_config.is_scale_swizzled,
+                 )
+ 
+         return (
+diff --git a/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_one_sided.py b/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_one_sided.py
+index 6cc0d01cde6b..254153a27c48 100644
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_one_sided.py
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_one_sided.py
+@@ -106,7 +106,7 @@ def prepare(
+                 quant_config.quant_dtype,
+                 quant_config.per_act_token_quant,
+                 quant_config.block_shape,
+-                is_fp4_scale_swizzled=False,  # delay swizzle to after comm
++                is_scale_swizzled=False,  # delay swizzle to after comm
+                 mx_alignment=quant_config.mx_alignment,
+             )
+ 
+@@ -129,10 +129,7 @@ def prepare(
+         if a1q_scale is not None:
+             a1q_recv, a1q_scale_recv, topk_ids_recv, topk_weights_recv = recv_payloads
+             # Apply scale interleaving only for CUTLASS (not TRT-LLM)
+-            if (
+-                quant_config.quant_dtype == "nvfp4"
+-                and quant_config.is_nvfp4_scale_swizzled
+-            ):
++            if quant_config.quant_dtype == "nvfp4" and quant_config.is_scale_swizzled:
+                 a1q_scale_recv = a1q_scale_recv.view(-1, a1q_scale_recv.shape[-1])
+                 a1q_scale_recv = a1q_scale_recv.view(torch.uint8)
+                 a1q_scale_recv = nvfp4_block_scale_interleave(a1q_scale_recv)
+diff --git a/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_two_sided.py b/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_two_sided.py
+index 78be414759f7..b975e6cc5e15 100644
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_two_sided.py
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/flashinfer_nvlink_two_sided.py
+@@ -173,7 +173,7 @@ def flashinfer_alltoall_dispatch(
+             # which makes the scales tensor different shape than
+             # the hidden states, breaking the A2A kernel. So, we
+             # delay the swizzling until after the A2A.
+-            is_fp4_scale_swizzled=False,
++            is_scale_swizzled=False,
+             mx_alignment=quant_config.mx_alignment,
+         )
+ 
+@@ -194,7 +194,7 @@ def flashinfer_alltoall_dispatch(
+         )
+ 
+         # Swizzle after the A2A if MoE kernel expects swizzled scales.
+-        if quant_config.quant_dtype == "nvfp4" and quant_config.is_nvfp4_scale_swizzled:
++        if quant_config.quant_dtype == "nvfp4" and quant_config.is_scale_swizzled:
+             if x_sf.element_size() == 1:
+                 x_sf = x_sf.view(torch.uint8)
+             x_sf = nvfp4_block_scale_interleave(x_sf)
+diff --git a/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py b/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+index 5b3325ad0195..54d77101a3fc 100644
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/naive_dp_ep.py
+@@ -39,7 +39,7 @@ def _quantize_and_setup_dispatch(
+             quant_dtype=quant_config.quant_dtype,
+             per_act_token_quant=quant_config.per_act_token_quant,
+             block_shape=quant_config.block_shape,
+-            is_fp4_scale_swizzled=False,
++            is_scale_swizzled=False,
+             mx_alignment=quant_config.mx_alignment,
+         )
+ 
+@@ -59,7 +59,7 @@ def _unwrap_scale_and_prepare_for_moe(
+     assert scales is not None and len(scales) == 1
+     a1q_scale = scales[0]
+     # Apply swizzling after a2a if the MoE kernel needs it.
+-    if quant_config.quant_dtype == "nvfp4" and quant_config.is_nvfp4_scale_swizzled:
++    if quant_config.quant_dtype == "nvfp4" and quant_config.is_scale_swizzled:
+         assert a1q_scale is not None
+         if a1q_scale.element_size() == 1:
+             a1q_scale = a1q_scale.view(torch.uint8)
+diff --git a/vllm/model_executor/layers/fused_moe/prepare_finalize/no_dp_ep.py b/vllm/model_executor/layers/fused_moe/prepare_finalize/no_dp_ep.py
+index 31a35bd60218..82079127251c 100644
+--- a/vllm/model_executor/layers/fused_moe/prepare_finalize/no_dp_ep.py
++++ b/vllm/model_executor/layers/fused_moe/prepare_finalize/no_dp_ep.py
+@@ -30,7 +30,7 @@ def _quantize_input(
+         quant_dtype=quant_config.quant_dtype,
+         per_act_token_quant=quant_config.per_act_token_quant,
+         block_shape=quant_config.block_shape,
+-        is_fp4_scale_swizzled=quant_config.is_nvfp4_scale_swizzled,
++        is_scale_swizzled=quant_config.is_scale_swizzled,
+         mx_alignment=quant_config.mx_alignment,
+     )
+ 
+diff --git a/vllm/model_executor/layers/fused_moe/utils.py b/vllm/model_executor/layers/fused_moe/utils.py
+index 5cf57c4ffb08..b37d17bdac3a 100644
+--- a/vllm/model_executor/layers/fused_moe/utils.py
++++ b/vllm/model_executor/layers/fused_moe/utils.py
+@@ -256,7 +256,7 @@ def moe_kernel_quantize_input(
+     quant_dtype: None | torch.dtype | str,
+     per_act_token_quant: bool,
+     block_shape: list[int] | None = None,
+-    is_fp4_scale_swizzled: bool = True,
++    is_scale_swizzled: bool = True,
+     ocp_mx_scheme: str | None = None,
+     quantization_emulation: bool = False,
+     mx_alignment: int = 0,
+@@ -296,9 +296,7 @@ def moe_kernel_quantize_input(
+         return _int8_quantize(A, A_scale, per_act_token_quant, block_shape)
+     elif quant_dtype == "nvfp4":
+         if not quantization_emulation:
+-            return _nvfp4_quantize(
+-                A, A_scale, is_sf_swizzled_layout=is_fp4_scale_swizzled
+-            )
++            return _nvfp4_quantize(A, A_scale, is_sf_swizzled_layout=is_scale_swizzled)
+         else:
+             A = ref_nvfp4_quant_dequant(A, A_scale, block_size=16)
+             return A, None
+@@ -322,7 +320,7 @@ def moe_kernel_quantize_input(
+             A_scale,
+             per_act_token_quant,
+             block_shape,
+-            is_sf_swizzled_layout=False,
++            is_sf_swizzled_layout=is_scale_swizzled,
+             mx_alignment=mx_alignment,
+         )
+     elif quant_dtype == "mxfp6_e3m2":
