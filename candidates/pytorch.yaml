@@ -1,5 +1,5 @@
 repo: pytorch/pytorch
-searched_at: '2026-06-10'
+searched_at: '2026-07-22'
 keywords_used:
 - blackwell
 - sm100
@@ -32,10 +32,10 @@ keywords_used:
 - mbarrier
 - tensor_memory_accelerator
 - warp_specialization
-total_candidates: 231
+total_candidates: 251
 included: 89
 excluded: 29
-deferred: 113
+deferred: 133
 prs:
 - number: 180470
   title: '[release 2.12] Apply Release only changes to 2.12 branch'
@@ -1420,6 +1420,126 @@ prs:
 - number: 158677
   title: Revert "[Dynamo] Allow inlining into AO quantization modules (#152934)"
   date: '2025-07-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188551
+  title: '[release/2.13] Bump binary build timeout 280 -> 400 minutes'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188443
+  title: '[release/2.13] Add CUDA 12.9 to TORCH_CUDA_ARCH_LIST tables'
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188594
+  title: '[release/2.13] Restrict cuda-bindings to Python < 3.15 for CUDA 12.9 builds'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188925
+  title: '[release/2.13] Strip +PTX from CUDA arch list on release/RC builds (#188914)'
+  date: '2026-07-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 187099
+  title: '[CD] Bump 13.0 builds to 13.0.3'
+  date: '2026-06-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188197
+  title: '[release/2.13] Revert "dynamo: round-trip torch.cuda.stream ctx mgr across graph breaks (#184487)"'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 187055
+  title: Full git fetch on tag pushes so release manywheel builds detect the tag
+  date: '2026-06-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 187058
+  title: Followup - Full git fetch on tag pushes so release manywheel builds detect the tag
+  date: '2026-06-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188162
+  title: Revive CUDA 12.9 nightly binary builds (#186015)
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 186959
+  title: '[release 2.13] Apply Release only changes to 2.13 branch'
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 187001
+  title: Fetch tags in unified manywheel build job so release tags are detected
+  date: '2026-06-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 187417
+  title: '[xpu][fix] Include kernel_compile_result.h in aoti xpu.h header'
+  date: '2026-06-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 187684
+  title: '[SDPA] Fix 32-bit offset overflow in mem-efficient attention forward with attn_bias'
+  date: '2026-06-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188117
+  title: Add CUDAGraph cloning for live user outputs
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188277
+  title: '[release/2.13] Revert "Tighten generalized scatter graph target (#184075)"'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 187666
+  title: Revert "Preserve FX graph cache guard provenance (#184193)"
+  date: '2026-06-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188160
+  title: '[MPS] Migrate argmin/argmax from MPSGraph to Metal'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 188161
+  title: Demote changing CUDAGraph-managed inputs to copied inputs
+  date: '2026-07-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 187347
+  title: '[release/2.13] Revert "Skip cudagraphs for kernel-free inductor graphs (#185760)"'
+  date: '2026-06-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 187342
+  title: '[Dependabot] Update(deps): Bump transformers from 5.10.1 to 5.12.0 in /.ci/docker/ci_commit_pins'
+  date: '2026-06-15'
   decision: defer
   reason: from refresh search; needs-triage
   files_changed: []

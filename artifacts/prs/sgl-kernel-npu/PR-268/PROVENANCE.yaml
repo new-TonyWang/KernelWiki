@@ -1,0 +1,84 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/268
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: d1d176d7
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-268
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 25ec5b3511bbd1c5c9cf514d7bb2227661444dfcfd466e7574de737099d33905
+- local_path: key-files/csrc/catlass/op_host/catlass_gmm_fp8.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/op_host/catlass_gmm_fp8.cpp
+  sha256: f24ea0123f6d82cb751e71346f3ea1c85f00897e4898f76e9dba44e3ca3fe107
+- local_path: key-files/csrc/catlass/op_host/catlass_matmul_fp8.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/op_host/catlass_matmul_fp8.cpp
+  sha256: 63038511671458946ae697bf90c81194c32ea7baaec84396e864d25afbaf7af4
+- local_path: key-files/csrc/catlass/op_host/catlass_op_utils.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/op_host/catlass_op_utils.cpp
+  sha256: d2c3453c6c0f861468fcce758b8d5aacc07b449b70d71f4994a0c6d29add11a9
+- local_path: key-files/csrc/catlass/op_host/catlass_op_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/op_host/catlass_op_utils.h
+  sha256: 3da399406b259592fda38564f101d763546befcda7935718582a374381d955c2
+- local_path: key-files/csrc/catlass/op_kernel/catlass_gmm_fp8_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/op_kernel/catlass_gmm_fp8_kernel.cpp
+  sha256: bd0829b19cabf53a2d8937da93042df78f8f44fbd1ccc3785ed1b4623c229aef
+- local_path: key-files/csrc/catlass/op_kernel/catlass_matmul_fp8_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/op_kernel/catlass_matmul_fp8_kernel.cpp
+  sha256: 217a0957ee077f30de27751681c44da23e3ea8a7a3e499b07c7bee98fb7eb71f
+- local_path: key-files/csrc/catlass/utils/gemm/block/block_mmad_pingpong_with_prologue_fp8_w8a16.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/utils/gemm/block/block_mmad_pingpong_with_prologue_fp8_w8a16.hpp
+  sha256: d0f3a879fd9bd3f079eefc8d5cde135ad0368950ba4f3e38fbaf65b2f0e34cbd
+- local_path: key-files/csrc/catlass/utils/gemm/dispatch_policy_ext.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/utils/gemm/dispatch_policy_ext.hpp
+  sha256: 5d7a258de2ee5180de57b63425bacb409d965ae7705950c081acd1b6ec66366f
+- local_path: key-files/csrc/catlass/utils/gemm/kernel/gmm_wfp8a16.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/utils/gemm/kernel/gmm_wfp8a16.hpp
+  sha256: b930b483d8d7b5931c401f134fc38168714442cf0cb86aac890c7796df0c53cc
+- local_path: key-files/csrc/catlass/utils/gemm/kernel/mm_wfp8a16.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/utils/gemm/kernel/mm_wfp8a16.hpp
+  sha256: 6ec6f2b0c547775cb6f047e25fee5f96e0cd56afb386d151de551f23f63cb1c0
+- local_path: key-files/csrc/catlass/utils/gemm/tile/cast_fp8_to_bf16_with_scale.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/utils/gemm/tile/cast_fp8_to_bf16_with_scale.hpp
+  sha256: 01c6b45eefc3e11746ef8f91b2a31ea40b4210bcfb749c4d1aa399110d18a43c
+- local_path: key-files/csrc/catlass/utils/gemm/tile/tile_traits_with_scale.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/utils/gemm/tile/tile_traits_with_scale.hpp
+  sha256: a9d7f945174ab66d701109dd4085584bb7ade69b980f1352f1fb9cdfb596a0b7
+- local_path: key-files/csrc/pytorch_extensions.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extensions.cpp
+  sha256: 707ed3ce80817a0bce73313056cd3f215ddfac8a4d209fb04dd9b982b3998922
+- local_path: key-files/include/sgl_kenel_npu_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/sgl_kenel_npu_ops.h
+  sha256: 64f596aa59b11b4a9e00f27c4d5ab12b29fa5d1c22a8021f42587e164f98e89b

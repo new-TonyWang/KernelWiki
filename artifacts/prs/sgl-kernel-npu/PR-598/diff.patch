@@ -1,0 +1,68 @@
+diff --git a/csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp b/csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
+index 7531c551b..6a539973e 100644
+--- a/csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
++++ b/csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
+@@ -102,7 +102,7 @@ constexpr uint32_t STATIC_QUANT_MODE = 1;
+ constexpr uint32_t DYNAMIC_QUANT_MODE = 2;
+ constexpr uint32_t RANK_NUM_PER_NODE_A2 = 8;
+ constexpr uint32_t BLOCK_SIZE_A2 = 32;
+-constexpr uint32_t MAX_K_VALUE_A2 = 10;
++constexpr uint32_t MAX_K_VALUE_A2 = 16;
+ constexpr uint32_t MIN_K_VALUE_A2 = 2;
+ constexpr int32_t MAX_HIDDEN_SIZE_A2 = 7168;
+ constexpr int32_t MAX_EP_WORLD_SIZE_A2 = 256;
+@@ -124,7 +124,7 @@ constexpr uint32_t TP_TILING_KEY = 100;
+ constexpr uint32_t VERSION_2 = 2;
+ constexpr uint32_t HCOMMCNT_2 = 2;
+ constexpr int64_t MOE_EXPERT_MAX_NUM = 512;
+-constexpr int64_t K_MAX = 10;
++constexpr int64_t K_MAX = 16;
+ constexpr uint32_t SYSTEM_NEED_WORKSPACE = 16 * 1024 * 1024;
+ constexpr uint32_t USER_WORKSPACE_A2 = 1 * 1024 * 1024;  // moeExpertNum_ * sizeof(uint32_t) + epWorldSize_ * 2 * 32
+ constexpr int32_t HCCL_BUFFER_SIZE_DEFAULT = 200 * 1024 * 1024;  // Bytes
+diff --git a/python/deep_ep/README.md b/python/deep_ep/README.md
+index b6f08c686..3b6afb64b 100644
+--- a/python/deep_ep/README.md
++++ b/python/deep_ep/README.md
+@@ -93,18 +93,6 @@ DeepEP-Ascend employs a **strategy-based architecture** where communication impl
+ | **EventOverlap** | `utils.py` | Event synchronization utility for async operations. |
+ | **FuseMode** | `buffer.py` | Enum for fused MoE computation modes. |
+ 
+-### Strategy Selection
+-
+-Strategies are configured via environment variables at Buffer initialization:
+-
+-| Environment Variable | Value | Normal Strategy | Low-Latency Strategy |
+-|---------------------|-------|-----------------|---------------------|
+-| `DEEP_USE_MODE=default` | default | `DefaultNormalCommStrategy` (deep_ep_cpp custom ops) | `DefaultLowLatencyCommStrategy` (deep_ep_cpp custom ops) |
+-| `DEEP_USE_MODE=alltoall` | alltoall | `AlltoAllNormalCommStrategy` (torch.distributed alltoallv) | `AllToAllLowLatencyCommStrategy` (torch.distributed alltoall) |
+-| `DEEP_USE_MODE=default` | ops | `DefaultNormalCommStrategy` (deep_ep_cpp custom ops) | `OpsLowLatencyCommStrategy` (torch_npu ops) |
+-
+-> **Note**: Invalid env (e.g., `DEEP_USE_MODE=error`) will raise a `ValueError`.
+-
+ 
+ ## API Overview
+ 
+diff --git a/python/deep_ep/README_CN.md b/python/deep_ep/README_CN.md
+index e9994f02d..2cc259546 100644
+--- a/python/deep_ep/README_CN.md
++++ b/python/deep_ep/README_CN.md
+@@ -94,18 +94,6 @@ DeepEP-Ascend 采用**策略式架构**，通信实现被抽象为可互换的
+ | **EventOverlap** | `utils.py` | 异步操作的事件同步工具。 |
+ | **FuseMode** | `buffer.py` | 融合 MoE 计算模式的枚举。 |
+ 
+-### 策略选择
+-
+-策略在 Buffer 初始化时通过环境变量配置：
+-
+-| 环境变量组合 | Normal 策略 | Low-Latency 策略 |
+-|-------------|------------|-----------------|
+-| `DEEP_NORMAL_MODE=default` | `DefaultNormalCommStrategy`（deep_ep_cpp 自定义算子） | `DefaultLowLatencyCommStrategy`（deep_ep_cpp 自定义算子） |
+-| `DEEP_NORMAL_MODE=alltoall` | `AlltoAllNormalCommStrategy`（torch.distributed alltoallv） | `AllToAllLowLatencyCommStrategy`（torch.distributed alltoall） |
+-| `DEEP_NORMAL_MODE=default` | `DefaultNormalCommStrategy`（deep_ep_cpp 自定义算子） | `OpsLowLatencyCommStrategy`（torch_npu 算子） |
+-
+-> **注意**：无效配置（如 `DEEP_NORMAL_MODE=error`）会抛出 `ValueError`。
+-
+ 
+ ## API 总览
+ 

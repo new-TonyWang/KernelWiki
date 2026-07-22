@@ -1,5 +1,5 @@
 repo: deepseek-ai/DeepGEMM
-searched_at: '2026-06-10'
+searched_at: '2026-07-22'
 keywords_used:
 - blackwell
 - sm100
@@ -19,10 +19,10 @@ keywords_used:
 - tma
 - mbarrier
 - gemm
-total_candidates: 52
+total_candidates: 58
 included: 13
 excluded: 5
-deferred: 34
+deferred: 40
 prs:
 - number: 316
   title: Add various optimizations and Mega MoE benchmarks
@@ -333,6 +333,42 @@ prs:
 - number: 36
   title: fix setup build error when setuptools version is lower
   date: '2025-03-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 324
+  title: 'feat: add sm120 support for DeepGEMM '
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 384
+  title: 'Sync nv_dev with upstream #377'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 369
+  title: support indexer_n_heads = 16
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 377
+  title: Public release 26/07
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 364
+  title: Multiple updates and refactorings
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 343
+  title: Fix a race condition in contiguous k-grouped GEMM where in-flight tensormaps are updated in-place
+  date: '2026-07-06'
   decision: defer
   reason: from refresh search; needs-triage
   files_changed: []

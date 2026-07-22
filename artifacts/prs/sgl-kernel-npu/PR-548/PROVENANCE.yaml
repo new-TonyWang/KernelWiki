@@ -1,0 +1,65 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/548
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: 5677a5fb
+license: inherits-from-upstream
+retrieved_at: '2026-07-22'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-548
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 61f0524fcedc8b0c0257151748048c327b03b8761c32cfcbca84fe0b53d49538
+- local_path: key-files/csrc/deepep/deep_ep.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/deep_ep.cpp
+  sha256: 867395463d07d46dae234711425fbf38c073ebbc419e41fce80260f1225f04a8
+- local_path: key-files/csrc/deepep/ops/common.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/common.h
+  sha256: a444d16f9db19e061316d4608eb29b58aaa2fcb1083c6ee7aed53e043baa3ca0
+  upstream_sha: 9765e27532b8f854717eba1d3fb9a0bb97a0c887
+  captured_at_base_sha_note: 'PR #548 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+  sha256: 8380fc33aedbc50154aa72c5eac15e306c38c0a8311eba4d9fa8397ed62df0cd
+- local_path: key-files/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  sha256: bed508497598c2711e07173ebaea03d2d8230066e6122ff59b5eed7081c462e7
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
+  sha256: 07b8db543b153d94ccbdf50fbf3714b893302ecd59c69746400f11c29d63bff6
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_a5.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_a5.h
+  sha256: 501276f63bc3b7eb502009e5a2746e08e81f6facbd8e85fd429be34c08b34f99
+- local_path: key-files/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h
+  sha256: 52b56e1428a88163db59ba9bf9392bb4d558ec0e6ea22492f41710e128711105
+- local_path: key-files/csrc/deepep/ops/quantize_functions.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/quantize_functions.h
+  sha256: bc54204e361deb1a507a01c8a3677fa6fa1ffdf0858d9c392b4ab465ab3a4248
+  upstream_sha: 9765e27532b8f854717eba1d3fb9a0bb97a0c887
+  captured_at_base_sha_note: 'PR #548 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/pytorch_npu_helper.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/pytorch_npu_helper.hpp
+  sha256: a61b9ea34ff0b8c8a6045a05643b4d757886a166a1fe306affb262986f205315
