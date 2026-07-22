@@ -125,5 +125,12 @@ performance_claims:
 ## Scope Rules
 
 - **Kernel-only**: No distributed system topics (DeepEP, DualPipe, EPLB excluded).
+  The exclusion is about the topic, not the directory. A kernel does not fall
+  out of scope for living under `deepep/` — `csrc/deepep/ops/op_kernel/
+  fused_deep_moe.cpp` with its `op_host` tiling is operator code and belongs in
+  the KB, while `python/deep_ep/ep_strategy.py` is dispatch orchestration and
+  does not. Decide from the changed files: an `op_kernel`/`op_host`/tiling
+  (Ascend) or `.cu`/`.cuh`/PTX (NVIDIA) change is in scope regardless of which
+  subsystem owns the directory.
 - **English canonical**: All content in English.
 - **First-class DSLs**: CuTe DSL, CUDA C++, PTX, Triton. Others mentioned but no dedicated pages.

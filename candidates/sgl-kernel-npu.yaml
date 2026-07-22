@@ -23,8 +23,8 @@ keywords_used:
 - fp8
 - tiling
 total_candidates: 224
-included: 146
-excluded: 53
+included: 147
+excluded: 52
 deferred: 25
 prs:
 - number: 541
@@ -2739,8 +2739,9 @@ prs:
 - number: 566
   title: '[DeepEP] support MXFP4 quant'
   date: '2026-07-13'
-  decision: exclude
-  reason: DeepEP dispatch path; distributed, excluded by scope rules
+  decision: include
+  reason: 'AscendC operator: moe_distribute_dispatch_v2 tiling + op_kernel for MXFP4;
+    lives under deepep/ but is kernel code'
   files_changed: []
 - number: 557
   title: fused_rope_qk_mqa optimize & fix glm5 bf16 no bias
@@ -2758,13 +2759,14 @@ prs:
   title: add ll alltoall
   date: '2026-06-11'
   decision: exclude
-  reason: all-to-all collective; distributed, excluded by scope rules
+  reason: python deep_ep buffer/strategy only; no kernel or tiling code
   files_changed: []
 - number: 603
   title: '[feat] A5 deep fused moe supported '
   date: '2026-07-22'
   decision: include
-  reason: fused MoE operator support for A5
+  reason: 'AscendC operator: fused_deep_moe op_kernel + tiling for A5; under deepep/
+    but kernel code'
   files_changed: []
 - number: 572
   title: ' causal_conv1d: PTO-ISA rewrite — variable width, ~2.5× faster, correct
@@ -2795,7 +2797,8 @@ prs:
   title: FP8 A5 low latency dispatch - 支持per token FP8量化
   date: '2026-07-18'
   decision: include
-  reason: per-token FP8 quantization in low-latency dispatch
+  reason: 'AscendC operator: moe_low_latency_dispatch_v2 op_kernel + tiling for per-token
+    FP8; under deepep/ but kernel code'
   files_changed: []
 - number: 585
   title: fix solve tril
@@ -2849,7 +2852,8 @@ prs:
   title: '[DeepEP] Fix cleancode issues.'
   date: '2026-07-13'
   decision: exclude
-  reason: DeepEP cleanup; distributed, excluded by scope rules
+  reason: cleancode formatting across ops2 tiling sources; no functional operator
+    change
   files_changed: []
 - number: 595
   title: custom-ops adapted for A3 and 910B distinction
@@ -2875,7 +2879,7 @@ prs:
   title: add independent A2 multinode
   date: '2026-06-24'
   decision: exclude
-  reason: multi-node setup; distributed, excluded by scope rules
+  reason: changes only .github/workflows; CI configuration
   files_changed: []
 - number: 583
   title: fix cuntom-ops build Adapt
