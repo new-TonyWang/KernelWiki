@@ -1,0 +1,27 @@
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/fla/utils.py b/python/sgl_kernel_npu/sgl_kernel_npu/fla/utils.py
+index c88ec6ba8..f3028e233 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/fla/utils.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/fla/utils.py
+@@ -113,8 +113,20 @@ def wrapper(*args: Any, **kwargs: Any) -> Any:
+         for i, entry in enumerate(cache_entries):
+             last_args, last_kwargs, last_result = entry
+             if len(args) == len(last_args) and len(kwargs) == len(last_kwargs):
+-                if all(a is b for a, b in zip(args, last_args)) and all(
+-                    k in last_kwargs and v is last_kwargs[k] for k, v in kwargs.items()
++                if all(
++                    (
++                        (a is b)
++                        if isinstance(a, torch.Tensor)
++                        else (a == b and type(a) == type(b))
++                    )
++                    for a, b in zip(args, last_args)
++                ) and all(
++                    (
++                        k in last_kwargs and (v is last_kwargs[k])
++                        if isinstance(v, torch.Tensor)
++                        else (v == last_kwargs[k] and type(v) == type(last_kwargs[k]))
++                    )
++                    for k, v in kwargs.items()
+                 ):
+                     cache_entries = (
+                         cache_entries[:i]

@@ -1,0 +1,1001 @@
+diff --git a/csrc/deepep/deep_ep.cpp b/csrc/deepep/deep_ep.cpp
+index c8d0ce9f8..9f5b7d004 100644
+--- a/csrc/deepep/deep_ep.cpp
++++ b/csrc/deepep/deep_ep.cpp
+@@ -823,8 +823,15 @@ Buffer::low_latency_dispatch(const at::Tensor &x, const at::Tensor &topk_idx,
+     auto device = x.device();
+     auto packed_recv_x = at::empty({num_max_tokens, hidden}, x.options().dtype(use_fp8 ? at::kChar : at::kBFloat16));
+     auto packed_recv_x_scales = at::empty({num_max_tokens}, at::dtype(at::kFloat).device(device));
+-    auto expandIdx = at::empty({max_size}, at::dtype(at::kInt).device(device));
++#ifdef __DAV_C310__
++    if (use_fp8 && use_ue8m0) {
++        packed_recv_x = torch::empty({num_max_tokens, hidden}, at::dtype(at::kFloat8_e4m3fn).device(x.device()));
++        packed_recv_x_scales =
++            torch::empty({num_max_tokens * hidden / 32}, at::dtype(at::kFloat8_e8m0fnu).device(x.device()));
++    }
++#endif
+ 
++    auto expandIdx = at::empty({max_size}, at::dtype(at::kInt).device(device));
+     int32_t server_num = num_ranks / LOCAL_RANK_SIZE;
+     at::Tensor ep_recv_count =
+         at::empty({num_local_experts * num_ranks}, at::dtype(at::kInt).device(device));  // A2 non-layered / A3
+@@ -833,7 +840,7 @@ Buffer::low_latency_dispatch(const at::Tensor &x, const at::Tensor &topk_idx,
+     at::Tensor scales;
+     at::Tensor active_mask;
+     int enable_neg_one = get_value_from_env("MOE_ENABLE_TOPK_NEG_ONE", 0);
+-    int64_t quant_mode = use_fp8 ? 2 : 0;
++    int64_t quant_mode = use_fp8 ? (use_ue8m0 ? 3 : 2) : 0;
+     int64_t tp_size = 1;
+     int64_t tp_rank = 0;
+     int64_t expert_shard_type = 0;
+diff --git a/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.cpp b/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.cpp
+index ba134cad0..4f1b8226c 100644
+--- a/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.cpp
++++ b/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_def.cpp
+@@ -8,7 +8,7 @@ class MoeDistributeDispatchV2 : public OpDef
+     {
+         this->Input("x")
+             .ParamType(REQUIRED)
+-            .DataType({ge::DT_BF16, ge::DT_BF16, ge::DT_FLOAT16, ge::DT_FLOAT16})
++            .DataType({ge::DT_BF16, ge::DT_BF16, ge::DT_FLOAT16, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_BF16})
+             .FormatList({ge::FORMAT_ND})
+             .AutoContiguous();
+         this->Input("expert_ids")
+@@ -34,10 +34,13 @@ class MoeDistributeDispatchV2 : public OpDef
+ 
+         this->Output("expand_x")
+             .ParamType(REQUIRED)
+-            .DataType({ge::DT_BF16, ge::DT_INT8, ge::DT_FLOAT16, ge::DT_INT8})
++            .DataType({ge::DT_BF16, ge::DT_INT8, ge::DT_FLOAT16, ge::DT_INT8, ge::DT_FLOAT8_E4M3FN, ge::DT_FLOAT8_E5M2})
+             .FormatList({ge::FORMAT_ND});
+ 
+-        this->Output("dynamic_scales").ParamType(REQUIRED).DataTypeList({ge::DT_FLOAT}).FormatList({ge::FORMAT_ND});
++        this->Output("dynamic_scales")
++            .ParamType(REQUIRED)
++            .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT8_E8M0, ge::DT_FLOAT8_E8M0})
++            .FormatList({ge::FORMAT_ND});
+ 
+         this->Output("assist_info_for_combine")
+             .ParamType(REQUIRED)
+diff --git a/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp b/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+index 1ef3989da..c57507575 100644
+--- a/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
++++ b/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+@@ -11,6 +11,7 @@
+ #include <cmath>
+ #include <cstdint>
+ #include <string>
++#include <unordered_map>
+ 
+ #include "mc2_tiling_utils.h"
+ #include "register/tilingdata_base.h"
+@@ -65,6 +66,7 @@ constexpr uint32_t OP_TYPE_ALL_TO_ALL = 8;
+ constexpr uint32_t NO_SCALES = 0;
+ constexpr uint32_t STATIC_SCALES = 1;
+ constexpr uint32_t DYNAMIC_SCALES = 2;
++constexpr uint32_t MXFP8_SCALES = 3;
+ constexpr uint32_t OP_TYPE_ALL_GATHER = 6;
+ 
+ constexpr uint32_t UNQUANT_MODE = 0;
+@@ -118,6 +120,20 @@ constexpr uint64_t STATIC_SCALE_DIM_0 = 1;
+ constexpr uint64_t ONE_DIM_SCALE_COL_NUM = 1;
+ }  // namespace
+ 
++static const std::unordered_map<DataType, std::string> geDataTypeMap = {{ge::DT_UINT8, "DT_UINT8"},
++                                                                        {ge::DT_INT8, "DT_INT8"},
++                                                                        {ge::DT_INT16, "DT_INT16"},
++                                                                        {ge::DT_INT32, "DT_INT32"},
++                                                                        {ge::DT_INT64, "DT_INT64"},
++                                                                        {ge::DT_FLOAT16, "DT_FLOAT16"},
++                                                                        {ge::DT_FLOAT, "DT_FLOAT"},
++                                                                        {ge::DT_DOUBLE, "DT_DOUBLE"},
++                                                                        {ge::DT_BOOL, "DT_BOOL"},
++                                                                        {ge::DT_BF16, "DT_BF16"},
++                                                                        {ge::DT_FLOAT8_E4M3FN, "DT_FLOAT8_E4M3FN"},
++                                                                        {ge::DT_FLOAT8_E5M2, "DT_FLOAT8_E5M2"},
++                                                                        {ge::DT_FLOAT8_E8M0, "DT_FLOAT8_E8M0"}};
++
+ namespace optiling {
+ static void PrintTilingDataInfo(const char *nodeName, MoeDistributeDispatchV2TilingData &tilingData)
+ {
+@@ -217,7 +233,7 @@ static bool CheckTensorDim(const gert::TilingContext *context, const char *nodeN
+     OP_LOGD(nodeName, "expandX dim0 = %ld", expandXStorageShape->GetStorageShape().GetDim(0));
+     OP_LOGD(nodeName, "expandX dim1 = %ld", expandXStorageShape->GetStorageShape().GetDim(1));
+ 
+-    if (quantMode == DYNAMIC_SCALES) {
++    if (quantMode == DYNAMIC_SCALES || quantMode == MXFP8_SCALES) {
+         const gert::StorageShape *dynamicScalesStorageShape = context->GetOutputShape(OUTPUT_DYNAMIC_SCALES_INDEX);
+         OP_TILING_CHECK(dynamicScalesStorageShape == nullptr, OP_LOGE(nodeName, "dynamicScalesShape is null."),
+                         return false);
+@@ -310,17 +326,24 @@ static bool CheckTensorDataType(const gert::TilingContext *context, const char *
+ 
+     auto expandXDesc = context->GetOutputDesc(OUTPUT_EXPAND_X_INDEX);
+     OP_TILING_CHECK(expandXDesc == nullptr, OP_LOGE(nodeName, "expandXDesc is null."), return false);
+-    if (quantMode != NO_SCALES) {
+-        OP_TILING_CHECK(expandXDesc->GetDataType() != ge::DT_INT8,
+-                        OP_LOGE(nodeName, "expandX dataType is invalid, dataType should be int8, but is %d.",
+-                                static_cast<ge::DataType>(expandXDesc->GetDataType())),
+-                        return false);
++    if (quantMode == DYNAMIC_SCALES) {
++        OP_TILING_CHECK(
++            expandXDesc->GetDataType() != ge::DT_INT8,
++            OP_LOGE(nodeName, "expandX dataType is invalid for INT8 quant, dataType should be int8, but is %s",
++                    geDataTypeMap.at(expandXDesc->GetDataType()).c_str()),
++            return false);
++    } else if (quantMode == MXFP8_SCALES) {
++        OP_TILING_CHECK(
++            expandXDesc->GetDataType() != ge::DT_FLOAT8_E4M3FN && expandXDesc->GetDataType() != ge::DT_FLOAT8_E5M2,
++            OP_LOGE(nodeName,
++                    "expandX dataType is invalid for MXFP8 quant, dataType should be fp8e4m3 or fp8e5m2, but is %s",
++                    geDataTypeMap.at(expandXDesc->GetDataType()).c_str()),
++            return false);
+     } else {
+         OP_TILING_CHECK(
+             expandXDesc->GetDataType() != xDesc->GetDataType(),
+-            OP_LOGE(nodeName, "expandX dataType is invalid, dataType should be equal to x dataType %d, but is %d.",
+-                    static_cast<ge::DataType>(xDesc->GetDataType()),
+-                    static_cast<ge::DataType>(expandXDesc->GetDataType())),
++            OP_LOGE(nodeName, "expandX dataType is invalid, dataType should be equal to x dataType , but is %s",
++                    geDataTypeMap.at(expandXDesc->GetDataType()).c_str()),
+             return false);
+     }
+ 
+@@ -331,6 +354,14 @@ static bool CheckTensorDataType(const gert::TilingContext *context, const char *
+                         OP_LOGE(nodeName, "dynamicScales dataType is invalid, dataType should be float, but is %d.",
+                                 static_cast<ge::DataType>(dynamicScalesDesc->GetDataType())),
+                         return false);
++    } else if (quantMode == MXFP8_SCALES) {
++        auto dynamicScalesDesc = context->GetOutputDesc(OUTPUT_DYNAMIC_SCALES_INDEX);
++        OP_TILING_CHECK(dynamicScalesDesc == nullptr, OP_LOGE(nodeName, "dynamicScalesDesc is null."), return false);
++        OP_TILING_CHECK(
++            dynamicScalesDesc->GetDataType() != ge::DT_FLOAT8_E8M0,
++            OP_LOGE(nodeName, "dynamicScales dataType is invalid, dataType should be float8_e8m0, but is %d.",
++                    static_cast<ge::DataType>(dynamicScalesDesc->GetDataType())),
++            return false);
+     }
+ 
+     auto assistInfoDesc = context->GetOutputDesc(OUTPUT_ASSIST_INFO_INDEX);
+@@ -489,7 +520,7 @@ static bool CheckTensorFormat(const gert::TilingContext *context, const char *no
+         static_cast<ge::Format>(ge::GetPrimaryFormat(expandXDesc->GetStorageFormat())) == ge::FORMAT_FRACTAL_NZ,
+         OP_LOGE(nodeName, "expandX format is invalid."), return false);
+ 
+-    if (quantMode == DYNAMIC_SCALES) {
++    if (quantMode == DYNAMIC_SCALES || quantMode == MXFP8_SCALES) {
+         auto dynamicScalesDesc = context->GetOutputDesc(OUTPUT_DYNAMIC_SCALES_INDEX);
+         OP_TILING_CHECK(dynamicScalesDesc == nullptr, OP_LOGE(nodeName, "dynamicScalesDesc is null."), return false);
+         OP_TILING_CHECK(static_cast<ge::Format>(ge::GetPrimaryFormat(dynamicScalesDesc->GetStorageFormat())) ==
+@@ -625,8 +656,8 @@ static ge::graphStatus CheckAndSetExpertInfo(const gert::TilingContext *context,
+                             MOE_EXPERT_MAX_NUM, moeExpertNum),
+                     return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(
+-        (*quantModePtr < static_cast<int64_t>(NO_SCALES)) || (*quantModePtr > static_cast<int64_t>(DYNAMIC_SCALES)),
+-        OP_LOGE(nodeName, "quantMode is invalid, only support [0, %u], but got quantMode=%ld.", DYNAMIC_SCALES,
++        (*quantModePtr < static_cast<int64_t>(NO_SCALES)) || (*quantModePtr > static_cast<int64_t>(MXFP8_SCALES)),
++        OP_LOGE(nodeName, "quantMode is invalid, only support [0, %u], but got quantMode=%ld.", MXFP8_SCALES,
+                 *quantModePtr),
+         return ge::GRAPH_FAILED);
+     OP_TILING_CHECK((*expertTokenNumsTypePtr != 0) && (*expertTokenNumsTypePtr != 1),
+diff --git a/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.cpp b/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.cpp
+index 7e00099ba..86b1aad9e 100644
+--- a/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.cpp
++++ b/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.cpp
+@@ -13,10 +13,10 @@ using namespace MoeDistributeDispatchV2Impl;
+ using namespace MoeDistributeDispatchV2A5Impl;
+ 
+ /*
+- * A3 tilingkey说明
++ * Tilingkey说明
+  * 5位的十进制数
+  * 第1位（个位）：quantMode:
+- *     0: 不量化, 1: 静态量化, 2: 动态量化
++ *     0: 不量化, 1: 静态量化, 2: 动态量化, 3: 量化类型: mxfp8
+  * 第2位（十位）：是否有smoothScale:
+  *     0: 无, 1: 有
+  * 第3位（百位）：是否做tp域allgather:
+@@ -55,7 +55,7 @@ extern "C" __global__ __aicore__ void moe_distribute_dispatch_v2(GM_ADDR x, GM_A
+     }
+     if (TILING_KEY_IS(50000)) {
+         GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
+-        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, false, false, false, false> op;
++        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, false, false, false, false> op;
+         op.Init(x, expertIds, scales, xActiveMask, elasticInfo, expandXOut, dynamicScalesOut, assistInfoOut,
+                 expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
+         op.Process();
+@@ -122,7 +122,7 @@ extern "C" __global__ __aicore__ void moe_distribute_dispatch_v2(GM_ADDR x, GM_A
+     }
+     if (TILING_KEY_IS(50002)) {
+         GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
+-        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, false, true, false, false> op;
++        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, true, false, false, false> op;
+         op.Init(x, expertIds, scales, xActiveMask, elasticInfo, expandXOut, dynamicScalesOut, assistInfoOut,
+                 expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
+         op.Process();
+@@ -138,5 +138,16 @@ extern "C" __global__ __aicore__ void moe_distribute_dispatch_v2(GM_ADDR x, GM_A
+         return;
+     }
+ #endif
++#elif (ORIG_DTYPE_EXPAND_X == DT_FLOAT8_E4M3FN || ORIG_DTYPE_EXPAND_X == DT_FLOAT8_E5M2)
++#ifdef __DAV_C310__
++    if (TILING_KEY_IS(50003)) {
++        GET_TILING_DATA_WITH_STRUCT(MoeDistributeDispatchV2TilingData, tilingData, tilingGM);
++        MoeDistributeDispatchV2A5<DTYPE_X, DTYPE_EXPAND_X, DTYPE_DYNAMIC_SCALES, false, true, true, false, false> op;
++        op.Init(x, expertIds, scales, xActiveMask, elasticInfo, expandXOut, dynamicScalesOut, assistInfoOut,
++                expertTokenNumsOut, epSendCountsOut, tpSendCountsOut, workspaceGM, &pipe, &tilingData);
++        op.Process();
++        return;
++    }
++#endif
+ #endif
+ }
+diff --git a/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h b/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h
+index e3317b543..6bbacf736 100644
+--- a/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h
++++ b/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h
+@@ -7,6 +7,9 @@
+ #include "moe_distribute_v2_base.h"
+ #include "moe_distribute_dispatch_v2_tiling.h"
+ #include "check_winsize.h"
++#ifdef __DAV_C310__
++#include "../quantize_functions.h"
++#endif
+ 
+ namespace MoeDistributeDispatchV2A5Impl {
+ constexpr uint8_t BUFFER_NUM = 2;  // 多buf
+@@ -44,10 +47,12 @@ constexpr float FP8_E4M3_MAX_VALUE = 57344.0f;
+ constexpr float HIFP8_MAX_VALUE = 32768.0f;
+ constexpr float INT8_MAX_VALUE = 127.0f;
+ 
+-#define TemplateMC2TypeClass                                                                               \
+-    typename XType, typename ExpandXOutType, bool StaticQuant, bool DynamicQuant, bool IsSmoothScaleExist, \
+-        bool IsNeedAllgather
+-#define TemplateMC2TypeFunc XType, ExpandXOutType, StaticQuant, DynamicQuant, IsSmoothScaleExist, IsNeedAllgather
++#define TemplateMC2TypeClass                                                                            \
++    typename XType, typename ExpandXOutType, typename XScalesType, bool StaticQuant, bool DynamicQuant, \
++        bool IsMxQuant, bool IsSmoothScaleExist, bool IsNeedAllgather
++
++#define TemplateMC2TypeFunc \
++    XType, ExpandXOutType, XScalesType, StaticQuant, DynamicQuant, IsMxQuant, IsSmoothScaleExist, IsNeedAllgather
+ 
+ using namespace AscendC;
+ using namespace MoeDistributeV2Base;
+@@ -78,6 +83,10 @@ class MoeDistributeDispatchV2A5
+     __aicore__ inline void ZeroComputeExpertMaskCal();
+     __aicore__ inline void ReduceMaxInplace(const LocalTensor<float> &srcLocal, uint32_t count);
+     __aicore__ inline void QuantProcess(uint32_t expertIndex);
++#ifdef __DAV_C310__
++    __aicore__ inline void QuantDynamicMxFp8(LocalTensor<ExpandXOutType> &outLocal, LocalTensor<XType> &inLocal,
++                                             LocalTensor<float> &tokenF32LT_);
++#endif
+     __aicore__ inline void SetStatus();
+     __aicore__ inline void BufferInit();
+     __aicore__ inline void InitElasticInfo(bool isWaitDispatch = false);
+@@ -124,7 +133,7 @@ class MoeDistributeDispatchV2A5
+     GlobalTensor<XType> xGMTensor_;
+     GlobalTensor<int32_t> expertIdsGMTensor_;
+     GlobalTensor<float> scalesGMTensor_;
+-    GlobalTensor<float> dynamicScalesOutGMTensor_;
++    GlobalTensor<XScalesType> dynamicScalesOutGT_;
+     GlobalTensor<int64_t> expertTokenNumsOutGMTensor_;
+     GlobalTensor<float> windowInstatusFp32Tensor_;
+     GlobalTensor<bool> xActiveMaskGMTensor_;
+@@ -192,10 +201,12 @@ class MoeDistributeDispatchV2A5
+     GM_ADDR statusDataSpaceGm_;
+ 
+     // tiling侧已确保数据上限，相乘不会越界，因此统一采用uint32_t进行处理
++    uint16_t axisHCommu_{0};
++    uint32_t axisH_{0};
+     uint32_t axisBS_{0};
+     uint32_t axisMaxBS_{0};
+-    uint32_t axisH_{0};
+     uint32_t axisK_{0};
++    uint32_t h{0};
+     uint32_t aivNum_{0};
+     uint32_t sharedUsedAivNum_{0};
+     uint32_t moeUsedAivNum_{0};
+@@ -217,6 +228,7 @@ class MoeDistributeDispatchV2A5
+     uint32_t totalExpertNum_{0};
+     uint32_t dealRankPerCore_{0};
+     uint32_t hOutSize_{0};
++    uint32_t hUBAlignSize{0};
+     uint32_t hAlignWinSize_{0};
+     uint32_t hAlignWinCnt_{0};
+     uint32_t hOutAlignUbSize_{0};
+@@ -348,13 +360,14 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::Init(
+     tpGatherRankId_ = ((tpRankId_ == 0) ? 1 : 0);
+     isTokenMaskFlag_ = tilingData->moeDistributeDispatchV2Info.isTokenMask;
+     isExpertMaskFlag_ = tilingData->moeDistributeDispatchV2Info.isExpertMask;
++    h = tilingData->moeDistributeDispatchV2Info.h;
+     axisK_ = tilingData->moeDistributeDispatchV2Info.k;
+     aivNum_ = tilingData->moeDistributeDispatchV2Info.aivNum;
+     tpWorldSize_ = tilingData->moeDistributeDispatchV2Info.tpWorldSize;
+     xGMTensor_.SetGlobalBuffer((__gm__ XType *)x);
+     xActiveMaskGMTensor_.SetGlobalBuffer((__gm__ bool *)xActiveMask);
+     expertIdsGMTensor_.SetGlobalBuffer((__gm__ int32_t *)expertIds);
+-    dynamicScalesOutGMTensor_.SetGlobalBuffer((__gm__ float *)dynamicScalesOut);
++    dynamicScalesOutGT_.SetGlobalBuffer((__gm__ XScalesType *)dynamicScalesOut);
+     expertTokenNumsOutGMTensor_.SetGlobalBuffer((__gm__ int64_t *)expertTokenNumsOut);
+     expandIdxGMTensor_.SetGlobalBuffer((__gm__ int32_t *)(expandIdxOut));
+     expandXOutGM_ = expandXOut;
+@@ -362,12 +375,28 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::Init(
+     sendTpCountOutGM_ = tpSendCountsOut;
+     recvCntWorkspaceGM_ = workspaceGM;
+ 
+-    hOutSize_ = axisH_ * sizeof(ExpandXOutType);
++    axisH_ = h;
++    hUBAlignSize = Ceil(h * sizeof(ExpandXOutType), UB_ALIGN) * UB_ALIGN;
++
++    hOutSize_ = axisH_ * sizeof(ExpandXOutType);            // 7168
+     hOutSizeAlign_ = Ceil(hOutSize_, UB_ALIGN) * UB_ALIGN;  // scale起始放置偏移
+     uint32_t hScaleSizeAlign = hOutSizeAlign_ + UB_ALIGN;   // 填充三元组起始偏移
++    uint32_t quantScalePerToken = IsMxQuant ? Ceil(axisH_, 32) : 1;
++    uint32_t quantScalePerTokenAlign = Ceil(quantScalePerToken * sizeof(XScalesType), UB_ALIGN) * UB_ALIGN;
++
++    hScaleSizeAlign =
++        hUBAlignSize +
++        quantScalePerTokenAlign;  // ((7168*1 + 32) + 3*4) + 7168/32 = 7168 + 32 + 12 + 224 = 7436B, 需要对齐512B
++
+     tokenQuantAlign_ = hScaleSizeAlign / sizeof(int32_t);
+     // 实际搬运大小，搬运token_align32B + 32B(float) + 3*4B(三元组)
+     uint32_t hScaleIdxSize = hScaleSizeAlign + EXPAND_IDX_INFO * sizeof(int32_t);
++    if (IsMxQuant) {
++        hScaleIdxSize +=
++            Ceil(axisH_, 32);  // ((7168*1 + 32) + 3*4) + 7168/32 = 7168 + 32 + 12 + 224 = 7436B, 需要对齐512B
++    }
++    uint32_t axisHCommu = hScaleIdxSize / sizeof(ExpandXOutType);  // 有效搬运长度
++    axisHCommu_ = static_cast<uint16_t>(axisHCommu);
+     hAlignWinSize_ = Ceil(hScaleIdxSize, WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;  // win区token起始地址对齐512
+     hAlignWinCnt_ = hAlignWinSize_ / sizeof(ExpandXOutType);
+     expertPerSizeOnWin_ = axisMaxBS_ * hAlignWinSize_;
+@@ -498,7 +527,6 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::Init(
+     dstExpIdTensor_ = dstExpBuf_.Get<int32_t>();
+     subExpIdTensor_ = subExpBuf_.Get<int32_t>();
+ 
+-    uint32_t axisHCommu = hScaleIdxSize / sizeof(ExpandXOutType);  // 有效搬运长度
+     floatDataCopyParams_ = {1U, sizeof(float), 0U, 0U, 0U};
+     xCopyParams_ = {1U, static_cast<uint32_t>(axisH_ * sizeof(XType)), 0U, 0U, 0U};
+     hCommuCopyOutParams_ = {1U, static_cast<uint32_t>(axisHCommu * sizeof(ExpandXOutType)), 0U, 0U, 0U};
+@@ -1007,6 +1035,13 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::QuantProc
+ #endif
+ 
+     LocalTensor<float> tokenF32LT = receiveDataCastFloatBuf_.Get<float>();
++#ifdef __DAV_C310__
++    if constexpr (IsMxQuant) {
++        QuantDynamicMxFp8(xOutTensor_, xInTensor_, tokenF32LT);
++        xInQueue_.FreeTensor<XType>(xInTensor_);
++        return;
++    }
++#endif
+     Cast(tokenF32LT, xInTensor_, RoundMode::CAST_NONE, axisH_);  // 1. tokenF16 -> tokenF32
+     xInQueue_.FreeTensor<XType>(xInTensor_);
+     // PipeBarrier<PIPE_V>();
+@@ -1042,6 +1077,27 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::QuantProc
+     SyncFunc<AscendC::HardEvent::S_MTE3>();
+ }
+ 
++#ifdef __DAV_C310__
++template <TemplateMC2TypeClass>
++__aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::QuantDynamicMxFp8(
++    LocalTensor<ExpandXOutType> &outLocal, LocalTensor<XType> &inLocal, LocalTensor<float> &tokenF32LT_)
++{
++    if constexpr (Std::IsSame<ExpandXOutType, fp8_e4m3fn_t>::value || Std::IsSame<ExpandXOutType, fp8_e5m2_t>::value) {
++        uint32_t mxScaleNum = Align2(Ceil32(axisH_));
++        __ubuf__ XType *srcAddr = (__ubuf__ XType *)inLocal.GetPhyAddr();
++        __ubuf__ uint16_t *maxExpAddr = (__ubuf__ uint16_t *)tokenF32LT_.GetPhyAddr();
++        __ubuf__ uint16_t *halfScaleLocalAddr = (__ubuf__ uint16_t *)tokenF32LT_[Align32(mxScaleNum)].GetPhyAddr();
++        __ubuf__ int8_t *outLocalAddr = (__ubuf__ int8_t *)outLocal.GetPhyAddr();
++        __ubuf__ uint16_t *mxScaleLocalAddr = (__ubuf__ uint16_t *)outLocal[Align256<uint32_t>(axisH_)].GetPhyAddr();
++
++        quant::ComputeMaxExp(srcAddr, maxExpAddr, axisH_);
++        quant::ComputeScale<ExpandXOutType>(maxExpAddr, mxScaleLocalAddr, halfScaleLocalAddr, mxScaleNum);
++        quant::ComputeData<XType, ExpandXOutType, AscendC::RoundMode::CAST_TRUNC, AscendC::RoundMode::CAST_RINT>(
++            srcAddr, halfScaleLocalAddr, outLocalAddr, axisH_);
++    }
++}
++#endif
++
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::SyncCntOnCore(
+     LocalTensor<float> &gatherMaskOutTensor, LocalTensor<uint32_t> &gatherTmpTensor,
+@@ -1248,7 +1304,11 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::LocalWind
+     uint32_t beginIdx = outCountLocal.GetValue(0);
+     preCnt_ = beginIdx;
+     statusTensor_ = waitStatusBuf_.Get<int32_t>();
+-    DataCopyPadExtParams<ExpandXOutType> copyPadExtParams{false, 0U, 0U, 0U};
++
++    // DataCopyPadExtParams<ExpandXOutType> copyPadExtParams{false, 0U, 0U, 0U};
++    DataCopyParams tokenInParams = {1U, static_cast<uint16_t>(axisHCommu_ * sizeof(ExpandXOutType)), 0U,
++                                    0U};  // compare with
++    DataCopyPadParams padParams = {true, 0, 0, 0};
+     DataCopyExtParams dataCopyExpandIdxParams{1U, sizeof(int32_t) * EXPAND_IDX_INFO, 0U, 0U, 0U};
+     DataCopyExtParams dataCopyOutParams{1U, static_cast<uint32_t>(sendExpertNum_ * sizeof(int32_t)), 0U, 0U, 0U};
+     for (uint32_t index = startExpertId_; index < endExpertId_; index++) {
+@@ -1269,11 +1329,12 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::LocalWind
+         GlobalTensor<ExpandXOutType> expandXOutGlobal;
+         tokGlobal.SetL2CacheHint(CacheMode::CACHE_MODE_DISABLE);
+         LocalTensor<int32_t> xTmpTensorInt;
++        uint16_t scaleNumForOneToken = IsMxQuant ? Ceil(axisH_, 32) : 1;
+         for (uint32_t j = 0; j < count; j++) {
+             tokGlobal.SetGlobalBuffer((__gm__ ExpandXOutType *)(wAddr + j * hAlignWinSize_));
+             // 将数据从Window拷贝到UB
+             xTmpTensor_ = xQueue_.AllocTensor<ExpandXOutType>();
+-            DataCopyPad(xTmpTensor_, tokGlobal, hCommuCopyOutParams_, copyPadExtParams);
++            DataCopyPad(xTmpTensor_, tokGlobal, tokenInParams, padParams);
+             xQueue_.EnQue(xTmpTensor_);
+             xTmpTensor_ = xQueue_.DeQue<ExpandXOutType>();
+             xTmpTensorInt = xTmpTensor_.template ReinterpretCast<int32_t>();
+@@ -1281,7 +1342,12 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::LocalWind
+                         dataCopyExpandIdxParams);
+             if constexpr (DynamicQuant || StaticQuant) {
+                 xOutFp32Tensor_ = xTmpTensor_.template ReinterpretCast<float>();
+-                DataCopyPad(dynamicScalesOutGMTensor_[beginIdx + j], xOutFp32Tensor_[hOutSizeAlign_ / sizeof(float)],
++                DataCopyParams scaleOutputDataCopyParams = {1U, static_cast<uint16_t>(scaleNumForOneToken), 0U, 0U};
++                LocalTensor<XScalesType> xOutXScalesTypeTensor = xTmpTensor_.template ReinterpretCast<XScalesType>();
++                DataCopyPad(dynamicScalesOutGT_[(beginIdx + j) * scaleNumForOneToken],
++                            xOutXScalesTypeTensor[hUBAlignSize / sizeof(XScalesType)], scaleOutputDataCopyParams);
++            } else {
++                DataCopyPad(dynamicScalesOutGT_[beginIdx + j], xOutFp32Tensor_[hOutSizeAlign_ / sizeof(float)],
+                             floatDataCopyParams_);
+             }
+             if constexpr (IsNeedAllgather) {
+@@ -1395,8 +1461,8 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::Allgather
+         DataCopyPad(expandXOutGlobal, xTmpTensor_, expandXCopyParams_);
+         if constexpr (StaticQuant || DynamicQuant) {
+             xOutFp32Tensor_ = xTmpTensor_.template ReinterpretCast<float>();
+-            DataCopyPad(dynamicScalesOutGMTensor_[preCount + totalCnt_ + i],
+-                        xOutFp32Tensor_[hOutSizeAlign_ / sizeof(float)], floatDataCopyParams_);
++            DataCopyPad(dynamicScalesOutGT_[preCount + totalCnt_ + i], xOutFp32Tensor_[hOutSizeAlign_ / sizeof(float)],
++                        floatDataCopyParams_);
+         }
+         xQueue_.FreeTensor(xTmpTensor_);
+     }
+diff --git a/python/deep_ep/README.md b/python/deep_ep/README.md
+index 3457f023e..b6f08c686 100644
+--- a/python/deep_ep/README.md
++++ b/python/deep_ep/README.md
+@@ -143,9 +143,14 @@ High-throughput dispatch and combine for training and prefill phases:
+ 
+ Optimized for inference with small batch sizes (128 tokens/batch):
+ - **A3**: Supports `default`, `ops`, and `alltoall` strategies. `ops` strategy supports `comm_alg` options: `hierarchy`, `fullmesh_v1`, `fullmesh_v2`, `ccu`.
++- **A5 (C310)**: Supports `default` and `ops` strategies with MXFP8 per-block quantization (`use_ue8m0=True`, quant_mode=3). Data format: `float8_e4m3fn` + `float8_e8m0fnu` scales.
+ - **A2 Intranode**: Supports up to `bs=512` for low_latency dispatch/combine.
+ - **A2 Internode**: Hierarchical (HCCS + RDMA) or non-hierarchical (pure RDMA) implementation. Supports up to `bs=512`.
+ 
++Quantization modes in low_latency_dispatch:
++- **BF16**: `use_fp8=False` — no quantization, bfloat16 communication.
++- **MXFP8 per-block**: `use_fp8=True, use_ue8m0=True` — per-block MXFP8 quantization (quant_mode=3), `float8_e4m3fn` data + `float8_e8m0fnu` scales (A5/C310 only).
++
+ 
+ ## Fused MoE
+ 
+@@ -167,7 +172,7 @@ See [Fused Deep MoE API](doc/FUSED_DEEP_MOE_EN.md) for details.
+ | Variable | Default | Description |
+ |----------|---------|-------------|
+ | `DEEP_USE_MODE` | `default` | Normal mode strategy and Low-latency mode strategy: `default`, `ops`, or `alltoall`. |
+-| `DEEP_NORMAL_MODE_USE_INT8_QUANT` | `0` | Enable INT8 quantization in normal dispatch. A2 internode does NOT support quantization in normal mode. |
++| `DEEP_NORMAL_MODE_USE_INT8_QUANT` | `0` | **Deprecated.** Enable INT8 quantization in normal dispatch. A2 internode does NOT support quantization in normal mode. MXFP8 per-block quantization (A5/C310 only) is triggered by passing a tuple `(float8_e4m3fn_tensor, float8_e8m0fnu_tensor)` as `x`. |
+ | `SGLANG_DEEPEP_BF16_DISPATCH` | `0` | Disable quantization in low_latency_dispatch (BF16 dispatch). Set to `1` to disable; only effective in decode phase. |
+ | `MOE_EXPERT_TOKEN_NUMS_TYPE` | `1` | Dispatch return type for `num_recv_tokens_per_expert_list`: `1` = per-expert token count, `0` = prefix sum. |
+ | `MOE_SHARED_EXPERT_RANK_NUM` | `0` | Number of shared expert ranks (used by ops strategy). |
+diff --git a/python/deep_ep/README_CN.md b/python/deep_ep/README_CN.md
+index 55fe7ae45..e9994f02d 100644
+--- a/python/deep_ep/README_CN.md
++++ b/python/deep_ep/README_CN.md
+@@ -144,9 +144,14 @@ DeepEP-Ascend 采用**策略式架构**，通信实现被抽象为可互换的
+ 
+ 针对小 batch 推理优化（128 tokens/batch）：
+ - **A3**：支持 `default`、`ops`、`alltoall` 策略。`ops` 策略支持 `comm_alg` 选项：`hierarchy`、`fullmesh_v1`、`fullmesh_v2`、`ccu`。
++- **A5（C310）**：支持 `default` 和 `ops` 策略，支持 MXFP8 per-block 量化（`use_ue8m0=True`，quant_mode=3）。数据格式：`float8_e4m3fn` + `float8_e8m0fnu` 缩放因子。
+ - **A2 单机**：low_latency dispatch/combine 最大支持 `bs=512`。
+ - **A2 双机**：分层（HCCS + RDMA）或不分层（纯 RDMA）实现。最大支持 `bs=512`。
+ 
++low_latency_dispatch 量化模式：
++- **BF16**：`use_fp8=False` — 不量化，bfloat16 通信。
++- **MXFP8 per-block**：`use_fp8=True, use_ue8m0=True` — per-block MXFP8 量化（quant_mode=3），`float8_e4m3fn` 数据 + `float8_e8m0fnu` 缩放因子（仅 A5/C310）。
++
+ 
+ ## 融合 MoE
+ 
+@@ -168,7 +173,7 @@ DeepEP-Ascend 采用**策略式架构**，通信实现被抽象为可互换的
+ | 变量 | 默认值 | 说明 |
+ |------|--------|------|
+ | `DEEP_USE_MODE` | `default` | Normal 模式策略 and Low-latency 模式策略：`default`、`ops` 或 `alltoall`。 |
+-| `DEEP_NORMAL_MODE_USE_INT8_QUANT` | `0` | 在 Normal dispatch 中启用 INT8 量化。A2 双机 Normal 模式**不支持**量化。 |
++| `DEEP_NORMAL_MODE_USE_INT8_QUANT` | `0` | **已弃用。** 在 Normal dispatch 中启用 INT8 量化。A2 双机 Normal 模式**不支持**量化。MXFP8 per-block 量化（仅 A5/C310）通过传入 tuple `(float8_e4m3fn_tensor, float8_e8m0fnu_tensor)` 作为 `x` 参数触发。 |
+ | `SGLANG_DEEPEP_BF16_DISPATCH` | `0` | 在 low_latency_dispatch 中关闭量化（BF16 dispatch）。设为 `1` 关闭量化；仅在 Decode 阶段生效。 |
+ | `MOE_EXPERT_TOKEN_NUMS_TYPE` | `1` | dispatch 返回的 `num_recv_tokens_per_expert_list` 类型：`1` = 各专家 token 数，`0` = 前缀和。 |
+ | `MOE_SHARED_EXPERT_RANK_NUM` | `0` | 共享专家 rank 数（ops 策略使用）。 |
+diff --git a/python/deep_ep/deep_ep/buffer.py b/python/deep_ep/deep_ep/buffer.py
+index 96e82e12f..d355c9cfb 100644
+--- a/python/deep_ep/deep_ep/buffer.py
++++ b/python/deep_ep/deep_ep/buffer.py
+@@ -313,10 +313,13 @@ def dispatch(
+             index should be visible via RDMA.
+ 
+         Arguments:
+-            x: `torch.Tensor` or tuple of `torch.Tensor`, for the first type, the shape must be `[num_tokens, hidden]`,
+-                and type must be `torch.bfloat16`; for the second type, the first element of the tuple must be shaped as
+-                `[num_tokens, hidden]` with type `torch.float8_e4m3fn`, the second must be `[num_tokens, hidden // 128]`
+-                 (requiring divisible) with type `torch.float`.
++            x: input tokens. Supports two formats:
++                - `torch.Tensor` with `torch.bfloat16`, shaped `[num_tokens, hidden]`. Quantization is controlled by
++                  the `DEEP_NORMAL_MODE_USE_INT8_QUANT` environment variable (set to `1` for INT8 quantization, **deprecated**).
++                - Tuple of two `torch.Tensor`: for MXFP8 quantization, the first element is shaped `[num_tokens, hidden]`
++                  with `torch.float8_e4m3fn` (pre-quantized data), the second is shaped `[num_tokens, hidden // 32]`
++                  with `torch.float8_e8m0fnu` (per-block E8M0 scales). On NPU, this triggers MXFP8 per-block quantization
++                  (quant_mode=3) inside the dispatch kernel.
+             handle: an optional communication handle, if set, the CPU will reuse the layout information to save some time.
+             num_tokens_per_rank: `[num_ranks]` with `torch.int`, the number of tokens to be sent to each rank.
+             num_tokens_per_rdma_rank: `[num_rdma_ranks]` with `torch.int`, the number of tokens to be sent to each RDMA
+@@ -337,9 +340,13 @@ def dispatch(
+                 to receive all tokens from each slave rank in the current rank.
+ 
+         Returns:
+-            recv_x: received tokens, the first element is a `torch.Tensor` shaped as `[received_token_count, hidden]` with
+-                `torch.int8`, the second tensor is the corresponding scales for the first element with shape `[received_token_count]`
+-                with `torch.float`.
++            recv_x: received tokens. The format depends on quantization mode:
++                - BF16 (no quantization): a `torch.Tensor` shaped `[received_token_count, hidden]` with `torch.bfloat16`.
++                - INT8 (`DEEP_NORMAL_MODE_USE_INT8_QUANT=1`, **deprecated**): a tuple, first element shaped `[received_token_count, hidden]`
++                  with `torch.int8`, second element shaped `[received_token_count]` with `torch.float32` (per-token scales).
++                - MXFP8 (tuple input with `float8_e4m3fn` + `float8_e8m0fnu`, A5/C310 only): a tuple, first element shaped
++                  `[received_token_count, hidden]` with `torch.float8_e4m3fn`, second element shaped
++                  `[received_token_count, hidden // 32]` with `torch.float8_e8m0fnu` (per-block E8M0 scales).
+             recv_topk_idx: received expert indices.
+             recv_topk_weights: received expert weights.
+             num_recv_tokens_per_expert_list: Python list shaped `[num_local_experts]`, the received token count by
+@@ -670,34 +677,36 @@ def low_latency_dispatch(
+             cumulative_local_expert_recv_stats: a cumulative expert count tensor for statistics, which should have shape
+                 `[num_local_experts]` and be typed as `torch.int`. This is useful for online service EP load balance
+                 monitoring.
+-            use_fp8: whether to enable FP8 casting, with this, the received data will be a tuple of FP8 tensor and scaling factors.
+-            round_scale: whether round the scaling factors into power of 2.
+-            use_ue8m0: whether use UE8M0 as scaling factor format (available only with `round_scale=True`).
++            use_fp8: whether to enable FP8 quantization. On NPU, this enables per-token dynamic quantization (quant_mode=2)
++                by default, with INT8 as the compact data format and per-token float32 scales.
++            round_scale: whether to round the scaling factors into power of 2.
++            use_ue8m0: whether to use E8M0 (UE8M0) as the scaling factor format. On NPU, this triggers MXFP8 per-block
++                quantization (quant_mode=3) with `float8_e4m3fn` data and `float8_e8m0fnu` (per 32-element block) scales.
++                Requires `use_fp8=True`.
+             async_finish: the current stream will not wait for the communication kernels to be finished if set.
+             return_recv_hook: return a receiving hook if set. If set, the kernel will just do the RDMA request issues,
+                 but **without actually receiving the data**. You must call the received hook to make sure the data's arrival.
+                 If you do not set this flag, the kernel will ensure the data's arrival.
+ 
+         Returns:
+-            recv_x: a tensor or tuple with received tokens for each expert.
+-                With `use_fp8=True`: the first element is a `torch.Tensor` shaped as
+-                `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden]` with `torch.float8_e4m3fn`.
+-                The second tensor is the corresponding scales for the first element with shape
+-                `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden // 128]` with `torch.float`,
+-                if `use_ue8m0=False`. With `use_ue8m0=True`, the second one is packed and shaped as
+-                `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden // 512]` with type `torch.int`.
+-                Notice that, the last-two-dimension of the scaling tensors are in column-major for TMA compatibility.
+-                With `use_fp8=False`, the result would be a tensor shaped as
+-                `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden]` with `torch.bfloat16`.
+-                Moreover, not all tokens are valid, only some of the `num_max_dispatch_tokens_per_rank * num_ranks` are,
+-                as we do not synchronize CPU received count with GPU (also not incompatible with CUDA graph if synced).
+-            recv_count: a tensor shaped `[num_local_experts]` with type `torch.int`, indicating how many tokens each
+-                expert receives. As mentioned before, not all tokens are valid in `recv_x`.
++            recv_x: received tokens. The format depends on quantization mode:
++                - BF16 (`use_fp8=False`): a `torch.Tensor` shaped `[num_max_tokens, hidden]` with `torch.bfloat16`.
++                - FP8 per-token (`use_fp8=True, use_ue8m0=False`): a tuple of two tensors. The first is shaped
++                  `[num_max_tokens, hidden]` with `torch.int8` (quantized data), the second is shaped `[num_max_tokens]`
++                  with `torch.float32` (per-token scales).
++                - MXFP8 per-block (`use_fp8=True, use_ue8m0=True`): a tuple of two tensors. The first is shaped
++                  `[num_max_tokens, hidden]` with `torch.float8_e4m3fn`, the second is shaped
++                  `[num_max_tokens * hidden / 32]` with `torch.float8_e8m0fnu` (per-block scales, one scale per
++                  32-element block).
++                Not all tokens are valid; only the first `recv_count` tokens per expert contain meaningful data.
++            recv_count: a tensor shaped `[num_local_experts]` with type `torch.int64`, indicating how many tokens each
++                expert receives.
+             handle: the communication handle to be used in the `low_latency_combine` function.
+             event: the event after executing the kernel (valid only if `async_finish` is set).
+             hook: the receiving hook function (valid only if `return_recv_hook` is set).
+         """
+         # Delegate to low latency strategy
++        # use_fp8 = True, use_ue8m0 = True = mxfp8
+         return self.low_latency_strategy.low_latency_dispatch(
+             x=x,
+             topk_idx=topk_idx,
+diff --git a/python/deep_ep/deep_ep/strategies/low_latency_strategy.py b/python/deep_ep/deep_ep/strategies/low_latency_strategy.py
+index 1b7907bce..ef6b43baa 100644
+--- a/python/deep_ep/deep_ep/strategies/low_latency_strategy.py
++++ b/python/deep_ep/deep_ep/strategies/low_latency_strategy.py
+@@ -220,7 +220,7 @@ def low_latency_dispatch(
+             x=x,
+             topk_idx=topk_ids,
+             num_experts=num_experts,
+-            quant_mode=2 if use_fp8 else 0,
++            quant_mode=3 if use_ue8m0 else 2 if use_fp8 else 0,
+             comm_alg=self.comm_alg,
+             topk_weights=topk_weights,
+             num_max_dispatch_tokens_per_rank=num_max_dispatch_tokens_per_rank,
+diff --git a/python/deep_ep/doc/LOW_LATENCY_API.md b/python/deep_ep/doc/LOW_LATENCY_API.md
+index 2ab143a2f..57065c2b3 100644
+--- a/python/deep_ep/doc/LOW_LATENCY_API.md
++++ b/python/deep_ep/doc/LOW_LATENCY_API.md
+@@ -49,12 +49,12 @@ Returns:
+ | **配置参数** | `num_max_dispatch_tokens_per_rank`   | `int`                    | -          | 每个rank最大分发token数，所有rank必须相同                    | 是        | 影响内存分配和性能上限                                       |
+ |              | `num_experts`                        | `int`                    | -          | 专家总数                                                     | 是        | 用于路由决策和负载均衡                                       |
+ | **统计监控** | `cumulative_local_expert_recv_stats` | `Optional[torch.Tensor]` | `None`     | 累计专家接收统计，形状`[num_local_experts]`，类型`torch.int` | -          | 用于在线服务EP负载均衡监控。DeepEp-Ascend不需要              |
+-| **精度控制** | `use_fp8`                            | `bool`                   | `True`     | 是否启用FP8量化（A3/A2芯片只支持INT8量化），若use_fp8=True，算子内部会先把token从bfloat16转化为INT8类型的tensor后再通信，以降低通信时延 | -        | 显著减少通信带宽                                             |
++| **精度控制** | `use_fp8`                            | `bool`                   | `True`     | 是否启用FP8量化。NPU上默认启用per-token动态量化（quant_mode=2），通信数据为INT8格式，缩放因子为per-token float32。 | -        | 显著减少通信带宽                                             |
+ |              | `round_scale`                        | `bool`                   | `False`    | 是否将缩放因子四舍五入为2的幂                                | -          | 与`use_ue8m0`配合使用                                        |
+-|              | `use_ue8m0`                          | `bool`                   | `False`    | 是否使用UE8M0作为缩放因子格式（仅在`round_scale=True`时有效） | -          | 优化缩放因子存储格式                                         |
++|              | `use_ue8m0`                          | `bool`                   | `False`    | 是否使用E8M0（UE8M0）作为缩放因子格式。NPU上启用后触发MXFP8 per-block量化（quant_mode=3），通信数据为`float8_e4m3fn`，缩放因子为per-block `float8_e8m0fnu`（每32个元素一个scale）。需要`use_fp8=True`。 | -          | 进一步减少通信带宽，适用于A5（C310）平台                     |
+ | **异步控制** | `async_finish`                       | `bool`                   | `False`    | 如果设置，当前流不会等待通信内核完成                         | -          | 提高GPU利用率，需手动同步。DeepEp-Ascend不需要               |
+ |              | `return_recv_hook`                   | `bool`                   | `False`    | 如果设置，返回接收钩子，内核只发RDMA请求不接收数据           | -          | 实现真正的异步通信，必须调用钩子确保数据到达。DeepEp-Ascend不需要 |
+-| **返回值**   | `recv_x`                             | `Tuple/Tensor`           | -          | 接收的token数据：<br>- `use_fp8=True`: `(INT8_tensor, scales)`<br>- `use_fp8=False`: `bfloat16_tensor` | 是        | 并非所有token都有效，需结合`recv_count`使用                  |
++| **返回值**   | `recv_x`                             | `Tuple/Tensor`           | -          | 接收的token数据：<br>- BF16 (`use_fp8=False`): `bfloat16_tensor`，形状`[num_max_tokens, hidden]`<br>- FP8 per-token (`use_fp8=True, use_ue8m0=False`): `(INT8_tensor, float32_scales)`，缩放因子形状`[num_max_tokens]`<br>- MXFP8 per-block (`use_fp8=True, use_ue8m0=True`): `(float8_e4m3fn_tensor, float8_e8m0fnu_scales)`，缩放因子形状`[num_max_tokens * hidden / 32]` | 是        | 并非所有token都有效，需结合`recv_count`使用                  |
+ |              | `recv_count`                         | `torch.Tensor`           | -          | 每个专家接收的token数量，形状`[num_local_experts]`，类型`torch.int` | 是        | 指示`recv_x`中有效token数量                                  |
+ |              | `handle`                             | `tuple`                  | -          | 通信句柄，包含`(src_info, layout_range, num_max_dispatch_tokens_per_rank, hidden, num_experts, packed_recv_count)` | 是        | 必须传递给`low_latency_combine`                              |
+ |              | `event`                              | `EventOverlap`           | -          | 内核执行后的事件（仅在`async_finish=True`时有效）            | -          | 用于事件同步和记录。DeepEp-Ascend不需要                      |
+diff --git a/tests/python/deepep/test_low_latency.py b/tests/python/deepep/test_low_latency.py
+index c92ec1956..8547b107f 100644
+--- a/tests/python/deepep/test_low_latency.py
++++ b/tests/python/deepep/test_low_latency.py
+@@ -31,6 +31,8 @@ def test(
+     buffer: Buffer,
+     drop_percent: float,
+     seed: int = 0,
++    quant_type: str = "no",
++    local_rank: int = 0,
+ ):
+     torch.manual_seed(seed + rank)
+     random.seed(seed + rank)
+@@ -38,7 +40,6 @@ def test(
+     assert num_experts % num_ranks == 0
+     num_local_experts = num_experts // num_ranks
+ 
+-    # NOTES: the integers greater than 256 exceeds the BF16 precision limit
+     rank_offset = 128
+     assert (
+         num_ranks - rank_offset < 257
+@@ -48,6 +49,7 @@ def test(
+         rank - rank_offset
+     )
+     x[:, -128:] = torch.arange(num_tokens, device="npu").to(torch.bfloat16).view(-1, 1)
++    x_pure_rand = torch.randn((num_tokens, hidden), dtype=torch.bfloat16, device="npu")
+     scores = (
+         torch.randn((num_tokens, num_experts), dtype=torch.float32, device="npu").abs()
+         + 1
+@@ -76,44 +78,64 @@ def test(
+     cumulative_local_expert_recv_stats = torch.zeros(
+         (num_local_experts,), dtype=torch.int, device="npu"
+     )
+-    for dispatch_use_fp8 in (True, False):
+-        packed_recv_x, packed_recv_count, handle, event, hook = (
+-            buffer.low_latency_dispatch(
+-                x,
+-                topk_idx,
+-                aligned_num_tokens,
+-                num_experts,
+-                use_fp8=dispatch_use_fp8,
+-                round_scale=False,
+-                use_ue8m0=False,
+-                cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
+-                async_finish=not return_recv_hook,
+-                return_recv_hook=return_recv_hook,
+-                topk_weights=topk_weights,
++
++    if quant_type == "mxfp8":
++        fp8_configs = [(True, True)]
++    elif quant_type == "fp8":
++        fp8_configs = [(True, False)]
++    else:
++        fp8_configs = [(False, False)]
++
++    for dispatch_use_fp8, dispatch_use_ue8m0 in fp8_configs:
++        for current_x in filter(lambda elem: elem is not None, (x_pure_rand,)):
++            quant_label = (
++                "mxfp8" if dispatch_use_ue8m0 else "fp8" if dispatch_use_fp8 else "bf16"
+             )
+-        )
+-        simulated_gemm_x = (
+-            per_token_cast_back(*packed_recv_x) if dispatch_use_fp8 else packed_recv_x
+-        )
++            if local_rank == 0:
++                print(
++                    f'[testing] Running with {quant_label}, data={"rand" if current_x is x_pure_rand else "uniform"} ...',
++                    flush=True,
++                )
++
++            packed_recv_x, packed_recv_count, handle, event, hook = (
++                buffer.low_latency_dispatch(
++                    current_x,
++                    topk_idx,
++                    aligned_num_tokens,
++                    num_experts,
++                    use_fp8=dispatch_use_fp8,
++                    round_scale=False,
++                    use_ue8m0=dispatch_use_ue8m0,
++                    cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
++                    async_finish=not return_recv_hook,
++                    return_recv_hook=return_recv_hook,
++                    topk_weights=topk_weights,
++                )
++            )
++            simulated_gemm_x = (
++                per_token_cast_back(*packed_recv_x)
++                if dispatch_use_fp8
++                else packed_recv_x
++            )
++
++            padding_size = aligned_num_tokens - num_tokens
++            if padding_size > 0:
++                padding_tensor = torch.full(
++                    (padding_size, num_topk),
++                    fill_value=-1,
++                    dtype=topk_idx.dtype,
++                    device="npu",
++                )
++                topk_idx_padded = torch.cat([topk_idx, padding_tensor], dim=0)
++            else:
++                topk_idx_padded = topk_idx
+ 
+-        padding_size = aligned_num_tokens - num_tokens
+-        if padding_size > 0:
+-            padding_tensor = torch.full(
+-                (padding_size, num_topk),
+-                fill_value=-1,
++            all_topk_idx = torch.empty(
++                (num_ranks, aligned_num_tokens, num_topk),
+                 dtype=topk_idx.dtype,
+                 device="npu",
+             )
+-            topk_idx_padded = torch.cat([topk_idx, padding_tensor], dim=0)
+-        else:
+-            topk_idx_padded = topk_idx
+-
+-        all_topk_idx = torch.empty(
+-            (num_ranks, aligned_num_tokens, num_topk),
+-            dtype=topk_idx.dtype,
+-            device="npu",
+-        )
+-        dist.all_gather_into_tensor(all_topk_idx, topk_idx_padded, group=group)
++            dist.all_gather_into_tensor(all_topk_idx, topk_idx_padded, group=group)
+ 
+         for i in range(num_local_experts if do_check and not all_to_all_mode else 0):
+             expert_id = rank * num_local_experts + i
+@@ -127,6 +149,9 @@ def test(
+                 if dispatch_use_fp8
+                 else packed_recv_x[int(i * temp) : int((i + 1) * temp)]
+             )
++            quant_label = (
++                "mxfp8" if dispatch_use_ue8m0 else "fp8" if dispatch_use_fp8 else "bf16"
++            )
+             if i == 0:
+                 recv_layout_range = handle[1][(i + 1) * num_ranks - 1]
+             else:
+@@ -134,33 +159,40 @@ def test(
+                     handle[1][(i + 1) * num_ranks - 1] - handle[1][i * num_ranks - 1]
+                 )
+ 
+-            # Check expert indices
+-            int_mask = (2**32) - 1
+-            num_valid_tokens = recv_count.item()
+-            assert (
+-                num_valid_tokens == (recv_layout_range & int_mask).item()
+-            ), f"{num_valid_tokens} != {recv_layout_range & int_mask}.item()"
+-            assert (
+-                num_valid_tokens == (all_topk_idx == expert_id).sum().item()
+-            ), f"{num_valid_tokens} != {(all_topk_idx == expert_id).sum().item()}"
+-
+-            if num_valid_tokens == 0:
+-                continue
+-            # Check received data
+-            recv_x = recv_x[:num_valid_tokens]
+-            recv_x_amin = recv_x[:, :-128].amin(dim=-1)
+-            assert torch.equal(recv_x_amin, recv_x[:, :-128].amax(dim=-1))
+-            if dispatch_use_fp8:
+-                hash_value ^= hash_tensor(
+-                    packed_recv_x[0][int(i * temp) : int(i * temp + num_valid_tokens)]
+-                )
+-                hash_value ^= hash_tensor(
+-                    packed_recv_x[1][int(i * temp) : int(i * temp + num_valid_tokens)]
+-                )
+-            else:
+-                hash_value ^= hash_tensor(
+-                    packed_recv_x[int(i * temp) : int(i * temp + num_valid_tokens)]
+-                )
++                int_mask = (2**32) - 1
++                num_valid_tokens = recv_count.item()
++                assert (
++                    num_valid_tokens == (recv_layout_range & int_mask).item()
++                ), f"{num_valid_tokens} != {recv_layout_range & int_mask}.item()"
++                assert (
++                    num_valid_tokens == (all_topk_idx == expert_id).sum().item()
++                ), f"{num_valid_tokens} != {(all_topk_idx == expert_id).sum().item()}"
++
++                if num_valid_tokens == 0:
++                    continue
++                recv_x = recv_x[:num_valid_tokens]
++                recv_x_amin = recv_x[:, :-128].amin(dim=-1)
++                recv_x_amax = recv_x[:, :-128].amax(dim=-1)
++                if current_x is x and not dispatch_use_ue8m0:
++                    if dispatch_use_fp8:
++                        assert torch.allclose(recv_x_amin, recv_x_amax, atol=1e-1)
++                    else:
++                        assert torch.equal(recv_x_amin, recv_x_amax)
++                if dispatch_use_fp8:
++                    hash_value ^= hash_tensor(
++                        packed_recv_x[0][
++                            int(i * temp) : int(i * temp + num_valid_tokens)
++                        ]
++                    )
++                    hash_value ^= hash_tensor(
++                        packed_recv_x[1][
++                            int(i * temp) : int(i * temp + num_valid_tokens)
++                        ]
++                    )
++                else:
++                    hash_value ^= hash_tensor(
++                        packed_recv_x[int(i * temp) : int(i * temp + num_valid_tokens)]
++                    )
+ 
+         # Check combine correctness
+         if not all_to_all_mode:
+@@ -174,49 +206,75 @@ def test(
+                 expand_scales,
+             ) = handle
+ 
+-        out = torch.empty(
+-            (aligned_num_tokens, hidden), dtype=torch.bfloat16, device="npu"
+-        )
+-        combined_x, event, hook = buffer.low_latency_combine(
+-            simulated_gemm_x,
+-            topk_idx,
+-            topk_weights,
+-            handle,
+-            async_finish=not return_recv_hook,
+-            zero_copy=False,
+-            return_recv_hook=return_recv_hook,
+-            out=out,
+-        )
+-
+-        if do_check:
+-            diff = calc_diff(
+-                x * topk_weights.masked_fill(topk_idx == -1, 0).sum(dim=1).view(-1, 1),
+-                combined_x,
++            out = torch.empty(
++                (aligned_num_tokens, hidden), dtype=torch.bfloat16, device="npu"
++            )
++            combined_x, event, hook = buffer.low_latency_combine(
++                simulated_gemm_x,
++                topk_idx,
++                topk_weights,
++                handle,
++                async_finish=not return_recv_hook,
++                zero_copy=False,
++                return_recv_hook=return_recv_hook,
++                out=out,
+             )
+-            assert torch.isnan(combined_x).sum().item() == 0
+-            if dispatch_use_fp8:
+-                assert diff < 1e-4, f"Error: {diff=}"
+-            else:
+-                assert diff < 1e-5, f"Error: {diff=}"
+-            hash_value ^= hash_tensor(combined_x)
+ 
+-            print(f"rank {rank} PASSED")
++            if do_check:
++                ref_x = x_pure_rand if current_x is x_pure_rand else x
++                diff = calc_diff(
++                    ref_x
++                    * topk_weights.masked_fill(topk_idx == -1, 0)
++                    .sum(dim=1)
++                    .view(-1, 1),
++                    combined_x,
++                )
++                assert torch.isnan(combined_x).sum().item() == 0
++                golden = ref_x * topk_weights.masked_fill(topk_idx == -1, 0).sum(
++                    dim=1
++                ).view(-1, 1)
++                eps = 1e-8
++                golden_nozero = torch.where(golden == 0, eps, golden)
++                max_diff = torch.max(
++                    torch.abs(combined_x - golden) / golden_nozero
++                ).item()
++                avg_diff = torch.mean(
++                    torch.abs(combined_x - golden) / golden_nozero
++                ).item()
++                print(
++                    f"rank {rank} PASSED [{quant_label}] avg_diff={avg_diff:.5f}, max_diff={max_diff:.5f}, cosine_diff={diff:.5f}"
++                )
++                if dispatch_use_ue8m0:
++                    assert diff < 1e-3, f"Error: {diff=}"
++                elif dispatch_use_fp8:
++                    assert diff < 1e-4, f"Error: {diff=}"
++                else:
++                    assert diff < 1e-5, f"Error: {diff=}"
++                hash_value ^= hash_tensor(combined_x)
++                if local_rank == 0:
++                    print(" passed", flush=True)
++        if local_rank == 0:
++            print("", flush=True)
+ 
+     # noinspection PyShadowingNames
+     def test_func(zero_copy: bool, return_recv_hook: bool):
+         recv_x, recv_count, handle, event, hook = buffer.low_latency_dispatch(
+-            x,
++            current_x,
+             topk_idx,
+             aligned_num_tokens,
+             num_experts,
+             cumulative_local_expert_recv_stats=cumulative_local_expert_recv_stats,
+             use_fp8=dispatch_use_fp8,
++            use_ue8m0=dispatch_use_ue8m0,
+             async_finish=False,
+             return_recv_hook=return_recv_hook,
+             topk_weights=topk_weights,
+         )
++        simulated_gemm_x_local = (
++            per_token_cast_back(*recv_x) if dispatch_use_fp8 else recv_x
++        )
+         combined_x, event, hook = buffer.low_latency_combine(
+-            simulated_gemm_x,
++            simulated_gemm_x_local,
+             topk_idx,
+             topk_weights,
+             handle,
+@@ -225,11 +283,16 @@ def test_func(zero_copy: bool, return_recv_hook: bool):
+         )
+ 
+     # Calculate bandwidth
+-    num_fp8_bytes, num_bf16_bytes = (hidden + hidden // 128 * 4 + 16), hidden * 2
++    num_mxfp8_bytes = hidden + hidden // 32 + 16
++    num_fp8_bytes = hidden + hidden // 128 * 4 + 16
++    num_bf16_bytes = hidden * 2
+     num_dispatch_comm_bytes, num_combine_comm_bytes = 0, 0
+     for i in range(num_tokens):
+         num_selections = (topk_idx[i] != -1).sum().item()
+-        num_dispatch_comm_bytes += num_fp8_bytes * num_selections
++        if dispatch_use_ue8m0:
++            num_dispatch_comm_bytes += num_mxfp8_bytes * num_selections
++        elif dispatch_use_fp8:
++            num_dispatch_comm_bytes += num_fp8_bytes * num_selections
+         num_combine_comm_bytes += num_bf16_bytes * num_selections
+ 
+     # Dispatch + combine testing
+@@ -343,6 +406,8 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+         buffer,
+         drop_percent,
+         seed=1,
++        quant_type=args.quant_type,
++        local_rank=local_rank,
+     )
+ 
+     do_pressure_test = args.pressure_test
+@@ -361,6 +426,8 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+             buffer,
+             drop_percent,
+             seed=seed,
++            quant_type=args.quant_type,
++            local_rank=local_rank,
+         )
+         for i in range(20):
+             assert (
+@@ -376,6 +443,8 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+                     buffer,
+                     drop_percent,
+                     seed=seed,
++                    quant_type=args.quant_type,
++                    local_rank=local_rank,
+                 )
+                 == ref_hash
+             ), f"Error: seed={seed}"
+@@ -424,6 +493,14 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+         choices=["default", "ops"],
+         help="Low latency strategy to use: 'default' (deep_ep_cpp) or 'ops' (torch_npu ops)",
+     )
++    parser.add_argument(
++        "--quant-type",
++        dest="quant_type",
++        type=str,
++        default="no",
++        choices=["no", "fp8", "mxfp8"],
++        help="Quantization type for dispatch: no (bf16), fp8 (per-token), mxfp8 (per-block with e8m0 scales)",
++    )
+     args = parser.parse_args()
+ 
+     num_processes = args.num_processes

@@ -1,0 +1,3184 @@
+diff --git a/.gitmodules b/.gitmodules
+index 16a84e1dd..6c4731088 100644
+--- a/.gitmodules
++++ b/.gitmodules
+@@ -1,3 +1,7 @@
+-[submodule "third-party/pto-isa"]
+-	path = third-party/pto-isa
++[submodule "third_party/pto-isa"]
++	path = third_party/pto-isa
+ 	url = https://gitcode.com/cann/pto-isa.git
++
++[submodule "third_party/catlass"]
++	path = third_party/catlass
++	url = https://gitcode.com/cann/catlass.git
+diff --git a/.pre-commit-config.yaml b/.pre-commit-config.yaml
+index 33bef87ae..13b1dff91 100644
+--- a/.pre-commit-config.yaml
++++ b/.pre-commit-config.yaml
+@@ -45,6 +45,7 @@ repos:
+           - '\b(te|hel|ans|als|childs|vas|hsa|ment)\b'
+           - --skip
+           - '*.json,*.jsonl,*.patch,*.txt'
++          - --ignore-words-list=deviceC
+   - repo: https://github.com/pre-commit/mirrors-clang-format
+     rev: v18.1.8
+     hooks:
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index b09b00cff..b2bda26a3 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -20,8 +20,19 @@ add_compile_options(-Wcast-qual -Winvalid-pch -Wwrite-strings -Wsign-compare -We
+ 
+ if (BUILD_CATLASS_MODULE)
+     add_compile_definitions(BUILD_CATLASS_MODULE)
+-    set(CATLASS_DIR "${PROJECT_SOURCE_DIR}/3rdparty/catlass")  # specific your catlass path here
+-    message(STATUS "[CATLASS] ${CATLASS_DIR}")
++
++    # submodule path (recommend: third_party/catlass)
++    set(CATLASS_DIR "${PROJECT_SOURCE_DIR}/third_party/catlass")
++    message(STATUS "[CATLASS] CATLASS_DIR = ${CATLASS_DIR}")
++
++    # fail fast if submodule is not initialized
++    if (NOT EXISTS "${CATLASS_DIR}/include")
++        message(FATAL_ERROR
++            "Catlass submodule not found at ${CATLASS_DIR}\n"
++            "Please run:\n"
++            "  git submodule update --init --recursive\n"
++        )
++    endif ()
+ endif ()
+ 
+ if (${CMAKE_BUILD_TYPE} MATCHES "RELEASE")
+diff --git a/csrc/CMakeLists.txt b/csrc/CMakeLists.txt
+index 29f9096a2..0416e17f2 100644
+--- a/csrc/CMakeLists.txt
++++ b/csrc/CMakeLists.txt
+@@ -33,6 +33,9 @@ FILE(GLOB OP_SRCS
+ if(BUILD_CATLASS_MODULE)
+     list(APPEND OP_SRCS
+         ${PROJECT_OP_SRC_BASE}/catlass/op_host/catlass_matmul_basic.cpp
++        ${PROJECT_OP_SRC_BASE}/catlass/op_host/catlass_op_utils.cpp
++        ${PROJECT_OP_SRC_BASE}/catlass/op_host/catlass_gmm_fp8.cpp
++        ${PROJECT_OP_SRC_BASE}/catlass/op_host/catlass_matmul_fp8.cpp
+     )
+ endif()
+ list(APPEND OP_SRCS
+@@ -43,7 +46,7 @@ list(APPEND OP_SRCS
+ set(OP_PLUGIN_NAME sgl_kernel_npu)
+ 
+ # kernel side files without workspace
+-ascendc_library(no_workspace_kernel STATIC
++set(NO_WORKSPACE_KERNEL_SRCS
+     ${PROJECT_OP_SRC_BASE}/helloworld/op_kernel/kernel_helloworld.cpp
+     ${PROJECT_OP_SRC_BASE}/cache_location_assign/op_kernel/cache_loc_assign_kernel.cpp
+     ${PROJECT_OP_SRC_BASE}/assign_cache_op/op_kernel/assign_cache_op.cpp
+@@ -59,9 +62,21 @@ ascendc_library(no_workspace_kernel STATIC
+     ${PROJECT_OP_SRC_BASE}/apply_token_bitmask/op_kernel/apply_token_bitmask.cpp
+ )
+ 
++if(BUILD_CATLASS_MODULE)
++    list(APPEND NO_WORKSPACE_KERNEL_SRCS
++        ${PROJECT_OP_SRC_BASE}/catlass/op_kernel/catlass_gmm_fp8_kernel.cpp
++        ${PROJECT_OP_SRC_BASE}/catlass/op_kernel/catlass_matmul_fp8_kernel.cpp
++    )
++endif()
++ascendc_library(no_workspace_kernel STATIC ${NO_WORKSPACE_KERNEL_SRCS})
+ ascendc_include_directories(no_workspace_kernel PRIVATE
+     ${PROJECT_OP_SRC_BASE}/utils/kernel
+ )
++if(BUILD_CATLASS_MODULE)
++    ascendc_include_directories(no_workspace_kernel PRIVATE
++        ${CATLASS_DIR}/include
++    )
++endif()
+ 
+ # kernel side files with workspace
+ set(WORKSPACE_KERNEL_SRCS
+@@ -106,7 +121,7 @@ ascendc_library(mega_chunk_gdn_kernel STATIC
+ )
+ ascendc_include_directories(mega_chunk_gdn_kernel PRIVATE
+     ${PROJECT_OP_SRC_BASE}/mega_chunk_gdn/op_kernel
+-    ${PROJECT_SOURCE_DIR}/third-party/pto-isa/include
++    ${PROJECT_SOURCE_DIR}/third_party/pto-isa/include
+     ${ASCEND_INCLUDE_DIR}
+     ${ASCEND_INCLUDE_DIR}/experiment/runtime
+     ${ASCEND_INCLUDE_DIR}/experiment/msprof
+diff --git a/csrc/catlass/README.md b/csrc/catlass/README.md
+index b2e76aadf..1350fee5f 100644
+--- a/csrc/catlass/README.md
++++ b/csrc/catlass/README.md
+@@ -76,3 +76,345 @@ for dtype in dtypes:
+ 
+     torch.ops.npu.catlass_matmul_basic(a, b, res)
+ ```
++
++# torch.ops.npu.softfp8_w8a16_matmul
++
++## Function Description | 功能描述
++
++### English:
++Catlass-based soft-FP8 (W8A16) matmul. Activations are BF16; weights are FP8 bits stored as int8 and are dequantized to BF16 with per block scales(block size is (128, 128)), then GEMM is executed and BF16 output is produced.
++
++This operator is applicable to Atlas A2/A3 and enables FP8 computation on Ascend 910B/C hardware that does not support native FP8 computation.
++
++### 中文:
++基于 Catlass 的 soft-FP8（W8A16）矩阵乘：输入激活为 BF16；权重以 int8 形式存储 FP8 bit，按照块用 scale 做反量化（块大小是(128, 128)），转换为 BF16，再进行 GEMM，输出为 BF16。
++
++此算子适用于Atlas A2/A3，可在不支持原生FP8计算的Ascend 910B/C 硬件上支持FP8计算。
++
++参考/Refs: Catlass (submodule)
++
++---
++
++## Interface Prototype | 接口原型
++
++### Python Binding Definition
++```python
++import sgl_kernel_npu
++import torch
++
++torch.ops.npu.softfp8_w8a16_matmul(
++    mat1: torch.Tensor,     # bf16, [m, k]
++    mat2: torch.Tensor,     # uint8 (FP8 bits), [k, n]
++    scale: torch.Tensor,    # fp32, [ceil(k/128), ceil(n/128)]
++    outDType: str = "bf16"  # output dtype string
++) -> torch.Tensor           # [m, n]
++```
++
++### Kernel Definition | 核函数定义
++```C++
++extern "C" __global__ __aicore__ void catlass_fp8w8a16_matmul_bfloat16_t(
++    GM_ADDR deviceA, GM_ADDR deviceB, GM_ADDR deviceScale, GM_ADDR deviceC,
++    GM_ADDR deviceWorkspace, uint32_t m, uint32_t n, uint32_t k
++);
++```
++
++---
++
++## Parameter Description | 参数说明
++
++| Parameter Name (参数名称) | DataType (数据类型) | Description | 说明 |
++|:--|:--|:--|:--|
++| mat1 | torch.Tensor | BF16 activation matrix, shape (m, k) | BF16 左矩阵，形状 (m, k) |
++| mat2 | torch.Tensor | FP8(E4M3) bits stored in uint8, shape (k, n) | 以 uint8 存储的 FP8 bit 权重，形状 (k, n) |
++| scale | torch.Tensor | FP32 scale table with shape (ceil(k/128), ceil(n/128)) | 反量化 scale 表，形状为 (ceil(k/128), ceil(n/128)) |
++| outDType | str | output dtype string (now only support "bf16") | 输出 dtype 字符串（当前仅支持 "bf16"） |
++
++---
++
++## Output Description | 输出说明
++
++| Output | DataType | Description | 说明 |
++|:--|:--|:--|:--|
++| returned tensor | torch.Tensor | output matrix with shape (m, n) | 返回输出矩阵 (m, n) |
++
++---
++
++## Constraints | 约束说明
++
++### English:
++- mat1 must be BF16 and 2D: [m, k].
++- mat2 must be uint8 and 2D: [k, n].
++- scale must be float32 and 2D: [ceil(k/128), ceil(n/128)].
++- mat2.size(0) must equal k.
++- Currently only supports ND format and RowMajor layout (i.e., standard contiguous row-major tensors). Other formats (e.g., NZ) are not supported.
++- Scale is block-wise; for the common setting groupSize = 128, a typical scale table shape is:
++  - scale_rows = ceil(k / 128)
++  - scale_cols = ceil(n / 128)
++- This op is built only when BUILD_CATLASS_MODULE=ON.
++
++### 中文:
++- mat1 必须是 BF16 且为 2D：[m, k]。
++- mat2 必须是 uint8 且为 2D：[k, n]。
++- scale 必须是 float32 且为 2D：[ceil(k/128), ceil(n/128)]。
++- mat2.size(0) 必须等于 k。
++- 当前仅支持 ND 与 RowMajor（行主序、连续内存）。其它格式（如 NZ）暂不支持。
++- scale 为按 block 的布局；常见 groupSize = 128 时，典型 scale 形状为：
++  - scale_rows = ceil(k / 128)
++  - scale_cols = ceil(n / 128)
++- 仅在 BUILD_CATLASS_MODULE=ON 时参与构建。
++
++---
++
++## Example | 调用示例
++```python
++import torch
++import torch_npu
++import sgl_kernel_npu
++
++device = "npu"
++m, k, n = 128, 256, 256
++groupSize = 128
++scale_rows = (k + groupSize - 1) // groupSize
++scale_cols = (n + groupSize - 1) // groupSize
++
++a = torch.randn(m, k, dtype=torch.bfloat16, device=device)
++
++# NOTE: mat2 expects FP8 bits stored as uint8; here is a placeholder.
++b = torch.randint(0, 256, (k, n), dtype=torch.uint8, device=device)
++
++scale = torch.ones(scale_rows, scale_cols, dtype=torch.float32, device=device)
++
++c = torch.ops.npu.softfp8_w8a16_matmul(a, b, scale, "bf16")
++print(c.shape, c.dtype)  # (m, n), bf16
++```
++
++---
++
++# torch.ops.npu.softfp8_w8a16_grouped_matmul
++
++## Function Description | 功能描述
++
++### English:
++Catlass-based soft-FP8 (W8A16) grouped-matmul (GMM). Activations are BF16 [M, K], weights are [g, K, N] (FP8 bits stored as uint8), and groupList describes how the M dimension is partitioned across groups.
++
++This operator is applicable to Atlas A2/A3 and enables FP8 computation on Ascend 910B/C hardware that does not support native FP8 computation.
++
++### 中文:
++基于 Catlass 的 soft-FP8（W8A16）分组矩阵乘（GMM）：输入激活 BF16 [M, K]，权重 [g, K, N]（FP8 bit 以 uint8 存储），groupList 描述 M 维如何按组切分。
++
++此算子适用于Atlas A2/A3，可在不支持原生FP8计算的Ascend 910B/C 硬件上支持FP8计算。
++
++---
++
++## Interface Prototype | 接口原型
++
++### Python Binding Definition
++```python
++import sgl_kernel_npu
++import torch
++
++torch.ops.npu.softfp8_w8a16_grouped_matmul(
++    mat1: torch.Tensor,       # bf16, [M, K]
++    mat2: torch.Tensor,       # uint8 (FP8 bits), [g, K, N]
++    scale: torch.Tensor,      # fp32, [g, ceil(K/128), ceil(N/128)]
++    groupList: torch.Tensor,  # prefix-sum describing groups (see "Constraints")
++    outDType: str = "bf16"
++) -> torch.Tensor             # [M, N]
++```
++
++### Kernel Definition | 核函数定义
++```C++
++extern "C" __global__ __aicore__ void catlass_fp8w8a16_gmm_bfloat16_t(
++    GM_ADDR deviceA, GM_ADDR deviceW, GM_ADDR deviceScale, GM_ADDR deviceGroupList,
++    GM_ADDR deviceC, GM_ADDR deviceWorkspace,
++    uint32_t g, uint32_t m, uint32_t n, uint32_t k
++);
++```
++
++---
++
++## Parameter Description | 参数说明
++
++| Parameter Name (参数名称) | DataType (数据类型) | Description | 说明 |
++|:--|:--|:--|:--|
++| mat1 | torch.Tensor | BF16 activation, shape (M, K) | BF16 输入矩阵 (M, K) |
++| mat2 | torch.Tensor | grouped weights stored as uint8 FP8 bits, shape (g, K, N) | 以 uint8 FP8 bit 存储的分组权重 (g, K, N) |
++| scale | torch.Tensor | FP32 per-group scale table, shape (g, ceil(K/128), ceil(N/128)) | 按 group 存放的 FP32 scale 表，形状为 (g, ceil(K/128), ceil(N/128)) |
++| groupList | torch.Tensor | int64 prefix-sum group descriptor over M | int64 类型的 M 维分组前缀和描述 |
++| outDType | str | output dtype string (now only support "bf16") | 输出 dtype 字符串（当前仅支持 "bf16"） |
++
++---
++
++## Output Description | 输出说明
++
++| Output | DataType | Description | 说明 |
++|:--|:--|:--|:--|
++| returned tensor | torch.Tensor | output matrix (M, N) | 返回输出矩阵 (M, N) |
++
++---
++
++## Constraints | 约束说明
++
++### English:
++- mat1 must be BF16 and 2D: [M, K].
++- mat2 must be uint8 and 3D: [g, K, N].
++- scale must be float32 and 3D: [g, ceil(K/128), ceil(N/128)].
++- groupList must be a prefix-sum representation of the group sizes along M:
++  - int64 1D tensor of length g
++  - the first element is the size of the first group, and the remaining elements are prefix sums
++- Currently only supports ND format and RowMajor layout (standard contiguous row-major tensors). Other formats (e.g., NZ) are not supported.
++- Scale is block-wise (commonly groupSize=128), and must match the kernel's dequant packing strategy.
++- This op is built only when BUILD_CATLASS_MODULE=ON.
++
++### 中文:
++- mat1 必须是 BF16 且为 2D：[M, K]。
++- mat2 必须是 uint8 且为 3D：[g, K, N]。
++- scale 必须是 float32 且为 3D：[g, ceil(K/128), ceil(N/128)]。
++- groupList 必须用前缀和形式表示每组的 M 大小：
++  - int64 的 1D 张量，长度为 g
++  - 第一个元素是第一组大小，后续元素为前缀和
++- 当前仅支持 ND 与 RowMajor（行主序、连续内存）。其它格式（如 NZ）暂不支持。
++- scale 为按 block 的布局（常见 groupSize=128），需要与 kernel 的权重打包/反量化策略一致。
++- 仅在 BUILD_CATLASS_MODULE=ON 时参与构建。
++
++---
++
++## Example | 调用示例
++```python
++import torch
++import torch_npu
++import sgl_kernel_npu
++
++device = "npu"
++K, N = 256, 256
++group_sizes = [256, 128, 512, 64]
++g = len(group_sizes)
++
++groupList = []
++running = 0
++for mi in group_sizes:
++    running += mi
++    groupList.append(running)
++M = running
++
++a = torch.randn(M, K, dtype=torch.bfloat16, device=device)
++
++# NOTE: placeholder FP8-bits in uint8
++w = torch.randint(0, 256, (g, K, N), dtype=torch.uint8, device=device)
++
++groupList_t = torch.tensor(groupList, dtype=torch.int64, device=device)
++
++scale_rows = (K + 127) // 128
++scale_cols = (N + 127) // 128
++scale = torch.ones((g, scale_rows, scale_cols), dtype=torch.float32, device=device)
++
++c = torch.ops.npu.softfp8_w8a16_grouped_matmul(a, w, scale, groupList_t, "bf16")
++print(c.shape, c.dtype)  # (M, N), bf16
++```
++
++---
++
++# torch.ops.npu.softfp8_w8a16_batch_matmul
++
++## Function Description | 功能描述
++
++### English:
++Catlass-based soft-FP8 (W8A16) batch-matmul (BMM). mat1 is BF16 [b, M, K]; mat2 is [b, K, N] (FP8 bits stored as int8). Weights are dequantized using block-wise scales, then bf16 BMM is executed.
++
++This operator is applicable to Atlas A2/A3 and enables FP8 computation on Ascend 910B/C hardware that does not support native FP8 computation.
++
++### 中文:
++基于 Catlass 的 soft-FP8（W8A16）批量矩阵乘（BMM）：mat1 为 BF16 [b, M, K]；mat2 为 [b, K, N]（FP8 bit 以 int8 存储）。按块用 scale 做权重反量化，再执行bf16 BMM。
++
++此算子适用于Atlas A2/A3，可在不支持原生FP8计算的Ascend 910B/C 硬件上支持FP8计算。
++
++---
++
++## Interface Prototype | 接口原型
++
++### Python Binding Definition
++```python
++import sgl_kernel_npu
++import torch
++
++torch.ops.npu.softfp8_w8a16_batch_matmul(
++    mat1: torch.Tensor,     # bf16, [b, M, K]
++    mat2: torch.Tensor,     # int8 (FP8 bits), [b, K, N]
++    scale: torch.Tensor,    # fp32, per-block scale (block size is (128, 128))
++    outDType: str = "bf16"
++) -> torch.Tensor           # [b, M, N]
++```
++
++### Kernel Definition | 核函数定义
++```C++
++extern "C" __global__ __aicore__ void catlass_fp8w8a16_bmm_bfloat16_t(
++    GM_ADDR deviceA, GM_ADDR deviceB, GM_ADDR deviceScale, GM_ADDR deviceC,
++    GM_ADDR deviceWorkspace, uint32_t g, uint32_t m, uint32_t n, uint32_t k
++);
++```
++
++---
++
++## Parameter Description | 参数说明
++
++| Parameter Name (参数名称) | DataType (数据类型) | Description | 说明 |
++|:--|:--|:--|:--|
++| mat1 | torch.Tensor | BF16 activations, shape (b, M, K) | BF16 输入 (b, M, K) |
++| mat2 | torch.Tensor | weights (b, K, N), FP8 bits stored as int8 | 权重 (b, K, N)，FP8 bit 以 int8 承载 |
++| scale | torch.Tensor | FP32 scale table ((128,128) block-wise) | FP32 scale 表（按 (128,128) block） |
++| outDType | str | output dtype string (now only support "bf16") | 输出 dtype 字符串（当前仅支持 "bf16"） |
++
++---
++
++## Output Description | 输出说明
++
++| Output | DataType | Description | 说明 |
++|:--|:--|:--|:--|
++| returned tensor | torch.Tensor | output tensor with shape (b, M, N) | 返回输出 (b, M, N) |
++
++---
++
++## Constraints | 约束说明
++
++### English:
++- mat1 must be BF16 and 3D: [b, M, K].
++- mat2 must be 3D: [b, K, N].
++- Currently only supports ND format and RowMajor layout (standard contiguous row-major tensors). Other formats (e.g., NZ) are not supported.
++- Scale is block-wise; for the common groupSize = 128, a typical scale table shape is:
++  - scale_rows = ceil(k / 128)
++  - scale_cols = ceil(n / 128)
++- This op is built only when BUILD_CATLASS_MODULE=ON.
++
++### 中文:
++- mat1 必须是 BF16 且为 3D：[b, M, K]。
++- mat2 必须为 3D：[b, K, N]。
++- 当前仅支持 ND 与 RowMajor（行主序、连续内存）。其它格式（如 NZ）暂不支持。
++- scale 为按 block 的布局；常见 groupSize = 128 时，典型 scale 形状为：
++  - scale_rows = ceil(k / 128)
++  - scale_cols = ceil(n / 128)
++- 仅在 BUILD_CATLASS_MODULE=ON 时参与构建。
++
++---
++
++## Example | 调用示例
++```python
++import torch
++import torch_npu
++import sgl_kernel_npu
++
++device = "npu"
++b, M, K, N = 4, 128, 256, 256
++groupSize = 128
++scale_rows = (K + groupSize - 1) // groupSize
++scale_cols = (N + groupSize - 1) // groupSize
++
++a = torch.randn(b, M, K, dtype=torch.bfloat16, device=device)
++
++# NOTE: placeholder FP8-bits in int8
++b_w = torch.randint(-128, 127, (b, K, N), dtype=torch.int8, device=device)
++
++scale = torch.ones(scale_rows, scale_cols, dtype=torch.float32, device=device)
++
++c = torch.ops.npu.softfp8_w8a16_batch_matmul(a, b_w, scale, "bf16")
++print(c.shape, c.dtype)  # (b, M, N), bf16
++```
+diff --git a/csrc/catlass/op_host/catlass_gmm_fp8.cpp b/csrc/catlass/op_host/catlass_gmm_fp8.cpp
+new file mode 100644
+index 000000000..1d3b9325c
+--- /dev/null
++++ b/csrc/catlass/op_host/catlass_gmm_fp8.cpp
+@@ -0,0 +1,93 @@
++// Licensed under the BSD 3-Clause License (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++#include <map>
++#include <torch/torch.h>
++#include <torch_npu/csrc/core/npu/DeviceUtils.h>
++#include <torch_npu/csrc/core/npu/NPUFormat.h>
++#include <torch_npu/csrc/core/npu/NPUFunctions.h>
++#include <ATen/ATen.h>
++#include <torch/library.h>
++
++#include "tiling/platform/platform_ascendc.h"
++#include "defines.h"
++#include "torch_helper.h"
++#include "catlass_op_utils.h"
++#include "aclrtlaunch_catlass_fp8w8a16_gmm_bfloat16_t.h"
++
++namespace sglang {
++namespace npu_kernel {
++HOST_API at::Tensor softfp8_w8a16_grouped_matmul(const at::Tensor &mat1, const at::Tensor &mat2,
++                                                 const at::Tensor &scale, const at::Tensor &groupList,
++                                                 const std::string &outDType)
++{
++    constexpr int64_t kBlockSize = 128;
++    at::ScalarType scalar_type = mat1.scalar_type();
++
++    TORCH_CHECK(scalar_type == at::kBFloat16, "only support bf16");
++    TORCH_CHECK(mat1.dim() == 2, "x should be [M, K]");
++    TORCH_CHECK(mat2.scalar_type() == at::kByte, "weight should be uint8 storing fp8 bits");
++    TORCH_CHECK(mat2.dim() == 3, "weight should be [g, k, n]");
++    TORCH_CHECK(scale.scalar_type() == at::kFloat, "scale should be float32");
++    TORCH_CHECK(scale.dim() == 3, "scale should be [g, ceil(k/128), ceil(n/128)]");
++    TORCH_CHECK(groupList.scalar_type() == at::kLong, "groupList should be int64");
++    TORCH_CHECK(groupList.dim() == 1, "groupList should be 1D");
++
++    int64_t m64 = mat1.size(0);
++    int64_t k64 = mat1.size(1);
++    int64_t n64 = mat2.size(2);
++    int64_t g64 = mat2.size(0);
++    int64_t scale_rows = (k64 + kBlockSize - 1) / kBlockSize;
++    int64_t scale_cols = (n64 + kBlockSize - 1) / kBlockSize;
++
++    TORCH_CHECK(mat2.size(1) == k64, "weight shape mismatch: expect K dim to equal mat1.size(1)");
++    TORCH_CHECK(scale.size(0) == g64 && scale.size(1) == scale_rows && scale.size(2) == scale_cols,
++                "scale shape mismatch: expect [g, ceil(k/128), ceil(n/128)]");
++    TORCH_CHECK(groupList.numel() == g64, "groupList length should equal group count g");
++
++    uint32_t m = static_cast<uint32_t>(m64);
++    uint32_t k = static_cast<uint32_t>(k64);
++    uint32_t n = static_cast<uint32_t>(n64);
++    uint32_t g = static_cast<uint32_t>(g64);
++
++    void *x_ptr = mat1.data_ptr();
++    void *w_ptr = mat2.data_ptr();
++    void *scale_ptr = scale.data_ptr();
++    void *group_list_ptr = groupList.data_ptr();
++
++    auto outputDataType = TypeStrToAclDtype(outDType);
++    at::Tensor output = GetOutputTensor({m, n}, AclDtypeToTorchDtype(outputDataType));
++    void *y_ptr = output.data_ptr();
++
++    aclrtStream stream = c10_npu::getCurrentNPUStream().stream(false);
++    uint32_t aicCoreNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
++    uint32_t workspace_size = 4 * 256 * 256 * sizeof(outputDataType) * aicCoreNum;
++    auto workspace_tensor =
++        at::empty({workspace_size}, at::TensorOptions().dtype(at::kByte).device(mat1.options().device()));
++    void *workspace_ptr = workspace_tensor.data_ptr();
++
++    at_npu::native::OpCommand cmd;
++    cmd.Name("catlass_fp8w8a16_gmm_bfloat16_t");
++    cmd.SetCustomHandler(
++        [aicCoreNum, stream, x_ptr, w_ptr, scale_ptr, group_list_ptr, y_ptr, workspace_ptr, g, m, n, k]() -> int {
++            int device_id = 0;
++            int64_t aiv_num = 0;
++            TORCH_CHECK(aclGetDeviceCapability(device_id, ACL_DEVICE_INFO_VECTOR_CORE_NUM, &aiv_num) == ACL_SUCCESS);
++
++            ACLRT_LAUNCH_KERNEL(catlass_fp8w8a16_gmm_bfloat16_t)
++            (aicCoreNum, stream, x_ptr, w_ptr, scale_ptr, group_list_ptr, y_ptr, workspace_ptr, g, m, n, k);
++            return 0;
++        });
++    cmd.Run();
++
++    return output;
++}
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/catlass/op_host/catlass_matmul_fp8.cpp b/csrc/catlass/op_host/catlass_matmul_fp8.cpp
+new file mode 100644
+index 000000000..e9bb5c68c
+--- /dev/null
++++ b/csrc/catlass/op_host/catlass_matmul_fp8.cpp
+@@ -0,0 +1,85 @@
++// Licensed under the BSD 3-Clause License (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++#include <map>
++#include <torch/torch.h>
++#include <torch_npu/csrc/core/npu/DeviceUtils.h>
++#include <torch_npu/csrc/core/npu/NPUFormat.h>
++#include <torch_npu/csrc/core/npu/NPUFunctions.h>
++#include <ATen/ATen.h>
++#include <torch/library.h>
++
++#include "tiling/platform/platform_ascendc.h"
++#include "defines.h"
++#include "torch_helper.h"
++#include "catlass_op_utils.h"
++#include "aclrtlaunch_catlass_fp8w8a16_matmul_bfloat16_t.h"
++
++namespace sglang {
++namespace npu_kernel {
++HOST_API at::Tensor softfp8_w8a16_matmul(const at::Tensor &mat1, const at::Tensor &mat2, const at::Tensor &scale,
++                                         const std::string &outDType)
++{
++    constexpr int64_t kBlockSize = 128;
++    at::ScalarType scalar_type = mat1.scalar_type();
++
++    TORCH_CHECK(scalar_type == at::kBFloat16, "only support bf16");
++    TORCH_CHECK(mat1.dim() == 2, "x should be [M, K]");
++    TORCH_CHECK(mat2.scalar_type() == at::kByte, "weight should be uint8 storing fp8 bits");
++    TORCH_CHECK(mat2.dim() == 2, "weight should be [K, N]");
++    TORCH_CHECK(scale.scalar_type() == at::kFloat, "scale should be float32");
++    TORCH_CHECK(scale.dim() == 2, "scale should be [ceil(k/128), ceil(n/128)]");
++
++    int64_t m64 = mat1.size(0);
++    int64_t k64 = mat1.size(1);
++    int64_t n64 = mat2.size(1);
++    int64_t scale_rows = (k64 + kBlockSize - 1) / kBlockSize;
++    int64_t scale_cols = (n64 + kBlockSize - 1) / kBlockSize;
++
++    TORCH_CHECK(mat2.size(0) == k64, "weight shape mismatch: expect K dim to equal mat1.size(1)");
++    TORCH_CHECK(scale.size(0) == scale_rows && scale.size(1) == scale_cols,
++                "scale shape mismatch: expect [ceil(k/128), ceil(n/128)]");
++
++    uint32_t m = static_cast<uint32_t>(m64);
++    uint32_t k = static_cast<uint32_t>(k64);
++    uint32_t n = static_cast<uint32_t>(n64);
++
++    void *x_ptr = mat1.data_ptr();
++    void *w_ptr = mat2.data_ptr();
++    void *scale_ptr = scale.data_ptr();
++
++    auto outputDataType = TypeStrToAclDtype(outDType);
++    at::Tensor output = GetOutputTensor({m, n}, AclDtypeToTorchDtype(outputDataType));
++    void *y_ptr = output.data_ptr();
++
++    aclrtStream stream = c10_npu::getCurrentNPUStream().stream(false);
++    uint32_t aicCoreNum = platform_ascendc::PlatformAscendCManager::GetInstance()->GetCoreNumAic();
++    uint32_t workspace_size = 4 * 256 * 256 * sizeof(outputDataType) * aicCoreNum;
++    auto workspace_tensor =
++        at::empty({workspace_size}, at::TensorOptions().dtype(at::kByte).device(mat1.options().device()));
++    void *workspace_ptr = workspace_tensor.data_ptr();
++
++    at_npu::native::OpCommand cmd;
++    cmd.Name("catlass_fp8w8a16_matmul_bfloat16_t");
++    cmd.SetCustomHandler([aicCoreNum, stream, x_ptr, w_ptr, scale_ptr, y_ptr, workspace_ptr, m, n, k]() -> int {
++        int device_id = 0;
++        int64_t aiv_num = 0;
++        TORCH_CHECK(aclGetDeviceCapability(device_id, ACL_DEVICE_INFO_VECTOR_CORE_NUM, &aiv_num) == ACL_SUCCESS);
++
++        ACLRT_LAUNCH_KERNEL(catlass_fp8w8a16_matmul_bfloat16_t)
++        (aicCoreNum, stream, x_ptr, w_ptr, scale_ptr, y_ptr, workspace_ptr, m, n, k);
++        return 0;
++    });
++    cmd.Run();
++
++    return output;
++}
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/catlass/op_host/catlass_op_utils.cpp b/csrc/catlass/op_host/catlass_op_utils.cpp
+new file mode 100644
+index 000000000..7bc8281a2
+--- /dev/null
++++ b/csrc/catlass/op_host/catlass_op_utils.cpp
+@@ -0,0 +1,61 @@
++// Licensed under the BSD 3-Clause License (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++#include "catlass_op_utils.h"
++
++namespace sglang {
++namespace npu_kernel {
++
++torch::Dtype TypeStrToTorchDtype(const std::string &typeStr)
++{
++    static const std::unordered_map<std::string, torch::Dtype> mapper = {{"float32", torch::kFloat32},
++                                                                         {"float16", torch::kFloat16},
++                                                                         {"int8", torch::kInt8},
++                                                                         {"int32", torch::kInt32},
++                                                                         {"bf16", torch::kBFloat16}};
++    auto iter = mapper.find(typeStr);
++    return iter != mapper.end() ? iter->second : torch::kFloat16;
++}
++
++aclDataType TorchDtypeToAclDtype(const torch::Dtype torchDtype)
++{
++    static const std::unordered_map<torch::Dtype, aclDataType> mapper = {{torch::kFloat32, ACL_FLOAT},
++                                                                         {torch::kFloat16, ACL_FLOAT16},
++                                                                         {torch::kInt8, ACL_INT8},
++                                                                         {torch::kInt32, ACL_INT32},
++                                                                         {torch::kBFloat16, ACL_BF16}};
++    auto iter = mapper.find(torchDtype);
++    return iter != mapper.end() ? iter->second : ACL_FLOAT16;
++};
++
++torch::Dtype AclDtypeToTorchDtype(const aclDataType aclDtype)
++{
++    static const std::map<aclDataType, torch::Dtype> mapper = {{ACL_FLOAT16, torch::kFloat16},
++                                                               {ACL_FLOAT, torch::kFloat32},
++                                                               {ACL_INT32, torch::kInt32},
++                                                               {ACL_INT8, torch::kInt8},
++                                                               {ACL_BF16, torch::kBFloat16}};
++    auto iter = mapper.find(aclDtype);
++    return iter != mapper.end() ? iter->second : torch::kFloat16;
++};
++
++aclDataType TypeStrToAclDtype(const std::string &typeStr)
++{
++    return TorchDtypeToAclDtype(TypeStrToTorchDtype(typeStr));
++};
++
++torch::Tensor GetOutputTensor(const std::vector<int64_t> &shape, const torch::Dtype dtype)
++{
++    at::TensorOptions options = at::TensorOptions();
++    options =
++        options.dtype(dtype).layout(at::kStrided).requires_grad(false).device(torch_npu::utils::get_npu_device_type());
++    return at_npu::native::empty_with_format(shape, options, ACL_FORMAT_ND);
++};
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/catlass/op_host/catlass_op_utils.h b/csrc/catlass/op_host/catlass_op_utils.h
+new file mode 100644
+index 000000000..6d3b07af9
+--- /dev/null
++++ b/csrc/catlass/op_host/catlass_op_utils.h
+@@ -0,0 +1,36 @@
++// Licensed under the BSD 3-Clause License (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++#include <map>
++#include <torch/torch.h>
++#include <torch_npu/csrc/core/npu/DeviceUtils.h>
++#include <torch_npu/csrc/core/npu/NPUFormat.h>
++#include <torch_npu/csrc/core/npu/NPUFunctions.h>
++#include <ATen/ATen.h>
++#include <torch/library.h>
++
++#include "tiling/platform/platform_ascendc.h"
++#include "defines.h"
++#include "torch_helper.h"
++
++namespace sglang {
++namespace npu_kernel {
++
++torch::Dtype TypeStrToTorchDtype(const std::string &typeStr);
++
++aclDataType TorchDtypeToAclDtype(torch::Dtype torchDtype);
++
++torch::Dtype AclDtypeToTorchDtype(aclDataType aclDtype);
++
++aclDataType TypeStrToAclDtype(const std::string &typeStr);
++
++torch::Tensor GetOutputTensor(const std::vector<int64_t> &shape, torch::Dtype dtype);
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/catlass/op_kernel/catlass_gmm_fp8_kernel.cpp b/csrc/catlass/op_kernel/catlass_gmm_fp8_kernel.cpp
+new file mode 100644
+index 000000000..568f38d9a
+--- /dev/null
++++ b/csrc/catlass/op_kernel/catlass_gmm_fp8_kernel.cpp
+@@ -0,0 +1,112 @@
++// Licensed under the BSD 3-Clause License (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++/* include file of ascendc */
++#include "kernel_operator.h"
++#include "lib/matmul_intf.h"
++#include "lib/matrix/matmul/tiling.h"
++
++/* include file of catlass */
++#include "catlass/arch/arch.hpp"
++#include "catlass/catlass.hpp"
++#include "catlass/gemm/block/block_mmad.hpp"
++#include "catlass/gemm/block/block_swizzle.hpp"
++#include "catlass/gemm/dispatch_policy.hpp"
++#include "catlass/gemm/gemm_type.hpp"
++#include "catlass/layout/layout.hpp"
++#include "catlass/status.hpp"
++
++#include "../utils/gemm/kernel/gmm_wfp8a16.hpp"
++#include "../utils/gemm/tile/cast_fp8_to_bf16_with_scale.hpp"
++#include "../utils/gemm/block/block_mmad_pingpong_with_prologue_fp8_w8a16.hpp"
++#include "../utils/gemm/dispatch_policy_ext.hpp"
++
++using namespace Catlass;
++using namespace matmul;
++
++extern "C" __global__ __aicore__ void catlass_fp8w8a16_gmm_bfloat16_t(GM_ADDR deviceA, GM_ADDR deviceB,
++                                                                      GM_ADDR deviceScale, GM_ADDR deviceGroupList,
++                                                                      GM_ADDR deviceC, GM_ADDR deviceWorkspace,
++                                                                      uint32_t g, uint32_t m, uint32_t n, uint32_t k)
++{
++    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIC_1_2);
++
++    GemmCoord problemShape{m, n, k};
++    uint32_t problemCount = g;
++    uint32_t groupSize = 128;
++    using ElementA = bfloat16_t;
++    using ElementPrologueB = int8_t;
++    using ElementB = bfloat16_t;
++    using ElementC = bfloat16_t;
++
++    using LayoutA = layout::RowMajor;
++    using LayoutB = layout::RowMajor;
++    using LayoutPrologueB = layout::RowMajor;
++    using LayoutC = layout::RowMajor;
++    LayoutA layoutA{m, k};
++    LayoutPrologueB layoutPrologueB{k, n};
++    LayoutC layoutC{m, n};
++
++    uint32_t scale_rows = CeilDiv(static_cast<size_t>(k), groupSize);
++    uint32_t scale_cols = CeilDiv(static_cast<size_t>(n), groupSize);
++
++    using ElementScale = float;
++    using LayoutScale = layout::RowMajor;
++    LayoutScale layoutScale{scale_rows, scale_cols};
++
++    half deqScalar = 1.0;
++    half deqZeroPoint = 0.0;
++    using L1TileShape =
++        std::conditional_t<std::is_same_v<LayoutA, layout::ColumnMajor> && std::is_same_v<LayoutB, layout::ColumnMajor>,
++                           GemmShape<256, 128, 256>, GemmShape<128, 256, 256>>;
++    using L0TileShape =
++        std::conditional_t<std::is_same_v<LayoutA, layout::ColumnMajor> && std::is_same_v<LayoutB, layout::ColumnMajor>,
++                           GemmShape<256, 128, 64>, GemmShape<128, 256, 64>>;
++
++    using PrologueSrcType = Gemm::GemmType<ElementPrologueB, LayoutPrologueB>;
++    using PrologueDstType = Gemm::GemmType<ElementB, LayoutB>;
++    using PrologueScaleType = Gemm::GemmType<ElementScale, LayoutScale>;
++    using AType = Gemm::GemmType<ElementA, LayoutA>;
++    using BType = PrologueDstType;
++    using CType = Gemm::GemmType<ElementC, LayoutC>;
++
++    using ArchTag = Arch::AtlasA2;
++    constexpr bool ENABLE_UNIT_FLAG = true;
++    using DispatchPolicy = Gemm::MmadAtlasA2PingPongWithPrologueBFP8<ENABLE_UNIT_FLAG>;
++    using PrologueA = void;
++    constexpr uint32_t computeLen = 8 * 1024;
++    using PrologueB = Gemm::Tile::TileCastFp8ToBf16WithScaleDequant<ArchTag, PrologueSrcType, PrologueDstType,
++                                                                    PrologueScaleType, computeLen>;
++    using TileCopy = Gemm::Tile::TileCopyWithPrologue<ArchTag, AType, BType, CType, PrologueA, PrologueB>;
++    using BlockMmadOpt =
++        Gemm::Block::BlockMmad<DispatchPolicy, L1TileShape, L0TileShape, AType, BType, CType, void, TileCopy>;
++
++    if (k > n) {
++        using BlockScheduler = typename Gemm::Block::GemmIdentityBlockSwizzle<3, 0>;
++        using MatmulKernel = Gemm::Kernel::GroupedMatmulSliceMFP8W8A16<BlockMmadOpt, void, BlockScheduler, int64_t>;
++        typename MatmulKernel::Params params_{
++            problemShape, problemCount,    deviceGroupList, deviceA,        layoutA,
++            deviceB,      layoutPrologueB, deviceC,         layoutC,        {{}, {deqScalar, deqZeroPoint}, {}},
++            deviceScale,  layoutScale,     groupSize,       deviceWorkspace};
++        MatmulKernel matmul_kernel;
++        uint32_t coreIdx = AscendC::GetBlockIdx();
++        matmul_kernel(params_);
++    } else {
++        using BlockScheduler = typename Gemm::Block::GemmIdentityBlockSwizzle<3, 1>;
++        using MatmulKernel = Gemm::Kernel::GroupedMatmulSliceMFP8W8A16<BlockMmadOpt, void, BlockScheduler, int64_t>;
++        typename MatmulKernel::Params params_{
++            problemShape, problemCount,    deviceGroupList, deviceA,        layoutA,
++            deviceB,      layoutPrologueB, deviceC,         layoutC,        {{}, {deqScalar, deqZeroPoint}, {}},
++            deviceScale,  layoutScale,     groupSize,       deviceWorkspace};
++        MatmulKernel matmul_kernel;
++        uint32_t coreIdx = AscendC::GetBlockIdx();
++        matmul_kernel(params_);
++    }
++}
+diff --git a/csrc/catlass/op_kernel/catlass_matmul_fp8_kernel.cpp b/csrc/catlass/op_kernel/catlass_matmul_fp8_kernel.cpp
+new file mode 100644
+index 000000000..981b07e4e
+--- /dev/null
++++ b/csrc/catlass/op_kernel/catlass_matmul_fp8_kernel.cpp
+@@ -0,0 +1,115 @@
++// Licensed under the BSD 3-Clause License (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++/* include file of ascendc */
++#include "kernel_operator.h"
++
++/* include file of catlass */
++#include "catlass/arch/arch.hpp"
++#include "catlass/catlass.hpp"
++#include "catlass/gemm/block/block_mmad.hpp"
++#include "catlass/gemm/block/block_swizzle.hpp"
++#include "catlass/gemm/dispatch_policy.hpp"
++#include "catlass/gemm/gemm_type.hpp"
++#include "catlass/layout/layout.hpp"
++#include "catlass/status.hpp"
++
++#include "lib/matmul_intf.h"
++#include "lib/matrix/matmul/tiling.h"
++
++#include "../utils/gemm/kernel/mm_wfp8a16.hpp"
++#include "../utils/gemm/tile/cast_fp8_to_bf16_with_scale.hpp"
++#include "../utils/gemm/block/block_mmad_pingpong_with_prologue_fp8_w8a16.hpp"
++#include "../utils/gemm/dispatch_policy_ext.hpp"
++
++using namespace Catlass;
++using namespace matmul;
++
++extern "C" __global__ __aicore__ void catlass_fp8w8a16_matmul_bfloat16_t(GM_ADDR deviceA, GM_ADDR deviceB,
++                                                                         GM_ADDR deviceScale,
++                                                                         GM_ADDR deviceC,  // output
++                                                                         GM_ADDR deviceWorkspace, uint32_t m,
++                                                                         uint32_t n, uint32_t k)
++{
++    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_MIX_AIC_1_2);
++
++    GemmCoord problemShape{m, n, k};
++    uint32_t groupSize = 128;
++    using ElementA = bfloat16_t;
++    using ElementPrologueB = int8_t;
++    using ElementB = bfloat16_t;
++    using ElementC = bfloat16_t;
++
++    using LayoutA = layout::RowMajor;
++    using LayoutB = layout::RowMajor;
++    using LayoutPrologueB = layout::RowMajor;
++    using LayoutC = layout::RowMajor;
++
++    LayoutA layoutA{m, k};
++    LayoutPrologueB layoutPrologueB{k, n};
++    LayoutC layoutC{m, n};
++
++    uint32_t scale_rows = CeilDiv(static_cast<size_t>(k), groupSize);
++    uint32_t scale_cols = CeilDiv(static_cast<size_t>(n), groupSize);
++
++    using ElementScale = float;
++    using LayoutScale = layout::RowMajor;
++    LayoutScale layoutScale{scale_rows, scale_cols};
++
++    half deqScalar = 1.0;
++    half deqZeroPoint = 0;
++
++    using L1TileShape =
++        std::conditional_t<std::is_same_v<LayoutA, layout::ColumnMajor> && std::is_same_v<LayoutB, layout::ColumnMajor>,
++                           GemmShape<256, 128, 256>, GemmShape<128, 256, 256>>;
++    using L0TileShape =
++        std::conditional_t<std::is_same_v<LayoutA, layout::ColumnMajor> && std::is_same_v<LayoutB, layout::ColumnMajor>,
++                           GemmShape<256, 128, 64>, GemmShape<128, 256, 64>>;
++
++    using PrologueSrcType = Gemm::GemmType<ElementPrologueB, LayoutPrologueB>;
++    using PrologueDstType = Gemm::GemmType<ElementB, LayoutB>;
++    using PrologueScaleType = Gemm::GemmType<ElementScale, LayoutScale>;
++    using AType = Gemm::GemmType<ElementA, LayoutA>;
++    using BType = PrologueDstType;
++    using CType = Gemm::GemmType<ElementC, LayoutC>;
++    using ArchTag = Arch::AtlasA2;
++    constexpr bool ENABLE_UNIT_FLAG = true;
++    using DispatchPolicy = Gemm::MmadAtlasA2PingPongWithPrologueBFP8<ENABLE_UNIT_FLAG>;
++
++    using PrologueA = void;
++    constexpr uint32_t computeLen = 8 * 1024;
++    using PrologueB = Gemm::Tile::TileCastFp8ToBf16WithScaleDequant<ArchTag, PrologueSrcType, PrologueDstType,
++                                                                    PrologueScaleType, computeLen>;
++
++    using TileCopy = Gemm::Tile::TileCopyWithPrologue<ArchTag, AType, BType, CType, PrologueA, PrologueB>;
++    using BlockMmadOpt =
++        Gemm::Block::BlockMmad<DispatchPolicy, L1TileShape, L0TileShape, AType, BType, CType, void, TileCopy>;
++    using BlockEpilogue = void;
++
++    if (m > n) {
++        using BlockScheduler = typename Gemm::Block::GemmIdentityBlockSwizzle<3, 0>;
++        using MatmulKernel = Gemm::Kernel::FP8W8A16Matmul<BlockMmadOpt, BlockEpilogue, BlockScheduler>;
++        typename MatmulKernel::Params params_{
++            problemShape,    deviceA,     layoutA,   deviceB,
++            layoutPrologueB, deviceC,     layoutC,   {{}, {deqScalar, deqZeroPoint}, {}},
++            deviceScale,     layoutScale, groupSize, deviceWorkspace};
++        MatmulKernel matmul_kernel;
++        matmul_kernel(params_);
++    } else {
++        using BlockScheduler = typename Gemm::Block::GemmIdentityBlockSwizzle<3, 1>;
++        using MatmulKernel = Gemm::Kernel::FP8W8A16Matmul<BlockMmadOpt, BlockEpilogue, BlockScheduler>;
++        typename MatmulKernel::Params params_{
++            problemShape,    deviceA,     layoutA,   deviceB,
++            layoutPrologueB, deviceC,     layoutC,   {{}, {deqScalar, deqZeroPoint}, {}},
++            deviceScale,     layoutScale, groupSize, deviceWorkspace};
++        MatmulKernel matmul_kernel;
++        matmul_kernel(params_);
++    }
++}
+diff --git a/csrc/catlass/utils/gemm/block/block_mmad_pingpong_with_prologue_fp8_w8a16.hpp b/csrc/catlass/utils/gemm/block/block_mmad_pingpong_with_prologue_fp8_w8a16.hpp
+new file mode 100644
+index 000000000..56a2a01c1
+--- /dev/null
++++ b/csrc/catlass/utils/gemm/block/block_mmad_pingpong_with_prologue_fp8_w8a16.hpp
+@@ -0,0 +1,563 @@
++/**
++
++This program is free software, you can redistribute it and/or modify.
++Copyright (c) 2025 Huawei Technologies Co., Ltd.
++This file is a part of the CANN Open Software.
++Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
++Please refer to the License for details. You may not use this file except in compliance with the License.
++THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT
++NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. See LICENSE in the root of the
++software repository for the full text of the License.
++*/
++#ifndef CATLASS_GEMM_BLOCK_BLOCK_MMAD_PINGPONG_WITH_PROLOGUE_FP8_W8A16
++#define CATLASS_GEMM_BLOCK_BLOCK_MMAD_PINGPONG_WITH_PROLOGUE_FP8_W8A16
++
++#include "catlass/catlass.hpp"
++#include "catlass/arch/resource.hpp"
++#include "catlass/coord.hpp"
++#include "catlass/gemm_coord.hpp"
++#include "catlass/gemm/dispatch_policy.hpp"
++#include "catlass/gemm/helper.hpp"
++#include "catlass/gemm/tile/tile_copy.hpp"
++
++#include "../tile/tile_traits_with_scale.hpp"
++#include "../dispatch_policy_ext.hpp"
++
++namespace Catlass::Gemm::Block {
++
++template <bool ENABLE_UNIT_FLAG_, class L1TileShape_, class L0TileShape_, class AType_, class BType_, class CType_,
++          class BiasType_, class TileCopy_, class TileMmad_>
++struct BlockMmad<MmadAtlasA2PingPongWithPrologueBFP8<ENABLE_UNIT_FLAG_>, L1TileShape_, L0TileShape_, AType_, BType_,
++                 CType_, BiasType_, TileCopy_, TileMmad_> {
++public:
++    // Type Aliases
++    using DispatchPolicy = MmadAtlasA2PingPongWithPrologueBFP8<ENABLE_UNIT_FLAG_>;
++    using ArchTag = typename DispatchPolicy::ArchTag;
++    using L1TileShape = L1TileShape_;
++    using L0TileShape = L0TileShape_;
++    using ElementA = typename AType_::Element;
++    using LayoutA = typename AType_::Layout;
++    using ElementB = typename BType_::Element;
++    using LayoutB = typename BType_::Layout;
++    using ElementC = typename CType_::Element;
++    using LayoutC = typename CType_::Layout;
++    using TileMmad = TileMmad_;
++
++    using CopyGmToL1A = typename TileCopy_::CopyGmToL1A;
++    using CopyGmToL1B = typename TileCopy_::CopyGmToL1B;
++    using CopyL1ToL0A = typename TileCopy_::CopyL1ToL0A;
++    using CopyL1ToL0B = typename TileCopy_::CopyL1ToL0B;
++
++    using PrologueA = typename TileCopy_::PrologueA;
++    using PrologueB = typename TileCopy_::PrologueB;
++
++    using ElementAccumulator =
++        typename Gemm::helper::ElementAccumulatorSelector<ElementA, ElementB>::ElementAccumulator;
++    using CopyL0CToGm = typename TileCopy_::CopyL0CToGm;
++    using LayoutAInL1 = typename CopyL1ToL0A::LayoutSrc;
++    using LayoutBInL1 = typename CopyL1ToL0B::LayoutSrc;
++    using LayoutAInL0 = typename CopyL1ToL0A::LayoutDst;
++    using LayoutBInL0 = typename CopyL1ToL0B::LayoutDst;
++    using LayoutCInL0 = layout::zN;
++
++    using L1AAlignHelper = Gemm::helper::L1AlignHelper<ElementA, LayoutA>;
++    using L1BAlignHelper = Gemm::helper::L1AlignHelper<ElementB, LayoutB>;
++
++    static constexpr bool ENABLE_UNIT_FLAG = DispatchPolicy::ENABLE_UNIT_FLAG;
++    static constexpr uint32_t STAGES = DispatchPolicy::STAGES;
++    static constexpr uint32_t L1A_SIZE = L1TileShape::M * L1TileShape::K * sizeof(ElementA);
++    static constexpr uint32_t L1B_SIZE = L1TileShape::N * L1TileShape::K * sizeof(ElementB);
++    static constexpr uint32_t L0A_SIZE = ArchTag::L0A_SIZE;
++    static constexpr uint32_t L0B_SIZE = ArchTag::L0B_SIZE;
++    static constexpr uint32_t L0C_SIZE = ArchTag::L0C_SIZE;
++    static constexpr uint32_t L0A_PINGPONG_BUF_SIZE = L0A_SIZE / STAGES;
++    static constexpr uint32_t L0B_PINGPONG_BUF_SIZE = L0B_SIZE / STAGES;
++
++    static constexpr bool HAS_PROLOGUE_A = !std::is_same_v<PrologueA, void>;
++    static constexpr bool HAS_PROLOGUE_B = !std::is_same_v<PrologueB, void>;
++
++    // Check L1TileShape
++    static_assert((L1A_SIZE * STAGES + L1B_SIZE * STAGES) <= ArchTag::L1_SIZE, "L1TileShape exceeding the L1 space!");
++
++    // Check L0TileShape
++    static constexpr uint32_t L0A_TILE_SIZE = L0TileShape::M * L0TileShape::K * sizeof(ElementA);
++    static constexpr uint32_t L0B_TILE_SIZE = L0TileShape::K * L0TileShape::N * sizeof(ElementB);
++    static constexpr uint32_t L0C_TILE_SIZE = L0TileShape::M * L0TileShape::N * sizeof(ElementAccumulator);
++    static_assert((L0A_TILE_SIZE * STAGES) <= L0A_SIZE, "L0TileShape exceeding the L0A space!");
++    static_assert((L0B_TILE_SIZE * STAGES) <= L0B_SIZE, "L0TileShape exceeding the L0B space!");
++    static_assert(L0C_TILE_SIZE <= L0C_SIZE, "L0TileShape exceeding the L0C space!");
++
++    static_assert(L1TileShape::M == L0TileShape::M && L1TileShape::N == L0TileShape::N,
++                  "The situation where the basic blocks of L1 and L0 differ on the m and n axes is not supported yet");
++    static_assert(L0TileShape::K <= L1TileShape::K, "L0TileShape::K cannot exceed L1TileShape::K");
++
++    struct Params {
++        typename Tile::PrologueTraitsWithScale<PrologueA>::Params prologueA{};
++        typename Tile::PrologueTraitsWithScale<PrologueB>::Params prologueB{};
++        typename CopyL0CToGm::Params copyL0CToGm{};
++    };
++
++    /// Construct
++    CATLASS_DEVICE
++    BlockMmad(Arch::Resource<ArchTag> const &resource, Params const &params_ = {})
++        : params(params_),
++          prologueA(resource, params_.prologueA),
++          prologueB(resource, params_.prologueB),
++          copyL0CToGm(params_.copyL0CToGm)
++    {
++        Arch::FlagID flagId = 0;
++        for (uint32_t i = 0; i < STAGES; ++i) {
++            if constexpr (HAS_PROLOGUE_A) {
++                flagCopyAFinish[i] = Arch::CrossCoreFlag(flagId++);
++                flagPrologueAFinish[i] = Arch::CrossCoreFlag(flagId++);
++            }
++
++            if constexpr (HAS_PROLOGUE_B) {
++                flagCopyBFinish[i] = Arch::CrossCoreFlag(flagId++);
++                flagPrologueBFinish[i] = Arch::CrossCoreFlag(flagId++);
++            }
++        }
++
++        if constexpr (g_coreType == AscendC::AIC) {
++            uint32_t l1AOffset = 0;
++            uint32_t l1BOffset = L1A_SIZE * STAGES;
++            // Init buffers
++            for (uint32_t i = 0; i < STAGES; i++) {
++                if constexpr (HAS_PROLOGUE_A) {
++                    Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE2>(flagCopyAFinish[i]);
++                }
++
++                if constexpr (HAS_PROLOGUE_B) {
++                    Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE2>(flagCopyBFinish[i]);
++                }
++
++                l1AEventList[i] = i;
++                l1BEventList[i] = i + STAGES;
++                l0AEventList[i] = i;
++                l0BEventList[i] = i + STAGES;
++
++                AscendC::SetFlag<AscendC::HardEvent::MTE1_MTE2>(l1AEventList[i]);
++                AscendC::SetFlag<AscendC::HardEvent::MTE1_MTE2>(l1BEventList[i]);
++                AscendC::SetFlag<AscendC::HardEvent::M_MTE1>(l0AEventList[i]);
++                AscendC::SetFlag<AscendC::HardEvent::M_MTE1>(l0BEventList[i]);
++
++                l1ATensorList[i] = resource.l1Buf.template GetBufferByByte<ElementA>(l1AOffset + L1A_SIZE * i);
++                l1BTensorList[i] = resource.l1Buf.template GetBufferByByte<ElementB>(l1BOffset + L1B_SIZE * i);
++                l0ATensorList[i] = resource.l0ABuf.template GetBufferByByte<ElementA>(L0A_PINGPONG_BUF_SIZE * i);
++                l0BTensorList[i] = resource.l0BBuf.template GetBufferByByte<ElementB>(L0B_PINGPONG_BUF_SIZE * i);
++            }
++            AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID0);
++            l0CTensor = resource.l0CBuf.template GetBufferByByte<ElementAccumulator>(0);
++        }
++    }
++
++    /// Destructor
++    CATLASS_DEVICE
++    ~BlockMmad()
++    {
++        if constexpr (g_coreType == AscendC::AIC) {
++            for (uint32_t i = 0; i < STAGES; i++) {
++                AscendC::WaitFlag<AscendC::HardEvent::MTE1_MTE2>(l1AEventList[i]);
++                AscendC::WaitFlag<AscendC::HardEvent::MTE1_MTE2>(l1BEventList[i]);
++                AscendC::WaitFlag<AscendC::HardEvent::M_MTE1>(l0AEventList[i]);
++                AscendC::WaitFlag<AscendC::HardEvent::M_MTE1>(l0BEventList[i]);
++            }
++            AscendC::WaitFlag<AscendC::HardEvent::FIX_M>(EVENT_ID0);
++        } else {
++            for (uint32_t i = 0; i < STAGES; i++) {
++                if constexpr (HAS_PROLOGUE_A) {
++                    Catlass::Arch::CrossCoreWaitFlag(flagCopyAFinish[i]);
++                }
++
++                if constexpr (HAS_PROLOGUE_B) {
++                    Catlass::Arch::CrossCoreWaitFlag(flagCopyBFinish[i]);
++                }
++            }
++        }
++    }
++
++    template <class T = PrologueA, class U = PrologueB>
++    CATLASS_DEVICE std::enable_if_t<!std::is_void_v<T> && !std::is_void_v<U>, void>
++    Prologue(AscendC::GlobalTensor<typename T::ElementSrc> const &gmSrcA, typename T::LayoutSrc const &layoutSrcA,
++             AscendC::GlobalTensor<typename T::ElementDst> const &gmDstA, typename T::LayoutDst const &layoutDstA,
++             AscendC::GlobalTensor<typename U::ElementSrc> const &gmSrcB, typename U::LayoutSrc const &layoutSrcB,
++             AscendC::GlobalTensor<typename U::ElementDst> const &gmDstB, typename U::LayoutDst const &layoutDstB,
++             GemmCoord const &actualBlockShape)
++    {
++        PrologueImpl(gmSrcA, layoutSrcA, gmDstA, layoutDstA, gmSrcB, layoutSrcB, gmDstB, layoutDstB, actualBlockShape);
++    }
++
++    template <class T = PrologueA, class U = PrologueB>
++    CATLASS_DEVICE std::enable_if_t<!std::is_void_v<T> && std::is_void_v<U>, void>
++    Prologue(AscendC::GlobalTensor<typename T::ElementSrc> const &gmSrcA, typename T::LayoutSrc const &layoutSrcA,
++             AscendC::GlobalTensor<typename T::ElementDst> const &gmDstA, typename T::LayoutDst const &layoutDstA,
++             GemmCoord const &actualBlockShape)
++    {
++        PrologueImpl(gmSrcA, layoutSrcA, gmDstA, layoutDstA, {}, {}, {}, {}, actualBlockShape);
++    }
++
++    template <class T = PrologueA, class U = PrologueB>
++    CATLASS_DEVICE std::enable_if_t<std::is_void_v<T> && !std::is_void_v<U>, void>
++    Prologue(AscendC::GlobalTensor<typename U::ElementSrc> const &gmSrcB, typename U::LayoutSrc const &layoutSrcB,
++             AscendC::GlobalTensor<typename U::ElementDst> const &gmDstB, typename U::LayoutDst const &layoutDstB,
++             GemmCoord const &actualBlockShape)
++    {
++        PrologueImpl({}, {}, {}, {}, gmSrcB, layoutSrcB, gmDstB, layoutDstB, actualBlockShape);
++    }
++
++    template <class T = PrologueA, class U = PrologueB>
++    CATLASS_DEVICE std::enable_if_t<std::is_void_v<T> && !std::is_void_v<U>, void>
++    Prologue(AscendC::GlobalTensor<typename U::ElementSrc> const &gmSrcB, typename U::LayoutSrc const &layoutSrcB,
++             AscendC::GlobalTensor<typename U::ElementDst> const &gmDstB, typename U::LayoutDst const &layoutDstB,
++             AscendC::GlobalTensor<typename U::ElementScale> const &gmScaleB,
++             typename U::LayoutScale const &layoutScaleB, uint32_t groupSize, GemmCoord const &actualBlockShape)
++    {
++        PrologueImpl({}, {}, {}, {}, gmSrcB, layoutSrcB, gmDstB, layoutDstB, gmScaleB, layoutScaleB, groupSize,
++                     actualBlockShape);
++    }
++
++    /// Perform a block-scoped matrix multiply-accumulate
++    CATLASS_DEVICE
++    void operator()(AscendC::GlobalTensor<ElementA> const &gmA, LayoutA const &layoutA,
++                    AscendC::GlobalTensor<ElementB> const &gmB, LayoutB const &layoutB,
++                    AscendC::GlobalTensor<ElementC> const &gmC, LayoutC const &layoutC, GemmCoord const &actualShape)
++    {
++        uint32_t mRound = RoundUp<L1AAlignHelper::M_ALIGNED>(actualShape.m());
++        uint32_t nRound = RoundUp<L1BAlignHelper::N_ALIGNED>(actualShape.n());
++
++        auto layoutAInL1 = LayoutAInL1::template MakeLayout<ElementA>(L1TileShape::M, L1TileShape::K);
++        auto layoutBInL1 = LayoutBInL1::template MakeLayout<ElementB>(L1TileShape::K, L1TileShape::N);
++        auto layoutInL0C = LayoutCInL0::MakeLayoutInL0C(MakeCoord(mRound, nRound));
++
++        uint32_t kActual = min(actualShape.k(), L1TileShape::K);
++
++        // load first matrix A tile from GM to L1
++        AscendC::WaitFlag<AscendC::HardEvent::MTE1_MTE2>(l1AEventList[l1ListId]);
++        auto layoutTileA = layoutA.GetTileLayout(MakeCoord(actualShape.m(), kActual));
++        if constexpr (HAS_PROLOGUE_A) {
++            auto gmTileA = gmA[l1ListId * layoutA.Capacity()];
++            Catlass::Arch::CrossCoreWaitFlag(flagPrologueAFinish[l1ListId]);
++            copyGmToL1A(l1ATensorList[l1ListId], gmTileA, layoutAInL1, layoutTileA);
++            Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE2>(flagCopyAFinish[l1ListId]);
++        } else {
++            copyGmToL1A(l1ATensorList[l1ListId], gmA, layoutAInL1, layoutTileA);
++        }
++        AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE1>(l1AEventList[l1ListId]);
++
++        // load first matrix B tile from GM to L1
++        AscendC::WaitFlag<AscendC::HardEvent::MTE1_MTE2>(l1BEventList[l1ListId]);
++        auto layoutTileB = layoutB.GetTileLayout(MakeCoord(kActual, actualShape.n()));
++        if constexpr (HAS_PROLOGUE_B) {
++            auto gmTileB = gmB[l1ListId * layoutB.Capacity()];
++            Catlass::Arch::CrossCoreWaitFlag(flagPrologueBFinish[l1ListId]);
++            copyGmToL1B(l1BTensorList[l1ListId], gmTileB, layoutBInL1, layoutTileB);
++            Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE2>(flagCopyBFinish[l1ListId]);
++        } else {
++            copyGmToL1B(l1BTensorList[l1ListId], gmB, layoutBInL1, layoutTileB);
++        }
++        AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE1>(l1BEventList[l1ListId]);
++
++        if constexpr (!ENABLE_UNIT_FLAG) {
++            AscendC::WaitFlag<AscendC::HardEvent::FIX_M>(EVENT_ID0);
++        }
++
++        uint32_t mPartLoop = CeilDiv<L0TileShape::M>(mRound);
++        uint32_t nPartLoop = CeilDiv<L0TileShape::N>(nRound);
++
++        // main loop
++        uint32_t kTileCount = CeilDiv<L1TileShape::K>(actualShape.k());
++        for (uint32_t kLoopIdx = 0; kLoopIdx < kTileCount; kLoopIdx++) {
++            uint32_t l1ListIdNext = (l1ListId + 1 < STAGES) ? (l1ListId + 1) : 0;
++            uint32_t kActualNext{0};
++            // preload next tile from GM to L1
++            if (kLoopIdx < kTileCount - 1) {
++                uint32_t kLoopIdxNext = kLoopIdx + 1;
++                kActualNext = (kLoopIdxNext < kTileCount - 1) ? L1TileShape::K
++                                                              : (actualShape.k() - kLoopIdxNext * L1TileShape::K);
++
++                // Get L1 tensor for next stage
++                auto l1ATensor = l1ATensorList[l1ListIdNext];
++                auto l1BTensor = l1BTensorList[l1ListIdNext];
++
++                // load next matrix A tile from GM to L1
++                AscendC::WaitFlag<AscendC::HardEvent::MTE1_MTE2>(l1AEventList[l1ListIdNext]);
++                layoutTileA = layoutA.GetTileLayout(MakeCoord(actualShape.m(), kActualNext));
++                if constexpr (HAS_PROLOGUE_A) {
++                    auto gmTileA = gmA[l1ListIdNext * layoutA.Capacity()];
++                    Catlass::Arch::CrossCoreWaitFlag(flagPrologueAFinish[l1ListIdNext]);
++                    copyGmToL1A(l1ATensor, gmTileA, layoutAInL1, layoutTileA);
++                    Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE2>(flagCopyAFinish[l1ListIdNext]);
++                } else {
++                    MatrixCoord gmTileAOffset{0, kLoopIdxNext * L1TileShape::K};
++                    auto gmTileA = gmA[layoutA.GetOffset(gmTileAOffset)];
++                    copyGmToL1A(l1ATensor, gmTileA, layoutAInL1, layoutTileA);
++                }
++                AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE1>(l1AEventList[l1ListIdNext]);
++
++                // load next matrix B tile from GM to L1
++                AscendC::WaitFlag<AscendC::HardEvent::MTE1_MTE2>(l1BEventList[l1ListIdNext]);
++                layoutTileB = layoutB.GetTileLayout(MakeCoord(kActualNext, actualShape.n()));
++                if constexpr (HAS_PROLOGUE_B) {
++                    auto gmTileB = gmB[l1ListIdNext * layoutB.Capacity()];
++                    Catlass::Arch::CrossCoreWaitFlag(flagPrologueBFinish[l1ListIdNext]);
++                    copyGmToL1B(l1BTensor, gmTileB, layoutBInL1, layoutTileB);
++                    Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE2>(flagCopyBFinish[l1ListIdNext]);
++                } else {
++                    MatrixCoord gmTileBOffset{kLoopIdxNext * L1TileShape::K, 0};
++                    auto gmTileB = gmB[layoutB.GetOffset(gmTileBOffset)];
++                    copyGmToL1B(l1BTensor, gmTileB, layoutBInL1, layoutTileB);
++                }
++                AscendC::SetFlag<AscendC::HardEvent::MTE2_MTE1>(l1BEventList[l1ListIdNext]);
++            }
++
++            // Get L1 tensor for current stage
++            auto l1ATensor = l1ATensorList[l1ListId];
++            auto l1BTensor = l1BTensorList[l1ListId];
++
++            // Get the loop nums on L0
++            uint32_t kPartLoop = CeilDiv<L0TileShape::K>(kActual);
++
++            for (int mPartIdx = 0; mPartIdx < mPartLoop; mPartIdx++) {
++                uint32_t mPartActual =
++                    (mPartIdx < mPartLoop - 1) ? L0TileShape::M : (mRound - mPartIdx * L0TileShape::M);
++
++                for (int kPartIdx = 0; kPartIdx < kPartLoop; kPartIdx++) {
++                    uint32_t kPartActual =
++                        (kPartIdx < kPartLoop - 1) ? L0TileShape::K : (kActual - kPartIdx * L0TileShape::K);
++
++                    // Locate the current tile on L0A
++                    auto l0ATile = l0ATensorList[l0AListId];
++                    LayoutAInL0 layoutAInL0 = LayoutAInL0::template MakeLayout<ElementA>(mPartActual, kPartActual);
++                    // Locate the current tile of matrix A on L1
++                    MatrixCoord l1AOffset{mPartIdx * L0TileShape::M, kPartIdx * L0TileShape::K};
++                    auto l1ATile = l1ATensor[layoutAInL1.GetOffset(l1AOffset)];
++
++                    AscendC::WaitFlag<AscendC::HardEvent::M_MTE1>(l0AEventList[l0AListId]);
++                    if ((mPartIdx == 0) && (kPartIdx == 0)) {
++                        AscendC::WaitFlag<AscendC::HardEvent::MTE2_MTE1>(l1AEventList[l1ListId]);
++                    }
++
++                    // Load current tile from L1 to L0A
++                    copyL1ToL0A(l0ATile, l1ATile, layoutAInL0, layoutAInL1);
++
++                    if ((mPartIdx == mPartLoop - 1) && (kPartIdx == kPartLoop - 1)) {
++                        AscendC::SetFlag<AscendC::HardEvent::MTE1_MTE2>(l1AEventList[l1ListId]);
++                    }
++
++                    for (int nPartIdx = 0; nPartIdx < nPartLoop; nPartIdx++) {
++                        uint32_t nPartActual =
++                            (nPartIdx < nPartLoop - 1) ? L0TileShape::N : (nRound - nPartIdx * L0TileShape::N);
++
++                        // Locate the current tile on L0B
++                        auto l0BTile = l0BTensorList[l0BListId];
++                        LayoutBInL0 layoutBInL0 = LayoutBInL0::template MakeLayout<ElementB>(kPartActual, nPartActual);
++                        // Locate the current tile of matrix B on L1
++                        MatrixCoord l1BOffset{kPartIdx * L0TileShape::K, nPartIdx * L0TileShape::N};
++                        auto l1BTile = l1BTensor[layoutBInL1.GetOffset(l1BOffset)];
++
++                        // Wait for mmad finished
++                        AscendC::WaitFlag<AscendC::HardEvent::M_MTE1>(l0BEventList[l0BListId]);
++                        // If the current tile is the first one on the k&n axis, wait for loading matrix B from GM to L1
++                        if ((kPartIdx == 0) && (nPartIdx == 0)) {
++                            AscendC::WaitFlag<AscendC::HardEvent::MTE2_MTE1>(l1BEventList[l1ListId]);
++                        }
++
++                        // Load current tile from L1 to L0B
++                        copyL1ToL0B(l0BTile, l1BTile, layoutBInL0, layoutBInL1);
++
++                        // If the current tile is the last one on the k&n axis, notify to load matrix B from GM to L1
++                        if ((kPartIdx == kPartLoop - 1) && (nPartIdx == nPartLoop - 1)) {
++                            AscendC::SetFlag<AscendC::HardEvent::MTE1_MTE2>(l1BEventList[l1ListId]);
++                        }
++                        // Notify to do mmad
++                        AscendC::SetFlag<AscendC::HardEvent::MTE1_M>(EVENT_ID0);
++
++                        // Locate the current tile on L0C
++                        MatrixCoord l0COffset{mPartIdx * L0TileShape::M, nPartIdx * L0TileShape::N};
++                        auto l0CTile = l0CTensor[layoutInL0C.GetOffset(l0COffset)];
++
++                        // Compute the matrix multiplication on L0A and L0B and write the result to the accumulator
++                        // Wait for loading L0B
++                        AscendC::WaitFlag<AscendC::HardEvent::MTE1_M>(EVENT_ID0);
++
++                        // If the current tile is the first tile on the k axis, the accumulator needs to be reset to 0
++                        bool initC = ((kLoopIdx == 0) && (kPartIdx == 0));
++                        // If the unit flag is enabled, the unit flag is set according to the calculation progress
++                        uint8_t unitFlag = 0b00;
++                        if constexpr (ENABLE_UNIT_FLAG) {
++                            if ((kLoopIdx == kTileCount - 1) && (mPartIdx == mPartLoop - 1) &&
++                                (kPartIdx == kPartLoop - 1) && (nPartIdx == nPartLoop - 1)) {
++                                unitFlag = 0b11;
++                            } else {
++                                unitFlag = 0b10;
++                            }
++                        }
++                        // Perform calculation operations
++                        tileMmad(l0CTile, l0ATile, l0BTile, mPartActual, nPartActual, kPartActual, initC, unitFlag);
++
++                        // Notify to move the next L0B tile
++                        AscendC::SetFlag<AscendC::HardEvent::M_MTE1>(l0BEventList[l0BListId]);
++                        l0BListId = (l0BListId + 1 < STAGES) ? (l0BListId + 1) : 0;
++                    }
++                    AscendC::SetFlag<AscendC::HardEvent::M_MTE1>(l0AEventList[l0AListId]);
++                    l0AListId = (l0AListId + 1 < STAGES) ? (l0AListId + 1) : 0;
++                }
++            }
++            l1ListId = l1ListIdNext;
++            kActual = kActualNext;
++        }
++
++        // copy block out
++        LayoutC layoutBlock = layoutC.GetTileLayout(actualShape.GetCoordMN());
++
++        if constexpr (!ENABLE_UNIT_FLAG) {
++            AscendC::SetFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
++            AscendC::WaitFlag<AscendC::HardEvent::M_FIX>(EVENT_ID0);
++            copyL0CToGm(gmC, l0CTensor, layoutBlock, layoutInL0C);
++            AscendC::SetFlag<AscendC::HardEvent::FIX_M>(EVENT_ID0);
++        } else {
++            copyL0CToGm(gmC, l0CTensor, layoutBlock, layoutInL0C, 0b11);
++        }
++    }
++
++protected:
++    CATLASS_DEVICE
++    void PrologueImpl(typename Tile::PrologueTraitsWithScale<PrologueA>::TensorSrc const &gmSrcA,
++                      typename Tile::PrologueTraitsWithScale<PrologueA>::LayoutSrc const &layoutSrcA,
++                      typename Tile::PrologueTraitsWithScale<PrologueA>::TensorDst const &gmDstA,
++                      typename Tile::PrologueTraitsWithScale<PrologueA>::LayoutDst const &layoutDstA,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::TensorSrc const &gmSrcB,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::LayoutSrc const &layoutSrcB,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::TensorDst const &gmDstB,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::LayoutDst const &layoutDstB,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::TensorScale const &gmScaleB,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::LayoutScale const &layoutScaleB,
++                      uint32_t const &groupSize, GemmCoord const &actualShape)
++    {
++        uint32_t scaleGroupNumk = CeilDiv(actualShape.k(), groupSize);
++        uint32_t scaleGroupNumN = CeilDiv(min(L1TileShape::N, actualShape.n()), groupSize);
++        uint32_t scaleStride = layoutScaleB.stride(0);
++        prologueB.loadAllTileScales(scaleGroupNumk, scaleGroupNumN, scaleStride, gmScaleB);
++        AscendC::PipeBarrier<PIPE_ALL>();
++
++        uint32_t kTileCount = CeilDiv<L1TileShape::K>(actualShape.k());
++        for (uint32_t kLoopIdx = 0; kLoopIdx < kTileCount; kLoopIdx++) {
++            uint32_t kOffset = kLoopIdx * L1TileShape::K;
++            uint32_t kActual = (kLoopIdx == kTileCount - 1) ? (actualShape.k() - kOffset) : L1TileShape::K;
++
++            if constexpr (HAS_PROLOGUE_A) {
++                MatrixCoord offsetCoordA{0, kOffset};
++                MatrixCoord actualTileShapeA{actualShape.m(), kActual};
++                auto gmTileSrcA = gmSrcA[layoutSrcA.GetOffset(offsetCoordA)];
++                auto layoutTileSrcA = layoutSrcA.GetTileLayout(actualTileShapeA);
++                auto gmTileDstA = gmDstA[l1ListId * layoutDstA.Capacity()];
++                auto layoutTileDstA = layoutDstA.GetTileLayout(actualTileShapeA);
++                Catlass::Arch::CrossCoreWaitFlag(flagCopyAFinish[l1ListId]);
++                prologueA(gmTileDstA, layoutTileDstA, gmTileSrcA, layoutTileSrcA);
++                Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE3>(flagPrologueAFinish[l1ListId]);
++            }
++
++            if constexpr (HAS_PROLOGUE_B) {
++                MatrixCoord offsetCoordB{kOffset, 0};
++                MatrixCoord actualTileShapeB{kActual, actualShape.n()};
++                auto gmTileSrcB = gmSrcB[layoutSrcB.GetOffset(offsetCoordB)];
++                auto layoutTileSrcB = layoutSrcB.GetTileLayout(actualTileShapeB);
++                auto gmTileDstB = gmDstB[l1ListId * layoutDstB.Capacity()];
++                auto layoutTileDstB = layoutDstB.GetTileLayout(actualTileShapeB);
++
++                uint32_t scaleRowOffset = kOffset / groupSize;
++                uint32_t scaleRowNum = CeilDiv(kActual, groupSize);
++                uint32_t scaleColOffset = 0;
++                uint32_t scaleColNum = layoutScaleB.shape(1);
++                MatrixCoord offsetScaleCoord{scaleRowOffset, scaleColOffset};
++                MatrixCoord scaleTileShape{scaleRowNum, scaleColNum};
++                auto gmTileScale = gmScaleB[layoutScaleB.GetOffset(offsetScaleCoord)];
++                auto layoutTileScale = layoutScaleB.GetTileLayout(scaleTileShape);
++
++                Catlass::Arch::CrossCoreWaitFlag(flagCopyBFinish[l1ListId]);
++                prologueB(gmTileDstB, layoutTileDstB, gmTileSrcB, layoutTileSrcB, layoutTileScale, groupSize, kOffset);
++                Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE3>(flagPrologueBFinish[l1ListId]);
++            }
++
++            l1ListId = (l1ListId + 1 == STAGES) ? 0 : (l1ListId + 1);
++        }
++    }
++
++    CATLASS_DEVICE
++    void PrologueImpl(typename Tile::PrologueTraitsWithScale<PrologueA>::TensorSrc const &gmSrcA,
++                      typename Tile::PrologueTraitsWithScale<PrologueA>::LayoutSrc const &layoutSrcA,
++                      typename Tile::PrologueTraitsWithScale<PrologueA>::TensorDst const &gmDstA,
++                      typename Tile::PrologueTraitsWithScale<PrologueA>::LayoutDst const &layoutDstA,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::TensorSrc const &gmSrcB,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::LayoutSrc const &layoutSrcB,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::TensorDst const &gmDstB,
++                      typename Tile::PrologueTraitsWithScale<PrologueB>::LayoutDst const &layoutDstB,
++                      GemmCoord const &actualShape)
++    {
++        uint32_t kTileCount = CeilDiv<L1TileShape::K>(actualShape.k());
++        for (uint32_t kLoopIdx = 0; kLoopIdx < kTileCount; kLoopIdx++) {
++            uint32_t kOffset = kLoopIdx * L1TileShape::K;
++            uint32_t kActual = (kLoopIdx == kTileCount - 1) ? (actualShape.k() - kOffset) : L1TileShape::K;
++
++            if constexpr (HAS_PROLOGUE_A) {
++                MatrixCoord offsetCoordA{0, kOffset};
++                MatrixCoord actualTileShapeA{actualShape.m(), kActual};
++                auto gmTileSrcA = gmSrcA[layoutSrcA.GetOffset(offsetCoordA)];
++                auto layoutTileSrcA = layoutSrcA.GetTileLayout(actualTileShapeA);
++                auto gmTileDstA = gmDstA[l1ListId * layoutDstA.Capacity()];
++                auto layoutTileDstA = layoutDstA.GetTileLayout(actualTileShapeA);
++                Catlass::Arch::CrossCoreWaitFlag(flagCopyAFinish[l1ListId]);
++                prologueA(gmTileDstA, layoutTileDstA, gmTileSrcA, layoutTileSrcA);
++                Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE3>(flagPrologueAFinish[l1ListId]);
++            }
++            if constexpr (HAS_PROLOGUE_B) {
++                MatrixCoord offsetCoordB{kOffset, 0};
++                MatrixCoord actualTileShapeB{kActual, actualShape.n()};
++                auto gmTileSrcB = gmSrcB[layoutSrcB.GetOffset(offsetCoordB)];
++                auto layoutTileSrcB = layoutSrcB.GetTileLayout(actualTileShapeB);
++                auto gmTileDstB = gmDstB[l1ListId * layoutDstB.Capacity()];
++                auto layoutTileDstB = layoutDstB.GetTileLayout(actualTileShapeB);
++                Catlass::Arch::CrossCoreWaitFlag(flagCopyBFinish[l1ListId]);
++                prologueB(gmTileDstB, layoutTileDstB, gmTileSrcB, layoutTileSrcB);
++                Catlass::Arch::CrossCoreSetFlag<0x02, PIPE_MTE3>(flagPrologueBFinish[l1ListId]);
++            }
++            l1ListId = (l1ListId + 1 == STAGES) ? 0 : (l1ListId + 1);
++        }
++    }
++    /// Data members
++    Params params;
++
++    AscendC::LocalTensor<ElementA> l1ATensorList[STAGES];
++    AscendC::LocalTensor<ElementB> l1BTensorList[STAGES];
++    AscendC::LocalTensor<ElementA> l0ATensorList[STAGES];
++    AscendC::LocalTensor<ElementB> l0BTensorList[STAGES];
++    AscendC::LocalTensor<ElementAccumulator> l0CTensor;
++
++    int32_t l1AEventList[STAGES];
++    int32_t l1BEventList[STAGES];
++    int32_t l0AEventList[STAGES];
++    int32_t l0BEventList[STAGES];
++
++    Arch::CrossCoreFlag flagPrologueAFinish[STAGES];
++    Arch::CrossCoreFlag flagCopyAFinish[STAGES];
++    Arch::CrossCoreFlag flagPrologueBFinish[STAGES];
++    Arch::CrossCoreFlag flagCopyBFinish[STAGES];
++
++    uint32_t l1ListId{0};
++    uint32_t l0AListId{0};
++    uint32_t l0BListId{0};
++
++    TileMmad tileMmad;
++    CopyGmToL1A copyGmToL1A;
++    CopyGmToL1B copyGmToL1B;
++    CopyL1ToL0A copyL1ToL0A;
++    CopyL1ToL0B copyL1ToL0B;
++    CopyL0CToGm copyL0CToGm;
++
++    Tile::PrologueTraitsWithScale<PrologueA> prologueA;
++    Tile::PrologueTraitsWithScale<PrologueB> prologueB;
++};
++
++}  // namespace Catlass::Gemm::Block
++
++#endif  // CATLASS_GEMM_BLOCK_BLOCK_MMAD_PINGPONG_WITH_PROLOGUE_FP8_W8A16
+diff --git a/csrc/catlass/utils/gemm/dispatch_policy_ext.hpp b/csrc/catlass/utils/gemm/dispatch_policy_ext.hpp
+new file mode 100644
+index 000000000..559099a61
+--- /dev/null
++++ b/csrc/catlass/utils/gemm/dispatch_policy_ext.hpp
+@@ -0,0 +1,29 @@
++/**
++ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++#ifndef CATLASS_GEMM_DISPATCH_POLICY_EXT_HPP
++#define CATLASS_GEMM_DISPATCH_POLICY_EXT_HPP
++
++#include "catlass/catlass.hpp"
++#include "catlass/arch/arch.hpp"
++#include "catlass/gemm/dispatch_policy.hpp"
++
++namespace Catlass::Gemm {
++
++// Block Mmad Policies Extend
++template <bool ENABLE_UNIT_FLAG_ = false>
++struct MmadAtlasA2PingPongWithPrologueBFP8 : public MmadAtlasA2 {
++    static constexpr uint32_t STAGES = 2;
++    static constexpr bool ENABLE_UNIT_FLAG = ENABLE_UNIT_FLAG_;
++};
++
++}  // namespace Catlass::Gemm
++
++#endif  // CATLASS_GEMM_DISPATCH_POLICY_EXT_HPP
+diff --git a/csrc/catlass/utils/gemm/kernel/gmm_wfp8a16.hpp b/csrc/catlass/utils/gemm/kernel/gmm_wfp8a16.hpp
+new file mode 100644
+index 000000000..1165b6ede
+--- /dev/null
++++ b/csrc/catlass/utils/gemm/kernel/gmm_wfp8a16.hpp
+@@ -0,0 +1,309 @@
++/**
++
++This program is free software, you can redistribute it and/or modify.
++Copyright (c) 2025 Huawei Technologies Co., Ltd.
++This file is a part of the CANN Open Software.
++Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
++Please refer to the License for details. You may not use this file except in compliance with the License.
++THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT
++NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. See LICENSE in the root of the
++software repository for the full text of the License.
++*/
++#ifndef CATLASS_GEMM_KERNEL_GROUPED_MATMUL_M_FP8_W8A16_HPP
++#define CATLASS_GEMM_KERNEL_GROUPED_MATMUL_M_FP8_W8A16_HPP
++
++#include "catlass/catlass.hpp"
++#include "catlass/arch/resource.hpp"
++#include "catlass/coord.hpp"
++#include "catlass/gemm_coord.hpp"
++#include "catlass/matrix_coord.hpp"
++
++inline __gm__ struct OpSystemRunCfg g_opSystemRunCfg {
++    Catlass::L2_OFFSET
++};
++
++namespace Catlass::Gemm::Kernel {
++
++// Template for grouped matmul kernel. Compute grouped C = A * B
++template <class BlockMmad_, class BlockEpilogue_, class BlockScheduler_, class ElementGroupList_>
++class GroupedMatmulSliceMFP8W8A16
++{
++public:
++    using BlockMmad = BlockMmad_;
++    using ArchTag = typename BlockMmad::ArchTag;
++    using L1TileShape = typename BlockMmad::L1TileShape;
++    using ElementA = typename BlockMmad::ElementA;
++    using LayoutA = typename BlockMmad::LayoutA;
++    using ElementPrologueB = typename BlockMmad::PrologueB::ElementSrc;
++    using LayoutPrologueB = typename BlockMmad::PrologueB::LayoutSrc;
++    using ElementB = typename BlockMmad::ElementB;
++    using LayoutB = typename BlockMmad::LayoutB;
++    using ElementC = typename BlockMmad::ElementC;
++    using LayoutC = typename BlockMmad::LayoutC;
++
++    using ElementScale = typename BlockMmad::PrologueB::ElementScale;
++    using LayoutScale = typename BlockMmad::PrologueB::LayoutScale;
++
++    // using L1TileShape = typename BlockMmad::L1TileShape;
++    using MmadParams = typename BlockMmad::Params;
++    using ElementGroupList = ElementGroupList_;
++    using BlockScheduler = BlockScheduler_;
++
++    /// Parameters structure
++    struct Params {
++        // Data members
++        GemmCoord problemShape;
++        uint32_t problemCount;
++        GM_ADDR ptrGroupList;
++        GM_ADDR ptrA;
++        LayoutA layoutA;
++        GM_ADDR ptrPrologueB;
++        LayoutPrologueB layoutPrologueB;
++        GM_ADDR ptrC;
++        LayoutC layoutC;
++
++        MmadParams mmadParams;
++        GM_ADDR ptrPerGroupScale;
++        LayoutScale layoutScale;
++        uint32_t groupSize;
++        GM_ADDR ptrWorkspace;
++
++        // Methods
++        CATLASS_HOST_DEVICE
++        Params() {}
++
++        CATLASS_HOST_DEVICE
++        Params(GemmCoord const &problemShape_, uint32_t problemCount_, GM_ADDR ptrGroupList_, GM_ADDR ptrA_,
++               LayoutA const &layoutA_, GM_ADDR ptrPrologueB_, LayoutPrologueB const &layoutPrologueB_, GM_ADDR ptrC_,
++               LayoutC const &layoutC_, MmadParams const &mmadParams_, GM_ADDR ptrPerGroupScale_,
++               LayoutScale layoutScale_, uint32_t groupSize_, GM_ADDR ptrWorkspace_)
++            : problemShape(problemShape_),
++              problemCount(problemCount_),
++              ptrGroupList(ptrGroupList_),
++              ptrA(ptrA_),
++              layoutA(layoutA_),
++              ptrPrologueB(ptrPrologueB_),
++              layoutPrologueB(layoutPrologueB_),
++              ptrC(ptrC_),
++              layoutC(layoutC_),
++              mmadParams(mmadParams_),
++              ptrPerGroupScale(ptrPerGroupScale_),
++              layoutScale(layoutScale_),
++              groupSize(groupSize_),
++              ptrWorkspace(ptrWorkspace_)
++        {}
++    };
++    struct Arguments {
++        GemmCoord problemShape;
++        uint32_t problemCount;
++        GM_ADDR ptrGroupList;
++        GM_ADDR deviceA;
++        LayoutA layoutA;
++        GM_ADDR devicePrologueB;
++        LayoutPrologueB layoutPrologueB;
++        GM_ADDR deviceC;
++        LayoutC layoutC;
++        half deqScalar;
++        half deqZeroPoint;
++        GM_ADDR deviceScale;
++        LayoutScale layoutScale;
++        uint32_t groupSize;
++        uint32_t aicoreNum;
++    };
++    static bool CanImplement(const Arguments &args)
++    {
++        return true;
++    }
++    static size_t GetWorkspaceSize(const Arguments &args)
++    {
++        return BlockMmad::STAGES * L1TileShape::K * L1TileShape::N * sizeof(ElementB) * args.aicoreNum;
++    }
++    static Params ToUnderlyingArguments(const Arguments &args, uint8_t *workspace)
++    {
++        Params params{args.problemShape,    args.problemCount,
++                      args.ptrGroupList,    args.deviceA,
++                      args.layoutA,         args.devicePrologueB,
++                      args.layoutPrologueB, args.deviceC,
++                      args.layoutC,         {{}, {args.deqScalar, args.deqZeroPoint}, {}},
++                      args.deviceScale,     args.layoutScale,
++                      args.groupSize,       workspace};
++        return params;
++    }
++    // Methods
++    CATLASS_HOST_DEVICE
++    GroupedMatmulSliceMFP8W8A16() {}
++    // Methods
++    CATLASS_HOST_DEVICE
++    ~GroupedMatmulSliceMFP8W8A16() {}
++
++    template <int32_t CORE_TYPE = g_coreType>
++    CATLASS_DEVICE void operator()(Params const &params);
++
++    template <>
++    CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
++    {
++        BlockScheduler blockScheduler;
++        BlockMmad blockMmad(resource, params.mmadParams);
++
++        // Represent the full gm
++        AscendC::GlobalTensor<ElementA> gmA;
++        gmA.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrA));
++        AscendC::GlobalTensor<ElementC> gmC;
++        gmC.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrC));
++        AscendC::GlobalTensor<ElementGroupList> groupList;
++        groupList.SetGlobalBuffer(reinterpret_cast<__gm__ ElementGroupList *>(params.ptrGroupList));
++
++        uint32_t coreIdx = AscendC::GetBlockIdx();
++        uint32_t coreNum = AscendC::GetBlockNum();
++        int64_t gmGroupOffsetA = 0;
++        int64_t gmGroupOffsetC = 0;
++
++        // AscendC::printf("AIC coreNum is %d\n", coreNum);
++        LayoutB layoutBlockB{L1TileShape::K, L1TileShape::N};
++        auto gmOffsetB = coreIdx * layoutBlockB.Capacity() * BlockMmad::STAGES;
++        AscendC::GlobalTensor<ElementB> gmBlockB;
++        gmBlockB.SetGlobalBuffer(reinterpret_cast<__gm__ ElementB *>(params.ptrWorkspace) + gmOffsetB);
++
++        uint32_t startCoreIdx = 0;
++        for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
++            uint32_t currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
++                                                : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
++            // AscendC::printf("AIC currentM: %d\n", currentM);
++            GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
++
++            LayoutA layoutA = params.layoutA.GetTileLayout(inGroupProblemShape.GetCoordMK());
++            LayoutB layoutB = params.layoutPrologueB;
++            LayoutC layoutC = params.layoutC.GetTileLayout(inGroupProblemShape.GetCoordMN());
++
++            blockScheduler.Update(inGroupProblemShape, MakeCoord(L1TileShape::M, L1TileShape::N));
++            uint32_t coreLoops = blockScheduler.GetCoreLoops();
++
++            // Determine the starting loopIdx of the current core under the current groupIdx
++            uint32_t startLoopIdx;
++            if (coreIdx < startCoreIdx) {
++                startLoopIdx = coreIdx + coreNum - startCoreIdx;
++            } else {
++                startLoopIdx = coreIdx - startCoreIdx;
++            }
++            // Loop through the matmul of each groupIdx
++            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
++                // Compute block location
++                GemmCoord blockCoord = blockScheduler.GetBlockCoord(loopIdx);
++                GemmCoord actualBlockShape = blockScheduler.GetActualBlockShape(blockCoord);
++
++                // Compute initial location in logical coordinates
++                MatrixCoord offsetA{blockCoord.m() * L1TileShape::M, blockCoord.k() * L1TileShape::K};
++                MatrixCoord offsetC{blockCoord.m() * L1TileShape::M, blockCoord.n() * L1TileShape::N};
++                int64_t gmOffsetA = layoutA.GetOffset(offsetA);
++                int64_t gmOffsetC = layoutC.GetOffset(offsetC);
++
++                // Compute block-scoped matrix multiply-add
++                blockMmad(gmA[gmGroupOffsetA + gmOffsetA], layoutA, gmBlockB, layoutBlockB,
++                          gmC[gmGroupOffsetC + gmOffsetC], layoutC, actualBlockShape);
++            }
++
++            gmGroupOffsetA += inGroupProblemShape.m() * inGroupProblemShape.k();
++            gmGroupOffsetC += inGroupProblemShape.m() * inGroupProblemShape.n();
++
++            startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
++        }
++    }
++
++    template <>
++    CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
++    {
++        BlockScheduler blockScheduler;
++        BlockMmad blockMmad(resource, params.mmadParams);
++
++        AscendC::GlobalTensor<ElementGroupList> groupList;
++        groupList.SetGlobalBuffer(reinterpret_cast<__gm__ ElementGroupList *>(params.ptrGroupList));
++
++        uint32_t coreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
++        uint32_t coreNum = AscendC::GetBlockNum();
++        int64_t gmGroupOffsetB = 0;
++        int64_t gmGroupOffsetS = 0;
++
++        // AscendC::printf("AIV coreIdx is %d\n", coreIdx);
++        LayoutB layoutBlockB{L1TileShape::K, L1TileShape::N};
++        auto gmOffsetB = coreIdx * layoutBlockB.Capacity() * BlockMmad::STAGES;
++        AscendC::GlobalTensor<ElementB> gmBlockB;
++        gmBlockB.SetGlobalBuffer(reinterpret_cast<__gm__ ElementB *>(params.ptrWorkspace) + gmOffsetB);
++        uint32_t groupSize = params.groupSize;
++        uint32_t startCoreIdx = 0;
++        uint32_t bufferIndex = 0;
++        for (uint32_t groupIdx = 0; groupIdx < params.problemCount; ++groupIdx) {
++            uint32_t currentM = (groupIdx == 0) ? groupList.GetValue(groupIdx)
++                                                : (groupList.GetValue(groupIdx) - groupList.GetValue(groupIdx - 1));
++            GemmCoord inGroupProblemShape{currentM, params.problemShape.n(), params.problemShape.k()};
++            LayoutB layoutPrologueB = params.layoutPrologueB;
++            blockScheduler.Update(inGroupProblemShape, MakeCoord(L1TileShape::M, L1TileShape::N));
++            uint32_t coreLoops = blockScheduler.GetCoreLoops();
++
++            AscendC::GlobalTensor<ElementPrologueB> gmPrologueB;
++            gmPrologueB.SetGlobalBuffer(
++                reinterpret_cast<__gm__ ElementPrologueB *>(params.ptrPrologueB + gmGroupOffsetB));
++            if (CeilDiv(currentM, L1TileShape::M) == 1) {
++                gmPrologueB.SetL2CacheHint(AscendC::CacheMode::CACHE_MODE_DISABLE);
++            }
++
++            AscendC::GlobalTensor<ElementScale> gmScaleFull;
++            gmScaleFull.SetGlobalBuffer(reinterpret_cast<__gm__ ElementScale *>(params.ptrPerGroupScale +
++                                                                                gmGroupOffsetS * sizeof(ElementScale)));
++
++            // Determine the starting loopIdx of the current core under the current groupIdx
++            uint32_t startLoopIdx;
++            if (coreIdx < startCoreIdx) {
++                startLoopIdx = coreIdx + coreNum - startCoreIdx;
++            } else {
++                startLoopIdx = coreIdx - startCoreIdx;
++            }
++            // Loop through the matmul of each groupIdx
++            for (uint32_t loopIdx = startLoopIdx; loopIdx < coreLoops; loopIdx += coreNum) {
++                // Compute block location
++                GemmCoord blockCoord = blockScheduler.GetBlockCoord(loopIdx);
++                GemmCoord actualBlockShape = blockScheduler.GetActualBlockShape(blockCoord);
++
++                // Compute initial location in logical coordinates
++                MatrixCoord offsetB{blockCoord.k() * L1TileShape::K, blockCoord.n() * L1TileShape::N};
++
++                int64_t gmOffsetB = layoutPrologueB.GetOffset(offsetB);
++                auto layoutBlockPrologueB = layoutPrologueB.GetTileLayout(actualBlockShape.GetCoordKN());
++
++                uint32_t kOffset = offsetB[0];
++                uint32_t nOffset = offsetB[1];
++                uint32_t kAct = actualBlockShape.k();
++                uint32_t nAct = actualBlockShape.n();
++
++                uint32_t scaleRowStart = kOffset / groupSize;
++                uint32_t scaleRowEnd = (kOffset + kAct - 1) / groupSize;
++                uint32_t scaleColStart = nOffset / groupSize;
++                uint32_t scaleColEnd = (nOffset + nAct - 1) / groupSize;
++
++                uint32_t scaleTileRows = scaleRowEnd - scaleRowStart + 1;
++                uint32_t scaleTileCols = scaleColEnd - scaleColStart + 1;
++
++                MatrixCoord offsetScaleCoord{scaleRowStart, scaleColStart};
++                MatrixCoord scaleTileShape{scaleTileRows, scaleTileCols};
++
++                auto gmBlockScale = gmScaleFull[params.layoutScale.GetOffset(offsetScaleCoord)];
++                auto layoutBlockScale = params.layoutScale.GetTileLayout(scaleTileShape);
++
++                // Compute block-scoped matrix multiply-add
++                blockMmad.Prologue(gmPrologueB[gmOffsetB], layoutBlockPrologueB, gmBlockB, layoutBlockB, gmBlockScale,
++                                   layoutBlockScale, groupSize, actualBlockShape);
++            }
++
++            gmGroupOffsetB += inGroupProblemShape.k() * inGroupProblemShape.n();
++            gmGroupOffsetS +=
++                ((inGroupProblemShape.k() + 127) / groupSize) * ((inGroupProblemShape.n() + 127) / groupSize);
++            startCoreIdx = (startCoreIdx + coreLoops) % coreNum;
++        }
++    }
++
++private:
++    Arch::Resource<ArchTag> resource;
++};
++
++}  // namespace Catlass::Gemm::Kernel
++
++#endif  // CATLASS_GEMM_KERNEL_GROUPED_MATMUL_M_FP8_W8A16_HPP
+diff --git a/csrc/catlass/utils/gemm/kernel/mm_wfp8a16.hpp b/csrc/catlass/utils/gemm/kernel/mm_wfp8a16.hpp
+new file mode 100644
+index 000000000..e924f21b0
+--- /dev/null
++++ b/csrc/catlass/utils/gemm/kernel/mm_wfp8a16.hpp
+@@ -0,0 +1,237 @@
++/**
++
++This program is free software, you can redistribute it and/or modify.
++Copyright (c) 2025 Huawei Technologies Co., Ltd.
++This file is a part of the CANN Open Software.
++Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
++Please refer to the License for details. You may not use this file except in compliance with the License.
++THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT
++NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. See LICENSE in the root of the
++software repository for the full text of the License.
++*/
++#ifndef CATLASS_GEMM_KERNEL_FP8_W8A16_MATMUL_HPP
++#define CATLASS_GEMM_KERNEL_FP8_W8A16_MATMUL_HPP
++
++#include "catlass/catlass.hpp"
++#include "catlass/coord.hpp"
++#include "catlass/gemm_coord.hpp"
++#include "catlass/matrix_coord.hpp"
++#include "catlass/arch/resource.hpp"
++#include "catlass/arch/cross_core_sync.hpp"
++#include "catlass/epilogue/tile/copy_gm_to_ub.hpp"
++#include "catlass/epilogue/tile/copy_ub_to_gm.hpp"
++#include "catlass/gemm/kernel/padding_matmul.hpp"
++
++namespace Catlass::Gemm::Kernel {
++
++template <class BlockMmad_, class BlockEpilogue_, class BlockScheduler_>
++class FP8W8A16Matmul
++{
++public:
++    using BlockMmad = BlockMmad_;
++    using ArchTag = typename BlockMmad::ArchTag;
++    using ElementA = typename BlockMmad::ElementA;
++    using ElementPrologueB = typename BlockMmad::PrologueB::ElementSrc;
++    using ElementB = typename BlockMmad::ElementB;
++    using LayoutA = typename BlockMmad::LayoutA;
++    using LayoutPrologueB = typename BlockMmad::PrologueB::LayoutSrc;
++    using LayoutB = typename BlockMmad::LayoutB;
++
++    using ElementScale = typename BlockMmad::PrologueB::ElementScale;
++    using LayoutScale = typename BlockMmad::PrologueB::LayoutScale;
++
++    using L1TileShape = typename BlockMmad::L1TileShape;
++    using ElementC = typename BlockMmad::ElementC;
++    using LayoutC = typename BlockMmad::LayoutC;
++
++    using MmadParams = typename BlockMmad::Params;
++
++    using BlockScheduler = BlockScheduler_;
++
++    /// Parameters structure
++    struct Params {
++        // Data members
++        GemmCoord problemShape;
++        GM_ADDR ptrA;
++        LayoutA layoutA;
++        GM_ADDR ptrPrologueB;
++        LayoutPrologueB layoutPrologueB;
++        GM_ADDR ptrC;
++        LayoutC layoutC;
++
++        MmadParams mmadParams;
++
++        GM_ADDR ptrPerGroupScale;
++        LayoutScale layoutScale;
++        uint32_t groupSize;
++
++        GM_ADDR ptrWorkspace;
++
++        // Methods
++        CATLASS_HOST_DEVICE
++        Params() {}
++
++        CATLASS_HOST_DEVICE
++        Params(GemmCoord const &problemShape_, GM_ADDR ptrA_, LayoutA const &layoutA_, GM_ADDR ptrPrologueB_,
++               LayoutPrologueB const &layoutPrologueB_, GM_ADDR ptrC_, LayoutC const &layoutC_,
++               MmadParams const &mmadParams_, GM_ADDR ptrPerGroupScale_, LayoutScale layoutScale_, uint32_t groupSize_,
++               GM_ADDR ptrWorkspace_)
++            : problemShape(problemShape_),
++              ptrA(ptrA_),
++              layoutA(layoutA_),
++              ptrPrologueB(ptrPrologueB_),
++              layoutPrologueB(layoutPrologueB_),
++              ptrC(ptrC_),
++              layoutC(layoutC_),
++              mmadParams(mmadParams_),
++              ptrPerGroupScale(ptrPerGroupScale_),
++              layoutScale(layoutScale_),
++              groupSize(groupSize_),
++              ptrWorkspace(ptrWorkspace_)
++        {}
++    };
++
++    struct Arguments {
++        GemmCoord problemShape;
++        GM_ADDR deviceA;
++        LayoutA layoutA;
++        GM_ADDR devicePrologueB;
++        LayoutPrologueB layoutPrologueB;
++        GM_ADDR deviceC;
++        LayoutC layoutC;
++        half deqScalar;
++        half deqZeroPoint;
++
++        GM_ADDR deviceScale;
++        LayoutScale layoutScale;
++        uint32_t groupSize;
++
++        uint32_t aicoreNum;
++    };
++
++    static bool CanImplement(const Arguments &args)
++    {
++        return true;
++    }
++
++    static size_t GetWorkspaceSize(Arguments const &args)
++    {
++        return BlockMmad::STAGES * L1TileShape::K * L1TileShape::N * sizeof(ElementB) * args.aicoreNum;
++    }
++
++    static Params ToUnderlyingArguments(const Arguments &args, uint8_t *workspace)
++    {
++        Params params{
++            args.problemShape,    args.deviceA,     args.layoutA,   args.devicePrologueB,
++            args.layoutPrologueB, args.deviceC,     args.layoutC,   {{}, {args.deqScalar, args.deqZeroPoint}, {}},
++            args.deviceScale,     args.layoutScale, args.groupSize, workspace};
++        return params;
++    }
++
++    // Methods
++    CATLASS_DEVICE
++    FP8W8A16Matmul() {}
++
++    template <int32_t CORE_TYPE = g_coreType>
++    CATLASS_DEVICE void operator()(Params const &params);
++
++    /// Executes matmul
++    template <>
++    CATLASS_DEVICE void operator()<AscendC::AIC>(Params const &params)
++    {
++        auto aicoreNum = AscendC::GetBlockNum();
++        auto aicoreIdx = AscendC::GetBlockIdx();
++
++        BlockMmad blockMmad(resource, params.mmadParams);
++
++        GemmCoord blockShape = L1TileShape::ToCoord();
++        BlockScheduler matmulBlockScheduler(params.problemShape, blockShape.GetCoordMN());
++        uint32_t coreLoops = matmulBlockScheduler.GetCoreLoops();
++
++        // Load A from workspace
++        AscendC::GlobalTensor<ElementA> gmA;
++        gmA.SetGlobalBuffer(reinterpret_cast<__gm__ ElementA *>(params.ptrA));
++
++        LayoutB layoutBlockB{L1TileShape::K, L1TileShape::N};
++        auto gmOffsetB = aicoreIdx * layoutBlockB.Capacity() * BlockMmad::STAGES;
++        AscendC::GlobalTensor<ElementB> gmBlockB;
++        gmBlockB.SetGlobalBuffer(reinterpret_cast<__gm__ ElementB *>(params.ptrWorkspace) + gmOffsetB);
++
++        AscendC::GlobalTensor<ElementC> gmC;
++        gmC.SetGlobalBuffer(reinterpret_cast<__gm__ ElementC *>(params.ptrC));
++
++        for (uint32_t loopIdx = AscendC::GetBlockIdx(); loopIdx < coreLoops; loopIdx += AscendC::GetBlockNum()) {
++            auto blockIdxCoord = matmulBlockScheduler.GetBlockCoord(loopIdx);
++            auto actualBlockShape = matmulBlockScheduler.GetActualBlockShape(blockIdxCoord);
++            GemmCoord offsetCoord = blockIdxCoord * blockShape;
++
++            auto gmBlockA = gmA[params.layoutA.GetOffset(offsetCoord.GetCoordMK())];
++            auto layoutBlockA = params.layoutA.GetTileLayout(actualBlockShape.GetCoordMK());
++            auto gmBlockC = gmC[params.layoutC.GetOffset(offsetCoord.GetCoordMN())];
++            auto layoutBlockC = params.layoutC.GetTileLayout(actualBlockShape.GetCoordMN());
++
++            blockMmad(gmBlockA, layoutBlockA, gmBlockB, layoutBlockB, gmBlockC, layoutBlockC, actualBlockShape);
++        }
++    }
++
++    template <>
++    CATLASS_DEVICE void operator()<AscendC::AIV>(Params const &params)
++    {
++        auto aicoreNum = AscendC::GetBlockNum();
++        auto aicoreIdx = AscendC::GetBlockIdx() / AscendC::GetSubBlockNum();
++
++        BlockMmad blockMmad(resource, params.mmadParams);
++        BlockScheduler matmulBlockScheduler(params.problemShape, L1TileShape::ToCoordMN());
++
++        AscendC::GlobalTensor<ElementPrologueB> gmPrologueB;
++        gmPrologueB.SetGlobalBuffer(reinterpret_cast<__gm__ ElementPrologueB *>(params.ptrPrologueB));
++
++        LayoutB layoutBlockB{L1TileShape::K, L1TileShape::N};
++        auto gmOffsetB = aicoreIdx * layoutBlockB.Capacity() * BlockMmad::STAGES;
++        AscendC::GlobalTensor<ElementB> gmBlockB;
++        gmBlockB.SetGlobalBuffer(reinterpret_cast<__gm__ ElementB *>(params.ptrWorkspace) + gmOffsetB);
++
++        uint32_t groupSize = params.groupSize;
++        AscendC::GlobalTensor<ElementScale> gmScaleFull;
++        gmScaleFull.SetGlobalBuffer(reinterpret_cast<__gm__ ElementScale *>(params.ptrPerGroupScale));
++
++        uint32_t coreLoops = matmulBlockScheduler.GetCoreLoops();
++        for (uint32_t loopIdx = aicoreIdx; loopIdx < coreLoops; loopIdx += aicoreNum) {
++            auto blockIdxCoord = matmulBlockScheduler.GetBlockCoord(loopIdx);
++            auto actualBlockShape = matmulBlockScheduler.GetActualBlockShape(blockIdxCoord);
++            auto offsetCoordB = blockIdxCoord.GetCoordKN() * L1TileShape::ToCoordKN();
++            auto gmBlockPrologueB = gmPrologueB[params.layoutPrologueB.GetOffset(offsetCoordB)];
++            auto layoutBlockPrologueB = params.layoutPrologueB.GetTileLayout(actualBlockShape.GetCoordKN());
++
++            uint32_t kOffset = offsetCoordB[0];
++            uint32_t nOffset = offsetCoordB[1];
++            uint32_t kAct = actualBlockShape.k();
++            uint32_t nAct = actualBlockShape.n();
++
++            uint32_t scaleRowStart = kOffset / groupSize;
++            uint32_t scaleRowEnd = (kOffset + kAct - 1) / groupSize;
++            uint32_t scaleColStart = nOffset / groupSize;
++            uint32_t scaleColEnd = (nOffset + nAct - 1) / groupSize;
++
++            uint32_t scaleTileRows = scaleRowEnd - scaleRowStart + 1;
++            uint32_t scaleTileCols = scaleColEnd - scaleColStart + 1;
++
++            MatrixCoord offsetScaleCoord{scaleRowStart, scaleColStart};
++            MatrixCoord scaleTileShape{scaleTileRows, scaleTileCols};
++
++            auto gmBlockScale = gmScaleFull[params.layoutScale.GetOffset(offsetScaleCoord)];
++            auto layoutBlockScale = params.layoutScale.GetTileLayout(scaleTileShape);
++
++            // Compute block-scoped matrix multiply-add
++            blockMmad.Prologue(gmBlockPrologueB, layoutBlockPrologueB, gmBlockB, layoutBlockB, gmBlockScale,
++                               layoutBlockScale, groupSize, actualBlockShape);
++        }
++    }
++
++private:
++    Arch::Resource<ArchTag> resource;
++};
++
++}  // namespace Catlass::Gemm::Kernel
++
++#endif  // CATLASS_GEMM_KERNEL_FP8_W8A16_MATMUL_HPP
+diff --git a/csrc/catlass/utils/gemm/tile/cast_fp8_to_bf16_with_scale.hpp b/csrc/catlass/utils/gemm/tile/cast_fp8_to_bf16_with_scale.hpp
+new file mode 100644
+index 000000000..cfbb4fc85
+--- /dev/null
++++ b/csrc/catlass/utils/gemm/tile/cast_fp8_to_bf16_with_scale.hpp
+@@ -0,0 +1,419 @@
++/**
++
++This program is free software, you can redistribute it and/or modify.
++Copyright (c) 2025 Huawei Technologies Co., Ltd.
++This file is a part of the CANN Open Software.
++Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
++Please refer to the License for details. You may not use this file except in compliance with the License.
++THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT
++NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. See LICENSE in the root of the
++software repository for the full text of the License.
++*/
++#ifndef CATLASS_GEMM_TILE_CAST_FP8_TO_BF16_WITH_SCALE_HPP
++#define CATLASS_GEMM_TILE_CAST_FP8_TO_BF16_WITH_SCALE_HPP
++
++#include "catlass/catlass.hpp"
++#include "catlass/arch/resource.hpp"
++#include "catlass/coord.hpp"
++#include "catlass/gemm_coord.hpp"
++#include "catlass/gemm/dispatch_policy.hpp"
++#include "catlass/gemm/helper.hpp"
++#include "catlass/gemm/tile/tile_copy.hpp"
++#include "tile_traits_with_scale.hpp"
++
++namespace Catlass::Gemm::Tile {
++template <class ArchTag, class SrcType_, class DstType_, class ScaleType_, uint32_t COMPUTE_LENGTH>
++struct TileCastFp8ToBf16WithScaleDequant {
++    using ElementSrc = typename SrcType_::Element;
++    using ElementDst = typename DstType_::Element;
++    using LayoutSrc = typename SrcType_::Layout;
++    using LayoutDst = typename DstType_::Layout;
++    using LayoutRowMajor = Catlass::layout::RowMajor;
++
++    using ElementScale = typename ScaleType_::Element;
++    using LayoutScale = typename ScaleType_::Layout;
++
++    static_assert(std::is_same_v<LayoutSrc, layout::RowMajor> || std::is_same_v<LayoutSrc, layout::ColumnMajor>,
++                  "Unsupported layout, only can be Row/Column Major.");
++    static_assert(std::is_same_v<LayoutDst, LayoutSrc>, "layout src and dst must be the same.");
++
++    static const uint32_t Alignment = 256;
++
++    struct Params {
++        half scalar;
++        half zeroPoint;
++
++        CATLASS_HOST_DEVICE
++        Params() = default;
++
++        CATLASS_HOST_DEVICE
++        Params(half scalar_, half zeroPoint_)
++        {
++            scalar = scalar_;
++            zeroPoint = zeroPoint_;
++        }
++    };
++
++    CATLASS_DEVICE
++    TileCastFp8ToBf16WithScaleDequant() {}
++
++    CATLASS_DEVICE
++    TileCastFp8ToBf16WithScaleDequant(Arch::Resource<ArchTag> const &resource, Params const &params_) : params(params_)
++    {
++        bufferOffset = 0;
++        for (uint32_t i = 0; i < BUFFER_NUM; i++) {
++            inputBuffer[i] = resource.ubBuf.template GetBufferByByte<ElementSrc>(bufferOffset * sizeof(ElementSrc));
++            bufferOffset += COMPUTE_LENGTH;
++        }
++        for (uint32_t i = 0; i < BUFFER_NUM; i++) {
++            outputBuffer[i] = (resource.ubBuf.template GetBufferByByte<ElementSrc>(bufferOffset * sizeof(ElementSrc)))
++                                  .template ReinterpretCast<bfloat16_t>();
++            bufferOffset += COMPUTE_LENGTH * 2;
++        }
++        for (uint32_t i = 0; i < BUFFER_NUM; i++) {
++            workspace[i] = (resource.ubBuf.template GetBufferByByte<ElementSrc>(bufferOffset * sizeof(ElementSrc)))
++                               .template ReinterpretCast<half>();
++            bufferOffset += COMPUTE_LENGTH * 2;
++        }
++        for (uint32_t i = 0; i < BUFFER_NUM; i++) {
++            tmpFp32[i] = (resource.ubBuf.template GetBufferByByte<ElementSrc>(bufferOffset * sizeof(ElementSrc)))
++                             .template ReinterpretCast<float>();
++            bufferOffset += COMPUTE_LENGTH * 4;
++        }
++
++        InitLocalMaskVec(resource, bufferOffset);
++
++        scaleCacheBuffer = (resource.ubBuf.template GetBufferByByte<int8_t>(bufferOffset * sizeof(int8_t)))
++                               .template ReinterpretCast<float>();
++        for (uint32_t i = 0; i < BUFFER_NUM; ++i) {
++            AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(EventIdBuffer[i]);
++            AscendC::SetFlag<AscendC::HardEvent::MTE3_V>(EventIdBuffer[i]);
++        }
++    }
++
++    CATLASS_DEVICE
++    ~TileCastFp8ToBf16WithScaleDequant()
++    {
++        for (uint32_t i = 0; i < BUFFER_NUM; ++i) {
++            AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(EventIdBuffer[i]);
++            AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(EventIdBuffer[i]);
++        }
++    }
++
++    CATLASS_DEVICE
++    void operator()(AscendC::GlobalTensor<ElementDst> gmDst, LayoutDst const &layoutDst,
++                    AscendC::GlobalTensor<ElementSrc> gmSrc, LayoutSrc const &layoutSrc,
++                    LayoutScale const &layoutScalePerGroup, uint32_t const &groupSize, uint32_t const OffsetK)
++    {
++        uint32_t scaleTileRows = layoutScalePerGroup.shape(0);
++        uint32_t scaleTileCols = layoutScalePerGroup.shape(1);
++        uint32_t scaleStride = layoutScalePerGroup.stride(0);
++        uint32_t scaleTileColsUB = RoundUp<32 / sizeof(ElementScale), uint32_t>(scaleTileCols);
++
++        uint32_t tilesNum, tileLen, srcStride, dstStride;
++        if constexpr (std::is_same_v<LayoutSrc, layout::RowMajor>) {
++            tilesNum = layoutSrc.shape(0);
++            tileLen = layoutSrc.shape(1);
++            srcStride = layoutSrc.stride(0);
++            dstStride = layoutDst.stride(0);
++        } else if constexpr (std::is_same_v<LayoutSrc, layout::ColumnMajor>) {
++            tilesNum = layoutSrc.shape(1);
++            tileLen = layoutSrc.shape(0);
++            srcStride = layoutSrc.stride(1);
++            dstStride = layoutDst.stride(1);
++        }
++
++        uint32_t tilesPerAiv = tilesNum / AscendC::GetSubBlockNum();
++        uint32_t tilesRemain = tilesNum % AscendC::GetSubBlockNum();
++        if (AscendC::GetSubBlockIdx() < tilesRemain) {
++            tilesPerAiv++;
++        }
++
++        uint64_t taskSrcOffset = AscendC::GetSubBlockIdx() * tilesPerAiv * srcStride;
++        uint64_t taskDstOffset = AscendC::GetSubBlockIdx() * tilesPerAiv * dstStride;
++        if (AscendC::GetSubBlockIdx() >= tilesRemain) {
++            taskSrcOffset += tilesRemain * srcStride;
++            taskDstOffset += tilesRemain * dstStride;
++        }
++
++        uint32_t baseTileStart = OffsetK + AscendC::GetSubBlockIdx() * tilesPerAiv;
++        if (AscendC::GetSubBlockIdx() >= tilesRemain) {
++            baseTileStart += tilesRemain;
++        }
++
++        uint32_t totalLoops = 0;
++        uint32_t loopsPerTile, tilesInALoop;
++        uint32_t tileLenRoundFp8 = RoundUp<Alignment, uint32_t>(tileLen);
++        if (tileLenRoundFp8 > COMPUTE_LENGTH / 2) {
++            // One single tile length is bigger than COMPUTE_LENGTH, which should be clipped.
++            loopsPerTile = CeilDiv(tileLen, COMPUTE_LENGTH);
++            totalLoops = tilesPerAiv * loopsPerTile;
++        } else if (tileLenRoundFp8 != 0) {
++            // COMPUTE_LENGTH is bigger than tile length, such that more than one tiles can be arranged together.
++            tilesInALoop = COMPUTE_LENGTH / tileLenRoundFp8;
++            totalLoops = CeilDiv(tilesPerAiv, tilesInALoop);
++        }  // tileLenRoundFp8 == 0 --> totalLoops = 0
++
++        uint32_t tileTailLen = tileLen % COMPUTE_LENGTH;
++        uint64_t srcProcessOffset, dstProcessOffset;
++        uint32_t loadLen = COMPUTE_LENGTH, storeLen, loadRepeat = 1, storeRepeat = 1;
++
++        uint32_t pingpong = 0;
++        for (int ldx = 0; ldx < static_cast<int>(totalLoops); ldx++) {
++            uint32_t validLen;
++            if (tileLenRoundFp8 > COMPUTE_LENGTH / 2) {
++                uint32_t fullTileRounds = ldx / loopsPerTile;
++                uint32_t residueTileRounds = ldx % loopsPerTile;
++                srcProcessOffset = taskSrcOffset + fullTileRounds * srcStride + residueTileRounds * COMPUTE_LENGTH;
++                dstProcessOffset = taskDstOffset + fullTileRounds * dstStride + residueTileRounds * COMPUTE_LENGTH;
++
++                loadLen = COMPUTE_LENGTH;
++                if ((residueTileRounds == loopsPerTile - 1) && (tileTailLen != 0)) {
++                    loadLen = tileTailLen;
++                }
++                loadRepeat = 1;
++                storeLen = loadLen;
++                storeRepeat = 1;
++
++                validLen = loadLen * loadRepeat;
++            } else {
++                uint32_t fullTileRounds = ldx * tilesInALoop;
++                srcProcessOffset = taskSrcOffset + fullTileRounds * srcStride;
++                dstProcessOffset = taskDstOffset + fullTileRounds * dstStride;
++
++                loadLen = tileLen;
++                storeLen = tileLen;
++                loadRepeat = tilesInALoop;
++                storeRepeat = tilesInALoop;
++
++                if ((ldx == static_cast<int>(totalLoops) - 1) && (tilesPerAiv % tilesInALoop != 0)) {
++                    loadRepeat = tilesPerAiv % tilesInALoop;
++                    storeRepeat = loadRepeat;
++                }
++
++                validLen = tileLenRoundFp8 * loadRepeat;
++            }
++
++            // GM -> UB (int8)
++            AscendC::DataCopyExtParams dataCopyParamsIn(
++                loadRepeat, loadLen * sizeof(ElementSrc), (srcStride - loadLen) * sizeof(ElementSrc),
++                (tileLenRoundFp8 - loadLen) * sizeof(ElementSrc) / BYTE_PER_BLK, 0);
++            AscendC::DataCopyPadExtParams<ElementSrc> padParams(false, 0, 0, 0);
++
++            AscendC::WaitFlag<AscendC::HardEvent::V_MTE2>(EventIdBuffer[pingpong]);
++            AscendC::DataCopyPad(inputBuffer[pingpong], gmSrc[srcProcessOffset], dataCopyParamsIn, padParams);
++
++            AscendC::SetFlag<AscendC::HardEvent::MTE2_V>(EventIdBuffer[pingpong]);
++            AscendC::WaitFlag<AscendC::HardEvent::MTE2_V>(EventIdBuffer[pingpong]);
++            AscendC::WaitFlag<AscendC::HardEvent::MTE3_V>(EventIdBuffer[pingpong]);
++
++            AscendC::LocalTensor<half> workspace2 = outputBuffer[pingpong].template ReinterpretCast<half>();
++
++            Dequant(inputBuffer[pingpong], workspace2, value_vector1, value_vector2, workspace[pingpong], validLen);
++
++            // fp16->fp32
++            AscendC::Cast<float, half>(tmpFp32[pingpong], workspace2, AscendC::RoundMode::CAST_NONE, validLen);
++
++            uint32_t baseRow = 0;
++            uint32_t baseCol = 0;
++
++            if (tileLenRoundFp8 > COMPUTE_LENGTH / 2) {
++                uint32_t fullTileRounds = ldx / loopsPerTile;
++                uint32_t residueTileRounds = ldx % loopsPerTile;
++                baseRow = baseTileStart + fullTileRounds;
++                baseCol = residueTileRounds * COMPUTE_LENGTH;
++            } else {
++                uint32_t fullTileRounds = ldx * tilesInALoop;
++                baseRow = baseTileStart + fullTileRounds;
++                baseCol = 0;
++            }
++
++            const uint32_t dbBytes = AscendC::GetDataBlockSizeInBytes();
++            const uint32_t rowStrideBytes = tileLenRoundFp8 * sizeof(float);
++            const uint32_t rowStrideDb = rowStrideBytes / dbBytes;
++
++            const float k256 = 256.0f;
++            if (tileLenRoundFp8 > COMPUTE_LENGTH / 2) {
++                uint32_t sRow = baseRow / groupSize;
++                uint32_t globalCol = baseCol;
++                uint32_t localCol = 0;
++                uint32_t remainLen = loadLen;
++
++                while (remainLen > 0) {
++                    uint32_t inGroup = globalCol % groupSize;
++                    uint32_t colNuminGroup = groupSize - inGroup;
++                    if (colNuminGroup > remainLen) {
++                        colNuminGroup = remainLen;
++                    }
++
++                    uint32_t sCol = globalCol / groupSize;
++                    uint32_t scaleIdx = sRow * scaleTileColsUB + sCol;
++                    float scale = scaleCacheBuffer.GetValue(scaleIdx) * k256;
++
++                    uint32_t off = localCol;
++                    uint32_t r = colNuminGroup;
++                    while (r > 0) {
++                        uint32_t chunk = (r >= 64) ? 64 : r;
++                        AscendC::Muls<float>(tmpFp32[pingpong][off], tmpFp32[pingpong][off], scale, (uint64_t)chunk, 1,
++                                             {1, 1, (uint8_t)rowStrideDb, (uint8_t)rowStrideDb});
++                        off += chunk;
++                        r -= chunk;
++                    }
++
++                    globalCol += colNuminGroup;
++                    localCol += colNuminGroup;
++                    remainLen -= colNuminGroup;
++                }
++            } else {
++                uint32_t rowsRemain = loadRepeat;
++                uint32_t localRowBase = 0;
++                uint32_t validCols = tileLen;
++
++                while (rowsRemain > 0) {
++                    uint32_t curR = baseRow + localRowBase;
++                    uint32_t rowsThisSlice = groupSize - (curR % groupSize);
++                    if (rowsThisSlice > rowsRemain) {
++                        rowsThisSlice = rowsRemain;
++                    }
++
++                    uint32_t sRow = curR / groupSize;
++                    uint32_t colsRemain = validCols;
++                    uint32_t curC = 0;
++
++                    while (colsRemain > 0) {
++                        uint32_t inGroup = curC % groupSize;
++                        uint32_t colNuminGroup = groupSize - inGroup;
++                        if (colNuminGroup > colsRemain) {
++                            colNuminGroup = colsRemain;
++                        }
++
++                        uint32_t sCol = curC / groupSize;
++                        uint32_t scaleIdx = sRow * scaleTileColsUB + sCol;
++                        float scale = scaleCacheBuffer.GetValue(scaleIdx) * k256;
++
++                        uint32_t fp32Offset = localRowBase * tileLenRoundFp8 + curC;
++                        uint32_t remain = colNuminGroup;
++                        uint32_t off = fp32Offset;
++                        while (remain > 0) {
++                            uint32_t chunk = (remain >= 64) ? 64 : remain;
++                            AscendC::Muls<float>(tmpFp32[pingpong][off], tmpFp32[pingpong][off], scale, (uint64_t)chunk,
++                                                 rowsThisSlice, {1, 1, (uint8_t)rowStrideDb, (uint8_t)rowStrideDb});
++                            off += chunk;
++                            remain -= chunk;
++                        }
++                        curC += colNuminGroup;
++                        colsRemain -= colNuminGroup;
++                    }
++
++                    localRowBase += rowsThisSlice;
++                    rowsRemain -= rowsThisSlice;
++                }
++            }
++            pipe_barrier(PIPE_V);
++
++            // fp32->bf16
++            outputBuffer[pingpong] = workspace2.ReinterpretCast<bfloat16_t>();
++            AscendC::Cast<bfloat16_t, float>(outputBuffer[pingpong], tmpFp32[pingpong], AscendC::RoundMode::CAST_RINT,
++                                             validLen);
++            pipe_barrier(PIPE_V);
++
++            AscendC::SetFlag<AscendC::HardEvent::V_MTE3>(EventIdBuffer[pingpong]);
++            AscendC::WaitFlag<AscendC::HardEvent::V_MTE3>(EventIdBuffer[pingpong]);
++            AscendC::SetFlag<AscendC::HardEvent::V_MTE2>(EventIdBuffer[pingpong]);
++
++            // UB -> GM
++            AscendC::DataCopyExtParams dataCopyParams(storeRepeat, storeLen * sizeof(ElementDst),
++                                                      (tileLenRoundFp8 - storeLen) * sizeof(ElementDst) / BYTE_PER_C0,
++                                                      (dstStride - storeLen) * sizeof(ElementDst), 0);
++            AscendC::DataCopyPad(gmDst[dstProcessOffset], outputBuffer[pingpong], dataCopyParams);
++            AscendC::SetFlag<AscendC::HardEvent::MTE3_V>(EventIdBuffer[pingpong]);
++
++            pingpong = (pingpong + 1) % BUFFER_NUM;
++        }
++    }
++
++    CATLASS_DEVICE
++    void loadAllTileScales(uint32_t scaleGroupNumk, uint32_t scaleGroupNumN, uint32_t scaleStride,
++                           AscendC::GlobalTensor<ElementScale> const gmScaleB)
++    {
++        AscendC::DataCopyParams copyScaleParams;
++        copyScaleParams.blockCount = scaleGroupNumk;
++        copyScaleParams.blockLen = scaleGroupNumN * sizeof(float);
++        copyScaleParams.srcStride = (scaleStride - scaleGroupNumN) * sizeof(float);
++        AscendC::DataCopyPadParams padScaleParams;
++        AscendC::DataCopyPad(scaleCacheBuffer, gmScaleB, copyScaleParams, padScaleParams);
++    }
++
++private:
++    CATLASS_DEVICE
++    void InitLocalMaskVec(Arch::Resource<ArchTag> const &resource, int64_t &bufferOffset)
++    {
++        int16_t value_uint = 0x4000;
++        value_vector1 = (resource.ubBuf.template GetBufferByByte<ElementSrc>(bufferOffset * sizeof(ElementSrc)))
++                            .template ReinterpretCast<int16_t>();
++        bufferOffset += 256;
++        AscendC::Duplicate<int16_t>(value_vector1, value_uint, 128);
++        AscendC::PipeBarrier<PIPE_V>();
++        value_uint = 0x3FFF;
++        value_vector2 = (resource.ubBuf.template GetBufferByByte<ElementSrc>(bufferOffset * sizeof(ElementSrc)))
++                            .template ReinterpretCast<int16_t>();
++        bufferOffset += 256;
++        AscendC::Duplicate<int16_t>(value_vector2, value_uint, 128);
++        AscendC::PipeBarrier<PIPE_V>();
++    }
++
++    CATLASS_DEVICE
++    void Dequant(AscendC::LocalTensor<int8_t> &src, AscendC::LocalTensor<half> &dst,
++                 AscendC::LocalTensor<int16_t> &value_vector1, AscendC::LocalTensor<int16_t> &value_vector2,
++                 AscendC::LocalTensor<half> &workspace, uint32_t validLen)
++    {
++        pipe_barrier(PIPE_V);
++        uint32_t num = validLen;
++        num = (num + 128 - 1) / 128 * 128;
++        AscendC::Cast<half, uint8_t>(dst.template ReinterpretCast<half>(), src.template ReinterpretCast<uint8_t>(),
++                                     AscendC::RoundMode::CAST_NONE, num);
++        pipe_barrier(PIPE_V);
++
++        AscendC::Adds<half>(dst, dst, 1024, num);
++        pipe_barrier(PIPE_V);
++
++        AscendC::ShiftLeft<uint16_t>(dst.template ReinterpretCast<uint16_t>(), dst.template ReinterpretCast<uint16_t>(),
++                                     7, num);
++        pipe_barrier(PIPE_V);
++
++        uint64_t mask = 128;
++        AscendC::And<int16_t>(workspace.template ReinterpretCast<int16_t>(), dst.template ReinterpretCast<int16_t>(),
++                              value_vector1, mask, num / 128, {1, 1, 1, 8, 8, 0});
++        pipe_barrier(PIPE_V);
++
++        AscendC::And<int16_t>(dst.template ReinterpretCast<int16_t>(), dst.template ReinterpretCast<int16_t>(),
++                              value_vector2, mask, num / 128, {1, 1, 1, 8, 8, 0});
++
++        AscendC::ShiftLeft<uint16_t>(workspace.template ReinterpretCast<uint16_t>(),
++                                     workspace.template ReinterpretCast<uint16_t>(), 1, num);
++        pipe_barrier(PIPE_V);
++
++        AscendC::Or<int16_t>(dst.template ReinterpretCast<int16_t>(), dst.template ReinterpretCast<int16_t>(),
++                             workspace.template ReinterpretCast<int16_t>(), num);
++        pipe_barrier(PIPE_V);
++    }
++
++private:
++    static const uint32_t BUFFER_NUM = 2;
++    AscendC::LocalTensor<int8_t> inputBuffer[BUFFER_NUM];
++    AscendC::LocalTensor<int16_t> value_vector1;
++    AscendC::LocalTensor<int16_t> value_vector2;
++    AscendC::LocalTensor<bfloat16_t> outputBuffer[BUFFER_NUM];
++    AscendC::LocalTensor<half> workspace[BUFFER_NUM];
++    AscendC::LocalTensor<float> tmpFp32[BUFFER_NUM];
++    AscendC::LocalTensor<float> scaleCacheBuffer;
++    AscendC::TEventID EventIdBuffer[BUFFER_NUM] = {EVENT_ID0, EVENT_ID1};
++    uint32_t bufferIndexForCast{0};
++    int64_t bufferOffset{0};
++
++    Params params;
++};
++
++}  // namespace Catlass::Gemm::Tile
++
++#endif  // CATLASS_GEMM_TILE_CAST_FP8_TO_BF16_WITH_SCALE_HPP
+diff --git a/csrc/catlass/utils/gemm/tile/tile_traits_with_scale.hpp b/csrc/catlass/utils/gemm/tile/tile_traits_with_scale.hpp
+new file mode 100644
+index 000000000..d5210e949
+--- /dev/null
++++ b/csrc/catlass/utils/gemm/tile/tile_traits_with_scale.hpp
+@@ -0,0 +1,56 @@
++/**
++
++This program is free software, you can redistribute it and/or modify.
++Copyright (c) 2025 Huawei Technologies Co., Ltd.
++This file is a part of the CANN Open Software.
++Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
++Please refer to the License for details. You may not use this file except in compliance with the License.
++THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING BUT
++NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE. See LICENSE in the root of the
++software repository for the full text of the License.
++*/
++#ifndef CATLASS_GEMM_PROLOGUE_TRATIS_WITH_SCALE_HPP
++#define CATLASS_GEMM_PROLOGUE_TRATIS_WITH_SCALE_HPP
++
++#include "catlass/catlass.hpp"
++#include "catlass/gemm/tile/tile_traits.hpp"
++#include <type_traits>
++
++namespace Catlass::Gemm::Tile {
++
++template <class Prologue>
++struct PrologueTraitsWithScale : public Prologue {
++    using Prologue::Prologue;
++
++    using TensorSrc = AscendC::GlobalTensor<typename Prologue::ElementSrc>;
++    using TensorDst = AscendC::GlobalTensor<typename Prologue::ElementDst>;
++
++    using ElementScale = typename Prologue::ElementScale;
++    using LayoutScale = typename Prologue::LayoutScale;
++    using TensorScale = AscendC::GlobalTensor<typename Prologue::ElementScale>;
++};
++
++template <>
++struct PrologueTraitsWithScale<void> {
++    using ElementSrc = EmptyType;
++    using LayoutSrc = EmptyType;
++    using ElementDst = EmptyType;
++    using LayoutDst = EmptyType;
++
++    using TensorSrc = EmptyType;
++    using TensorDst = EmptyType;
++
++    using ElementScale = EmptyType;
++    using LayoutScale = EmptyType;
++    using TensorScale = EmptyType;
++
++    using Params = EmptyType;
++
++    template <class... Args>
++    CATLASS_DEVICE PrologueTraitsWithScale(Args...)
++    {}
++};
++
++}  // namespace Catlass::Gemm::Tile
++
++#endif  // CATLASS_GEMM_PROLOGUE_TRATIS_WITH_SCALE_HPP
+diff --git a/csrc/pytorch_extensions.cpp b/csrc/pytorch_extensions.cpp
+index 0ed15408c..8313b24be 100644
+--- a/csrc/pytorch_extensions.cpp
++++ b/csrc/pytorch_extensions.cpp
+@@ -122,6 +122,10 @@ TORCH_LIBRARY_FRAGMENT(npu, m)
+ 
+ #ifdef BUILD_CATLASS_MODULE
+     m.def("catlass_matmul_basic(Tensor tensor_a, Tensor tensor_b, Tensor(a!) tensor_c, str? format_mode=None) -> ()");
++
++    m.def("softfp8_w8a16_matmul(Tensor mat1, Tensor mat2, Tensor scale, str c) -> Tensor");
++
++    m.def("softfp8_w8a16_grouped_matmul(Tensor mat1, Tensor mat2, Tensor scale, Tensor groupList, str c) -> Tensor");
+ #endif
+ 
+     m.def(
+@@ -188,6 +192,10 @@ TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)
+ 
+ #ifdef BUILD_CATLASS_MODULE
+     m.impl("catlass_matmul_basic", TORCH_FN(sglang::npu_kernel::catlass_matmul_basic));
++
++    m.impl("softfp8_w8a16_matmul", TORCH_FN(sglang::npu_kernel::softfp8_w8a16_matmul));
++
++    m.impl("softfp8_w8a16_grouped_matmul", TORCH_FN(sglang::npu_kernel::softfp8_w8a16_grouped_matmul));
+ #endif
+ 
+     m.impl("lightning_indexer", TORCH_FN(sglang::npu_kernel::lightning_indexer));
+diff --git a/include/sgl_kenel_npu_ops.h b/include/sgl_kenel_npu_ops.h
+index f51abc6b4..c6a4fba10 100644
+--- a/include/sgl_kenel_npu_ops.h
++++ b/include/sgl_kenel_npu_ops.h
+@@ -119,6 +119,16 @@ void sgemmc_shrink(at::Tensor &x, at::Tensor &weight, at::Tensor &lora_indices,
+ void catlass_matmul_basic(const at::Tensor &tensor_a,
+                           const at::Tensor &tensor_b, at::Tensor &tensor_c,
+                           c10::optional<c10::string_view> format_mode);
++
++at::Tensor softfp8_w8a16_grouped_matmul(const at::Tensor &mat1,
++                                        const at::Tensor &mat2,
++                                        const at::Tensor &scale,
++                                        const at::Tensor &groupList,
++                                        const std::string &outDType);
++
++at::Tensor softfp8_w8a16_matmul(const at::Tensor &mat1, const at::Tensor &mat2,
++                                const at::Tensor &scale,
++                                const std::string &outDType);
+ #endif
+ 
+ void mega_chunk_gdn(
+diff --git a/tests/python/sgl_kernel_npu/test_gmm_wfp8a16.py b/tests/python/sgl_kernel_npu/test_gmm_wfp8a16.py
+new file mode 100644
+index 000000000..d09f52538
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_gmm_wfp8a16.py
+@@ -0,0 +1,254 @@
++import sgl_kernel_npu
++import torch
++import torch_npu
++
++BLOCK_SIZE = 128
++
++
++def apply_group_block_scale(
++    weight_fp8, scale, group_count, k, n, block_size=BLOCK_SIZE
++):
++    """
++    Reference dequant for grouped FP8 tensor + per-group per-(128,128) block scale.
++    weight_fp8: torch.float8_e4m3fn, shape [g, K, N]
++    scale:      float32, shape [g, ceil(K/128), ceil(N/128)]
++    return:     bf16, shape [g, K, N]
++    """
++    if weight_fp8.shape != (group_count, k, n):
++        raise ValueError(
++            f"weight shape mismatch: expect {(group_count, k, n)}, got {tuple(weight_fp8.shape)}"
++        )
++    if weight_fp8.dtype != torch.float8_e4m3fn:
++        raise ValueError(
++            f"weight dtype mismatch: expect torch.float8_e4m3fn, got {weight_fp8.dtype}"
++        )
++
++    scale_k = (k + block_size - 1) // block_size
++    scale_n = (n + block_size - 1) // block_size
++    if scale.shape != (group_count, scale_k, scale_n):
++        raise ValueError(
++            "scale shape mismatch: expect "
++            f"{(group_count, scale_k, scale_n)}, got {tuple(scale.shape)}"
++        )
++
++    device = weight_fp8.device
++    deq_base = weight_fp8.to(torch.float32)
++
++    k_pad = scale_k * block_size
++    n_pad = scale_n * block_size
++
++    deq_padded = torch.zeros(
++        (group_count, k_pad, n_pad), dtype=torch.float32, device=device
++    )
++    deq_padded[:, :k, :n] = deq_base
++
++    blocked = (
++        deq_padded.view(group_count, scale_k, block_size, scale_n, block_size)
++        .permute(0, 1, 3, 2, 4)
++        .contiguous()
++    )
++    blocked = blocked * scale.to(torch.float32).view(
++        group_count, scale_k, scale_n, 1, 1
++    )
++
++    deq = (blocked.permute(0, 1, 3, 2, 4).contiguous().view(group_count, k_pad, n_pad))[
++        :, :k, :n
++    ]
++
++    return deq.to(torch.bfloat16)
++
++
++def build_group_list(group_sizes, device):
++    """Build an int64 prefix-sum groupList tensor from explicit group sizes."""
++    if not group_sizes:
++        raise ValueError("group_sizes must not be empty")
++    prefix_sum = []
++    running = 0
++    for group_m in group_sizes:
++        if group_m <= 0:
++            raise ValueError(f"group size must be positive, got {group_m}")
++        running += group_m
++        prefix_sum.append(running)
++    return torch.tensor(prefix_sum, dtype=torch.int64, device=device)
++
++
++def group_matmul(a_bf16, b_bf16, group_sizes):
++    """Compute grouped matmul reference output on host using explicit group sizes."""
++    ret = []
++    start = 0
++    for group_idx, group_m in enumerate(group_sizes):
++        end = start + group_m
++        c = a_bf16[start:end, :].to(torch.float32) @ b_bf16[group_idx].to(torch.float32)
++        ret.append(c)
++        start = end
++    ret = torch.cat(ret, dim=0)
++    print(f"ret shape: {ret.shape}, {ret.dtype}")
++    return ret
++
++
++def print_gmm_case_summary(
++    group_sizes,
++    m,
++    n,
++    k,
++    seed,
++    b_fp8,
++    b_uint8,
++    scales,
++    group_list,
++    out_op,
++    out_golden,
++    ok,
++    bad_cnt,
++    total,
++    diff,
++    atol,
++    rtol,
++):
++    """Print a compact summary for one grouped-matmul correctness case."""
++    g = out_golden.to(torch.float32).cpu()
++    o = out_op.to(torch.float32).cpu()
++
++    if m <= 8 and n <= 16:
++        print("out_op:")
++        print(out_op)
++        print("out_golden:")
++        print(out_golden)
++
++    max_abs = diff.max().item()
++    max_rel = (diff / (g.abs() + 1e-6)).max().item()
++    mean_abs = diff.mean().item()
++    mean_rel = (diff / (g.abs() + 1e-6)).mean().item()
++
++    print(
++        f"[group_sizes,M,N,K]=[{group_sizes},{m},{n},{k}] out_dtype={out_op.dtype}, seed={seed}"
++    )
++    print(
++        f"weight_fp8 shape={tuple(b_fp8.shape)} dtype={b_fp8.dtype} stride={b_fp8.stride()}"
++    )
++    print(
++        f"weight_bits shape={tuple(b_uint8.shape)} dtype={b_uint8.dtype} stride={b_uint8.stride()}"
++    )
++    print(f"groupList={group_list.cpu().tolist()}")
++    print(
++        f"scale shape={tuple(scales.shape)} dtype={scales.dtype} stride={scales.stride()}"
++    )
++    print(
++        f"allclose={ok}  bad={bad_cnt}/{total}  "
++        f"max_abs={max_abs:.6g}  mean_abs={mean_abs:.6g}  "
++        f"max_rel={max_rel:.6g}  mean_rel={mean_rel:.6g}"
++    )
++
++    if not ok:
++        idx = (diff > (atol + rtol * g.abs())).view(-1).nonzero()
++        if idx.numel() > 0:
++            i = int(idx[0].item())
++            row = i // n
++            col = i % n
++            print(
++                f"first_bad at ({row},{col}): "
++                f"op={o[row, col].item():.6g} "
++                f"golden={g[row, col].item():.6g} "
++                f"diff={diff[row, col].item():.6g}"
++            )
++
++
++def compare_fp8_w8a16_grouped(group_sizes, n, k):
++    """Run one grouped softfp8 w8a16 case and compare NPU output to reference."""
++    atol = 1e-2
++    rtol = 1e-2
++    seed = 0
++    torch.manual_seed(seed)
++
++    group_count = len(group_sizes)
++    m = sum(group_sizes)
++    scale_k = (k + BLOCK_SIZE - 1) // BLOCK_SIZE
++    scale_n = (n + BLOCK_SIZE - 1) // BLOCK_SIZE
++
++    a_bf16 = torch.randn((m, k), dtype=torch.bfloat16)
++    b_fp32 = torch.randn((group_count, k, n), dtype=torch.float32) * 0.5
++    b_fp8 = b_fp32.to(torch.float8_e4m3fn)
++    b_uint8 = b_fp8.view(torch.uint8)
++    scales = torch.rand((group_count, scale_k, scale_n), dtype=torch.float32) + 1e-3
++    group_list = build_group_list(group_sizes, "npu")
++
++    b_bf16 = apply_group_block_scale(b_fp8, scales, group_count, k, n)
++    out_golden = group_matmul(a_bf16, b_bf16, group_sizes)
++
++    torch.npu.synchronize()
++
++    out_op = torch.ops.npu.softfp8_w8a16_grouped_matmul(
++        a_bf16.to("npu"), b_uint8.to("npu"), scales.to("npu"), group_list, "bf16"
++    )
++
++    torch.npu.synchronize()
++
++    g = out_golden.to(torch.float32).cpu()
++    o = out_op.to(torch.float32).cpu()
++
++    diff = (o - g).abs()
++
++    ok = torch.allclose(o, g, atol=atol, rtol=rtol)
++
++    bad = diff > (atol + rtol * g.abs())
++    bad_cnt = int(bad.sum().item())
++    total = bad.numel()
++    print_gmm_case_summary(
++        group_sizes,
++        m,
++        n,
++        k,
++        seed,
++        b_fp8,
++        b_uint8,
++        scales,
++        group_list,
++        out_op,
++        out_golden,
++        ok,
++        bad_cnt,
++        total,
++        diff,
++        atol,
++        rtol,
++    )
++
++    return ok
++
++
++if __name__ == "__main__":
++    test_cases = [
++        ([1], 128, 128),
++        ([1, 2], 257, 385),
++        ([1, 1, 2], 127, 127),
++        ([2, 2, 1, 3], 255, 256),
++        ([3, 5, 8], 511, 777),
++        ([7, 9, 15], 146, 129),
++        ([10, 12, 11, 21], 654, 191),
++        ([11, 22, 42], 733, 385),
++        ([13, 20], 795, 446),
++        ([17, 23, 29], 877, 447),
++        ([32, 31, 48], 913, 703),
++        ([256, 512, 256], 4096, 4096),
++    ]
++    pass_cnt = 0
++    fail_cnt = 0
++    failed_cases = []
++    for idx, (group_sizes, n, k) in enumerate(test_cases, 1):
++        print("=" * 100)
++        print(
++            f"[{idx}/{len(test_cases)}] Running case: "
++            f"group_sizes={group_sizes}, N={n}, K={k}"
++        )
++        ok = compare_fp8_w8a16_grouped(group_sizes, n, k)
++        if ok:
++            pass_cnt += 1
++        else:
++            fail_cnt += 1
++            failed_cases.append((group_sizes, n, k))
++    print("=" * 100)
++    print(f"Summary: pass={pass_cnt}, fail={fail_cnt}, total={len(test_cases)}")
++    if failed_cases:
++        print("Failed cases:")
++        for case in failed_cases:
++            print(f"  group_sizes,N,K={case}")
+diff --git a/tests/python/sgl_kernel_npu/test_mm_wfp8a16.py b/tests/python/sgl_kernel_npu/test_mm_wfp8a16.py
+new file mode 100644
+index 000000000..01bf3e951
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_mm_wfp8a16.py
+@@ -0,0 +1,217 @@
++import sgl_kernel_npu
++import torch
++import torch_npu
++
++BLOCK_SIZE = 128
++
++
++def apply_block_scale(weight_fp8, scale, K, N, block_size=BLOCK_SIZE):
++    """
++    Reference dequant for valid fp8 tensor + per-(128,128) block scale.
++    weight_fp8: torch.float8_e4m3fn, shape [K, N]
++    scale:      float32, shape [ceil(K/128), ceil(N/128)]
++    return:     bf16, shape [K, N]
++    """
++    if weight_fp8.shape != (K, N):
++        raise ValueError(
++            f"weight shape mismatch: expect {(K, N)}, got {tuple(weight_fp8.shape)}"
++        )
++    if weight_fp8.dtype != torch.float8_e4m3fn:
++        raise ValueError(
++            f"weight dtype mismatch: expect torch.float8_e4m3fn, got {weight_fp8.dtype}"
++        )
++
++    scale_K = (K + block_size - 1) // block_size
++    scale_N = (N + block_size - 1) // block_size
++    if scale.shape != (scale_K, scale_N):
++        raise ValueError(
++            f"scale shape mismatch: expect {(scale_K, scale_N)}, got {tuple(scale.shape)}"
++        )
++
++    device = weight_fp8.device
++    deq_base = weight_fp8.to(torch.float32)  # [K, N]
++
++    K_pad = scale_K * block_size
++    N_pad = scale_N * block_size
++
++    deq_padded = torch.zeros((K_pad, N_pad), dtype=torch.float32, device=device)
++    deq_padded[:K, :N] = deq_base
++
++    blocked = (
++        deq_padded.view(scale_K, block_size, scale_N, block_size)
++        .permute(0, 2, 1, 3)
++        .contiguous()
++    )
++
++    blocked = blocked * scale.to(torch.float32).view(scale_K, scale_N, 1, 1)
++
++    deq = (blocked.permute(0, 2, 1, 3).contiguous().view(K_pad, N_pad))[:K, :N]
++
++    return deq.to(torch.bfloat16)
++
++
++def print_mm_case_summary(
++    M,
++    N,
++    K,
++    seed,
++    b_fp8,
++    b_int8,
++    scales,
++    out_op,
++    out_golden,
++    ok,
++    bad_cnt,
++    total,
++    diff,
++    atol,
++    rtol,
++):
++    """Print a compact summary for one matmul correctness case."""
++    g = out_golden.to(torch.float32).cpu()
++    o = out_op.to(torch.float32).cpu()
++
++    if M <= 8 and N <= 16:
++        print("out_op:")
++        print(out_op)
++        print("out_golden:")
++        print(out_golden)
++
++    max_abs = diff.max().item()
++    max_rel = (diff / (g.abs() + 1e-6)).max().item()
++    mean_abs = diff.mean().item()
++    mean_rel = (diff / (g.abs() + 1e-6)).mean().item()
++
++    print(f"[M,N,K]=[{M},{N},{K}] out_dtype={out_op.dtype}, seed={seed}")
++    print(
++        f"weight_fp8 shape={tuple(b_fp8.shape)} dtype={b_fp8.dtype} stride={b_fp8.stride()}"
++    )
++    print(
++        f"weight_bits shape={tuple(b_int8.shape)} dtype={b_int8.dtype} stride={b_int8.stride()}"
++    )
++    print(
++        f"scale shape={tuple(scales.shape)} dtype={scales.dtype} stride={scales.stride()}"
++    )
++    print(
++        f"allclose={ok}  bad={bad_cnt}/{total}  "
++        f"max_abs={max_abs:.6g}  mean_abs={mean_abs:.6g}  "
++        f"max_rel={max_rel:.6g}  mean_rel={mean_rel:.6g}"
++    )
++
++    if not ok:
++        idx = (diff > (atol + rtol * g.abs())).view(-1).nonzero()
++        if idx.numel() > 0:
++            i = int(idx[0].item())
++            row = i // N
++            col = i % N
++            print(
++                f"first_bad at ({row},{col}): "
++                f"op={o[row, col].item():.6g} "
++                f"golden={g[row, col].item():.6g} "
++                f"diff={diff[row, col].item():.6g}"
++            )
++
++
++def compare_fp8_w8a16(M, N, K):
++    """Run one softfp8 w8a16 matmul case and compare NPU output to reference."""
++    atol = 1e-2
++    rtol = 1e-2
++    seed = 0
++    torch.manual_seed(seed)
++
++    scale_K = (K + BLOCK_SIZE - 1) // BLOCK_SIZE
++    scale_N = (N + BLOCK_SIZE - 1) // BLOCK_SIZE
++
++    a_bf16 = torch.randn([M, K], dtype=torch.float32).to(torch.bfloat16)
++    b_fp32 = torch.randn([K, N], dtype=torch.float32) * 0.5
++    b_fp8 = b_fp32.to(torch.float8_e4m3fn)
++    b_int8 = b_fp8.view(torch.uint8)
++
++    scales = torch.rand([scale_K, scale_N], dtype=torch.float32) + 1e-3
++
++    b_bf16 = apply_block_scale(b_fp8, scales, K, N)
++
++    out_golden = (a_bf16.to(torch.float32) @ b_bf16.to(torch.float32)).to(
++        torch.bfloat16
++    )
++
++    torch.npu.synchronize()
++
++    out_op = torch.ops.npu.softfp8_w8a16_matmul(
++        a_bf16.to("npu"), b_int8.to("npu"), scales.to("npu"), "bf16"
++    )
++
++    torch.npu.synchronize()
++
++    g = out_golden.to(torch.float32).cpu()
++    o = out_op.to(torch.float32).cpu()
++
++    diff = (o - g).abs()
++
++    ok = torch.allclose(o, g, atol=atol, rtol=rtol)
++
++    bad = diff > (atol + rtol * g.abs())
++    bad_cnt = int(bad.sum().item())
++    total = bad.numel()
++    print_mm_case_summary(
++        M,
++        N,
++        K,
++        seed,
++        b_fp8,
++        b_int8,
++        scales,
++        out_op,
++        out_golden,
++        ok,
++        bad_cnt,
++        total,
++        diff,
++        atol,
++        rtol,
++    )
++
++    return ok
++
++
++if __name__ == "__main__":
++    test_cases = [
++        (1, 128, 128),
++        (3, 257, 385),
++        (4, 127, 127),
++        (8, 255, 256),
++        (16, 511, 777),
++        (31, 146, 129),
++        (46, 435, 190),
++        (54, 654, 191),
++        (75, 733, 385),
++        (33, 795, 446),
++        (69, 877, 447),
++        (111, 913, 703),
++        (1, 4096, 4096),
++        (4, 7168, 7168),
++        (16, 14336, 4096),
++        (32, 28672, 7168),
++        (128, 4096, 4096),
++        (256, 6144, 6144),
++        (1024, 2112, 7168),
++        (4096, 6144, 2112),
++    ]
++    pass_cnt = 0
++    fail_cnt = 0
++    failed_cases = []
++    for idx, (m, n, k) in enumerate(test_cases, 1):
++        print("=" * 100)
++        print(f"[{idx}/{len(test_cases)}] Running case: M={m}, N={n}, K={k}")
++        ok = compare_fp8_w8a16(m, n, k)
++        if ok:
++            pass_cnt += 1
++        else:
++            fail_cnt += 1
++            failed_cases.append((m, n, k))
++    print("=" * 100)
++    print(f"Summary: pass={pass_cnt}, fail={fail_cnt}, total={len(test_cases)}")
++    if failed_cases:
++        print("Failed cases:")
++        for case in failed_cases:
++            print(f"  M,N,K={case}")
+diff --git a/third_party/catlass b/third_party/catlass
+new file mode 160000
+index 000000000..70eda02b1
+--- /dev/null
++++ b/third_party/catlass
+@@ -0,0 +1 @@
++Subproject commit 70eda02b1271ff0e8c47db94469fae576feba97b
+diff --git a/third-party/pto-isa b/third_party/pto-isa
+similarity index 100%
+rename from third-party/pto-isa
+rename to third_party/pto-isa

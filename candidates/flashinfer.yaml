@@ -1,5 +1,5 @@
 repo: flashinfer-ai/flashinfer
-searched_at: '2026-06-10'
+searched_at: '2026-07-22'
 keywords_used:
 - blackwell
 - sm100
@@ -22,10 +22,10 @@ keywords_used:
 - tma
 - mbarrier
 - flash_attention
-total_candidates: 1165
+total_candidates: 1322
 included: 753
 excluded: 188
-deferred: 224
+deferred: 381
 prs:
 - number: 714
   title: 'perf: fix the iteration bound of SWA in FA2 prefill template'
@@ -7016,4 +7016,946 @@ prs:
   date: '2026-05-13'
   decision: include
   reason: kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 3889
+  title: Revert GDN prefill regression
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4058
+  title: 'docs: fix MSA and GDN doc-check findings'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3852
+  title: 'feat: MegaMoE Kernel integration in moe_ep'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3668
+  title: 'fix(mamba): reject SM120/SM121 in SSDCombined with a clear error'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3756
+  title: '  [CuTe DSL][MoE] Optimize PDL startup and balance GEMM2 partial-tile stores'
+  date: '2026-07-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3888
+  title: 'fix(mla): enable cute-dsl/auto on SM103 + cluster-aware cutlass split_kv'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3655
+  title: 'feat(attn): Enable MiniMax Sparse Attention (MSA) for Consumer Blackwell GPUs (SM120/121)'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3976
+  title: 'feat(moe): add deterministic CuTe DSL NVFP4 finalize mode'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3837
+  title: '[Bugfix] Skip autotuning for small token counts on SM100 to prevent TMA crash'
+  date: '2026-07-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3742
+  title: Improve GDN prefill perf by ~20-25% (mainloop efficiency)
+  date: '2026-06-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3891
+  title: Add FP8 groupwise MoE GEMM entry (cute SM120 backend)
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3744
+  title: 'feat(moe): add gelu_tanh and swiglu_oai activations to b12x NVFP4 MoE for SM12x'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3715
+  title: '[GDN] sm100: support more state dtype'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3657
+  title: 'feat: cuTile Grouped MXFP8 Quantization'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3564
+  title: 'perf(moe): Enhance CuteDSL NVF4 MOE Perf'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3821
+  title: 'feat: make moe_ep (EP) part of the default install; drop nccl submodule'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3562
+  title: Add MXFP8 MoE GEMM entry (cute SM120 backend)
+  date: '2026-06-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3405
+  title: 'fix(mla): warn when backend=''auto'' falls back to non-Blackwell kernel on SM>=100'
+  date: '2026-06-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3574
+  title: '[fix] explicitly validate grouped_gemm_nt_masked layout contract to prevent NaN contamination'
+  date: '2026-06-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3536
+  title: 'feat: delta rule work with zero length sequence'
+  date: '2026-06-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3709
+  title: 'fix(moe): Fix unbounded weight-cache growth in b12x MoE'
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3581
+  title: '[fix] Fix SM100 GDN prefill hang'
+  date: '2026-06-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3964
+  title: 'fix (test): mock MoE EP arch validation in split unit tests'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3477
+  title: 'feat: add sm90 delta rule dsl prefill'
+  date: '2026-06-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4073
+  title: 'perf(jit): prune arch gencode that dispatch can never load'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3947
+  title: 'perf(jit): drop dead SM12x gencode from SM10x-serving modules'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3858
+  title: 'feat: SM100 CUTLASS NVFP4 SVDQuant fused GEMM (mm_nvfp4_svdquant)'
+  date: '2026-07-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3948
+  title: 'perf(gemm): update mm_fp4 cute-dsl tactic heuristic and autotune over a top-N ranked list'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3922
+  title: 'fix(cute_dsl): migrate off APIs removed in nvidia-cutlass-dsl 4.6 (keeps 4.5.x compat)'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3739
+  title: Enable Ampere FA2 large-head attention
+  date: '2026-07-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4072
+  title: 'feat: add optional normed-output (y_out) to add_rmsnorm_fp4quant'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3614
+  title: 'fix: make the cutlass MoE gemm profiler MXFP8-aware (autotune crash on MXFP8xMXFP8)'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3789
+  title: Add cold-L2 and CUDA graph to mm_bf16 API
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3847
+  title: '[feat] Add cutedsl split K for MXFP8 dense gemm'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3591
+  title: 'test(moe): align EP-offset tests and docs with global expert ids (gh #3547)'
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3908
+  title: Ameyn/gdn wy perf followup
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3772
+  title: 'feat(bench): adds variable-length top-k transform benchmark for decode/prefill'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3804
+  title: Enable cuBLASLt BF16 GEMM on SM80+
+  date: '2026-07-02'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3927
+  title: 'feat(quantization): support configurable scale-factor layouts for MXFP4'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3667
+  title: Enable SwapAB in `mm_fp4` `cute-dsl` backend when M is not a multiple of 8.
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3983
+  title: 'feat(moe): add B12x backends to unified MoE API and add corresponding tests'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3580
+  title: 'fix(ci): skip TRT-LLM Gen BF16 MoE SwiGLU test outside SM10.x'
+  date: '2026-06-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3539
+  title: 'test: unified GEMM/BMM fuzzer + convention auditor'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3769
+  title: 'fix(aot): exclude head_dim=512 FA2 modules from AOT jit-cache wheel'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3955
+  title: 'feat: expose trtllm-gen block-sparse attention for decode'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3281
+  title: 'feat(gemm): CuTeDSL "cute_ext" TGV backend as default for mm_bf16 / bmm_bf16'
+  date: '2026-07-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3874
+  title: 'feat(jit): JitSpec ABC + disk cache for JIT-compiled CuTe-DSL kernels'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3640
+  title: Add SM120 NVFP4 attention JIT path
+  date: '2026-06-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3738
+  title: 'perf: optimize MXFP4xBF16 & INT4xFP8 and add MXFP4xFP8 CUTLASS MoE backend for SM90'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3752
+  title: bump version to 0.6.14
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3900
+  title: bump version to 0.6.15
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3737
+  title: Feat/cutedsl moe swiglu oai and use activation type to pass in
+  date: '2026-07-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3598
+  title: 'feat: Expose disabling finalize fusion in TRTLLM cutlass moe backend'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3642
+  title: Add Relu2 + ungated MoE to CuteDSL MoE
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3501
+  title: '[feat] Add gated tanh-GELU (GeluTanh) activation to CUTLASS fused MoE (GEMMA 4)'
+  date: '2026-06-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4021
+  title: 'fix(docs): mock optional quack dependency'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4004
+  title: Yanqinz/fix autotuner using autotuning plan from other runners
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3857
+  title: '[feat] New CuTe DSL JIT kernels for FMHA: Dense & MXFP8 & NVFP4 formats'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3661
+  title: 'fix(moe): reject local tactic ID for gemm2 in flashinfer cutlass_fused_moe'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 2997
+  title: 'feat: offline tactics blocklist for GPU-aware autotuner pruning'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4029
+  title: 'perf(gemm): Improve mm_fp4 cute-dsl autotune time via disk-cache and parallel compilation'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3426
+  title: 'feat(cutile): introduce cuTile backend (mm_bf16 + bmm_bf16 + gemm_fp8_nt_groupwise)'
+  date: '2026-06-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3424
+  title: Fused FP8 blockwise MoE megakernel For BS <= 8
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3980
+  title: 'feat(moe_ep): restructure MegaMoE kernel sources into kernel_src + latest CuTeDSL MegaMoE kernels with improved performance'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3087
+  title: '[model] add example model: wan'
+  date: '2026-07-02'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3924
+  title: Add mm_fp8 into benchmark
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3863
+  title: 'fix(attention): clamp CTA_TILE_Q for fp8 h512 ragged prefill on 99KB-smem GPUs'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3760
+  title: Tune SM90 FP8 (e4m3) warp-specialized prefill
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3682
+  title: 'fix(attention): add LEFT_SLIDING_WINDOW drain loop to FP8 Hopper prefill (#3578)'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3694
+  title: 'feat(attention): FP8 KV cache support for Hopper SM90 MLA'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3708
+  title: 'feat(moe): enable DSFp8 + LoRA delta path'
+  date: '2026-06-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3421
+  title: 'feat: add dynamic FP8 allreduce RMSNorm fusion'
+  date: '2026-07-02'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3697
+  title: Port the TensorRT-LLM one-sided A2A optimizations to Flashinfer
+  date: '2026-07-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3678
+  title: Fix the output allocation consistency of trtllm-gen MoE APIs
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3743
+  title: 'fix: int64 Offsets in Grouped MXFP8 Quantization'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3758
+  title: 'fix(bench): make fused_dit_layernorm and FP8 quant refcheck work correctly'
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3942
+  title: 'docs: cover remaining @flashinfer_api symbols missing from rst'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3299
+  title: 'fix(fmha_v2): two small perf/correctness wins on Hopper FP8 prefill'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3635
+  title: 'tests: split test_trtllm_gen_fused_moe.py into shards'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3721
+  title: 'feat: [MoE] remove redundent trtllm-gen moe tensor allocation'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3576
+  title: 'feat(attention): head_dim=512 support for attention prefill & decode for Gemma 4 on SM120/121'
+  date: '2026-06-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3504
+  title: Add MXFP8 MoE SwiGLU OA parameters
+  date: '2026-06-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3524
+  title: 'perf: vectorize AppendPagedKVMlaCache to 128-bit access'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3733
+  title: Prune moe tests
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3977
+  title: Disable TMA kernel for nvfp4 quantize
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4040
+  title: 'feat: CuTe-DSL Fused SwiGLU NVFP4 Quantization'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3897
+  title: 'feat(attention): enable SM121 (GB10/DGX Spark) for NVFP4 attention'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3846
+  title: 'perf(moe): optimize one-sided EP4 NVFP4 dispatch'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3748
+  title: Add paged NVFP4 KV dequantization helper
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3822
+  title: Optimize FP4 V-scale dequant for h512 FA2 prefill
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3740
+  title: Add NVFP4 slot-mapping paged KV append
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3645
+  title: Add per-token NVFP4 quantization to CuTe DSL MoE
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3867
+  title: Add BF16 unified MoE conformance coverage
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3838
+  title: 'fix(attention): correct SM120 NVFP4 qk_correction layout, row-sum reduction, and lse'
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3724
+  title: 'Remove pagesize 16/32 assertion from xqa nvfp4 sm120 '
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3608
+  title: 'fix: pass XQA NVFP4 scale-factor strides'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3940
+  title: Add BF16 weight preparation and unified fuzzer coverage
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3643
+  title: 'feat: add mxfp4/nvfp4 quant to moe a2a combine'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4033
+  title: 'fix(benchmark): don''t fail non-trtllm mm_fp4 backends on unaligned n'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3546
+  title: 'docs: close v0.6.13 doc-check gaps + fix(moe) misleading topk_indices ICHECK message'
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3892
+  title: 'feat(moe): wire in-kernel routing (FromLogits) into unified MoE API + routing axes in fuzzer'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3695
+  title: 'feat(benchmark): add MLA --mla_is_var_seq / --mla_cute_dsl_impl knobs'
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3949
+  title: 'perf(attention): reuse TRT-LLM-gen counter buffers'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3916
+  title: 'fix(mla): allow native-width block tables for TRTLLM-GEN'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3970
+  title: Autotuner mem leak follow up 2
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3696
+  title: 'docs: document scale_major_mode param and FLASHINFER_AUTOTUNE_DIR env var'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3726
+  title: Enables CUDA Graphs and Cold L2 cache in MLA Decode Autotuning
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3664
+  title: 'fix(mla): make cute-dsl decode eligibility gate impl-aware'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3599
+  title: Accept uint8 workspaces in CUTE DSL MLA decode
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3545
+  title: Support smaller DSv4 sparse MLA head counts
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3582
+  title: Add separate trtllm-gen KV counter buffer
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3395
+  title: 'feat(attention): add SM120 sparse MLA kernels'
+  date: '2026-06-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3238
+  title: trtllm_batch_decode_with_kv_cache_mla trtllm-gen backend cum_seq_lens_q support
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3428
+  title: 'fix: scope trtllm-gen block_size guard to its own backend'
+  date: '2026-06-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3393
+  title: 'fix: headDim=512 GQA decode (#3343)'
+  date: '2026-06-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3921
+  title: 'feat(attention): accept token-unit batch offsets on the cudnn prefill path'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4014
+  title: 'fix(cudnn): include attn scale in the prefill/decode graph-cache keys'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3794
+  title: 'feat(cute-dsl): sliding window and attention sinks for GQA decode (non-paged + paged)'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3250
+  title: ' integrate VSA (Video Sparse Attention) into block-sparse API'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3914
+  title: 'fix (test): release CUDA cache before prefill compile subprocess'
+  date: '2026-07-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3016
+  title: 'feat: enable fmha_v2 HMMA attention for SM120 standard shapes'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3583
+  title: Add trtllm-gen decode log2 bmm1 scale override
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3596
+  title: 'test: match test output scaling with cutedsl kernel (scale before bf16 cast)'
+  date: '2026-06-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3601
+  title: 'test: cut unit-test CI wall time'
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 4025
+  title: 'fix(moe): restore legacy fused_moe.core imports for interleave helpers'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3979
+  title: 'chore: fix cute-dsl moe test'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3561
+  title: ' feat(moe): add DSv4 hash-based MoE routing (MOE-01-HASH)'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3941
+  title: 'docs: add fused_moe LoRA delta APIs to rst'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3872
+  title: 'doc: Adding owners for moe_ep'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3813
+  title: Feat/vllm moe ep api
+  date: '2026-07-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3973
+  title: Update moe cubins to fix 2CTA hanging issue
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3884
+  title: 'docs: fix 8 new documentation issues from nightly doc-check (v0.6.14)'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3751
+  title: '[feat] Optimize TRTLLMGEN MoE routing'
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3749
+  title: 'docs: add missing arg docs for output_scalar_scale and activation'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3763
+  title: 'feat: trtllm FP4 routed-MoE: accept fp32 `topk_weights` (copy-free)'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3776
+  title: 'perf(moe): support caller-provided combine output'
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3644
+  title: 'fix(moe): return bf16 expert_weights from trtllm_fp4_block_scale_moe (#3595)'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3816
+  title: 'chore: manual add to codeowners for fmhav2'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3784
+  title: Fix cuDNN batch prefill test
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3613
+  title: 'chore: remove leftover cpp srcs from #3477'
+  date: '2026-06-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3866
+  title: 'perf(gdn): optimize delta rule cp prefill for ultra low parallelism case'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3720
+  title: 'feat(gdn): add output-only BF16-state WY MTP decode kernel'
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3788
+  title: 'perf: optimize sm90 cp delta rule'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3481
+  title: 'feat: add sm90 cp delta rule dsl'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3659
+  title: 'feat: add sm120 cp delta rule'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3572
+  title: 'feat(bench): add GDN routines to flashinfer_benchmark.py'
+  date: '2026-06-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3502
+  title: 'feat(gdn): BF16 state recovery/decode kernel with per-request K and f…'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3479
+  title: 'feat: add sm120 delta rule dsl prefill'
+  date: '2026-06-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3693
+  title: 'Bug fix (gdn): Layout contract fix from #3649'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3417
+  title: Add support for non-multiple VEC_COLS in fused_rmsnorm_silu for bf16/fp8
+  date: '2026-06-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3871
+  title: 'Fix: graph-safe uniform multi-token decode on FA2 tensor-core path'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3880
+  title: 'fix(comm): make TRT-LLM reductions partial-warp safe'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3870
+  title: 'fix(autotuner): time tactics with %globaltimer under Confidential Computing'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3615
+  title: 'fix(topk): eliminate multi-CTA radix top-k stream hangs on SM120/SM121'
+  date: '2026-06-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3844
+  title: 'fix(gdn): reject invalid sm120 tma lowering'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3717
+  title: Fix CuteDSL paged decode non-causal boundary mask
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3646
+  title: 'fix(gemm): relax b12x FP4 K constraint from 128 to 32 (TMA alignment)'
+  date: '2026-06-16'
+  decision: defer
+  reason: from refresh search; needs-triage
   files_changed: []

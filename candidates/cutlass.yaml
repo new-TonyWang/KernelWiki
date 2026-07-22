@@ -1,5 +1,5 @@
 repo: NVIDIA/cutlass
-searched_at: '2026-06-10'
+searched_at: '2026-07-22'
 keywords_used:
 - blackwell
 - sm100
@@ -31,10 +31,10 @@ keywords_used:
 - tma
 - mbarrier
 - gmma
-total_candidates: 121
+total_candidates: 133
 included: 75
 excluded: 8
-deferred: 38
+deferred: 50
 prs:
 - number: 2033
   title: '[EVT] Add support for Row/Col broadcast PtrArray'
@@ -761,4 +761,76 @@ prs:
   date: '2024-07-29'
   decision: include
   reason: Hopper/SM90 kernel-related candidate selected for inclusion
+  files_changed: []
+- number: 3370
+  title: '[CuTeDSL] Gate Blackwell example tuning by CUDA backend'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3378
+  title: '[Hopper CuTeDSL] Add FP8 GEMM with GELU epilogues'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3392
+  title: Fix per-group norm constant indexing in block-scale-factor epilogue stores (grouped/ptr-array GEMM)
+  date: '2026-07-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3124
+  title: '[CuTeDSL] Add SM103 grouped block-scaled GEMM kernel and tests'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3280
+  title: '[SM120] Add ptr-array TMA collective for tensor/token-scaled FP8 grouped GEMM'
+  date: '2026-06-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3381
+  title: SM100 GEMM AR, GEMM RS Update
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3283
+  title: Enable tcgen05 blockscaled ops on Thor SM110
+  date: '2026-06-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3043
+  title: add fp4_x2 example
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3400
+  title: fix fmha regression
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3387
+  title: quick fix for fmha regression
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3309
+  title: quick fix for fmha_bwd regressions
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 3369
+  title: Fix grouped GEMM issue
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
   files_changed: []

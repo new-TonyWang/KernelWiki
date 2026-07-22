@@ -923,10 +923,21 @@
 
 <a id="sgl-projectsgl-kernel-npu"></a>
 ## sgl-project/sgl-kernel-npu
-131 PRs
+144 PRs
 
 | PR | Title | Date | Techniques | Tags |
 |-----|-------|------|------------|------|
+| [#603](../sources/prs/sgl-kernel-npu/PR-603.md) | [feat] A5 deep fused moe supported  | 2026-07-21 | epilogue-fusion, kernel-fusion, swizzling | ai-core, attention, epilogue-fusion |
+| [#598](../sources/prs/sgl-kernel-npu/PR-598.md) | fix tiling bug | 2026-07-14 |  | ai-core |
+| [#599](../sources/prs/sgl-kernel-npu/PR-599.md) | FP8 A5 low latency dispatch - 支持per token FP8量化 | 2026-07-14 |  | ai-core, fp8, moe |
+| [#594](../sources/prs/sgl-kernel-npu/PR-594.md) | remove h2d and d2h copy in fla | 2026-07-10 |  | ai-core |
+| [#592](../sources/prs/sgl-kernel-npu/PR-592.md) | Custom causal conv1d | 2026-07-09 |  | ai-core, ub |
+| [#585](../sources/prs/sgl-kernel-npu/PR-585.md) | fix solve tril | 2026-07-02 |  | ai-core |
+| [#581](../sources/prs/sgl-kernel-npu/PR-581.md) | add gemma rmsnorm no residual | 2026-06-30 |  | ai-core, gemm |
+| [#572](../sources/prs/sgl-kernel-npu/PR-572.md) |  causal_conv1d: PTO-ISA rewrite — variable width, ~2.5× faster, correct at scale | 2026-06-25 |  | ai-core, prefill, ub |
+| [#557](../sources/prs/sgl-kernel-npu/PR-557.md) | fused_rope_qk_mqa optimize & fix glm5 bf16 no bias | 2026-06-16 | kernel-fusion | ai-core, kernel-fusion |
+| [#548](../sources/prs/sgl-kernel-npu/PR-548.md) | Add mxfp4 for normal a5 | 2026-06-10 |  | ai-core, fp4, moe |
+| [#549](../sources/prs/sgl-kernel-npu/PR-549.md) | feat: add MXFP8 support for low_latency_dispatch | 2026-06-10 |  | ai-core, fp8, moe |
 | [#542](../sources/prs/sgl-kernel-npu/PR-542.md) | use common fla in default | 2026-06-04 |  | ai-core |
 | [#538](../sources/prs/sgl-kernel-npu/PR-538.md) | bugfix: swiglu_quant precision ok | 2026-06-02 |  | ai-core |
 | [#532](../sources/prs/sgl-kernel-npu/PR-532.md) | add a5 mxfp8 for dispatch normal | 2026-06-01 |  | ai-core, fp8, moe |
@@ -1010,6 +1021,7 @@
 | [#280](../sources/prs/sgl-kernel-npu/PR-280.md) | Fix the issue of HCCL buffer tiling verification failure during one round of testing. | 2025-12-25 |  | ai-core, moe |
 | [#270](../sources/prs/sgl-kernel-npu/PR-270.md) | Add swiglu_oai_triton for GPTOSS | 2025-12-23 |  | ai-core |
 | [#267](../sources/prs/sgl-kernel-npu/PR-267.md) | Add the long-sequence ant migration feature for the prefill combine operator. | 2025-12-22 |  | ai-core, moe, prefill |
+| [#268](../sources/prs/sgl-kernel-npu/PR-268.md) | add soft fp8 feat(matmul and grouped matmul ops) | 2025-12-22 |  | ai-core, fp8, gemm |
 | [#263](../sources/prs/sgl-kernel-npu/PR-263.md) | Add Shmem Implementations for MoE Decode Operators with Buffer | 2025-12-20 |  | ai-core, decode, moe |
 | [#260](../sources/prs/sgl-kernel-npu/PR-260.md) | Optimize sinks attention for prefix cache | 2025-12-19 |  | ai-core, attention |
 | [#250](../sources/prs/sgl-kernel-npu/PR-250.md) | add shmem implementation for low_latency moe | 2025-12-11 |  | ai-core, moe |
@@ -1029,6 +1041,7 @@
 | [#171](../sources/prs/sgl-kernel-npu/PR-171.md) | add layout to ops2 directory | 2025-11-07 |  | ai-core |
 | [#162](../sources/prs/sgl-kernel-npu/PR-162.md) | [bugfix] swiglu quant | 2025-11-05 |  | ai-core |
 | [#163](../sources/prs/sgl-kernel-npu/PR-163.md) | support kvcacheio | 2025-11-05 |  | ai-core |
+| [#165](../sources/prs/sgl-kernel-npu/PR-165.md) | feat: add verify_tree_greedy_kernel triton kernel | 2025-11-05 |  | ai-core |
 | [#160](../sources/prs/sgl-kernel-npu/PR-160.md) | support shallow fused topk=-1 | 2025-11-04 | kernel-fusion | ai-core, kernel-fusion, moe |
 | [#157](../sources/prs/sgl-kernel-npu/PR-157.md) | add_norm_bias and split_qkv_norm_rope for qwen3 | 2025-10-31 |  | ai-core |
 | [#154](../sources/prs/sgl-kernel-npu/PR-154.md) | [Kernel] add Flash-Linear-Attention/layernorm_gated Triton op | 2025-10-29 |  | ai-core, attention |

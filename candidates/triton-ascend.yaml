@@ -2,7 +2,7 @@ repo: Ascend/triton-ascend
 provider: gitcode
 repo_url: https://gitcode.com/Ascend/triton-ascend
 path_prefixes: []
-searched_at: '2026-06-10'
+searched_at: '2026-07-22'
 keywords_used:
 - ascend
 - npu
@@ -24,10 +24,10 @@ keywords_used:
 - vector
 - cube
 - autotune
-total_candidates: 348
+total_candidates: 352
 included: 28
 excluded: 100
-deferred: 220
+deferred: 224
 prs:
 - number: 2
   title: test(ci)
@@ -4900,3 +4900,34 @@ prs:
   reason: non-operator/non-kernel maintenance change
   files_changed:
   - python/triton/runtime/ascend_interpreter.py
+- number: 1520
+  title: CustomOp Macro
+  date: '2026-06-23'
+  decision: defer
+  reason: from gitcode refresh; needs-triage
+  files_changed:
+  - third_party/ascend/ascend_ir.cc
+  - third_party/ascend/examples/custom_op/custom_op_demo.py
+  - third_party/ascend/language/cann/extension/custom_op.py
+  - third_party/ascend/unittest/pytest_ut/test_custom.py
+- number: 1627
+  title: 'update: 更新文件 README_zh.md'
+  date: '2026-06-23'
+  decision: defer
+  reason: from gitcode refresh; needs-triage
+  files_changed:
+  - README_zh.md
+- number: 1630
+  title: 'update: 更新文件 README_zh.md'
+  date: '2026-06-23'
+  decision: defer
+  reason: from gitcode refresh; needs-triage
+  files_changed:
+  - README_zh.md
+- number: 1839
+  title: Turn on autoblockify on regbased architectures by default
+  date: '2026-06-23'
+  decision: defer
+  reason: from gitcode refresh; needs-triage
+  files_changed:
+  - third_party/ascend/backend/utils.py

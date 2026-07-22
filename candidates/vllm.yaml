@@ -1,5 +1,5 @@
 repo: vllm-project/vllm
-searched_at: '2026-06-10'
+searched_at: '2026-07-22'
 keywords_used:
 - blackwell
 - sm100
@@ -27,10 +27,10 @@ keywords_used:
 - acl
 - aclgraph
 - huawei
-total_candidates: 1921
+total_candidates: 2153
 included: 1400
 excluded: 141
-deferred: 380
+deferred: 612
 prs:
 - number: 40057
   title: '[Bugfix] Temporarily disable B200 fp4 MoE layer tests'
@@ -11555,6 +11555,1398 @@ prs:
 - number: 19164
   title: '[custom_op][vllm-plugin] update custom_op class to use op_registry'
   date: '2025-06-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48988
+  title: '[Bugfix] Bump tml-fa4 for cutlass-dsl 4.6 API compatibility'
+  date: '2026-07-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48167
+  title: '[Bugfix] Fix FlashInfer non-causal draft attention (DFlash/DSpark) on Blackwell'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47090
+  title: '[GLM5] Support FlashMLA FP8 KV cache (Hopper & Blackwell)'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48858
+  title: '[Model] Add Hopper FA4 relative attention for Inkling'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48538
+  title: '[Quant] Add `nvfp4_per_token` online MoE quantization'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48041
+  title: '[Build/CI] Build arm64 PR and postmerge image builds for Blackwell SM10x and SM110'
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45836
+  title: '[NVFP4 MoE/Deepseek V4] Marlin: wire SwiGLU clamp + allow it for clamped models on non-Blackwell'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45251
+  title: '[Bugfix] Restrict FlashInfer cuDNN FP8 ViT attention gate to Blackwell (SM 100)'
+  date: '2026-06-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48046
+  title: '[Bugfix] Use int8 workspace for FlashInfer MLA decode'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47669
+  title: Bump flashinfer version to 0.6.14
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47502
+  title: '[Minimax-M3] Using tok_sparse_select from MSA instead of triton kernels'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48787
+  title: '[Spec Decode] Add kv_cache_dtype to speculative_config to control separately from target'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46492
+  title: '[Bugfix] Allow flashinfer_cutlass as a clamped NVFP4 MoE backend'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45739
+  title: '[Perf] Restore zero-init of swizzled NVFP4 scale buffer to recover Blackwell decode throughput'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47157
+  title: '[CI][Bugfix] Fix `Hybrid SSM NixlConnector PD prefix cache test (2 GPUs)`'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46276
+  title: '[BugFix] weights processing peak memory reduction for nvfp4 MoE layers'
+  date: '2026-07-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44462
+  title: up FI fp8 moe topk to 32
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48911
+  title: '[Bugfix][KV Offload] Preserve reachable tails for hybrid SWA groups'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46189
+  title: '[Attention] Add FLASH_ATTN_MLA_SPARSE backend for Hopper sparse MLA'
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47879
+  title: Update qutlass cmake for stable abi
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46177
+  title: '[Bugfix][Model] Support tensor parallelism for DiffusionGemma (#45719)'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44214
+  title: '[RL Infra][FlashInfer] Enable router replay output from FlashInfer monolithic MoE kernel'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48251
+  title: '[Bugfix][Attention] Preserve post-load tensors across weight reloads'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47574
+  title: '[Bugfix] Zero new KV blocks for quantized + sliding-window hybrid caches'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48056
+  title: Pin PyNvVideoCodec to tested 2.0.4 wheel
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48582
+  title: '[M3] Improve indexer for long-context decode (sm100)'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48174
+  title: Build with ABI stable FlashMLA
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49325
+  title: '[CI] Wire tests/models/inkling into a B200 job'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 42569
+  title: '[Attention] FlashAttention 4 SM100 FP8 kv cache support'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46339
+  title: '[Bugfix] Re-enable FP8 MoE on NVIDIA Thor'
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48417
+  title: '[Performance] Use CuTe-DSL for FlashInfer MXFP4 quantization'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47485
+  title: '[BugFix] Derive FlashInfer Q dtype from resolved per-group builder state'
+  date: '2026-07-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45322
+  title: '[Perf] Use native DSA indexer decode path for next_n > 2 on SM100'
+  date: '2026-06-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45277
+  title: '[Build] Fix CUDA arch build coverage gaps'
+  date: '2026-06-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45589
+  title: '[Bugfix] Fix MoE model load OOM in FlashInfer_TRTLLM  backend with sleep mode'
+  date: '2026-06-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48799
+  title: '[Model] Add Inkling model support [1/N]'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45111
+  title: '[Attention] Re-enable cross-layer KV cache layout for MLA via stride-aware kernels'
+  date: '2026-06-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45744
+  title: '[M3] Enable FP8 sparse GQA'
+  date: '2026-06-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 41653
+  title: '[Test] Add DeepSeek MTP parallel-load tests'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47219
+  title: '[Distributed] Default FlashInfer allreduce to mnnvl on single node'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47493
+  title: '[Bugfix] DSV4 TP16 garbage output'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 42235
+  title: '[Kernel][Performance] Add FlashInfer cutedsl NVFP4 GEMM backend'
+  date: '2026-06-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45375
+  title: '[Quant] Enable modelopt_mixed on Turing (SM75)'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43008
+  title: '[Perf][DSv4/DSv3.2] Add cluster-cooperative topK kernel for low-latency scenarios'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47442
+  title: '[CI/Build][Docker] Bump nvidia-cutlass-dsl to 4.6.0 and drop packaging workarounds'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46915
+  title: '[Bugfix][Test] Fix test_flashinfer_cutlass_mxfp4_fused_moe on sm90 (stale weight/scale interleave)'
+  date: '2026-06-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46838
+  title: '[Bugfix][Kernel] Correct FlashInfer CUTLASS MoE tuning token bound'
+  date: '2026-07-02'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44681
+  title: '[Refactor] Remove dead cutlass mxfp8 code'
+  date: '2026-06-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47671
+  title: '[Bugfix] Fix int32 overflow in triton_decode_attention page offsets'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45204
+  title: '[Docker] Fix CUTLASS DSL cu13 install order in Dockerfile'
+  date: '2026-06-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45136
+  title: '[XPU] Support int4 group_size=32 W4A16 MoE'
+  date: '2026-06-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46393
+  title: '[Kernel] Add FlashInferCutedslMxfp8LinearKernel (cute-dsl mm_mxfp8)'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46882
+  title: '[CI] Raise gsm8k startup timeout for MoE Refactor Qwen3 NVFP4 configs'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48045
+  title: '[Bugfix] Fix FlashMLA dense fp8 metadata crash (num_sm_parts clamp)'
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46770
+  title: '[Model Runner V2][DFlash] Enable dflash attention backend selection'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 42562
+  title: '[Perf][Feat] Add generic cuteDSL LL BF16 router (GEMM)'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44572
+  title: '[Perf] SM90 cutlass fp8 mm supports odd M by swap_ab, 180~290% kernel performance improvement'
+  date: '2026-06-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43557
+  title: Fix the E8M0 scale computation in the MXFP4 (W4A4) MOE CUTLASS kernel
+  date: '2026-06-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48952
+  title: Cosmos3 FP8 ModelOpt/Diffusers remapping
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49380
+  title: '[CI][Bugfix] Fix ROCm FP8 KV cache dtype in attention backend test'
+  date: '2026-07-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48334
+  title: '[XPU] FP8 o_proj with fp8_bmm and load-time scale transpose'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49231
+  title: '[CI] Exercise FA3 FP8 attention on SM90'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49329
+  title: '[ROCm][CI] Fix order-dependent failure in test_flash_attn_accepts_handled_fp8_variants (MI355)'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48642
+  title: '[Bugfix] Sparse MLA: enable fp8_ds_mla dense prefill'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48845
+  title: '[ROCm][CI] Fix AITER MLA fp8 decode metadata regression test'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48868
+  title: '[Helion] Fix degenerate scale_ub in kernel input generators'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46410
+  title: '[ROCm][CI] fix fp8 range in vit_fp8_quant'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47908
+  title: '[Bugfix] Allow non-contiguous query in FlashInfer FP8 query quantization'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48512
+  title: '[Kernel][Helion] Add Helion kernel benchmark script'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47309
+  title: '[BugFix][MLA] Support kv_cache_dtype_skip_layers for MLA attention'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48154
+  title: '[ROCm] Revert Part of `[ROCm] Fix pooling startup workspace lock` #47912'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47268
+  title: Fixes non-coalesced HBM access in marlin_int4_fp8_preprocess_kernel_awq
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47780
+  title: '[Bugfix] [Quantization] Fix loading for CT DSV2'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48563
+  title: '[Bugfix][Gemma4] Fix ModelOpt mixed-precision MoE config mapping'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47060
+  title: '[Attention] Mirror Triton KV dtype checks in MLA'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47276
+  title: '[Bugfix][ROCm] Fix memory access fault in AITER MLA backend for DPA+FP8 KV '
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48379
+  title: '[Bugfix] Set kv_quant_mode on the generic MLA KV-cache spec'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46944
+  title: '[ROCm][Test] Fix test_per_token_group_quant_fp8 tolerance for 1-ULP FP8 rounding on gfx950'
+  date: '2026-07-05'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49292
+  title: Fix Qwen3-VL M-RoPE on the Transformers modeling backend (grids + compile)
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48135
+  title: '[Bugfix] Preserve tensor causal metadata for grouped attention'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46168
+  title: '[Bugfix] Preserve FP8 indexer WK pairs across incremental load_weights'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47881
+  title: '[Feature] Migrate moe sp support to non-torch compiled path for GLM5.2'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45723
+  title: '[MoE] Plumb gemm1_alpha/beta/clamp_limit into TRT-LLM FP8 MoE'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47201
+  title: '[ROCm][Bugfix] Convert ModelOpt FP8 per-channel weights to e4m3fnuz on MI300/MI325'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48917
+  title: '[Bugfix] Propagate quant_config to LFM2 ShortConv projections'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48990
+  title: '[Model] Use standard ModelOpt config for Inkling NVFP4'
+  date: '2026-07-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46880
+  title: '[Bugfix][NVFP4 MoE] Pad gated intermediate to 64 for FlashInfer TRT-LLM shuffle (M%128)'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46756
+  title: Add MiniMax-M3 modelopt nvfp4 support
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48068
+  title: '[Bugfix][Spec Decode] Fix eagle3 first-layer qkv_proj prefix for quantized drafts'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48869
+  title: '[Model] Add Inkling MTP=1 support [3/N]'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46380
+  title: Add MiniMax-M3 modelopt nvfp4 support
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47318
+  title: '[BugFix] Fix ModelOpt mixed-precision quantization for sparse `quantized_layers` configs.'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48785
+  title: '[Bugfix] Fix activation quantization dispatch for WNA4Int/WNA8Int'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49033
+  title: Revert "[Sampler] Stop upcasting logits to fp32 in apply_sampling_params" (#48641)
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46881
+  title: '[CI] Raise gsm8k startup timeout for Qwen3 NVFP4 trtllm configs'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48481
+  title: '[KV Connector] Fix PD async scheduling race condition for hybrid attn models'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46254
+  title: '[Bugfix] Fix NVFP4/OCP MX MoE emulation'
+  date: '2026-06-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46160
+  title: '[CI][ROCm] Skip unsupported test cases on ROCm'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48330
+  title: '[Bugfix] Guard mixed-dtype allreduce RMSNorm quant fusions'
+  date: '2026-07-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47427
+  title: '[MoE] FI autotuning: max bucket = max token count [e.g. `DP_size*MNBT`]'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44667
+  title: '[NVFP4][Emulation] Fuse NVFP4 weight dequantization with compute in triton kernel for w13/w2 MOE MLP linears'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47156
+  title: '[Perf][MoE] Write FlashInfer combine into final output'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46316
+  title: '[Bugfix] Fix NVFP4+MTP crash: force unquantized mtp.fc for Qwen3Next'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46859
+  title: '[Hardware][AMD][CI] Fix Kernels Quantization test timeout'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48849
+  title: 'Fix: Restore data_parallel_size > 1 for use_sequence_parallel_moe'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48855
+  title: '[Bugfix] Enable FlashAttention MLA prefill for Mistral Small 4 head dims'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48520
+  title: '[Bugfix] Make MLA+SWA check the layer''s backend, not the model config'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49306
+  title: '[Bugfix] Handle MLA fallback during FA4 JIT warmup'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49128
+  title: '[ROCm][CI] Fix sparse MLA metadata sync fixture'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47404
+  title: '[ROCm] Synchronize sparse MLA metadata before graph replay'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47962
+  title: '[XPU] [Fusion passes] Disable fuse_rope_kvcache_cat_mla & qk_norm_rope_ fusion on XPU'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47457
+  title: '[macOS][CPU][Installation] Fix the broken installation of vllm 0.24.0 in macos + cpu'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47567
+  title: '[ROCm] Disable persistent sparse-MLA kernel for chunked-prefill continuations'
+  date: '2026-07-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47079
+  title: '[Bugfix][MLA] Fix LSE log-base mismatch in DCP + FlashInfer MLA decode'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48631
+  title: '[CI][Bugfix] Fix FlashAttention reported MLA dimension support'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48530
+  title: '[Bugfix] Fix offloading set_ overflow for packed non-uniform KV caches'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48256
+  title: '[Bugfix][KV Cache] Don''t route uniform-page-size MLA+SWA models into DeepseekV4 packing'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46832
+  title: '[ROCm][DSv3.2][Perf] Cap sparse MLA decode KV-splits with a work-per-split heuristic'
+  date: '2026-07-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45964
+  title: '[Attention][MLA][DCP] Query replication for MLA decode (DeepSeek-V2/R1 + Kimi-K2.5)'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48012
+  title: '[Attention] Allow selecting a different attention backend per KV-cache group'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48526
+  title: '[ROCm] Re-enable cudagraph memory profiling, captured on the current stream'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48180
+  title: Add DCP + Eagle support for Tokenspeed MLA backends
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46819
+  title: '[Kernel] Triton MLA logits workspace'
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46997
+  title: '[Bugfix][ROCm][MLA] Pass q/kv dtypes to get_mla_metadata_v1 in FP8 decode'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48942
+  title: '[XPU] Bump vllm_xpu_kernels to v0.1.11.1'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45924
+  title: '[MoE Backend] add HPC-Ops MoE backend'
+  date: '2026-06-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47785
+  title: handle topk_ids padding in align sum kernel
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48385
+  title: add pad-aware reduce path
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46518
+  title: '[Kernel][MoE] Allow FlashInfer MXINT4 MoE for gated SiLU'
+  date: '2026-06-24'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48451
+  title: '[feature]Add int4 quantization support for emulation moe backend'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48884
+  title: '[Model] Add Inkling LoRA support [4/N]'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47851
+  title: '[Quantization] Bound peak memory when repacking FP4 MoE weights for Marlin'
+  date: '2026-07-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48008
+  title: '[docs] Fix the docs build'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46642
+  title: '[Kernel][MoE] Tune block-FP8 fused MoE for low-batch decode'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43461
+  title: '[MoE] [MoE Refactor] Add moe kernel oracle abc 37753'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48622
+  title: '[Bugfix][R3] Exclude draft routers from expert capture'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47857
+  title: '[Model] Add LongCat-Flash-Lite (n-gram embedding)'
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47128
+  title: '[ROCm] [PyTorch] Move to stable abi since ROCm upgraded to torch 2.11'
+  date: '2026-07-02'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47912
+  title: '[ROCm] Fix pooling startup workspace lock'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43373
+  title: '[MoE Refactor] Standardize Humming MoE experts + utilities'
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48268
+  title: Add VLLM_FLASHINFER_AUTOTUNE_SKIP_OPS and skip CuTeDSL fp4_gemm autotuning by default
+  date: '2026-07-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47519
+  title: '[ROCm][CI] Fix Kernels and Kernels attention test failures'
+  date: '2026-07-04'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48632
+  title: '[LoRA][1/N] Integrate flashinfer MoE LoRA for BF16 model'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46643
+  title: '[Kernel] Vectorized fp32 `moe_sum` reduction and support any topk'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48429
+  title: '[BugFix] Restore full tokens for Qwen MTP When MoE SP'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48780
+  title: '[Refactor] Remove deepseek dead code'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48711
+  title: '[Bugfix] Fix GLM5 config'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48519
+  title: '[ROCm][Perf] Optimize sparse attention prefill kernel for DeepSeek-V4'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48036
+  title: '[CI Bug] Fully solve accuracy issue for DSv3.2 + MTP + Sequence Parallel'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47677
+  title: '[XPU] Add DSpark speculative decoding support for DeepSeek-V4'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47902
+  title: '[CI Bug Fix] Temp fix for v3.2 accuracy'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48144
+  title: update marlin M size for EP
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47619
+  title: '[Rust Frontend] Add DeepSeek V3.2 roundtrip fixture'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48137
+  title: '[Perf] Remove redundant repeat and copy for dsv4, 1.8% E2E TPOT improvement.'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48660
+  title: '[Perf] Optimize dsv4 routing using specialized kernel, 2.94% E2E TPOT improvement'
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47716
+  title: '[Bugfix]Fix DeepSeek-V4 fp8_ds_mla KV cache reshape'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47969
+  title: Remove unused _get_kv_cache_config_deepseek_v4 alias
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47718
+  title: '[ROCm][Perf] DSv4 two-stage compressor kernel for HCA prefill'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48699
+  title: '[Bugfix]Fix transformer backend failed: AttributeError: ''Parameter'' object has no attribute ''weight_loader'''
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48293
+  title: '[Doc] Add DeepseekV32ForCausalLM to supported_models.md'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47419
+  title: '[ROCm] Enable DeepSeek-V4 DSpark speculative decoding on AMD (MI350X / MI355X, gfx950)'
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49302
+  title: '[Bugfix] Fix DSA crash under breakable piecewise cudagraphs'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45991
+  title: '[XPU][DeepSeekV4]Add DeepSeek-V4 fuse_index_q SYCL kernel path'
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48446
+  title: '[Bugfix][ROCm] Keep TP all_gather on base-class collective'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47755
+  title: '[Bug] Fix tmp directory for `lm_eval`'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46808
+  title: '[GLM-5] Add DSV3.2/GLM5 to `vllm/models/`'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46651
+  title: '[Perf] Remove redundant clone for GLM, Deepseek etc'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46275
+  title: '[ROCm][Perf][DSV4] Enable split sparse decode on gfx942'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47148
+  title: '[UX] Add `model_class_overrides` for  development and debugging'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46730
+  title: '[ROCm][Perf][Bugfix] DSv4 indexer: use platform FP8 dtype (fnuz) for Q-quant on gfx942'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46973
+  title: '[Bugfix] Capture final-layer aux hidden state in deepseek_v2 backbone'
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48647
+  title: '[ROCm][CI] fix flashinfer import check'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48064
+  title: '[Distributed][Perf] Enable FlashInfer MNNVL allreduce RMS quant fusion'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48641
+  title: '[Sampler] Stop upcasting logits to fp32 in apply_sampling_params'
+  date: '2026-07-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48428
+  title: 'fix: size FlashInfer prefill workspace to batch head footprint'
+  date: '2026-07-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47589
+  title: '[Bugfix][Distributed] Delegate MNNVL allreduce one-shot selection'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46683
+  title: Bump flashinfer version to 0.6.13
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46517
+  title: '[Docker] Remove redundant flashinfer download-cubin step'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47074
+  title: '[Bugfix] Use larger workspace size for Flashinfer MLA LSE'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46661
+  title: Allow FlashInfer A2A backends for TRTLLM FP8 MoE Modular
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46020
+  title: '[Attention Backend] add HPC-Ops Attention backend'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47433
+  title: '[Attention Backend] HPC_ATTN backend support mtp and dynamic scheduled attention'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 49177
+  title: Propagate Flash Attention cache configuration to Ray workers
+  date: '2026-07-21'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48011
+  title: '[Attention] Make sliding-window support an explicit backend capability'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47287
+  title: '[ROCm][MiniMax-M3] Add AITER sparse paged attention'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47914
+  title: '[Spec Decode] Support hybrid (SWA + full attention) DFlash drafters'
+  date: '2026-07-08'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47568
+  title: Added sliding window attention support for qwen-eagle3 architecture
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47688
+  title: '[XPU] Route mm_prefix models to Triton attention backend'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43597
+  title: 'attention: pass None for unused args in unified attention TD path'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45391
+  title: '[CPU] Refine CPU attention frontend'
+  date: '2026-06-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47035
+  title: '[ROCm] Fix encoder-decoder cross-attention KV layout aliasing'
+  date: '2026-07-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46942
+  title: '[MRV2] Enable mm prefix bidi attention support on MRV2'
+  date: '2026-07-05'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46659
+  title: Fix FA4 dynamic_causal for full attention layers
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46753
+  title: '[ModelRunner V2] Fix cross-attention block table sizing'
+  date: '2026-06-26'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45728
+  title: '[CI] Fix attention benchmark smoke test'
+  date: '2026-06-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47910
+  title: '[Bugfix] Patch Hopper MXFP4 OOB scales reads leading to NaN'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48269
+  title: '[Revert] [Build] Update vllm ...builds FA3 with torch stable API'
+  date: '2026-07-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43024
+  title: '[CI] Move compatible 1xL4 jobs to H200 35GB MIG'
+  date: '2026-07-20'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46876
+  title: '[GLM5] Implement op fusion for GLM5/DSV3.2'
+  date: '2026-06-28'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48261
+  title: '[BugFix][ModelRunner V2] Fix stale attn metadata in speculator prefill cudagraph capture'
+  date: '2026-07-13'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46995
+  title: '[Spec Decode] DSpark'
+  date: '2026-07-01'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47217
+  title: '[Bugfix][Gemma4] Keep image bidirectional attention within the sliding window'
+  date: '2026-07-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 36559
+  title: '[Kernel] Add swap AB optimization to fused_moe_kernel'
+  date: '2026-06-25'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47102
+  title: Add Triton Backend for Unlimited-OCR R-SWA
+  date: '2026-07-03'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43232
+  title: Xqa decode kernels
+  date: '2026-07-02'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47332
+  title: '[Bugfix][Gemma4] Fix FA4 mm_prefix mask: add sliding window and absolute q_idx'
+  date: '2026-07-05'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43914
+  title: Remove redundant Triton KV cache dtype asserts and enforce architectural support (fp8 >= sm89)
+  date: '2026-06-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45381
+  title: '[Model] Add MiniMax M3 support'
+  date: '2026-06-15'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48394
+  title: '[CI][2/N] reduce CI time'
+  date: '2026-07-12'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48878
+  title: Add blocks_per_chunk configuration for KV offloading to support heterogeneous KV cache groups
+  date: '2026-07-17'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47327
+  title: '[1/N] Add dense MHA path for sparse MLA short sequences'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46927
+  title: '[CI Bug] Fix h100 `AssertionError: Cold-start child failed`'
+  date: '2026-06-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48110
+  title: '[Perf][Hybrid] Vectorize _copy_mamba_state_block to uint64 for temporal'
+  date: '2026-07-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48186
+  title: '[CI] Right-size test-area timeouts from nightly durations'
+  date: '2026-07-10'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47356
+  title: '[Bugfix] Exclude kv_cache_memory_bytes from CacheConfig.compute_hash'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48741
+  title: '[BugFix] Don''t apply weight in batch-invariant RMSNorm when has_weight=False'
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 48411
+  title: '[Bugfix] Include inline per-token-head scales in offloaded page transfer width'
+  date: '2026-07-14'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46818
+  title: '[Misc] Fix incorrect layer type annotation in Fp8LinearMethod'
+  date: '2026-06-27'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 43994
+  title: '[Kernel][Helion][1/N] Add Helion kernel for silu_and_mul_per_block_quant'
+  date: '2026-07-06'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44010
+  title: '[Kernel][Helion][1/N] Add Helion kernel for fused_qk_norm_rope'
+  date: '2026-06-29'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46379
+  title: '[Bugfix][KV Offload] Fix swap_blocks_batch on the default stream'
+  date: '2026-06-23'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47374
+  title: '[Doc] Surface the --kv-cache-memory suggestion at INFO and document fast-startup knobs'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47725
+  title: '[BugFix][LoRA] Refresh punica metadata when LoRA slots are reassigned under an unchanged mapping'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45672
+  title: '[Perf] Bound DiffusionGemma sampler transient via request-tiled logits'
+  date: '2026-07-07'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 42996
+  title: '[Kernel] Add PDL support for DeepGEMM kernel'
+  date: '2026-06-18'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46346
+  title: '[GDN] Improve kkt kernel of CuteDSL prefill backend'
+  date: '2026-06-30'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47973
+  title: BF16x3 router GEMM
+  date: '2026-07-16'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 46108
+  title: '[Model] ColQwen3.5: fix retrieval correctness (bias + bidirectional)'
+  date: '2026-06-22'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 37047
+  title: '[Doc][Attention] Fix MLA top-of-file comments'
+  date: '2026-06-11'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 44785
+  title: '[Model] Add LLaVA-OneVision-2 (LlavaOnevision2ForConditionalGeneration)'
+  date: '2026-07-02'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 47381
+  title: '[Bugfix][Model Runner V2] Order uniform decodes first so spec decodes aren''t misclassified as prefills'
+  date: '2026-07-09'
+  decision: defer
+  reason: from refresh search; needs-triage
+  files_changed: []
+- number: 45715
+  title: '[LoRA] Gate all_gather on fully_sharded_loras inside _mcp_apply; rewrite regression test'
+  date: '2026-06-23'
   decision: defer
   reason: from refresh search; needs-triage
   files_changed: []

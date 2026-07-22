@@ -1,0 +1,1265 @@
+diff --git a/csrc/deepep/deep_ep.cpp b/csrc/deepep/deep_ep.cpp
+index 9f5b7d004..a8a45c11a 100644
+--- a/csrc/deepep/deep_ep.cpp
++++ b/csrc/deepep/deep_ep.cpp
+@@ -13,6 +13,7 @@ constexpr size_t HCOMM_NAME_LEN = 128;
+ constexpr uint32_t NO_SCALES = 0;
+ constexpr uint32_t DYNAMIC_SCALES = 2;
+ constexpr uint32_t MXFP8_SCALES = 3;
++constexpr uint32_t MXFP4_SCALES = 4;
+ constexpr int LOCAL_RANK_SIZE = 8;
+ constexpr int MAX_BATCH_SIZE = 4096;
+ constexpr int EXPERT_DATA_SIZE = 1 + MAX_BATCH_SIZE;  // 4097
+@@ -193,7 +194,6 @@ Buffer::intranode_dispatch(const at::Tensor &x, const std::optional<at::Tensor>
+     auto channel_prefix_matrix = at::empty({num_ranks, num_channels}, at::dtype(at::kInt).device(x.device()));
+     auto recv_channel_prefix_matrix = at::empty({num_ranks, num_channels}, at::dtype(at::kInt).device(x.device()));
+     at::Tensor new_x = x;
+-
+     EP_HOST_ASSERT(num_tokens_per_rank.has_value());
+     EP_HOST_ASSERT(num_tokens_per_expert.has_value());
+ 
+@@ -300,12 +300,13 @@ Buffer::intranode_dispatch(const at::Tensor &x, const std::optional<at::Tensor>
+     int64_t trt = total_recv_token.item<int>();
+     int num_recv_tokens = (trt == 0) ? 1 : trt;
+     is_mxfp8_quant = use_quant && (quant_type == "fp8_e4m3" || quant_type == "fp8_e5m2");
+-    int64_t quant_mode = use_quant ? (is_mxfp8_quant ? MXFP8_SCALES : DYNAMIC_SCALES) : NO_SCALES;
+-    auto expandx_out = use_quant ? torch::empty({num_recv_tokens, hidden}, at::dtype(at::kChar).device(x.device()))
+-                                 : torch::empty({num_recv_tokens, hidden}, x.options());
+-    auto dynamic_scales_out = torch::empty({num_recv_tokens}, at::dtype(at::kFloat).device(x.device()));
++    bool is_mxfp4_quant = use_quant && (quant_type == "fp4_e2m1");
++    int64_t quant_mode =
++        use_quant ? (is_mxfp8_quant ? MXFP8_SCALES : (is_mxfp4_quant ? MXFP4_SCALES : DYNAMIC_SCALES)) : NO_SCALES;
++    at::Tensor expandx_out;
++    at::Tensor dynamic_scales_out;
+ #ifdef __DAV_C310__
+-    if (is_mxfp8_quant) {
++    if (quant_mode == MXFP8_SCALES) {
+         if (quant_type == "fp8_e5m2") {
+             expandx_out = torch::empty({num_recv_tokens, hidden}, at::dtype(at::kFloat8_e5m2).device(x.device()));
+         } else {
+@@ -313,14 +314,22 @@ Buffer::intranode_dispatch(const at::Tensor &x, const std::optional<at::Tensor>
+         }
+         dynamic_scales_out =
+             torch::empty({num_recv_tokens * hidden / 32}, at::dtype(at::kFloat8_e8m0fnu).device(x.device()));
+-    }
++    } else if (quant_mode == MXFP4_SCALES) {
++        expandx_out = torch::empty({num_recv_tokens, hidden / 2}, at::dtype(at::kFloat4_e2m1fn_x2).device(x.device()));
++        dynamic_scales_out =
++            torch::empty({num_recv_tokens * hidden / 32}, at::dtype(at::kFloat8_e8m0fnu).device(x.device()));
++    } else
+ #endif
++    {
++        expandx_out = use_quant ? torch::empty({num_recv_tokens, hidden}, at::dtype(at::kChar).device(x.device()))
++                                : torch::empty({num_recv_tokens, hidden}, x.options());
++        dynamic_scales_out = torch::empty({num_recv_tokens}, at::dtype(at::kFloat).device(x.device()));
++    }
+     auto expand_idx_out = torch::empty({num_recv_tokens * 3}, at::dtype(at::kInt).device(x.device()));
+     if (topk_idx.has_value()) {
+         recv_topk_idx = at::empty({trt, num_topk}, topk_idx->options());
+         recv_topk_weights = at::empty({trt, num_topk}, topk_weights->options());
+     }
+-
+     EXEC_NPU_CMD(aclnnCamMoeDispatchNormal, new_x, expert_ids, send_data_offset, send_token_idx_small, recv_offset,
+                  recv_count, expert_global_offset, srcrank_in_expert_offset, r_in_srcrank_offset, hcom_ep_name,
+                  num_ranks,  // rankSize
+diff --git a/csrc/deepep/ops/common.h b/csrc/deepep/ops/common.h
+deleted file mode 100644
+index 5f578005c..000000000
+--- a/csrc/deepep/ops/common.h
++++ /dev/null
+@@ -1,185 +0,0 @@
+-/**
+- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+- * CANN Open Software License Agreement Version 2.0 (the "License").
+- * Please refer to the License for details. You may not use this file except in compliance with the License.
+- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+- * See LICENSE in the root of the software repository for the full text of the License.
+- */
+-
+-/*!
+- * \file common.h
+- * \brief
+- */
+-
+-#ifndef MC2_MOE_DISPATCH_COMM_H
+-#define MC2_MOE_DISPATCH_COMM_H
+-
+-constexpr uint32_t NEED_ONE_HUNDRED_AND_TWENTY_SEVEN = 127;
+-constexpr uint32_t RIGHT_SHIFT_BIT_SEVEN = 7;
+-constexpr uint32_t NEED_THIRTY_FIRST = 31;
+-constexpr uint32_t ALIGN_UP_TO_2_MASK = 1;
+-constexpr uint32_t ALIGN_UP_TO_32_MASK = 31;
+-constexpr uint32_t ALIGN_UP_TO_64_MASK = 64;
+-constexpr uint32_t ALIGN_UP_TO_128_MASK = 127;
+-constexpr uint32_t ALIGN_UP_TO_256_MASK = 255;
+-constexpr uint32_t ALIGN_UP_TO_512_MASK = 511;
+-constexpr uint32_t RIGHT_SHIFT_BIT_FIVE = 5;
+-constexpr uint32_t FIVE_HUNDRED_AND_ELEVEN = 511;
+-constexpr uint32_t RIGHT_SHIFT_BIT_NINE = 9;
+-
+-namespace AscendC {
+-template <typename T1, typename T2>
+-__aicore__ inline T2 Ceil(T1 x, T1 y)
+-{
+-    return (x + y - 1) / y;
+-}
+-
+-template <typename T>
+-__aicore__ inline T Ceil32(T x)
+-{
+-    return (x + NEED_THIRTY_FIRST) >> RIGHT_SHIFT_BIT_FIVE;
+-}
+-
+-template <typename T>
+-__aicore__ inline T Ceil128(T x)
+-{
+-    return (x + NEED_ONE_HUNDRED_AND_TWENTY_SEVEN) >> RIGHT_SHIFT_BIT_SEVEN;
+-}
+-
+-template <typename T>
+-__aicore__ inline T Ceil512(T x)
+-{
+-    return (x + FIVE_HUNDRED_AND_ELEVEN) >> RIGHT_SHIFT_BIT_NINE;
+-}
+-
+-template <typename T1, typename T2>
+-__aicore__ inline T2 Align(T1 x, T1 y)
+-{
+-    return Ceil<T1, T2>(x, y) * y;
+-}
+-
+-template <typename T>
+-__aicore__ inline T Align2(T x)
+-{
+-    return (x + ALIGN_UP_TO_2_MASK) & (~ALIGN_UP_TO_2_MASK);
+-}
+-
+-template <typename T>
+-__aicore__ inline T Align32(T x)
+-{
+-    return (x + ALIGN_UP_TO_32_MASK) & (~ALIGN_UP_TO_32_MASK);
+-}
+-
+-template <typename T>
+-__aicore__ inline T Align64(T x)
+-{
+-    return (x + ALIGN_UP_TO_64_MASK) & (~ALIGN_UP_TO_64_MASK);
+-}
+-
+-template <typename T>
+-__aicore__ inline T Align128(T x)
+-{
+-    return (x + ALIGN_UP_TO_128_MASK) & (~ALIGN_UP_TO_128_MASK);
+-}
+-
+-template <typename T>
+-__aicore__ inline T Align256(T x)
+-{
+-    return (x + ALIGN_UP_TO_256_MASK) & (~ALIGN_UP_TO_256_MASK);
+-}
+-
+-template <typename T>
+-__aicore__ inline T Align512(T x)
+-{
+-    return (x + ALIGN_UP_TO_512_MASK) & (~ALIGN_UP_TO_512_MASK);
+-}
+-
+-#ifdef __DAV_C310__
+-template <MicroAPI::HistogramsType htype, typename T, typename U>
+-static __aicore__ inline void HistogramsVf(__local_mem__ U *dst, __local_mem__ T *src, uint16_t repeatElm,
+-                                           uint16_t halfRepeat, uint32_t totalElm, uint16_t repeatTimes)
+-{
+-    AscendC::MicroAPI::RegTensor<T> srcReg;
+-    AscendC::MicroAPI::RegTensor<U> dst0Reg;
+-    AscendC::MicroAPI::RegTensor<U> dst1Reg;
+-    AscendC::MicroAPI::MaskReg pregOut = AscendC::MicroAPI::CreateMask<T>();
+-    MicroAPI::Duplicate(dst0Reg, 0);
+-    MicroAPI::Duplicate(dst1Reg, 0);
+-    for (uint16_t i = 0; i < repeatTimes; ++i) {
+-        MicroAPI::MaskReg preg = MicroAPI::UpdateMask<T>(totalElm);
+-        MicroAPI::DataCopy(srcReg, src + repeatElm * i);
+-        MicroAPI::Histograms<T, U, MicroAPI::HistogramsBinType::BIN0, htype>(dst0Reg, srcReg, preg);
+-        MicroAPI::Histograms<T, U, MicroAPI::HistogramsBinType::BIN1, htype>(dst1Reg, srcReg, preg);
+-    }
+-    MicroAPI::DataCopy(dst, dst0Reg, pregOut);
+-    MicroAPI::DataCopy(dst + halfRepeat, dst1Reg, pregOut);
+-}
+-
+-__aicore__ inline void GetExpertFreq(LocalTensor<uint16_t> &dstLocal, LocalTensor<uint8_t> &srcLocal, uint32_t totalElm)
+-{
+-    uint32_t repeatElm = GetVecLen();
+-    uint16_t repeatTimes = Ceil<uint32_t, uint16_t>(totalElm, repeatElm);
+-    __local_mem__ uint8_t *src = (__local_mem__ uint8_t *)srcLocal.GetPhyAddr();
+-    __local_mem__ uint16_t *dst = (__local_mem__ uint16_t *)dstLocal.GetPhyAddr();
+-    VF_CALL<HistogramsVf<MicroAPI::HistogramsType::FREQUENCY, uint8_t, uint16_t>>(dst, src, repeatElm, repeatElm >> 1,
+-                                                                                  totalElm, repeatTimes);
+-    PipeBarrier<PIPE_V>();
+-}
+-
+-__aicore__ inline void GetExpertCumSum(LocalTensor<uint16_t> &dstLocal, LocalTensor<uint8_t> &srcLocal,
+-                                       uint32_t totalElm)
+-{
+-    uint32_t repeatElm = GetVecLen();
+-    uint16_t repeatTimes = Ceil<uint32_t, uint16_t>(totalElm, repeatElm);
+-    __local_mem__ uint8_t *src = (__local_mem__ uint8_t *)srcLocal.GetPhyAddr();
+-    __local_mem__ uint16_t *dst = (__local_mem__ uint16_t *)dstLocal.GetPhyAddr();
+-    VF_CALL<HistogramsVf<MicroAPI::HistogramsType::ACCUMULATE, uint8_t, uint16_t>>(dst, src, repeatElm, repeatElm >> 1,
+-                                                                                   totalElm, repeatTimes);
+-    PipeBarrier<PIPE_V>();
+-}
+-
+-static __aicore__ inline void ReduceLoop(__local_mem__ int32_t *dst, __local_mem__ int32_t *src, uint16_t repeat0Times,
+-                                         uint32_t repeat0SrcStride, uint16_t repeat1Times, uint32_t repeat1Stride,
+-                                         uint32_t repeat1Element, uint32_t repeat0DstStride)
+-{
+-    MicroAPI::MaskReg maskFirst = MicroAPI::CreateMask<int32_t, MicroAPI::MaskPattern::VL1>();
+-    for (uint16_t i0 = 0; i0 < repeat0Times; ++i0) {
+-        MicroAPI::RegTensor<int32_t> sumReg;
+-        uint32_t elements = repeat1Element;
+-        MicroAPI::Duplicate(sumReg, 0);
+-        for (uint16_t i1 = 0; i1 < repeat1Times; ++i1) {
+-            MicroAPI::RegTensor<int32_t> srcReg;
+-            MicroAPI::RegTensor<int32_t> dstReg;
+-            MicroAPI::MaskReg mask = MicroAPI::UpdateMask<int32_t>(elements);
+-            MicroAPI::DataCopy(srcReg, src + i0 * repeat0SrcStride + i1 * repeat1Stride);
+-            MicroAPI::ReduceSum(dstReg, srcReg, mask);
+-            MicroAPI::Add(sumReg, sumReg, dstReg, maskFirst);
+-        }
+-        MicroAPI::DataCopy<int32_t, MicroAPI::StoreDist::DIST_FIRST_ELEMENT_B32>(dst + i0 * repeat0DstStride, sumReg,
+-                                                                                 maskFirst);
+-    }
+-}
+-
+-__aicore__ inline void GetReduceSum(LocalTensor<int32_t> &dstLocal, LocalTensor<int32_t> &srcLocal,
+-                                    uint16_t repeat0Times, uint32_t repeat0SrcStride, uint32_t repeat1Element,
+-                                    uint32_t repeat0DstStride)
+-{
+-    if (repeat0Times == 0 || repeat1Element == 0) {
+-        return;
+-    }
+-
+-    uint32_t repeat1Stride = GetVecLen() / sizeof(int32_t);
+-    uint16_t repeat1Times = Ceil<uint32_t, uint16_t>(repeat1Element, repeat1Stride);
+-    __local_mem__ int32_t *src = (__local_mem__ int32_t *)srcLocal.GetPhyAddr();
+-    __local_mem__ int32_t *dst = (__local_mem__ int32_t *)dstLocal.GetPhyAddr();
+-    VF_CALL<ReduceLoop>(dst, src, repeat0Times, repeat0SrcStride, repeat1Times, repeat1Stride, repeat1Element,
+-                        repeat0DstStride);
+-    PipeBarrier<PIPE_V>();
+-}
+-#endif  // __DAV_C310__
+-
+-}  // namespace AscendC
+-
+-#endif
+diff --git a/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp b/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+index 7a83807b3..e81ef8dc4 100644
+--- a/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
++++ b/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+@@ -10,7 +10,7 @@ class CamMoeDispatchNormal : public OpDef
+             .ParamType(REQUIRED)
+             .DataType({ge::DT_BF16, ge::DT_BF16, ge::DT_FLOAT16, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_BF16, ge::DT_BF16,
+                        ge::DT_FLOAT16, ge::DT_FLOAT16, ge::DT_FLOAT16, ge::DT_BF16, ge::DT_BF16, ge::DT_FLOAT16,
+-                       ge::DT_FLOAT16})
++                       ge::DT_FLOAT16, ge::DT_BF16, ge::DT_BF16})
+             .FormatList({ge::FORMAT_ND})
+             .AutoContiguous();
+         this->Input("topk_idx")
+@@ -62,14 +62,15 @@ class CamMoeDispatchNormal : public OpDef
+             .ParamType(REQUIRED)
+             .DataType({ge::DT_BF16, ge::DT_INT8, ge::DT_FLOAT16, ge::DT_INT8, ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E4M3FN,
+                        ge::DT_HIFLOAT8, ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E4M3FN, ge::DT_HIFLOAT8, ge::DT_FLOAT8_E5M2,
+-                       ge::DT_FLOAT8_E4M3FN, ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E4M3FN})
++                       ge::DT_FLOAT8_E4M3FN, ge::DT_FLOAT8_E5M2, ge::DT_FLOAT8_E4M3FN, ge::DT_FLOAT4_E2M1,
++                       ge::DT_FLOAT4_E1M2})
+             .FormatList({ge::FORMAT_ND});
+ 
+         this->Output("x_scales")
+             .ParamType(REQUIRED)
+             .DataType({ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT,
+                        ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT, ge::DT_FLOAT8_E8M0, ge::DT_FLOAT8_E8M0,
+-                       ge::DT_FLOAT8_E8M0, ge::DT_FLOAT8_E8M0})
++                       ge::DT_FLOAT8_E8M0, ge::DT_FLOAT8_E8M0, ge::DT_FLOAT8_E8M0, ge::DT_FLOAT8_E8M0})
+             .FormatList({ge::FORMAT_ND});
+         this->Output("assist_info_for_combine")
+             .ParamType(REQUIRED)
+diff --git a/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc b/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+index 7fb0525cb..52a2ab0c8 100644
+--- a/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
++++ b/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+@@ -67,6 +67,7 @@ constexpr uint32_t OP_TYPE_ALL_TO_ALL = 8;
+ constexpr uint32_t NO_SCALES = 0;
+ constexpr uint32_t DYNAMIC_SCALES = 2;
+ constexpr uint32_t MXFP8_SCALES = 3;
++constexpr uint32_t MXFP4_SCALES = 4;
+ constexpr uint32_t OP_TYPE_ALL_GATHER = 6;
+ 
+ constexpr size_t MAX_GROUP_NAME_LENGTH = 128UL;
+@@ -106,7 +107,9 @@ static const std::unordered_map<DataType, std::string> geDataTypeMap = {{ge::DT_
+                                                                         {ge::DT_BF16, "DT_BF16"},
+                                                                         {ge::DT_FLOAT8_E4M3FN, "DT_FLOAT8_E4M3FN"},
+                                                                         {ge::DT_FLOAT8_E5M2, "DT_FLOAT8_E5M2"},
+-                                                                        {ge::DT_FLOAT8_E8M0, "DT_FLOAT8_E8M0"}};
++                                                                        {ge::DT_FLOAT8_E8M0, "DT_FLOAT8_E8M0"},
++                                                                        {ge::DT_FLOAT4_E2M1, "DT_FLOAT4_E2M1"},
++                                                                        {ge::DT_FLOAT4_E1M2, "DT_FLOAT4_E1M2"}};
+ namespace optiling {
+ static void PrintTilingDataInfo(const char *nodeName, CamMoeDispatchNormalTilingData &tilingData)
+ {
+@@ -221,6 +224,13 @@ static bool CheckTensorDataType(gert::TilingContext *context, const char *nodeNa
+                     "expandX dataType is invalid for MXFP8 quant, dataType should be fp8e4m3 or fp8e5m2, but is %s",
+                     geDataTypeMap.at(expandXDesc->GetDataType()).c_str()),
+             return false);
++    } else if (quantMode == MXFP4_SCALES) {
++        OP_TILING_CHECK(
++            expandXDesc->GetDataType() != ge::DT_FLOAT4_E2M1 && expandXDesc->GetDataType() != ge::DT_FLOAT4_E1M2,
++            OP_LOGE(nodeName,
++                    "expandX dataType is invalid for MXFP4 quant, dataType should be fp4e2m1 or fp4e1m2, but is %s",
++                    geDataTypeMap.at(expandXDesc->GetDataType()).c_str()),
++            return false);
+     } else {
+         OP_TILING_CHECK(
+             expandXDesc->GetDataType() != xDesc->GetDataType(),
+@@ -237,13 +247,12 @@ static bool CheckTensorDataType(gert::TilingContext *context, const char *nodeNa
+             OP_LOGE(nodeName, "dynamicScales dataType is invalid for INT8 quant, dataType should be float, but is %s",
+                     geDataTypeMap.at(dynamicScalesDesc->GetDataType()).c_str()),
+             return false);
+-    } else if (quantMode == MXFP8_SCALES) {
++    } else if (quantMode == MXFP8_SCALES || quantMode == MXFP4_SCALES) {
+         auto dynamicScalesDesc = context->GetOutputDesc(OUTPUT_DYNAMIC_SCALES_INDEX);
+         OP_TILING_CHECK(dynamicScalesDesc == nullptr, OP_LOGE(nodeName, "dynamicScalesDesc is null."), return false);
+         OP_TILING_CHECK(
+             dynamicScalesDesc->GetDataType() != ge::DT_FLOAT8_E8M0,
+-            OP_LOGE(nodeName,
+-                    "dynamicScales dataType is invalid for MXFP8 quant, dataType should be fp8e8m0, but is %s",
++            OP_LOGE(nodeName, "dynamicScales dataType is invalid for MXFP quant, dataType should be fp8e8m0, but is %s",
+                     geDataTypeMap.at(dynamicScalesDesc->GetDataType()).c_str()),
+             return false);
+     }
+@@ -291,7 +300,7 @@ static bool CheckTensorFormat(gert::TilingContext *context, const char *nodeName
+         static_cast<ge::Format>(ge::GetPrimaryFormat(expandXDesc->GetStorageFormat())) == ge::FORMAT_FRACTAL_NZ,
+         OP_LOGE(nodeName, "expandX format is invalid."), return false);
+ 
+-    if (quantMode == DYNAMIC_SCALES || quantMode == MXFP8_SCALES) {
++    if (quantMode == DYNAMIC_SCALES || quantMode == MXFP8_SCALES || quantMode == MXFP4_SCALES) {
+         auto dynamicScalesDesc = context->GetOutputDesc(OUTPUT_DYNAMIC_SCALES_INDEX);
+         OP_TILING_CHECK(dynamicScalesDesc == nullptr, OP_LOGE(nodeName, "dynamicScalesDesc is null."), return false);
+         OP_TILING_CHECK(static_cast<ge::Format>(ge::GetPrimaryFormat(dynamicScalesDesc->GetStorageFormat())) ==
+@@ -379,8 +388,8 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+                             MOE_EXPERT_MAX_NUM, moeExpertNum),
+                     return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(
+-        (*quantModePtr < static_cast<int64_t>(NO_SCALES)) || (*quantModePtr > static_cast<int64_t>(MXFP8_SCALES)),
+-        OP_LOGE(nodeName, "quantMode is invalid, only support [0, %u], but got quantMode=%ld.", MXFP8_SCALES,
++        (*quantModePtr < static_cast<int64_t>(NO_SCALES)) || (*quantModePtr > static_cast<int64_t>(MXFP4_SCALES)),
++        OP_LOGE(nodeName, "quantMode is invalid, only support [0, %u], but got quantMode=%ld.", MXFP4_SCALES,
+                 *quantModePtr),
+         return ge::GRAPH_FAILED);
+ 
+@@ -496,12 +505,14 @@ static ge::graphStatus CheckTensorShape(gert::TilingContext *context, const char
+     const int64_t expandXDim0 = expandXStorageShape->GetStorageShape().GetDim(0);
+     const int64_t expandXDim1 = expandXStorageShape->GetStorageShape().GetDim(1);
+ 
+-    OP_TILING_CHECK(xDim1 != expandXDim1,
+-                    OP_LOGE(nodeName,
+-                            "expandX's dim1 not equal to xShape's dim1, "
+-                            "xShape's dim1 is %ld, expandX's dim1 is %ld.",
+-                            xDim1, expandXDim1),
+-                    return ge::GRAPH_FAILED);
++    int64_t expectedExpandXDim1 = (quantMode == MXFP4_SCALES) ? xDim1 / 2 : xDim1;
++    OP_TILING_CHECK(
++        expectedExpandXDim1 != expandXDim1,
++        OP_LOGE(nodeName,
++                "expandX's dim1 not equal to expected dim1, "
++                "xShape's dim1 is %ld, expected expandX's dim1 is %ld, expandX's dim1 is %ld, quantMode=%u.",
++                xDim1, expectedExpandXDim1, expandXDim1, quantMode),
++        return ge::GRAPH_FAILED);
+ 
+     // 校验dynamicScales的维度
+     if (quantMode != NO_SCALES) {
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp b/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
+index 7c9a89398..0d49edf43 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
++++ b/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
+@@ -12,6 +12,7 @@ using namespace CamMoeDispatchNormalA5Impl;
+ #define TILINGKEY_A5_NO_QUANT 15000
+ #define TILINGKEY_A5_QUANT 15002
+ #define TILINGKEY_A5_MXFP8_QUANT 15003
++#define TILINGKEY_A5_MXFP4_QUANT 15004
+ 
+ extern "C" __global__ __aicore__ void cam_moe_dispatch_normal(
+     GM_ADDR x, GM_ADDR expertIds, GM_ADDR send_offset, GM_ADDR send_token_idx, GM_ADDR recv_offset, GM_ADDR recv_count,
+@@ -59,6 +60,7 @@ extern "C" __global__ __aicore__ void cam_moe_dispatch_normal(
+ #endif
+ 
+ #ifdef __DAV_C310__
++    int64_t oriOverflowMode = AscendC::GetCtrlSpr<FLOAT_OVERFLOW_MODE_CTRL, FLOAT_OVERFLOW_MODE_CTRL>();
+ #if (ORIG_DTYPE_RECV_X == DT_FLOAT8_E5M2 || ORIG_DTYPE_RECV_X == DT_FLOAT8_E4M3FN || ORIG_DTYPE_RECV_X == DT_HIFLOAT8)
+     if (TILING_KEY_IS(TILINGKEY_A5_MXFP8_QUANT)) {
+         GET_TILING_DATA_WITH_STRUCT(CamMoeDispatchNormalTilingData, tilingData, tilingGM);
+@@ -70,5 +72,16 @@ extern "C" __global__ __aicore__ void cam_moe_dispatch_normal(
+         return;
+     }
+ #endif
++#if (ORIG_DTYPE_RECV_X == DT_FLOAT4_E2M1 || ORIG_DTYPE_RECV_X == DT_FLOAT4_E1M2)
++    if (TILING_KEY_IS(TILINGKEY_A5_MXFP4_QUANT)) {
++        GET_TILING_DATA_WITH_STRUCT(CamMoeDispatchNormalTilingData, tilingData, tilingGM);
++        CamMoeDispatchNormalA5<DTYPE_X, DTYPE_RECV_X, DTYPE_X_SCALES, true, true, false, false> op;
++        op.Init(x, expertIds, send_offset, send_token_idx, recv_offset, recv_count, expert_global_offset,
++                srcrank_in_expert_offset, r_in_srcrank_offset, expandXOut, dynamicScalesOut, assist_info_for_combine,
++                waitRecvCostStatsOut, workspaceGM, &pipe, &tilingData);
++        op.Process();
++        return;
++    }
++#endif
+ #endif  // __DAV_C310__
+ }
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_a5.h b/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_a5.h
+index d56b9dbf1..2af9e470e 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_a5.h
++++ b/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_a5.h
+@@ -8,7 +8,7 @@
+ #include "comm_args.h"
+ #include "moe_distribute_v2_base.h"
+ #ifdef __DAV_C310__
+-#include "../quantize_functions.h"
++#include "quantize_functions.h"
+ #endif
+ 
+ namespace CamMoeDispatchNormalA5Impl {
+@@ -33,6 +33,9 @@ constexpr float FP8_E5M2_MAX_VALUE = 448.0f;
+ constexpr float FP8_E4M3_MAX_VALUE = 57344.0f;
+ constexpr float HIFP8_MAX_VALUE = 32768.0f;
+ constexpr float INT8_MAX_VALUE = 127.0f;
++constexpr uint32_t FP4_ELEMS_PER_BYTE = 2;
++constexpr uint32_t MX_BLOCK_SIZE = 32U;
++#define FLOAT_OVERFLOW_MODE_CTRL 60
+ 
+ template <AscendC::HardEvent event>
+ __aicore__ inline void SyncFunc()
+@@ -77,8 +80,8 @@ class CamMoeDispatchNormalA5
+     __aicore__ inline void ReduceMaxInplace(const LocalTensor<float> &srcLocal, uint32_t count);
+     __aicore__ inline void QuantProcess();
+ #ifdef __DAV_C310__
+-    __aicore__ inline void QuantDynamicMxFp8(LocalTensor<ExpandXOutType> &outLocal, LocalTensor<XType> &inLocal,
+-                                             LocalTensor<float> &tokenF32LT_);
++    __aicore__ inline void QuantDynamicMx(LocalTensor<ExpandXOutType> &outLocal, LocalTensor<XType> &inLocal,
++                                          LocalTensor<float> &tokenF32LT_);
+ #endif
+     __aicore__ inline GM_ADDR GetWindAddrByRankId(uint8_t ctxIdx, const int32_t rankId)
+     {
+@@ -110,8 +113,6 @@ class CamMoeDispatchNormalA5
+     GlobalTensor<int32_t> expertGlobalOffsetGT;
+     GlobalTensor<int32_t> srcrankInExpertOffsetGT;
+     GlobalTensor<int32_t> rInSrcrankOffsetGT;
+-    GlobalTensor<XScalesType> dynamicScalesOutGT;
+-    GlobalTensor<uint8_t> dynamicScalesOutUint8GT;
+     GlobalTensor<int32_t> expandIdxOutGT;
+     GlobalTensor<ExpandXOutType> dstGT;
+     GlobalTensor<int32_t> dstStatusGT;
+@@ -152,6 +153,7 @@ class CamMoeDispatchNormalA5
+     TBuf<> rInSrcrankOffsetBuf;
+ 
+     GM_ADDR expandXOutGM;
++    GM_ADDR dynamicScalesOutGM;
+     GM_ADDR shareGM;
+ 
+     uint16_t axisHCommu_{0};
+@@ -244,10 +246,7 @@ __aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::Init(
+     expertGlobalOffsetGT.SetGlobalBuffer((__gm__ int32_t *)(expert_global_offset));
+     srcrankInExpertOffsetGT.SetGlobalBuffer((__gm__ int32_t *)(srcrank_in_expert_offset));
+     rInSrcrankOffsetGT.SetGlobalBuffer((__gm__ int32_t *)(r_in_srcrank_offset));
+-    dynamicScalesOutGT.SetGlobalBuffer((__gm__ XScalesType *)dynamicScalesOut);
+-    if (IsMxQuant) {
+-        dynamicScalesOutUint8GT.SetGlobalBuffer((__gm__ uint8_t *)dynamicScalesOut);
+-    }
++    dynamicScalesOutGM = dynamicScalesOut;
+ 
+     expandIdxOutGT.SetGlobalBuffer((__gm__ int32_t *)(expandIdxOut));
+     if (isEnableDiagnose) {
+@@ -256,26 +255,32 @@ __aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::Init(
+ 
+     expandXOutGM = expandXOut;
+     axisH_ = h;
+-    hUBAlignSize = Ceil(h * sizeof(ExpandXOutType), UB_ALIGN) * UB_ALIGN;
++#ifdef __DAV_C310__
++    if constexpr (Std::IsSame<ExpandXOutType, fp4x2_e2m1_t>::value ||
++                  Std::IsSame<ExpandXOutType, fp4x2_e1m2_t>::value) {
++        hUBAlignSize = Ceil(Ceil(axisH_, FP4_ELEMS_PER_BYTE), UB_ALIGN) * UB_ALIGN;
++    } else
++#endif
++    {
++        hUBAlignSize = Ceil(h * sizeof(ExpandXOutType), UB_ALIGN) * UB_ALIGN;
++    }
+     uint32_t hScaleSizeAlign = hUBAlignSize + UB_ALIGN;
+-    uint32_t quantScalePerToken = IsMxQuant ? Ceil(axisH_, 32) : 1;
++    uint32_t quantScalePerToken = IsMxQuant ? Ceil(axisH_, MX_BLOCK_SIZE) : 1;
+     uint32_t quantScalePerTokenAlign = Ceil(quantScalePerToken * sizeof(XScalesType), UB_ALIGN) * UB_ALIGN;
+ 
+     hScaleSizeAlign =
+-        hUBAlignSize +
+-        quantScalePerTokenAlign;  // ((7168*1 + 32) + 3*4) + 7168/32 = 7168 + 32 + 12 + 224 = 7436B, 需要对齐512B
++        hUBAlignSize + quantScalePerTokenAlign;  // ((7168*1 + 32) + 3*4) + 7168/MX_BLOCK_SIZE = 7436B, 需要对齐512B
+ 
+     expandIdxStartIdx = hScaleSizeAlign / sizeof(int32_t);
+ 
+     hScaleIdxSize = hScaleSizeAlign + EXPAND_IDX_INFO * sizeof(int32_t);
+     if (IsMxQuant) {
+-        hScaleIdxSize +=
+-            Ceil(axisH_, 32);  // ((7168*1 + 32) + 3*4) + 7168/32 = 7168 + 32 + 12 + 224 = 7436B, 需要对齐512B
++        hScaleIdxSize += Ceil(axisH_, MX_BLOCK_SIZE);
+     }
+     hOutUBAlignSize = Ceil(hScaleIdxSize, UB_ALIGN) * UB_ALIGN;
+     uint32_t axisHCommu = hScaleIdxSize / sizeof(ExpandXOutType);  // 有效搬运长度
+     axisHCommu_ = static_cast<uint16_t>(axisHCommu);
+-    // todo check if is required: hScaleIdxSize + axisH/32
++    // todo check if is required: hScaleIdxSize + axisH/MX_BLOCK_SIZE
+     hOutGMAlignSize = Ceil(hScaleIdxSize, WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
+     hGMAlignCnt = hOutGMAlignSize / sizeof(ExpandXOutType);
+ 
+@@ -314,21 +319,28 @@ __aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::Init(
+ 
+ #ifdef __DAV_C310__
+ template <CamTypeClass>
+-__aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::QuantDynamicMxFp8(LocalTensor<ExpandXOutType> &outLocal,
+-                                                                              LocalTensor<XType> &inLocal,
+-                                                                              LocalTensor<float> &tokenF32LT_)
++__aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::QuantDynamicMx(LocalTensor<ExpandXOutType> &outLocal,
++                                                                           LocalTensor<XType> &inLocal,
++                                                                           LocalTensor<float> &tokenF32LT_)
+ {
++    uint32_t mxScaleNum = Align2(Ceil32(axisH_));
++    __ubuf__ XType *srcAddr = (__ubuf__ XType *)inLocal.GetPhyAddr();
++    __ubuf__ uint16_t *maxExpAddr = (__ubuf__ uint16_t *)tokenF32LT_.GetPhyAddr();
++    __ubuf__ uint16_t *halfScaleLocalAddr = (__ubuf__ uint16_t *)tokenF32LT_[Align32(mxScaleNum)].GetPhyAddr();
++    __ubuf__ int8_t *outLocalAddr = (__ubuf__ int8_t *)outLocal.GetPhyAddr();
++    __ubuf__ uint16_t *mxScaleLocalAddr;
++    // For outLocal of type fp4x2_e2m1_t (where sizeof(fp4x2_e2m1_t) = 1B), outLocal[axisH_] represents an offset of
++    // axisH_ * 0.5B
++    mxScaleLocalAddr = (__ubuf__ uint16_t *)outLocal[Align256<uint32_t>(axisH_)].GetPhyAddr();
++
++    quant::ComputeMaxExp(srcAddr, maxExpAddr, axisH_);
++    quant::ComputeScale<ExpandXOutType>(maxExpAddr, mxScaleLocalAddr, halfScaleLocalAddr, mxScaleNum);
+     if constexpr (Std::IsSame<ExpandXOutType, fp8_e4m3fn_t>::value || Std::IsSame<ExpandXOutType, fp8_e5m2_t>::value) {
+-        uint32_t mxScaleNum = Align2(Ceil32(axisH_));
+-        __ubuf__ XType *srcAddr = (__ubuf__ XType *)inLocal.GetPhyAddr();
+-        __ubuf__ uint16_t *maxExpAddr = (__ubuf__ uint16_t *)tokenF32LT_.GetPhyAddr();
+-        __ubuf__ uint16_t *halfScaleLocalAddr = (__ubuf__ uint16_t *)tokenF32LT_[Align32(mxScaleNum)].GetPhyAddr();
+-        __ubuf__ int8_t *outLocalAddr = (__ubuf__ int8_t *)outLocal.GetPhyAddr();
+-        __ubuf__ uint16_t *mxScaleLocalAddr = (__ubuf__ uint16_t *)outLocal[Align256<uint32_t>(axisH_)].GetPhyAddr();
+-
+-        quant::ComputeMaxExp(srcAddr, maxExpAddr, axisH_);
+-        quant::ComputeScale<ExpandXOutType>(maxExpAddr, mxScaleLocalAddr, halfScaleLocalAddr, mxScaleNum);
+-        quant::ComputeData<XType, ExpandXOutType, AscendC::RoundMode::CAST_TRUNC, AscendC::RoundMode::CAST_RINT>(
++        quant::ComputeFp8Data<XType, ExpandXOutType, AscendC::RoundMode::CAST_TRUNC, AscendC::RoundMode::CAST_RINT>(
++            srcAddr, halfScaleLocalAddr, outLocalAddr, axisH_);
++    } else if constexpr (Std::IsSame<ExpandXOutType, fp4x2_e2m1_t>::value ||
++                         Std::IsSame<ExpandXOutType, fp4x2_e1m2_t>::value) {
++        quant::ComputeFp4Data<XType, ExpandXOutType, AscendC::RoundMode::CAST_TRUNC, AscendC::RoundMode::CAST_RINT>(
+             srcAddr, halfScaleLocalAddr, outLocalAddr, axisH_);
+     }
+ }
+@@ -387,7 +399,7 @@ __aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::QuantProcess()
+     LocalTensor<float> tokenF32LT = tokenCastFloatBuf.Get<float>();
+ #ifdef __DAV_C310__
+     if constexpr (IsMxQuant) {
+-        QuantDynamicMxFp8(xOutTensor, xInTensor, tokenF32LT);
++        QuantDynamicMx(xOutTensor, xInTensor, tokenF32LT);
+         xInQueue.FreeTensor<XType>(xInTensor);
+         return;
+     }
+@@ -443,6 +455,10 @@ template <CamTypeClass>
+ __aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::InputToShare()
+ {
+     tpipe_->Reset();
++#ifdef __DAV_C310__
++    AscendC::SetCtrlSpr<FLOAT_OVERFLOW_MODE_CTRL, FLOAT_OVERFLOW_MODE_CTRL>(0);
++#endif
++    hOutUBAlignSize = Ceil(hScaleIdxSize, UB_ALIGN) * UB_ALIGN;
+     if constexpr (DynamicQuant) {
+         QuantInit();
+     } else {
+@@ -522,11 +538,8 @@ __aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::InputToShare()
+             QuantProcess();
+             xOutQueue.EnQue(xOutTensor);
+             xOutTensor = xOutQueue.DeQue<ExpandXOutType>();
+-
+             FillTriple(xOutTensor, (roundIndex * perRoundTokens + tokenIndex / topK), tokenIndex % topK);
+-
+             DataCopyPad(dstGT, xOutTensor, hCommuCopyOutParams);
+-
+             xOutQueue.FreeTensor(xOutTensor);
+         } else {
+             xTmpTensor = xQueue.AllocTensor<ExpandXOutType>();
+@@ -773,7 +786,15 @@ __aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::ShareToOutputLongSeq
+ 
+     DataCopyExtParams dataCopyExandIdxParams{1U, sizeof(int32_t) * EXPAND_IDX_INFO, 0U, 0U, 0U};
+     DataCopyExtParams dataCopyOutParams{1U, static_cast<uint32_t>(statusNumPerCore * sizeof(int32_t)), 0U, 0U, 0U};
+-    DataCopyExtParams expandXCopyParams = {1U, static_cast<uint32_t>(h * sizeof(ExpandXOutType)), 0U, 0U, 0U};
++    uint32_t expandXElemCount = h;
++#ifdef __DAV_C310__
++    if constexpr (Std::IsSame<ExpandXOutType, fp4x2_e2m1_t>::value ||
++                  Std::IsSame<ExpandXOutType, fp4x2_e1m2_t>::value) {
++        expandXElemCount = Ceil(h, FP4_ELEMS_PER_BYTE);
++    }
++#endif
++    DataCopyExtParams expandXCopyParams = {1U, static_cast<uint32_t>(expandXElemCount * sizeof(ExpandXOutType)), 0U, 0U,
++                                           0U};
+     LocalTensor<int32_t> xTmpTensorInt;
+     AscendC::TQueSync<PIPE_MTE2, PIPE_S> recvCountLocalSync;
+     recvCountLocalSync.SetFlag(0);
+@@ -801,11 +822,9 @@ __aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::ShareToOutputLongSeq
+             (__gm__ uint8_t *)(GetWindAddrByRankId(COMM_EP_IDX, fromRank)) + recvOffset * hOutGMAlignSize;
+         GlobalTensor<ExpandXOutType> srcTokenGT, dstTokenGT;
+ 
+-        uint16_t scaleNumForOneToken = IsMxQuant ? Ceil(axisH_, 32) : 1;
+         for (uint32_t j = 0; j < count; ++j) {
+             srcTokenGT.SetGlobalBuffer((__gm__ ExpandXOutType *)(recvStart + j * hOutGMAlignSize));
+             xTmpTensor = xQueue.AllocTensor<ExpandXOutType>();
+-
+             DataCopyPad(xTmpTensor, srcTokenGT, tokenInParams, padParams);
+ 
+             xQueue.EnQue(xTmpTensor);
+@@ -815,20 +834,32 @@ __aicore__ inline void CamMoeDispatchNormalA5<CamTypeFunc>::ShareToOutputLongSeq
+                         dataCopyExandIdxParams);  // todo check expandXCopyParams_
+ 
+             if constexpr (DynamicQuant) {
+-                // todo check DataCopyExtParams -> DataCopyParams also works for nonquant and int8quant
+-                // DataCopyExtParams scaleOutputDataCopyParams = {scaleNumForOneToken, sizeof(XScalesType), 0U, 0U, 0U};
+-                DataCopyParams scaleOutputDataCopyParams = {1U, static_cast<uint16_t>(scaleNumForOneToken), 0U, 0U};
+-                LocalTensor<XScalesType> xOutXScalesTypeTensor = xTmpTensor.template ReinterpretCast<XScalesType>();
+-                if (IsMxQuant)
+-                    DataCopyPad(dynamicScalesOutGT[(writeOffset + j) * scaleNumForOneToken],
+-                                xOutXScalesTypeTensor[hUBAlignSize / sizeof(XScalesType)], scaleOutputDataCopyParams);
+-                else {
+-                    DataCopyPad(dynamicScalesOutGT[(writeOffset + j) * scaleNumForOneToken],
+-                                xOutXScalesTypeTensor[hUBAlignSize / sizeof(XScalesType)], scaleOutputDataCopyParams);
++                uint32_t scaleOutBytesPerToken = IsMxQuant ? Ceil(axisH_, MX_BLOCK_SIZE) : sizeof(XScalesType);
++                DataCopyExtParams scaleOutputDataCopyParams = {1U, static_cast<uint16_t>(scaleOutBytesPerToken), 0U, 0U,
++                                                               0U};
++                LocalTensor<uint8_t> scaleLT = xTmpTensor.template ReinterpretCast<uint8_t>();
++                uint32_t scaleUBOffset;
++#ifdef __DAV_C310__
++                if constexpr (IsMxQuant) {
++                    if constexpr (Std::IsSame<ExpandXOutType, fp4x2_e2m1_t>::value ||
++                                  Std::IsSame<ExpandXOutType, fp4x2_e1m2_t>::value) {
++                        scaleUBOffset = Align256<uint32_t>(Ceil(axisH_, FP4_ELEMS_PER_BYTE));
++                    } else {
++                        scaleUBOffset = Align256<uint32_t>(axisH_);
++                    }
++                } else
++#endif
++                {
++                    scaleUBOffset = hUBAlignSize / sizeof(ExpandXOutType);
+                 }
++                GlobalTensor<uint8_t> dynamicScalesOutU8GT;
++                dynamicScalesOutU8GT.SetGlobalBuffer((__gm__ uint8_t *)dynamicScalesOutGM);
++                DataCopyPad(dynamicScalesOutU8GT[(writeOffset + j) * scaleOutBytesPerToken], scaleLT[scaleUBOffset],
++                            scaleOutputDataCopyParams);
+             }
+ 
+-            dstTokenGT.SetGlobalBuffer((__gm__ ExpandXOutType *)(expandXOutGM) + (writeOffset + j) * h, h);
++            dstTokenGT.SetGlobalBuffer((__gm__ ExpandXOutType *)(expandXOutGM) + (writeOffset + j) * expandXElemCount,
++                                       expandXElemCount);
+             DataCopyPad(dstTokenGT, xTmpTensor, expandXCopyParams);
+ 
+             xQueue.FreeTensor(xTmpTensor);
+diff --git a/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h b/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h
+index 6bbacf736..eafb1cff2 100644
+--- a/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h
++++ b/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_a5.h
+@@ -8,7 +8,7 @@
+ #include "moe_distribute_dispatch_v2_tiling.h"
+ #include "check_winsize.h"
+ #ifdef __DAV_C310__
+-#include "../quantize_functions.h"
++#include "quantize_functions.h"
+ #endif
+ 
+ namespace MoeDistributeDispatchV2A5Impl {
+@@ -1092,7 +1092,7 @@ __aicore__ inline void MoeDistributeDispatchV2A5<TemplateMC2TypeFunc>::QuantDyna
+ 
+         quant::ComputeMaxExp(srcAddr, maxExpAddr, axisH_);
+         quant::ComputeScale<ExpandXOutType>(maxExpAddr, mxScaleLocalAddr, halfScaleLocalAddr, mxScaleNum);
+-        quant::ComputeData<XType, ExpandXOutType, AscendC::RoundMode::CAST_TRUNC, AscendC::RoundMode::CAST_RINT>(
++        quant::ComputeFp8Data<XType, ExpandXOutType, AscendC::RoundMode::CAST_TRUNC, AscendC::RoundMode::CAST_RINT>(
+             srcAddr, halfScaleLocalAddr, outLocalAddr, axisH_);
+     }
+ }
+diff --git a/csrc/deepep/ops/quantize_functions.h b/csrc/deepep/ops/quantize_functions.h
+deleted file mode 100644
+index f7f4de158..000000000
+--- a/csrc/deepep/ops/quantize_functions.h
++++ /dev/null
+@@ -1,403 +0,0 @@
+-/**
+- * Copyright (c) 2025 Huawei Technologies Co., Ltd.
+- * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
+- * CANN Open Software License Agreement Version 2.0 (the "License").
+- * Please refer to the License for details. You may not use this file except in compliance with the License.
+- * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
+- * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
+- * See LICENSE in the root of the software repository for the full text of the License.
+- */
+-
+-/*!
+- * \file quantize_functions.h
+- * \brief
+- */
+-
+-#ifndef QUANTIZE_FUNCTIONS_H
+-#define QUANTIZE_FUNCTIONS_H
+-
+-#include "common.h"
+-
+-namespace quant {
+-
+-#ifdef __DAV_C310__
+-
+-constexpr int DIGIT_TWO = 2;
+-constexpr uint16_t MAX_EXP_FOR_BF16 = 0x7f80;
+-constexpr uint16_t BF16_EXP_BIAS = 0x7f00;
+-constexpr uint16_t MAX_EXP_FOR_FP8 = 0x00ff;
+-constexpr uint16_t NAN_CUSTOMIZATION = 0x7f81;
+-constexpr uint16_t SPECIAL_EXP_THRESHOLD = 0x0040;
+-constexpr int16_t SHR_NUM_FOR_BF16 = 7;
+-constexpr uint16_t FP8_E4M3_MAX_EXP = 0x0400;  // elem_emax右移7位(BF16E8M7)
+-constexpr uint16_t FP8_E5M2_MAX_EXP = 0x0780;
+-constexpr int64_t OUT_ELE_NUM_ONE_BLK = 64;
+-constexpr float FP8_E5M2_MAX_VALUE = 57344.0f;
+-constexpr float FP8_E4M3_MAX_VALUE = 448.0f;
+-constexpr float HIFP8_MAX_VALUE = 32768.0f;
+-constexpr float INT8_MAX_VALUE = 127.0f;
+-
+-using namespace AscendC;
+-
+-__aicore__ inline constexpr uint32_t GetUbBlockSizeDispatch()
+-{
+-    return 32U;
+-}
+-
+-__aicore__ inline constexpr uint32_t GetVRegSizeDispatch()
+-{
+-#if __CCE_AICORE__ == 310
+-    return AscendC::VECTOR_REG_WIDTH;
+-#else
+-    return 256U;
+-#endif
+-}
+-
+-template <typename T>
+-__aicore__ inline void ComputeMaxExp(__ubuf__ T *srcAddr, __ubuf__ uint16_t *maxExpAddr, uint32_t totalCountInUB)
+-{
+-    uint32_t vlForHalfNumber = GetVRegSizeDispatch() / sizeof(T);
+-    uint16_t elementAfterReduce = GetVRegSizeDispatch() / GetUbBlockSizeDispatch();
+-    uint16_t loopNum = Ceil(totalCountInUB, 2 * vlForHalfNumber);
+-
+-    __VEC_SCOPE__
+-    {
+-        MicroAPI::RegTensor<T> vdExp0;
+-        MicroAPI::RegTensor<T> vdExp1;
+-        MicroAPI::RegTensor<bfloat16_t> vdExp0BF16;
+-        MicroAPI::RegTensor<bfloat16_t> vdExp1BF16;
+-        MicroAPI::RegTensor<uint16_t> vdExpExtract0;
+-        MicroAPI::RegTensor<uint16_t> vdExpExtract1;
+-
+-        MicroAPI::RegTensor<uint16_t> expMaskBF16;
+-        MicroAPI::Duplicate(expMaskBF16, MAX_EXP_FOR_BF16);
+-
+-        MicroAPI::RegTensor<uint16_t> vdMaxExp;
+-        MicroAPI::MaskReg scaleMask1;
+-        MicroAPI::MaskReg scaleMask2;
+-        MicroAPI::UnalignReg u1;
+-        static constexpr MicroAPI::CastTrait castTraitHalf2Bf16 = {
+-            MicroAPI::RegLayout::UNKNOWN, MicroAPI::SatMode::UNKNOWN, MicroAPI::MaskMergeMode::ZEROING,
+-            RoundMode::CAST_TRUNC};
+-        for (uint16_t i = 0; i < loopNum; i++) {
+-            scaleMask1 = MicroAPI::UpdateMask<T>(totalCountInUB);
+-            scaleMask2 = MicroAPI::UpdateMask<T>(totalCountInUB);
+-            MicroAPI::DataCopy<T, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::LoadDist::DIST_DINTLV_B16>(
+-                vdExp0, vdExp1, srcAddr, vlForHalfNumber * DIGIT_TWO);
+-            if constexpr (Std::IsSame<T, half>::value) {
+-                MicroAPI::Cast<bfloat16_t, T, castTraitHalf2Bf16>(vdExp0BF16, vdExp0, scaleMask1);
+-                MicroAPI::Cast<bfloat16_t, T, castTraitHalf2Bf16>(vdExp1BF16, vdExp1, scaleMask1);
+-                MicroAPI::And(vdExpExtract0, (MicroAPI::RegTensor<uint16_t> &)vdExp0BF16, expMaskBF16, scaleMask1);
+-                MicroAPI::And(vdExpExtract1, (MicroAPI::RegTensor<uint16_t> &)vdExp1BF16, expMaskBF16, scaleMask1);
+-            } else {
+-                MicroAPI::And(vdExpExtract0, (MicroAPI::RegTensor<uint16_t> &)vdExp0, expMaskBF16, scaleMask1);
+-                MicroAPI::And(vdExpExtract1, (MicroAPI::RegTensor<uint16_t> &)vdExp1, expMaskBF16, scaleMask1);
+-            }
+-
+-            MicroAPI::Max(vdMaxExp, vdExpExtract0, vdExpExtract1, scaleMask1);
+-            MicroAPI::ReduceMaxWithDataBlock(vdMaxExp, vdMaxExp, scaleMask1);
+-
+-            MicroAPI::DataCopyUnAlign<uint16_t, MicroAPI::PostLiteral::POST_MODE_UPDATE>(maxExpAddr, vdMaxExp, u1,
+-                                                                                         elementAfterReduce);
+-        }
+-        MicroAPI::DataCopyUnAlignPost(maxExpAddr, u1, 0);
+-    }
+-}
+-
+-template <typename T>
+-__aicore__ inline void ComputeScale(__ubuf__ uint16_t *maxExpAddr, __ubuf__ uint16_t *mxScaleLocalAddr,
+-                                    __ubuf__ uint16_t *halfScaleLocalAddr, uint32_t totalScaleInUB)
+-{
+-    uint32_t vlForHalfNumber = GetVRegSizeDispatch() / sizeof(uint16_t);
+-    uint16_t f8Emax = std::is_same<T, fp8_e4m3fn_t>::value ? FP8_E4M3_MAX_EXP : FP8_E5M2_MAX_EXP;
+-    uint16_t loopNumScale = Ceil(totalScaleInUB, vlForHalfNumber);
+-
+-    __VEC_SCOPE__
+-    {
+-        MicroAPI::RegTensor<uint16_t> expMask;
+-        MicroAPI::Duplicate(expMask, MAX_EXP_FOR_BF16);
+-        MicroAPI::RegTensor<uint16_t> vdMaxExp;
+-
+-        MicroAPI::MaskReg cmpResult;
+-        MicroAPI::MaskReg zeroMask;
+-        MicroAPI::MaskReg preMaskScale;
+-        MicroAPI::RegTensor<uint16_t> maxExpValue;
+-        MicroAPI::Duplicate(maxExpValue, f8Emax);
+-        MicroAPI::RegTensor<uint16_t> sharedExp;
+-        MicroAPI::RegTensor<uint16_t> scaleValue;
+-        MicroAPI::RegTensor<uint16_t> scaleBias;
+-        MicroAPI::Duplicate(scaleBias, BF16_EXP_BIAS);
+-        MicroAPI::RegTensor<uint16_t> halfScale;
+-        MicroAPI::RegTensor<uint16_t> fp8NanRegTensor;
+-        MicroAPI::Duplicate(fp8NanRegTensor, MAX_EXP_FOR_FP8);
+-        MicroAPI::RegTensor<uint16_t> zeroRegTensor;
+-        MicroAPI::Duplicate(zeroRegTensor, 0);
+-        MicroAPI::RegTensor<uint16_t> nanRegTensor;
+-        MicroAPI::Duplicate(nanRegTensor, NAN_CUSTOMIZATION);
+-        MicroAPI::MaskReg invalidDataMask;
+-        MicroAPI::MaskReg specialDataMask;
+-        MicroAPI::RegTensor<uint16_t> specialExpRegTensor;
+-        MicroAPI::Duplicate(specialExpRegTensor, SPECIAL_EXP_THRESHOLD);
+-        for (uint16_t i = 0; i < loopNumScale; i++) {
+-            preMaskScale = MicroAPI::UpdateMask<uint16_t>(totalScaleInUB);
+-            MicroAPI::DataCopy<uint16_t, MicroAPI::PostLiteral::POST_MODE_UPDATE>(vdMaxExp, maxExpAddr,
+-                                                                                  vlForHalfNumber);
+-            MicroAPI::Compare<uint16_t, CMPMODE::NE>(cmpResult, vdMaxExp, expMask, preMaskScale);
+-            MicroAPI::Compare<uint16_t, CMPMODE::NE>(zeroMask, vdMaxExp, zeroRegTensor, preMaskScale);
+-            MicroAPI::Compare<uint16_t, CMPMODE::LE>(invalidDataMask, vdMaxExp, maxExpValue, preMaskScale);
+-
+-            MicroAPI::Select<uint16_t>(vdMaxExp, maxExpValue, vdMaxExp, invalidDataMask);
+-
+-            MicroAPI::Sub(sharedExp, vdMaxExp, maxExpValue, preMaskScale);
+-            MicroAPI::ShiftRights(scaleValue, sharedExp, SHR_NUM_FOR_BF16, preMaskScale);
+-
+-            MicroAPI::Select<uint16_t>(scaleValue, scaleValue, fp8NanRegTensor, cmpResult);
+-            MicroAPI::Select<uint16_t>(scaleValue, scaleValue, zeroRegTensor, zeroMask);
+-
+-            MicroAPI::DataCopy<uint16_t, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::StoreDist::DIST_PACK_B16>(
+-                mxScaleLocalAddr, scaleValue, vlForHalfNumber / DIGIT_TWO, preMaskScale);
+-
+-            MicroAPI::Compare<uint16_t, CMPMODE::EQ>(specialDataMask, sharedExp, scaleBias, preMaskScale);
+-            MicroAPI::Sub(halfScale, scaleBias, sharedExp, preMaskScale);
+-            MicroAPI::Select<uint16_t>(halfScale, halfScale, nanRegTensor, cmpResult);
+-            MicroAPI::Select<uint16_t>(halfScale, halfScale, zeroRegTensor, zeroMask);
+-            MicroAPI::Select<uint16_t>(halfScale, specialExpRegTensor, halfScale, specialDataMask);
+-
+-            MicroAPI::DataCopy<uint16_t, MicroAPI::PostLiteral::POST_MODE_UPDATE>(halfScaleLocalAddr, halfScale,
+-                                                                                  vlForHalfNumber, preMaskScale);
+-        }
+-    }
+-}
+-
+-template <typename T, typename U, RoundMode toBf16RoundMode, RoundMode roundMode>
+-__aicore__ inline void ComputeData(__ubuf__ T *srcAddr, __ubuf__ uint16_t *halfScaleLocalAddr,
+-                                   __ubuf__ int8_t *outLocalAddr, uint32_t totalCountInUB)
+-{
+-    uint32_t vlForHalfNumber = GetVRegSizeDispatch() / sizeof(T);
+-    uint16_t elementAfterReduce = GetVRegSizeDispatch() / GetUbBlockSizeDispatch();
+-    uint32_t totalCountInUB2 = totalCountInUB * DIGIT_TWO;
+-    uint16_t loopNum = Ceil(totalCountInUB, 2 * vlForHalfNumber);
+-    __VEC_SCOPE__
+-    {
+-        MicroAPI::MaskReg dataMask1;
+-        MicroAPI::MaskReg dataMask2;
+-        MicroAPI::MaskReg dataMask3;
+-        MicroAPI::MaskReg dataMask4;
+-        MicroAPI::MaskReg invalidDataMask1;
+-        MicroAPI::MaskReg invalidDataMask2;
+-        MicroAPI::MaskReg invalidDataMask3;
+-        MicroAPI::MaskReg invalidDataMask4;
+-
+-        MicroAPI::MaskReg maskAll = MicroAPI::CreateMask<uint16_t, MicroAPI::MaskPattern::ALL>();
+-        MicroAPI::RegTensor<uint16_t> halfScaleForMul;
+-        MicroAPI::RegTensor<float> floatScaleForMul;
+-        MicroAPI::RegTensor<T> vdExp0;
+-        MicroAPI::RegTensor<T> vdExp1;
+-        MicroAPI::RegTensor<T> maxFp8ValuePos;
+-        MicroAPI::RegTensor<T> maxFp8ValueNeg;
+-        float max_fp8_in_float;
+-        if constexpr (Std::IsSame<U, fp8_e4m3fn_t>::value) {
+-            max_fp8_in_float = FP8_E4M3_MAX_VALUE;
+-        } else if constexpr (Std::IsSame<U, fp8_e5m2_t>::value) {
+-            max_fp8_in_float = FP8_E5M2_MAX_VALUE;
+-        }
+-
+-        MicroAPI::Duplicate(maxFp8ValuePos, max_fp8_in_float);
+-        MicroAPI::Duplicate(maxFp8ValueNeg, -max_fp8_in_float);
+-
+-        MicroAPI::RegTensor<float> vdExp0FP32Zero;
+-        MicroAPI::RegTensor<float> vdExp0FP32One;
+-        MicroAPI::RegTensor<float> vdExp1FP32Zero;
+-        MicroAPI::RegTensor<float> vdExp1FP32One;
+-        MicroAPI::RegTensor<U> vdExp0FP8Zero;
+-        MicroAPI::RegTensor<U> vdExp0FP8One;
+-        MicroAPI::RegTensor<U> vdExp1FP8Zero;
+-        MicroAPI::RegTensor<U> vdExp1FP8One;
+-
+-        static constexpr MicroAPI::CastTrait castTraitZero = {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::UNKNOWN,
+-                                                              MicroAPI::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
+-        static constexpr MicroAPI::CastTrait castTraitOne = {MicroAPI::RegLayout::ONE, MicroAPI::SatMode::UNKNOWN,
+-                                                             MicroAPI::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
+-        static constexpr MicroAPI::CastTrait castTrait32to8 = {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::SAT,
+-                                                               MicroAPI::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
+-        for (uint16_t i = 0; i < loopNum; i++) {
+-            dataMask1 = MicroAPI::UpdateMask<T>(totalCountInUB);
+-            dataMask2 = MicroAPI::UpdateMask<T>(totalCountInUB);
+-            dataMask3 = MicroAPI::UpdateMask<T>(totalCountInUB2);
+-            dataMask4 = MicroAPI::UpdateMask<T>(totalCountInUB2);
+-            MicroAPI::DataCopy<T, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::LoadDist::DIST_DINTLV_B16>(
+-                vdExp0, vdExp1, srcAddr, vlForHalfNumber * DIGIT_TWO);
+-            MicroAPI::DataCopy<uint16_t, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::LoadDist::DIST_E2B_B16>(
+-                halfScaleForMul, halfScaleLocalAddr, elementAfterReduce);
+-
+-            if constexpr (Std::IsSame<T, half>::value) {
+-                MicroAPI::Cast<float, T, castTraitZero>(vdExp0FP32Zero, vdExp0, dataMask1);
+-                MicroAPI::Cast<float, T, castTraitOne>(vdExp0FP32One, vdExp0, dataMask1);
+-                MicroAPI::Cast<float, bfloat16_t, castTraitZero>(
+-                    floatScaleForMul, (MicroAPI::RegTensor<bfloat16_t> &)halfScaleForMul, maskAll);
+-                MicroAPI::Mul(vdExp0FP32Zero, vdExp0FP32Zero, floatScaleForMul, dataMask3);
+-                MicroAPI::Mul(vdExp0FP32One, vdExp0FP32One, floatScaleForMul, dataMask4);
+-                MicroAPI::Interleave(vdExp0FP32Zero, vdExp0FP32One, vdExp0FP32Zero, vdExp0FP32One);
+-                MicroAPI::Cast<float, T, castTraitZero>(vdExp1FP32Zero, vdExp1, dataMask1);
+-                MicroAPI::Cast<float, T, castTraitOne>(vdExp1FP32One, vdExp1, dataMask1);
+-                MicroAPI::Mul(vdExp1FP32Zero, vdExp1FP32Zero, floatScaleForMul, dataMask3);
+-                MicroAPI::Mul(vdExp1FP32One, vdExp1FP32One, floatScaleForMul, dataMask4);
+-                MicroAPI::Interleave(vdExp1FP32Zero, vdExp1FP32One, vdExp1FP32Zero, vdExp1FP32One);
+-                MicroAPI::Interleave(vdExp0FP32Zero, vdExp1FP32Zero, vdExp0FP32Zero, vdExp1FP32Zero);
+-                MicroAPI::Interleave(vdExp0FP32One, vdExp1FP32One, vdExp0FP32One, vdExp1FP32One);
+-                // requires clamp to U max value
+-                MicroAPI::Cast<U, float, castTrait32to8>(vdExp0FP8Zero, vdExp0FP32Zero, dataMask3);
+-                MicroAPI::Cast<U, float, castTrait32to8>(vdExp0FP8One, vdExp1FP32Zero, dataMask3);
+-                MicroAPI::Cast<U, float, castTrait32to8>(vdExp1FP8Zero, vdExp0FP32One, dataMask4);
+-                MicroAPI::Cast<U, float, castTrait32to8>(vdExp1FP8One, vdExp1FP32One, dataMask4);
+-            } else {
+-                MicroAPI::Mul(vdExp0, vdExp0, (MicroAPI::RegTensor<T> &)halfScaleForMul, dataMask1);
+-                MicroAPI::Mul(vdExp1, vdExp1, (MicroAPI::RegTensor<T> &)halfScaleForMul, dataMask1);
+-
+-                // clamp vdExp0
+-                MicroAPI::Compare<T, CMPMODE::GT>(invalidDataMask1, vdExp0, maxFp8ValuePos, dataMask1);
+-                MicroAPI::Select<T>(vdExp0, maxFp8ValuePos, vdExp0, invalidDataMask1);
+-                MicroAPI::Compare<T, CMPMODE::LT>(invalidDataMask2, vdExp0, maxFp8ValueNeg, dataMask1);
+-                MicroAPI::Select<T>(vdExp0, maxFp8ValueNeg, vdExp0, invalidDataMask2);
+-
+-                // clamp vdExp1
+-                MicroAPI::Compare<T, CMPMODE::GT>(invalidDataMask3, vdExp1, maxFp8ValuePos, dataMask2);
+-                MicroAPI::Select<T>(vdExp1, maxFp8ValuePos, vdExp1, invalidDataMask3);
+-                MicroAPI::Compare<T, CMPMODE::LT>(invalidDataMask4, vdExp1, maxFp8ValueNeg, dataMask2);
+-                MicroAPI::Select<T>(vdExp1, maxFp8ValueNeg, vdExp1, invalidDataMask4);
+-
+-                MicroAPI::Interleave(vdExp0, vdExp1, vdExp0, vdExp1);
+-                MicroAPI::Cast<float, T, castTraitZero>(vdExp0FP32Zero, vdExp0, dataMask1);
+-                MicroAPI::Cast<float, T, castTraitOne>(vdExp0FP32One, vdExp0, dataMask1);
+-                MicroAPI::Interleave(vdExp0FP32Zero, vdExp0FP32One, vdExp0FP32Zero, vdExp0FP32One);
+-                MicroAPI::Cast<U, float, castTrait32to8>(vdExp0FP8Zero, vdExp0FP32Zero, dataMask3);
+-                MicroAPI::Cast<U, float, castTrait32to8>(vdExp0FP8One, vdExp0FP32One, dataMask3);
+-                MicroAPI::Cast<float, T, castTraitZero>(vdExp1FP32Zero, vdExp1, dataMask2);
+-                MicroAPI::Cast<float, T, castTraitOne>(vdExp1FP32One, vdExp1, dataMask2);
+-                MicroAPI::Interleave(vdExp1FP32Zero, vdExp1FP32One, vdExp1FP32Zero, vdExp1FP32One);
+-                MicroAPI::Cast<U, float, castTrait32to8>(vdExp1FP8Zero, vdExp1FP32Zero, dataMask4);
+-                MicroAPI::Cast<U, float, castTrait32to8>(vdExp1FP8One, vdExp1FP32One, dataMask4);
+-            }
+-            MicroAPI::DataCopy<int8_t, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::StoreDist::DIST_PACK4_B32>(
+-                outLocalAddr, (MicroAPI::RegTensor<int8_t> &)vdExp0FP8Zero, OUT_ELE_NUM_ONE_BLK, dataMask3);
+-            MicroAPI::DataCopy<int8_t, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::StoreDist::DIST_PACK4_B32>(
+-                outLocalAddr, (MicroAPI::RegTensor<int8_t> &)vdExp0FP8One, OUT_ELE_NUM_ONE_BLK, dataMask3);
+-            MicroAPI::DataCopy<int8_t, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::StoreDist::DIST_PACK4_B32>(
+-                outLocalAddr, (MicroAPI::RegTensor<int8_t> &)vdExp1FP8Zero, OUT_ELE_NUM_ONE_BLK, dataMask4);
+-            MicroAPI::DataCopy<int8_t, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::StoreDist::DIST_PACK4_B32>(
+-                outLocalAddr, (MicroAPI::RegTensor<int8_t> &)vdExp1FP8One, OUT_ELE_NUM_ONE_BLK, dataMask4);
+-        }
+-    }
+-}
+-
+-template <typename T, typename U, RoundMode RMode, bool HasSmooth>
+-__aicore__ inline void ComputePerTileDynamic(__ubuf__ T *srcAddr, __ubuf__ float *smoothLocalAddr,
+-                                             __ubuf__ float *scaleOutLocalAddr, __ubuf__ int8_t *outLocalAddr,
+-                                             uint32_t totalCountInUB)
+-{
+-    uint32_t vlB16 = GetVRegSizeDispatch() / sizeof(T);
+-    uint32_t vlB32 = GetVRegSizeDispatch() / sizeof(float);
+-    uint16_t loopNum = Ceil(totalCountInUB, vlB16);
+-    uint32_t totalCntForB32 = totalCountInUB;
+-    float maxVal = 0.0f;
+-    if constexpr (Std::IsSame<U, fp8_e5m2_t>::value) {
+-        maxVal = FP8_E5M2_MAX_VALUE;
+-    } else if constexpr (Std::IsSame<U, fp8_e4m3fn_t>::value) {
+-        maxVal = FP8_E4M3_MAX_VALUE;
+-    } else if constexpr (Std::IsSame<U, hifloat8_t>::value) {
+-        maxVal = HIFP8_MAX_VALUE;
+-    } else if constexpr (Std::IsSame<U, int8_t>::value) {
+-        maxVal = INT8_MAX_VALUE;
+-    }
+-
+-    __VEC_SCOPE__
+-    {
+-        MicroAPI::MaskReg dataMask1;
+-        MicroAPI::MaskReg dataMask2;
+-        MicroAPI::MaskReg dataMask3;
+-        MicroAPI::MaskReg maskAll = MicroAPI::CreateMask<float, MicroAPI::MaskPattern::ALL>();
+-        MicroAPI::MaskReg maskOne = MicroAPI::CreateMask<float, MicroAPI::MaskPattern::VL1>();
+-
+-        MicroAPI::RegTensor<T> vInB16;
+-
+-        MicroAPI::RegTensor<float> vInFP32Zero;
+-        MicroAPI::RegTensor<float> vInFP32One;
+-        MicroAPI::RegTensor<float> vSmooth0;
+-        MicroAPI::RegTensor<float> vSmooth1;
+-        MicroAPI::RegTensor<float> vTileMax;
+-        MicroAPI::RegTensor<float> vDynScale;
+-        MicroAPI::RegTensor<float> vMaxVal;
+-        MicroAPI::RegTensor<float> vOneVal;
+-
+-        MicroAPI::RegTensor<U> vOut0;
+-        MicroAPI::RegTensor<U> vOut1;
+-
+-        MicroAPI::Duplicate(vMaxVal, maxVal);
+-        MicroAPI::Duplicate(vOneVal, 1.0f);
+-
+-        static constexpr MicroAPI::CastTrait castTraitZero = {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::UNKNOWN,
+-                                                              MicroAPI::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
+-        static constexpr MicroAPI::CastTrait castTraitOne = {MicroAPI::RegLayout::ONE, MicroAPI::SatMode::UNKNOWN,
+-                                                             MicroAPI::MaskMergeMode::ZEROING, RoundMode::UNKNOWN};
+-
+-        constexpr static MicroAPI::CastTrait castTrait32tof8 = {MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::NO_SAT,
+-                                                                MicroAPI::MaskMergeMode::ZEROING, RMode};
+-
+-        constexpr static MicroAPI::CastTrait castTrait32tof16 = {
+-            MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::SAT, MicroAPI::MaskMergeMode::ZEROING, RoundMode::CAST_RINT};
+-
+-        constexpr static MicroAPI::CastTrait castTrait16toi8 = {
+-            MicroAPI::RegLayout::ZERO, MicroAPI::SatMode::SAT, MicroAPI::MaskMergeMode::ZEROING, RoundMode::CAST_TRUNC};
+-
+-        for (uint16_t i = 0; i < loopNum; i++) {
+-            dataMask1 = MicroAPI::UpdateMask<T>(totalCountInUB);
+-            dataMask2 = MicroAPI::UpdateMask<float>(totalCntForB32);
+-            dataMask3 = MicroAPI::UpdateMask<float>(totalCntForB32);
+-
+-            MicroAPI::DataCopy(vInB16, srcAddr + i * vlB16);
+-            MicroAPI::Cast<float, T, castTraitZero>(vInFP32Zero, vInB16, dataMask1);
+-            MicroAPI::Cast<float, T, castTraitOne>(vInFP32One, vInB16, dataMask1);
+-            if constexpr (HasSmooth) {
+-                MicroAPI::DataCopy<float, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::LoadDist::DIST_DINTLV_B32>(
+-                    vSmooth0, vSmooth1, smoothLocalAddr, vlB32 * DIGIT_TWO);
+-                MicroAPI::Mul(vInFP32Zero, vInFP32Zero, vSmooth0, maskAll);
+-                MicroAPI::Mul(vInFP32One, vInFP32One, vSmooth1, maskAll);
+-            }
+-            MicroAPI::Interleave(vSmooth0, vSmooth1, vInFP32Zero, vInFP32One);
+-            MicroAPI::Abs(vInFP32Zero, vSmooth0, maskAll);
+-            MicroAPI::Abs(vInFP32One, vSmooth1, maskAll);
+-            MicroAPI::Max(vTileMax, vInFP32Zero, vInFP32One, maskAll);
+-            MicroAPI::ReduceMax(vTileMax, vTileMax, dataMask2);
+-            MicroAPI::Duplicate(vTileMax, vTileMax, maskAll);
+-            MicroAPI::Div(vDynScale, vMaxVal, vTileMax, maskAll);
+-            MicroAPI::Mul(vSmooth0, vSmooth0, vDynScale, maskAll);
+-            MicroAPI::Mul(vSmooth1, vSmooth1, vDynScale, maskAll);
+-
+-            if constexpr (Std::IsSame<U, int8_t>::value) {
+-                MicroAPI::RegTensor<half> vHalf0;
+-                MicroAPI::RegTensor<half> vHalf1;
+-                MicroAPI::Cast<half, float, castTrait32tof16>(vHalf0, vSmooth0, maskAll);
+-                MicroAPI::Cast<half, float, castTrait32tof16>(vHalf1, vSmooth1, maskAll);
+-                MicroAPI::Cast<U, half, castTrait16toi8>(vOut0, vHalf0, maskAll);
+-                MicroAPI::Cast<U, half, castTrait16toi8>(vOut1, vHalf1, maskAll);
+-            } else {
+-                MicroAPI::Cast<U, float, castTrait32tof8>(vOut0, vSmooth0, dataMask2);
+-                MicroAPI::Cast<U, float, castTrait32tof8>(vOut1, vSmooth1, dataMask3);
+-            }
+-
+-            MicroAPI::DataCopy<int8_t, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::StoreDist::DIST_PACK4_B32>(
+-                outLocalAddr, (MicroAPI::RegTensor<int8_t> &)vOut0, OUT_ELE_NUM_ONE_BLK, dataMask2);
+-            MicroAPI::DataCopy<int8_t, MicroAPI::PostLiteral::POST_MODE_UPDATE, MicroAPI::StoreDist::DIST_PACK4_B32>(
+-                outLocalAddr, (MicroAPI::RegTensor<int8_t> &)vOut1, OUT_ELE_NUM_ONE_BLK, dataMask3);
+-
+-            MicroAPI::Div(vDynScale, vOneVal, vDynScale, maskAll);
+-            MicroAPI::DataCopy<float, MicroAPI::StoreDist::DIST_FIRST_ELEMENT_B32>(scaleOutLocalAddr + i, vDynScale,
+-                                                                                   maskOne);
+-        }
+-    }
+-}
+-
+-#endif  // __DAV_C310__
+-
+-}  // namespace quant
+-#endif
+diff --git a/csrc/deepep/pytorch_npu_helper.hpp b/csrc/deepep/pytorch_npu_helper.hpp
+index 52d436f8d..2286e99bc 100644
+--- a/csrc/deepep/pytorch_npu_helper.hpp
++++ b/csrc/deepep/pytorch_npu_helper.hpp
+@@ -87,6 +87,7 @@ static struct MapInitializer {
+         kATenScalarTypeToAclDataTypeTable[static_cast<int64_t>(at::ScalarType::Float8_e4m3fn)] = ACL_FLOAT8_E4M3FN;
+         kATenScalarTypeToAclDataTypeTable[static_cast<int64_t>(at::ScalarType::Float8_e5m2)] = ACL_FLOAT8_E5M2;
+         kATenScalarTypeToAclDataTypeTable[static_cast<int64_t>(at::ScalarType::Float8_e8m0fnu)] = ACL_FLOAT8_E8M0;
++        kATenScalarTypeToAclDataTypeTable[static_cast<int64_t>(at::ScalarType::Float4_e2m1fn_x2)] = ACL_FLOAT4_E2M1;
+ #endif
+ #undef DEFINE_ENUM
+     }
+diff --git a/python/deep_ep/deep_ep/strategies/normal_strategy.py b/python/deep_ep/deep_ep/strategies/normal_strategy.py
+index e28e3062b..243fd8cb7 100644
+--- a/python/deep_ep/deep_ep/strategies/normal_strategy.py
++++ b/python/deep_ep/deep_ep/strategies/normal_strategy.py
+@@ -171,6 +171,9 @@ def _intranode_dispatch(
+             elif quant_type_tensor.dtype == torch.int8:
+                 quant_type = "int8"
+                 use_quant = True
++            elif quant_type_tensor.dtype == torch.float4_e2m1fn_x2:
++                quant_type = "fp4_e2m1"
++                use_quant = True
+             else:
+                 raise TypeError(
+                     f"Unsupported quantized dtype: {quant_type_tensor.dtype}"
+diff --git a/tests/python/deepep/test_intranode.py b/tests/python/deepep/test_intranode.py
+index abc945cb2..dbee024c9 100644
+--- a/tests/python/deepep/test_intranode.py
++++ b/tests/python/deepep/test_intranode.py
+@@ -35,13 +35,15 @@ def test_main(
+     num_topk, num_experts = args.num_topk, args.num_experts
+     enable_diagnose = args.enable_diagnose
+     enable_dynamic_tokens = args.enable_dynamic_tokens
+-    quant_type = args.quant_type  # no, int8, fp8
++    quant_type = args.quant_type  # no, int8, fp8, fp4
+     if quant_type == "no":
+         quant_type_tensor = None
+     elif quant_type == "int8":
+         quant_type_tensor = torch.tensor([], dtype=torch.int8, device="npu")
+     elif quant_type == "fp8":
+         quant_type_tensor = torch.tensor([], dtype=torch.float8_e4m3fn, device="npu")
++    elif quant_type == "fp4":
++        quant_type_tensor = torch.tensor([], dtype=torch.float4_e2m1fn_x2, device="npu")
+     num_servers = num_ranks // num_local_ranks
+     expert_token_nums_type = int(os.getenv("MOE_EXPERT_TOKEN_NUMS_TYPE", 1))
+ 
+@@ -311,8 +313,6 @@ def test_diagnose(
+                     event,
+                 ) = buffer.dispatch(**dispatch_args)
+ 
+-                if isinstance(recv_x, tuple):
+-                    print(f"{recv_x[0].dtype=}, {recv_x[1].dtype=}", flush=True)
+                 recv_x = (
+                     per_token_cast_back(*recv_x)
+                     if isinstance(recv_x, tuple)
+@@ -381,6 +381,16 @@ def test_diagnose(
+             handle,
+             event,
+         ) = buffer.dispatch(**dispatch_args)
++        recv_x_original = (
++            recv_x[0].view(torch.uint8).clone().view(recv_x[0].dtype)
++            if isinstance(recv_x, tuple)
++            else recv_x.clone()
++        )
++        quant_scales = (
++            recv_x[1].view(torch.uint8).clone().view(recv_x[1].dtype)
++            if isinstance(recv_x, tuple)
++            else None
++        )
+         recv_x = per_token_cast_back(*recv_x) if isinstance(recv_x, tuple) else recv_x
+ 
+         # Checks
+@@ -421,9 +431,11 @@ def test_diagnose(
+             ref_x * handle[7].masked_fill(topk_idx == -1, 0).sum(dim=1).view(-1, 1),
+         )
+         golden = ref_x * handle[7].masked_fill(topk_idx == -1, 0).sum(dim=1).view(-1, 1)
+-
+-        max_diff = torch.max(torch.abs(check_x - golden) / golden).item()
+-        avg_diff = torch.mean(torch.abs(check_x - golden) / golden).item()
++        # translate all zeros to eps in golden
++        eps = 1e-8
++        golden_nozero = torch.where(golden == 0, eps, golden)
++        max_diff = torch.max(torch.abs(check_x - golden) / golden_nozero).item()
++        avg_diff = torch.mean(torch.abs(check_x - golden) / golden_nozero).item()
+         print(f"{rank=}, {avg_diff=:.5f}, {max_diff=:.5f}, cosine_diff={diff:.5f}")
+         assert diff < 5e-5
+ 
+@@ -584,7 +596,7 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+         dest="quant_type",
+         type=str,
+         default="no",
+-        help="quant type: no, int8, fp8",
++        help="quant type: no, int8, fp8, fp4",
+     )
+     args = parser.parse_args()
+ 
+diff --git a/tests/python/deepep/utils.py b/tests/python/deepep/utils.py
+index 3c35b061c..fc3124be5 100644
+--- a/tests/python/deepep/utils.py
++++ b/tests/python/deepep/utils.py
+@@ -92,6 +92,36 @@ def bench(fn, num_warmups: int = 50, num_tests: int = 50, post_fn=None):
+     return np.average(times), np.min(times), np.max(times)
+ 
+ 
++def _fp4_e2m1_to_float32_unpack(fp4_bytes: torch.Tensor) -> torch.Tensor:
++    """Unpack FP4 E2M1 (fp4x2_e2m1fn_x2) packed bytes to float32 (all on CPU).
++    Each byte contains 2 FP4 values: high nibble = element 0, low nibble = element 1.
++    FP4 E2M1: 1 sign bit, 2 exponent bits (bias=1), 1 mantissa bit (implicit leading 1).
++    Special: exp=00,m=0 -> zero; exp=11 -> NaN
++    """
++    original_shape = fp4_bytes.shape
++    flat = fp4_bytes.flatten().cpu().to(torch.int32)
++
++    # Pre-compute all 16 FP4 E2M1 values as a lookup table
++    fp4_table = torch.zeros(16, dtype=torch.float32)
++    for i in range(16):
++        sign = 1.0 if (i >> 3) == 0 else -1.0
++        exp = (i & 0x7) >> 1
++        mant = i & 1
++        if exp == 0 and mant == 0:
++            fp4_table[i] = 0.0
++        else:
++            fp4_table[i] = sign * (2.0 ** (exp - 1)) * (1.0 + mant * 0.5)
++
++    high_nibbles = (flat >> 4) & 0xF
++    low_nibbles = flat & 0xF
++    vals_high = fp4_table[high_nibbles]
++    vals_low = fp4_table[low_nibbles]
++
++    result = torch.stack([vals_low, vals_high], dim=1).reshape(-1)
++    new_shape = list(original_shape[:-1]) + [original_shape[-1] * 2]
++    return result.reshape(new_shape)
++
++
+ _FP8E8M0_TO_FLOAT32_TABLE = None
+ 
+ 
+@@ -113,10 +143,28 @@ def per_token_cast_back(x_fp8: torch.Tensor, x_scales: torch.Tensor):
+ 
+     # x_scales 现在是 FP8 E8M0 格式（uint8 或 int8 存储）
+     # 需要先解码为 float32
++
+     if x_scales.dtype != torch.float32:
+         # 将存储的整数视为 FP8 E8M0 的位表示，转换为 float32
+         x_scales_bits = x_scales.view(torch.uint8)
+         x_scales_fp32 = _fp8e8m0_to_float32_lookup(x_scales_bits)
++
++        if x_fp8.dtype == torch.float4_e2m1fn_x2:
++            # FP4 dequant: each fp4x2 packs 2 elements, shape is (bs, h/2)
++            # Scale is per 32 original elements: (bs * h/32)
++            # Do entire dequant on CPU to avoid NPU FP4 dtype issues
++            bs, h_half = x_fp8.shape
++            h = h_half * 2
++            x_fp4_uint8 = x_fp8.view(torch.uint8).cpu()
++            x_fp32 = _fp4_e2m1_to_float32_unpack(x_fp4_uint8)  # CPU float32
++            x_fp32 = x_fp32.view(bs, -1, 32)
++            x_scales_bits_cpu = x_scales_bits.cpu()
++            x_scales_fp32_cpu = _fp8e8m0_to_float32_lookup(x_scales_bits_cpu).view(
++                bs, -1, 1
++            )
++            result_cpu = (x_fp32 * x_scales_fp32_cpu).view(bs, h).to(torch.bfloat16)
++            return result_cpu.to(x_fp8.device)
++
+         # x_fp8 形状: (bs, h)
+         # x_scales 形状: (bs, h/32) 或 (bs * h/32,)
+         bs, h = x_fp8.shape
