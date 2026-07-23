@@ -19,6 +19,29 @@ keywords_used:
 - tma
 - mbarrier
 - gemm
+- cute
+- cutlass
+- epilogue
+- mainloop
+- swizzle
+- persistent
+- warp-specialized
+- warpspecialize
+- mxfp4
+- blockscale
+- grouped_gemm
+- grouped-gemm
+- fmha
+- flashattention
+- flash-attention
+- rmsnorm
+- layernorm
+- rope
+- silu
+- swiglu
+- conv
+- softmax
+- allreduce
 total_candidates: 58
 included: 13
 excluded: 5
@@ -28,7 +51,8 @@ prs:
   title: Add various optimizations and Mega MoE benchmarks
   date: '2026-04-24'
   decision: include
-  reason: Mega MoE benchmark addition; needs investigation for which kernels are kernel-relevant vs pure benchmark.
+  reason: Mega MoE benchmark addition; needs investigation for which kernels are kernel-relevant
+    vs pure benchmark.
   files_changed: []
 - number: 314
   title: 'fix: SM90 paged MQA logits IMA on next_n=4 (nv_dev rebase)'
@@ -40,7 +64,8 @@ prs:
   title: '[Public release 26/04] Introducing Mega MoE, FP4 Indexer and other features/fixes'
   date: '2026-04-17'
   decision: include
-  reason: Major DeepGEMM public release with Mega MoE (FP8 x FP4 fused MoE mega-kernel) and FP4 Indexer; SM100 kernel features
+  reason: Major DeepGEMM public release with Mega MoE (FP8 x FP4 fused MoE mega-kernel)
+    and FP4 Indexer; SM100 kernel features
   files_changed: []
 - number: 292
   title: Fix sync issue of TMEM alloc/dealloc
@@ -196,7 +221,8 @@ prs:
   title: 'Sync nv_dev with upstream #316 (Mega MoE optimizations & benchmarks)'
   date: '2026-05-08'
   decision: defer
-  reason: 'deferred: likely docs/CI/build/test/benchmark/dependency adjacent, not direct kernel content'
+  reason: 'deferred: likely docs/CI/build/test/benchmark/dependency adjacent, not
+    direct kernel content'
   files_changed: []
 - number: 347
   title: Multiple updates and refactorings
@@ -241,13 +267,15 @@ prs:
   reason: from refresh search; needs-triage
   files_changed: []
 - number: 42
-  title: 'Performance: reducing the percentage of FFMA interleaving yields a sight performance gain, roughly 0.5%'
+  title: 'Performance: reducing the percentage of FFMA interleaving yields a sight
+    performance gain, roughly 0.5%'
   date: '2025-03-05'
   decision: defer
   reason: from refresh search; needs-triage
   files_changed: []
 - number: 44
-  title: 'Performance: Configuration algorithms tuned to minimize the impact of tail effects, now up to 1402 TFLOPS'
+  title: 'Performance: Configuration algorithms tuned to minimize the impact of tail
+    effects, now up to 1402 TFLOPS'
   date: '2025-03-10'
   decision: defer
   reason: from refresh search; needs-triage
@@ -367,7 +395,8 @@ prs:
   reason: from refresh search; needs-triage
   files_changed: []
 - number: 343
-  title: Fix a race condition in contiguous k-grouped GEMM where in-flight tensormaps are updated in-place
+  title: Fix a race condition in contiguous k-grouped GEMM where in-flight tensormaps
+    are updated in-place
   date: '2026-07-06'
   decision: defer
   reason: from refresh search; needs-triage
