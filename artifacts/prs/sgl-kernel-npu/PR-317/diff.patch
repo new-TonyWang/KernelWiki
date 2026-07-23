@@ -1,0 +1,669 @@
+diff --git a/csrc/deepep/ops/op_host/dfx_base.h b/csrc/deepep/ops/op_host/dfx_base.h
+new file mode 100644
+index 000000000..e0be9f98f
+--- /dev/null
++++ b/csrc/deepep/ops/op_host/dfx_base.h
+@@ -0,0 +1,186 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
++ * Description: FusedDeepMoe tiling function implementation file
++ * Author: Wang Yibo
++ * Create: 2026-01-15
++ * Note:
++ * History: 2026-01-15 create dfx_base file
++ */
++
++#pragma once
++
++#include <string>
++#include <cstdint>
++#include <sstream>
++#include <unistd.h>
++#include <sys/syscall.h>
++#include <securec.h>
++#include <base/alog_pub.h>
++#include <base/err_msg.h>
++#include <exe_graph/runtime/tiling_context.h>
++#include <exe_graph/runtime/tiling_parse_context.h>
++#include <exe_graph/runtime/infer_shape_context.h>
++#include <exe_graph/runtime/infer_datatype_context.h>
++
++namespace ops {
++namespace utils {
++
++class LogBase
++{
++public:
++    static constexpr const int MAX_LOG_LEN = 16000;
++    static constexpr const int MSG_HDR_LEN = 200;
++
++    static inline uint64_t GetTid()
++    {
++        return static_cast<uint64_t>(syscall(__NR_gettid));
++    }
++
++    static inline const char *GetStr(const std::string &str)
++    {
++        return str.c_str();
++    }
++
++    static inline const char *GetStr(const char *str)
++    {
++        return str;
++    }
++
++    static inline const std::string &GetOpInfo(const std::string &str)
++    {
++        return str;
++    }
++
++    static inline const char *GetOpInfo(const char *str)
++    {
++        return str;
++    }
++
++    static inline std::string GetOpInfo(const gert::TilingContext *context)
++    {
++        return GetOpInfoFromContext(context);
++    }
++
++    static inline std::string GetOpInfo(const gert::TilingParseContext *context)
++    {
++        return GetOpInfoFromContext(context);
++    }
++
++    static inline std::string GetOpInfo(const gert::InferShapeContext *context)
++    {
++        return GetOpInfoFromContext(context);
++    }
++
++    static inline std::string GetOpInfo(const gert::InferDataTypeContext *context)
++    {
++        return GetOpInfoFromContext(context);
++    }
++
++private:
++    template <class T>
++    static inline std::string GetOpInfoFromContext(T context)
++    {
++        if (context == nullptr) {
++            return "nil:nil";
++        }
++        std::string opInfo = context->GetNodeType() != nullptr ? context->GetNodeType() : "nil";
++        opInfo += ":";
++        opInfo += context->GetNodeName() != nullptr ? context->GetNodeName() : "nil";
++        return opInfo;
++    }
++};
++
++}  // namespace utils
++
++template <typename T>
++std::string Shape2String(const T &shape)
++{
++    std::ostringstream oss;
++    oss << "[";
++    if (shape.GetDimNum() > 0) {
++        for (size_t i = 0; i < shape.GetDimNum() - 1; ++i) {
++            oss << shape.GetDim(i) << ", ";
++        }
++        oss << shape.GetDim(shape.GetDimNum() - 1);
++    }
++    oss << "]";
++    return oss.str();
++}
++}  // namespace ops
++
++// 使用本宏前需预定义标识子模块名称的 OPS_UTILS_LOG_SUB_MOD_NAME
++// 如: #define OPS_UTILS_LOG_SUB_MOD_NAME "OP_TILING" 或通过 CMake 传递预定义宏
++#define OPS_LOG_STUB(MOD_ID, LOG_LEVEL, OPS_DESC, FMT, ...)                                                          \
++    do {                                                                                                             \
++        if (AlogCheckDebugLevel(static_cast<int>(MOD_ID), (LOG_LEVEL)) == 1) {                                       \
++            AlogRecord(static_cast<int>(MOD_ID), DLOG_TYPE_DEBUG, (LOG_LEVEL),                                       \
++                       "[%s:%d][%s]%s[%s][%lu] OpName:[%s] " #FMT, __FILE__, __LINE__, (OPS_UTILS_LOG_SUB_MOD_NAME), \
++                       (OPS_UTILS_LOG_PACKAGE_TYPE), __FUNCTION__, ops::utils::LogBase::GetTid(),                    \
++                       ops::utils::LogBase::GetStr(ops::utils::LogBase::GetOpInfo(OPS_DESC)), ##__VA_ARGS__);        \
++        }                                                                                                            \
++    } while (0)
++
++#define OPS_LOG_STUB_IF(COND, LOG_FUNC, EXPR)                                                               \
++    static_assert(std::is_same<bool, std::decay<decltype(COND)>::type>::value, "condition should be bool"); \
++    do {                                                                                                    \
++        if (__builtin_expect((COND), 0)) {                                                                  \
++            LOG_FUNC;                                                                                       \
++            EXPR;                                                                                           \
++        }                                                                                                   \
++    } while (0)
++
++#define OPS_INNER_ERR_STUB(ERR_CODE_STR, OPS_DESC, FMT, ...)        \
++    do {                                                            \
++        OPS_LOG_STUB(OP, DLOG_ERROR, OPS_DESC, FMT, ##__VA_ARGS__); \
++        REPORT_INNER_ERR_MSG(ERR_CODE_STR, FMT, ##__VA_ARGS__);     \
++    } while (0)
++
++#define OPS_CALL_ERR_STUB(ERR_CODE_STR, OPS_DESC, FMT, ...)         \
++    do {                                                            \
++        OPS_LOG_STUB(OP, DLOG_ERROR, OPS_DESC, FMT, ##__VA_ARGS__); \
++        REPORT_INNER_ERR_MSG(ERR_CODE_STR, FMT, ##__VA_ARGS__);     \
++    } while (0)
++
++#define OPS_LOG_STUB_D(OPS_DESC, FMT, ...) OPS_LOG_STUB(OP, DLOG_DEBUG, OPS_DESC, FMT, ##__VA_ARGS__)
++#define OPS_LOG_STUB_I(OPS_DESC, FMT, ...) OPS_LOG_STUB(OP, DLOG_INFO, OPS_DESC, FMT, ##__VA_ARGS__)
++#define OPS_LOG_STUB_W(OPS_DESC, FMT, ...) OPS_LOG_STUB(OP, DLOG_WARN, OPS_DESC, FMT, ##__VA_ARGS__)
++#define OPS_LOG_STUB_E(OPS_DESC, FMT, ...) OPS_LOG_STUB(OP, DLOG_ERROR, OPS_DESC, FMT, ##__VA_ARGS__)
++#define OPS_LOG_STUB_EVENT(OPS_DESC, FMT, ...) OPS_LOG_STUB(OP, DLOG_EVENT, OPS_DESC, FMT, ##__VA_ARGS__)
++
++#define OPS_LOG_STUB_FULL(LEVEL, OPS_DESC, FMT, ...)                                                         \
++    do {                                                                                                     \
++        if (0 == AlogCheckDebugLevel(OP, (LEVEL))) {                                                         \
++            break;                                                                                           \
++        }                                                                                                    \
++        char msgbufxyz[ops::utils::LogBase::MAX_LOG_LEN];                                                    \
++        size_t msgmaxlen = (MSG_LENGTH - ops::utils::LogBase::MSG_HDR_LEN);                                  \
++        int rettmp = snprintf_s(msgbufxyz, sizeof(msgbufxyz), sizeof(msgbufxyz) - 1, FMT, ##__VA_ARGS__);    \
++        if (rettmp == -1) {                                                                                  \
++            msgbufxyz[sizeof(msgbufxyz) - 1] = '\0';                                                         \
++        }                                                                                                    \
++        size_t msglength = std::strlen(msgbufxyz);                                                           \
++        if (msglength < msgmaxlen) {                                                                         \
++            OPS_LOG_STUB(OP, (LEVEL), (OPS_DESC), "%s", msgbufxyz);                                          \
++            break;                                                                                           \
++        }                                                                                                    \
++        char *msgchunkbegin = msgbufxyz;                                                                     \
++        char *msgchunkend = nullptr;                                                                         \
++        while (msgchunkbegin < msgbufxyz + msglength) {                                                      \
++            if (msgchunkbegin[0] == '\n') {                                                                  \
++                OPS_LOG_STUB(OP, (LEVEL), (OPS_DESC), "");                                                   \
++                msgchunkbegin += 1;                                                                          \
++                continue;                                                                                    \
++            }                                                                                                \
++            msgchunkend = std::strchr(msgchunkbegin, '\n');                                                  \
++            if (msgchunkend == nullptr) {                                                                    \
++                msgchunkend = msgchunkbegin + std::strlen(msgchunkbegin);                                    \
++            }                                                                                                \
++            while (msgchunkend > msgchunkbegin) {                                                            \
++                std::string msgchunk(msgchunkbegin,                                                          \
++                                     std::min(msgmaxlen, static_cast<size_t>(msgchunkend - msgchunkbegin))); \
++                OPS_LOG_STUB(OP, (LEVEL), (OPS_DESC), "%s", msgchunk.c_str());                               \
++                msgchunkbegin += msgchunk.size();                                                            \
++            }                                                                                                \
++            msgchunkbegin += 1;                                                                              \
++        }                                                                                                    \
++    } while (0)
+diff --git a/csrc/deepep/ops/op_host/fused_deep_moe_infer.cpp b/csrc/deepep/ops/op_host/fused_deep_moe_infer.cpp
+index 1391b0543..b424e54f2 100644
+--- a/csrc/deepep/ops/op_host/fused_deep_moe_infer.cpp
++++ b/csrc/deepep/ops/op_host/fused_deep_moe_infer.cpp
+@@ -8,10 +8,20 @@
+  */
+ 
+ #include <cstdint>
+-#include "error_log.h"
++#include "ops_log.h"
++#include "ops_error.h"
+ #include "graph/utils/type_utils.h"
+ #include "register/op_def_registry.h"
+ 
++#ifndef OPS_UTILS_LOG_SUB_MOD_NAME
++#define OPS_UTILS_LOG_SUB_MOD_NAME "FUSED_DEEP_MOE"
++#endif
++
++#ifndef OPS_UTILS_LOG_PACKAGE_TYPE
++#define OPS_UTILS_LOG_PACKAGE_TYPE "DEEPEP_OPS"
++#endif
++
++using namespace ops;
+ namespace ge {
+ constexpr uint32_t EXPAND_X_INDEX = 0;
+ constexpr uint32_t EXPERT_IDS_INDEX = 1;
+@@ -52,19 +62,18 @@ static ge::graphStatus InferShape(gert::InferShapeContext *context)
+ 
+     // infer recvCount shape
+     auto attrs = context->GetAttrs();
+-    OP_TILING_CHECK(attrs == nullptr, OP_LOGE(nodeName, "attrs is nullptr."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(attrs == nullptr, OPS_LOG_E(nodeName, "attrs is nullptr."), return ge::GRAPH_FAILED);
+ 
+     auto epRankSizePtr = attrs->GetAttrPointer<int64_t>(ATTR_EP_RANK_SIZE_INDEX);
+     auto epRankIdPtr = attrs->GetAttrPointer<int64_t>(ATTR_EP_RANK_ID_INDEX);
+     auto moeExpertNumPtr = attrs->GetAttrPointer<int64_t>(ATTR_MOE_EXPERT_NUM_INDEX);
+     auto sharedExpertRankNumPtr = attrs->GetAttrPointer<int64_t>(ATTR_SHARE_EXPERT_RANK_NUM_INDEX);
+ 
+-    OP_TILING_CHECK(epRankIdPtr == nullptr, OP_LOGE(nodeName, "epRankIdPtr is nullptr."), return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(moeExpertNumPtr == nullptr, OP_LOGE(nodeName, "moeExpertNumPtr is nullptr."),
+-                    return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(epRankSizePtr == nullptr, OP_LOGE(nodeName, "epRankSizePtr is nullptr."), return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(sharedExpertRankNumPtr == nullptr, OP_LOGE(nodeName, "sharedExpertRankNumPtr is nullptr."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(epRankIdPtr == nullptr, OPS_LOG_E(nodeName, "epRankIdPtr is nullptr."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(moeExpertNumPtr == nullptr, OPS_LOG_E(nodeName, "moeExpertNumPtr is nullptr."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(epRankSizePtr == nullptr, OPS_LOG_E(nodeName, "epRankSizePtr is nullptr."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(sharedExpertRankNumPtr == nullptr, OPS_LOG_E(nodeName, "sharedExpertRankNumPtr is nullptr."),
++               return ge::GRAPH_FAILED);
+     uint32_t epRankSize = static_cast<uint32_t>(*epRankSizePtr);
+     uint32_t moeExpertNum = static_cast<uint32_t>(*moeExpertNumPtr);
+     uint32_t epRankId = static_cast<uint32_t>(*epRankIdPtr);
+diff --git a/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp b/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+index 638dcb603..e6016938a 100644
+--- a/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
++++ b/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+@@ -10,7 +10,8 @@
+ #include <cstdint>
+ #include <string>
+ 
+-#include "error_log.h"
++#include "ops_log.h"
++#include "ops_error.h"
+ #include "graph/utils/type_utils.h"
+ #include "register/op_def_registry.h"
+ #include "../op_kernel/fused_deep_moe_tiling.h"
+@@ -20,27 +21,37 @@
+ #define GM_ALIGN_SIZE 512
+ #define ENABLE_TILING_CHECK
+ 
++#ifndef OPS_UTILS_LOG_SUB_MOD_NAME
++#define OPS_UTILS_LOG_SUB_MOD_NAME "FUSED_DEEP_MOE"
++#endif
++
++#ifndef OPS_UTILS_LOG_PACKAGE_TYPE
++#define OPS_UTILS_LOG_PACKAGE_TYPE "DEEPEP_OPS"
++#endif
++
+ using namespace ge;
++using namespace ops;
++
+ namespace {
+ class Mc2TilingUtils
+ {
+ public:
+ #define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
+-    static uint64_t GetMaxWindowSize()
++    static uint64_t GetMaxWindowSize(const char *nodeName)
+     {
+         uint16_t defaultWindowSize = 200;
+         if (getenv(HCCL_BUFFSIZE) == nullptr) {
+-            OP_LOGD("", "Env HCCL_BUFFSIZE don't set");
++            OPS_LOG_D(nodeName, "Env HCCL_BUFFSIZE don't set");
+         } else {
+             try {
+                 std::string envStr(getenv(HCCL_BUFFSIZE));
+                 defaultWindowSize = std::stoi(envStr);
+             } catch (...) {
+-                OP_LOGE("", "Unknown Exception encountered when parser env HCCL_BUFFERSIZE");
++                OPS_LOG_E(nodeName, "Unknown Exception encountered when parser env HCCL_BUFFERSIZE");
+             }
+         }
+         const uint64_t maxWindowSize = static_cast<uint64_t>(defaultWindowSize) * 1024UL * 1024UL;
+-        OP_LOGI("", "Get maxWindowSize is %lu", maxWindowSize);
++        OPS_LOG_I(nodeName, "Get maxWindowSize is %lu", maxWindowSize);
+         return maxWindowSize;
+     }
+ };
+@@ -100,51 +111,49 @@ static ge::graphStatus CheckTensorShape(gert::TilingContext *context, const char
+ 
+     uint32_t localExpertNum = epRankId < sharedExpertRankNum ? 1 : moeExpertNumPerRank;
+     const gert::StorageShape *gmm1WeightStorageShape = context->GetInputShape(INPUT_GMM1_WEIGHT_INDEX);
+-    OP_TILING_CHECK(gmm1WeightStorageShape == nullptr, OP_LOGE(nodeName, "gmm1 weight shape is null."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm1WeightStorageShape == nullptr, OPS_LOG_E(nodeName, "gmm1 weight shape is null."),
++               return ge::GRAPH_FAILED);
+     const int64_t gmm1WeightDim0 = gmm1WeightStorageShape->GetStorageShape().GetDim(0);
+-    OP_TILING_CHECK(gmm1WeightDim0 != localExpertNum,
+-                    OP_LOGE(nodeName, "gmm1Weight Dim0 must be expert number in current rank."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm1WeightDim0 != localExpertNum,
++               OPS_LOG_E(nodeName, "gmm1Weight Dim0 must be expert number in current rank."), return ge::GRAPH_FAILED);
+ 
+     const gert::StorageShape *gmm1WeightScaleStorageShape = context->GetInputShape(INPUT_GMM1_WEIGHT_SCALE_INDEX);
+-    OP_TILING_CHECK(gmm1WeightScaleStorageShape == nullptr, OP_LOGE(nodeName, "gmm1 weight scale shape is null."),
+-                    return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(gmm1WeightScaleStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
+-                    OP_LOGE(nodeName, "gmm1 weight scale shape dims must be 2, but current dim num is %lu.",
+-                            gmm1WeightScaleStorageShape->GetStorageShape().GetDimNum()),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm1WeightScaleStorageShape == nullptr, OPS_LOG_E(nodeName, "gmm1 weight scale shape is null."),
++               return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm1WeightScaleStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
++               OPS_LOG_E(nodeName, "gmm1 weight scale shape dims must be 2, but current dim num is %lu.",
++                         gmm1WeightScaleStorageShape->GetStorageShape().GetDimNum()),
++               return ge::GRAPH_FAILED);
+     const int64_t gmm1WeightScaleDim0 = gmm1WeightScaleStorageShape->GetStorageShape().GetDim(0);
+-    OP_TILING_CHECK(gmm1WeightScaleDim0 != localExpertNum,
+-                    OP_LOGE(nodeName, "gmm1WeightScale Dim0 must be expert number in current rank."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm1WeightScaleDim0 != localExpertNum,
++               OPS_LOG_E(nodeName, "gmm1WeightScale Dim0 must be expert number in current rank."),
++               return ge::GRAPH_FAILED);
+     const int64_t gmm1WeightScaleDim1 = gmm1WeightScaleStorageShape->GetStorageShape().GetDim(1);
+-    OP_TILING_CHECK(gmm1WeightScaleDim1 != gmm1WeightDim2,
+-                    OP_LOGE(nodeName, "gmm1WeightScale Dim1 must be %lu(gmm1WeightDim2).", gmm1WeightDim2),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm1WeightScaleDim1 != gmm1WeightDim2,
++               OPS_LOG_E(nodeName, "gmm1WeightScale Dim1 must be %lu(gmm1WeightDim2).", gmm1WeightDim2),
++               return ge::GRAPH_FAILED);
+ 
+     const gert::StorageShape *gmm2WeightStorageShape = context->GetInputShape(INPUT_GMM2_WEIGHT_INDEX);
+-    OP_TILING_CHECK(gmm2WeightStorageShape == nullptr, OP_LOGE(nodeName, "gmm2 weight shape is null."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm2WeightStorageShape == nullptr, OPS_LOG_E(nodeName, "gmm2 weight shape is null."),
++               return ge::GRAPH_FAILED);
+     const int64_t gmm2WeightDim0 = gmm2WeightStorageShape->GetStorageShape().GetDim(0);
+-    OP_TILING_CHECK(gmm2WeightDim0 != localExpertNum,
+-                    OP_LOGE(nodeName, "gmm2Weight Dim0 must be expert number in current rank."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm2WeightDim0 != localExpertNum,
++               OPS_LOG_E(nodeName, "gmm2Weight Dim0 must be expert number in current rank."), return ge::GRAPH_FAILED);
+ 
+     const gert::StorageShape *gmm2WeightScaleStorageShape = context->GetInputShape(INPUT_GMM2_WEIGHT_SCALE_INDEX);
+-    OP_TILING_CHECK(gmm2WeightScaleStorageShape == nullptr, OP_LOGE(nodeName, "gmm2 weight scale shape is null."),
+-                    return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(gmm2WeightScaleStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
+-                    OP_LOGE(nodeName, "gmm2 weight scale shape dims must be 2, but current dim num is %lu.",
+-                            gmm2WeightScaleStorageShape->GetStorageShape().GetDimNum()),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm2WeightScaleStorageShape == nullptr, OPS_LOG_E(nodeName, "gmm2 weight scale shape is null."),
++               return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm2WeightScaleStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
++               OPS_LOG_E(nodeName, "gmm2 weight scale shape dims must be 2, but current dim num is %lu.",
++                         gmm2WeightScaleStorageShape->GetStorageShape().GetDimNum()),
++               return ge::GRAPH_FAILED);
+     const int64_t gmm2WeightScaleDim0 = gmm2WeightScaleStorageShape->GetStorageShape().GetDim(0);
+-    OP_TILING_CHECK(gmm2WeightScaleDim0 != localExpertNum,
+-                    OP_LOGE(nodeName, "gmm2WeightScale Dim0 must be expert number in current rank."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm2WeightScaleDim0 != localExpertNum,
++               OPS_LOG_E(nodeName, "gmm2WeightScale Dim0 must be expert number in current rank."),
++               return ge::GRAPH_FAILED);
+     const int64_t gmm2WeightScaleDim1 = gmm2WeightScaleStorageShape->GetStorageShape().GetDim(1);
+-    OP_TILING_CHECK(gmm2WeightScaleDim1 != h, OP_LOGE(nodeName, "gmm2WeightScale Dim1 must be %u.", h),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm2WeightScaleDim1 != h, OPS_LOG_E(nodeName, "gmm2WeightScale Dim1 must be %u.", h),
++               return ge::GRAPH_FAILED);
+ 
+     return ge::GRAPH_SUCCESS;
+ }
+@@ -152,38 +161,38 @@ static ge::graphStatus CheckTensorShape(gert::TilingContext *context, const char
+ static ge::graphStatus CheckData(const char *nodeName, FusedDeepMoeTilingData &tilingData)
+ {
+     uint32_t batchSize = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.bs;
+-    OP_TILING_CHECK(batchSize < MIN_BATCH_SIZE, OP_LOGE(nodeName, "batchSize(bs) must >= %d.", MIN_BATCH_SIZE),
+-                    return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(batchSize > MAX_BATCH_SIZE, OP_LOGE(nodeName, "batchSize(bs) must <= %d.", MAX_BATCH_SIZE),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(batchSize < MIN_BATCH_SIZE, OPS_LOG_E(nodeName, "batchSize(bs) must >= %d.", MIN_BATCH_SIZE),
++               return ge::GRAPH_FAILED);
++    OPS_ERR_IF(batchSize > MAX_BATCH_SIZE, OPS_LOG_E(nodeName, "batchSize(bs) must <= %d.", MAX_BATCH_SIZE),
++               return ge::GRAPH_FAILED);
+     uint32_t tokenLength = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.h;
+-    OP_TILING_CHECK(
++    OPS_ERR_IF(
+         tokenLength < MIN_TOKEN_LENGTH || tokenLength > MAX_TOKEN_LENGTH,
+-        OP_LOGE(nodeName, "tokenLength(h) is invalid. Only support [%u, %u].", MIN_TOKEN_LENGTH, MAX_TOKEN_LENGTH),
++        OPS_LOG_E(nodeName, "tokenLength(h) is invalid. Only support [%u, %u].", MIN_TOKEN_LENGTH, MAX_TOKEN_LENGTH),
+         return ge::GRAPH_FAILED);
+     uint32_t gmm1HLen = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.gmm1HLen;
+-    OP_TILING_CHECK(
++    OPS_ERR_IF(
+         gmm1HLen < MIN_GMM1_HIDDEN || gmm1HLen > MAX_GMM1_HIDDEN,
+-        OP_LOGE(nodeName, "gmm1 hidden size is invalid. Only support [%u, %u].", MIN_GMM1_HIDDEN, MAX_GMM1_HIDDEN),
++        OPS_LOG_E(nodeName, "gmm1 hidden size is invalid. Only support [%u, %u].", MIN_GMM1_HIDDEN, MAX_GMM1_HIDDEN),
+         return ge::GRAPH_FAILED);
+     uint32_t topK = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.k;
+-    OP_TILING_CHECK(topK > SUPPORT_TOP_K, OP_LOGE(nodeName, "topK(k) must <= %d.", SUPPORT_TOP_K),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(topK > SUPPORT_TOP_K, OPS_LOG_E(nodeName, "topK(k) must <= %d.", SUPPORT_TOP_K),
++               return ge::GRAPH_FAILED);
+     uint32_t globalBatchSize = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.globalBs;
+     uint32_t epRankSize = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.epRankSize;
+     if (globalBatchSize == 0) {
+         globalBatchSize = epRankSize * batchSize;
+         tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.globalBs = globalBatchSize;
+     } else {
+-        OP_TILING_CHECK(globalBatchSize < 0, OP_LOGE(nodeName, "globalBatchSize must >= 0."), return ge::GRAPH_FAILED);
+-        OP_TILING_CHECK(globalBatchSize % epRankSize > 0,
+-                        OP_LOGE(nodeName, "globalBatchSize must be divisible by epRankSize."), return ge::GRAPH_FAILED);
++        OPS_ERR_IF(globalBatchSize < 0, OPS_LOG_E(nodeName, "globalBatchSize must >= 0."), return ge::GRAPH_FAILED);
++        OPS_ERR_IF(globalBatchSize % epRankSize > 0,
++                   OPS_LOG_E(nodeName, "globalBatchSize must be divisible by epRankSize."), return ge::GRAPH_FAILED);
+     }
+     uint32_t moeExpertNumPerRank = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.moeExpertNumPerRank;
+     uint32_t recvAivNum = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.aivNum / 2;
+-    OP_TILING_CHECK(
++    OPS_ERR_IF(
+         moeExpertNumPerRank > recvAivNum,
+-        OP_LOGE(nodeName, "moeExpertNumPerRank must <= (aivNum/2)(%u), but got %u", recvAivNum, moeExpertNumPerRank),
++        OPS_LOG_E(nodeName, "moeExpertNumPerRank must <= (aivNum/2)(%u), but got %u", recvAivNum, moeExpertNumPerRank),
+         return ge::GRAPH_FAILED);
+     return ge::GRAPH_SUCCESS;
+ }
+@@ -192,7 +201,7 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+                                                FusedDeepMoeTilingData &tilingData, std::string &groupEp)
+ {
+     auto attrs = context->GetAttrs();
+-    OP_TILING_CHECK(attrs == nullptr, OP_LOGE(nodeName, "attrs is nullptr."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(attrs == nullptr, OPS_LOG_E(nodeName, "attrs is nullptr."), return ge::GRAPH_FAILED);
+ 
+     auto groupEpPtr = attrs->GetAttrPointer<char>(static_cast<int>(ATTR_GROUP_EP_INDEX));
+     auto epRankSizePtr = attrs->GetAttrPointer<int64_t>(ATTR_EP_RANK_SIZE_INDEX);
+@@ -211,15 +220,15 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+     uint32_t moeExpertNumPerRank = moeExpertNum / (epRankSize - sharedExpertRankNum);
+ 
+ #ifdef ENABLE_TILING_CHECK
+-    OP_TILING_CHECK(epRankId < 0, OP_LOGE(nodeName, "epRankId must >= 0."), return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(epRankId >= epRankSize, OP_LOGE(nodeName, "epRankId must < epRankSize."), return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(moeExpertNum > MAX_MOE_EXERT_NUM, OP_LOGE(nodeName, "moeExpertNum must <= %d.", MAX_MOE_EXERT_NUM),
+-                    return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(moeExpertNum <= 0, OP_LOGE(nodeName, "moeExpertNum must > 0."), return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(sharedExpertNum != 1, OP_LOGE(nodeName, "sharedExpertNum must be 1."), return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(moeExpertNum % (epRankSize - sharedExpertRankNum) != 0,
+-                    OP_LOGE(nodeName, "moeExpertNum must be divisible by (epRankSize - sharedExpertRankNum)."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(epRankId < 0, OPS_LOG_E(nodeName, "epRankId must >= 0."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(epRankId >= epRankSize, OPS_LOG_E(nodeName, "epRankId must < epRankSize."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(moeExpertNum > MAX_MOE_EXERT_NUM, OPS_LOG_E(nodeName, "moeExpertNum must <= %d.", MAX_MOE_EXERT_NUM),
++               return ge::GRAPH_FAILED);
++    OPS_ERR_IF(moeExpertNum <= 0, OPS_LOG_E(nodeName, "moeExpertNum must > 0."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(sharedExpertNum != 1, OPS_LOG_E(nodeName, "sharedExpertNum must be 1."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(moeExpertNum % (epRankSize - sharedExpertRankNum) != 0,
++               OPS_LOG_E(nodeName, "moeExpertNum must be divisible by (epRankSize - sharedExpertRankNum)."),
++               return ge::GRAPH_FAILED);
+ #endif
+ 
+     groupEp = std::string(groupEpPtr);
+@@ -237,7 +246,7 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+ static void SetHcommCfg(const gert::TilingContext *context, FusedDeepMoeTilingData *tiling, const std::string groupEp)
+ {
+     const char *nodeName = context->GetNodeName();
+-    OP_LOGD(nodeName, "FusedDeepMoe groupEp = %s", groupEp.c_str());
++    OPS_LOG_D(nodeName, "FusedDeepMoe groupEp = %s", groupEp.c_str());
+     uint32_t opType = OP_TYPE_ALL_TO_ALL;
+     std::string algConfigAllToAllStr = "AlltoAll=level0:fullmesh;level1:pairwise";
+     std::string algConfigAllGatherStr = "AllGather=level0:ring";
+@@ -251,7 +260,7 @@ static ge::graphStatus SetWorkSpace(gert::TilingContext *context, const char *no
+                                     FusedDeepMoeTilingData &tilingData)
+ {
+     size_t *workSpaces = context->GetWorkspaceSizes(1);
+-    OP_TILING_CHECK(workSpaces == nullptr, OP_LOGE(nodeName, "workSpaces is nullptr."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(workSpaces == nullptr, OPS_LOG_E(nodeName, "workSpaces is nullptr."), return ge::GRAPH_FAILED);
+     size_t maxTokenNum;
+     uint32_t epRankSize = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.epRankSize;
+     uint32_t epRankId = tilingData.disGmmDeqSwigluQuantGmmDeqComInfo.epRankId;
+@@ -293,34 +302,34 @@ static ge::graphStatus FusedDeepMoeTilingFuncImpl(gert::TilingContext *context)
+ {
+     const char *nodeName = context->GetNodeName();
+     FusedDeepMoeTilingData *tilingData = context->GetTilingData<FusedDeepMoeTilingData>();
+-    OP_TILING_CHECK(tilingData == nullptr, OP_LOGE(nodeName, "tilingData is nullptr."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(tilingData == nullptr, OPS_LOG_E(nodeName, "tilingData is nullptr."), return ge::GRAPH_FAILED);
+     std::string groupEp = "";
+ 
+     const gert::StorageShape *xStorageShape = context->GetInputShape(INPUT_X_INDEX);
+-    OP_TILING_CHECK(xStorageShape == nullptr, OP_LOGE(nodeName, "x shape is null."), return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(xStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
+-                    OP_LOGE(nodeName, "x shape dims must be 2, but current dim num is %lu.",
+-                            xStorageShape->GetStorageShape().GetDimNum()),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(xStorageShape == nullptr, OPS_LOG_E(nodeName, "x shape is null."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(xStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
++               OPS_LOG_E(nodeName, "x shape dims must be 2, but current dim num is %lu.",
++                         xStorageShape->GetStorageShape().GetDimNum()),
++               return ge::GRAPH_FAILED);
+     const int64_t batchSize = xStorageShape->GetStorageShape().GetDim(0);
+     tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.bs = batchSize;
+     const int64_t hiddenSize = xStorageShape->GetStorageShape().GetDim(1);
+     tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.h = hiddenSize;
+ 
+     const gert::StorageShape *expertIdsStorageShape = context->GetInputShape(INPUT_EXPERT_IDS_INDEX);
+-    OP_TILING_CHECK(expertIdsStorageShape == nullptr, OP_LOGE(nodeName, "expertIds shape is null."),
+-                    return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(expertIdsStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
+-                    OP_LOGE(nodeName, "expertIds shape dims must be 2, but current dim num is %lu.",
+-                            expertIdsStorageShape->GetStorageShape().GetDimNum()),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(expertIdsStorageShape == nullptr, OPS_LOG_E(nodeName, "expertIds shape is null."),
++               return ge::GRAPH_FAILED);
++    OPS_ERR_IF(expertIdsStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
++               OPS_LOG_E(nodeName, "expertIds shape dims must be 2, but current dim num is %lu.",
++                         expertIdsStorageShape->GetStorageShape().GetDimNum()),
++               return ge::GRAPH_FAILED);
+     const int64_t topK = expertIdsStorageShape->GetStorageShape().GetDim(1);
+     tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.k = topK;
+-    OP_TILING_CHECK(GetAttrAndSetTilingData(context, nodeName, *tilingData, groupEp) != ge::GRAPH_SUCCESS,
+-                    OP_LOGE(nodeName, "Get attr and set tiling data failed."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(GetAttrAndSetTilingData(context, nodeName, *tilingData, groupEp) != ge::GRAPH_SUCCESS,
++               OPS_LOG_E(nodeName, "Get attr and set tiling data failed."), return ge::GRAPH_FAILED);
+     const gert::StorageShape *gmm1WeightStorageShape = context->GetInputShape(INPUT_GMM1_WEIGHT_INDEX);
+-    OP_TILING_CHECK(gmm1WeightStorageShape == nullptr, OP_LOGE(nodeName, "gmm1Weight shape is null."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(gmm1WeightStorageShape == nullptr, OPS_LOG_E(nodeName, "gmm1Weight shape is null."),
++               return ge::GRAPH_FAILED);
+     tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.gmm1HLen = gmm1WeightStorageShape->GetOriginShape().GetDim(TWO_DIMS);
+     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+     uint32_t aicNum = ascendcPlatform.GetCoreNumAic();
+@@ -328,7 +337,7 @@ static ge::graphStatus FusedDeepMoeTilingFuncImpl(gert::TilingContext *context)
+     tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.aicNum = aicNum;
+     tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.aivNum = aivNum;
+ 
+-    uint64_t maxWindowSize = Mc2TilingUtils::GetMaxWindowSize();
++    uint64_t maxWindowSize = Mc2TilingUtils::GetMaxWindowSize(nodeName);
+     uint64_t epRankSize = static_cast<uint64_t>(tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.epRankSize);
+     uint64_t maxBs = static_cast<uint64_t>(tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.globalBs) / epRankSize;
+     uint64_t moeExpertNumPerRank =
+@@ -336,22 +345,22 @@ static ge::graphStatus FusedDeepMoeTilingFuncImpl(gert::TilingContext *context)
+     uint64_t tokenLength = static_cast<uint64_t>(tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.h);
+     uint64_t actualSize =
+         epRankSize * maxBs * moeExpertNumPerRank * tokenLength * TOKEN_DTYPE_BYTE_SIZE * DOUBLE_BUFFER;
+-    OP_TILING_CHECK((actualSize > maxWindowSize),
+-                    OP_LOGE(nodeName,
+-                            "HCCL_BUFFSIZE is too SMALL, epRankSize = %lu, maxBs = %lu, moeExpertNumPerRank = %lu, "
+-                            " tokenLength = %lu, "
+-                            " NEEDED_HCCL_BUFFSIZE(epRankSize * maxBs * moeExpertNumPerRank * tokenLength * "
+-                            " TOKEN_DTYPE_BYTE_SIZE * DOUBLE_BUFFER) = %luMB, HCCL_BUFFSIZE=%luMB.",
+-                            epRankSize, maxBs, moeExpertNumPerRank, tokenLength, actualSize / MB_SIZE + 1UL,
+-                            maxWindowSize / MB_SIZE),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF((actualSize > maxWindowSize),
++               OPS_LOG_E(nodeName,
++                         "HCCL_BUFFSIZE is too SMALL, epRankSize = %lu, maxBs = %lu, moeExpertNumPerRank = %lu, "
++                         " tokenLength = %lu, "
++                         " NEEDED_HCCL_BUFFSIZE(epRankSize * maxBs * moeExpertNumPerRank * tokenLength * "
++                         " TOKEN_DTYPE_BYTE_SIZE * DOUBLE_BUFFER) = %luMB, HCCL_BUFFSIZE=%luMB.",
++                         epRankSize, maxBs, moeExpertNumPerRank, tokenLength, actualSize / MB_SIZE + 1UL,
++                         maxWindowSize / MB_SIZE),
++               return ge::GRAPH_FAILED);
+ 
+ #ifdef ENABLE_TILING_CHECK
+-    OP_TILING_CHECK(CheckData(nodeName, *tilingData) != ge::GRAPH_SUCCESS, OP_LOGE(nodeName, "CheckData failed."),
+-                    return ge::GRAPH_FAILED);
++    OPS_ERR_IF(CheckData(nodeName, *tilingData) != ge::GRAPH_SUCCESS, OPS_LOG_E(nodeName, "CheckData failed."),
++               return ge::GRAPH_FAILED);
+ #endif
+-    OP_TILING_CHECK(SetWorkSpace(context, nodeName, *tilingData) != ge::GRAPH_SUCCESS,
+-                    OP_LOGE(nodeName, "Tiling set workspace failed."), return ge::GRAPH_FAILED);
++    OPS_ERR_IF(SetWorkSpace(context, nodeName, *tilingData) != ge::GRAPH_SUCCESS,
++               OPS_LOG_E(nodeName, "Tiling set workspace failed."), return ge::GRAPH_FAILED);
+     SetHcommCfg(context, tilingData, groupEp);
+     if (tilingData->disGmmDeqSwigluQuantGmmDeqComInfo.moeExpertNumPerRank == 1) {
+         context->SetTilingKey(0);
+diff --git a/csrc/deepep/ops/op_host/ops_error.h b/csrc/deepep/ops/op_host/ops_error.h
+new file mode 100644
+index 000000000..cb1556722
+--- /dev/null
++++ b/csrc/deepep/ops/op_host/ops_error.h
+@@ -0,0 +1,19 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
++ * Description: FusedDeepMoe tiling function implementation file
++ * Author: Wang Yibo
++ * Create: 2026-01-15
++ * Note:
++ * History: 2026-01-15 create log implementation file
++ */
++
++#pragma once
++
++#include "ops_log.h"
++
++/* base error */
++#define OPS_REPORT_VECTOR_INNER_ERR(OPS_DESC, ...) OPS_INNER_ERR_STUB("E89999", OPS_DESC, __VA_ARGS__)
++#define OPS_REPORT_CUBE_INNER_ERR(OPS_DESC, ...) OPS_INNER_ERR_STUB("E69999", OPS_DESC, __VA_ARGS__)
++
++/* conditional error */
++#define OPS_ERR_IF(COND, LOG_FUNC, EXPR) OPS_LOG_STUB_IF(COND, LOG_FUNC, EXPR)
+diff --git a/csrc/deepep/ops/op_host/ops_log.h b/csrc/deepep/ops/op_host/ops_log.h
+new file mode 100644
+index 000000000..0c391083a
+--- /dev/null
++++ b/csrc/deepep/ops/op_host/ops_log.h
+@@ -0,0 +1,53 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
++ * Description: FusedDeepMoe tiling function implementation file
++ * Author: Wang Yibo
++ * Create: 2026-01-15
++ * Note:
++ * History: 2026-01-15 create log implementation file
++ */
++
++#pragma once
++
++#include "dfx_base.h"
++
++/* base log */
++#define OPS_LOG_D(OPS_DESC, ...) OPS_LOG_STUB_D(OPS_DESC, __VA_ARGS__)
++#define OPS_LOG_I(OPS_DESC, ...) OPS_LOG_STUB_I(OPS_DESC, __VA_ARGS__)
++#define OPS_LOG_W(OPS_DESC, ...) OPS_LOG_STUB_W(OPS_DESC, __VA_ARGS__)
++#define OPS_LOG_E(OPS_DESC, ...) OPS_INNER_ERR_STUB("EZ9999", OPS_DESC, __VA_ARGS__)
++#define OPS_LOG_E_WITHOUT_REPORT(OPS_DESC, ...) OPS_LOG_STUB_E(OPS_DESC, __VA_ARGS__)
++#define OPS_LOG_EVENT(OPS_DESC, ...) OPS_LOG_STUB_EVENT(OPS_DESC, __VA_ARGS__)
++
++/* entire log
++ * output long log, log will be divided by line if too long */
++#define OPS_LOG_FULL(LEVEL, OPS_DESC, ...) OPS_LOG_STUB_FULL(LEVEL, OPS_DESC, __VA_ARGS__)
++#define OPS_LOG_D_FULL(OPS_DESC, ...) OPS_LOG_STUB_FULL(DLOG_DEBUG, OPS_DESC, __VA_ARGS__)
++#define OPS_LOG_I_FULL(OPS_DESC, ...) OPS_LOG_STUB_FULL(DLOG_INFO, OPS_DESC, __VA_ARGS__)
++#define OPS_LOG_W_FULL(OPS_DESC, ...) OPS_LOG_STUB_FULL(DLOG_WARN, OPS_DESC, __VA_ARGS__)
++
++/* conditional log */
++#define OPS_LOG_D_IF(COND, OP_DESC, EXPR, ...) OPS_LOG_STUB_IF(COND, OPS_LOG_D(OP_DESC, __VA_ARGS__), EXPR)
++#define OPS_LOG_I_IF(COND, OP_DESC, EXPR, ...) OPS_LOG_STUB_IF(COND, OPS_LOG_I(OP_DESC, __VA_ARGS__), EXPR)
++#define OPS_LOG_W_IF(COND, OP_DESC, EXPR, ...) OPS_LOG_STUB_IF(COND, OPS_LOG_W(OP_DESC, __VA_ARGS__), EXPR)
++#define OPS_LOG_E_IF(COND, OP_DESC, EXPR, ...) OPS_LOG_STUB_IF(COND, OPS_LOG_E(OP_DESC, __VA_ARGS__), EXPR)
++#define OPS_LOG_EVENT_IF(COND, OP_DESC, EXPR, ...) OPS_LOG_STUB_IF(COND, OPS_LOG_EVENT(OP_DESC, __VA_ARGS__), EXPR)
++
++#define OPS_LOG_E_IF_NULL(OPS_DESC, PTR, EXPR)                         \
++    if (__builtin_expect((PTR) == nullptr, 0)) {                       \
++        OPS_LOG_STUB_E(OPS_DESC, "%s is nullptr!", #PTR);              \
++        OPS_CALL_ERR_STUB("EZ9999", OPS_DESC, "%s is nullptr!", #PTR); \
++        EXPR;                                                          \
++    }
++
++#define OPS_CHECK(COND, LOG_FUNC, EXPR) \
++    if (COND) {                         \
++        LOG_FUNC;                       \
++        EXPR;                           \
++    }
++
++#define OP_CHECK(COND, LOG_FUNC, EXPR) \
++    if (COND) {                        \
++        LOG_FUNC;                      \
++        EXPR;                          \
++    }

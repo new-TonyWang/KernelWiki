@@ -1,0 +1,820 @@
+diff --git a/csrc/CMakeLists.txt b/csrc/CMakeLists.txt
+index 70b9d62fe..a41e40d92 100644
+--- a/csrc/CMakeLists.txt
++++ b/csrc/CMakeLists.txt
+@@ -6,6 +6,7 @@ FILE(GLOB OP_SRCS
+     ${PROJECT_OP_SRC_BASE}/pytorch_extensions.cpp
+     ${PROJECT_OP_SRC_BASE}/helloworld/op_host/helloworld.cpp
+     ${PROJECT_OP_SRC_BASE}/cache_location_assign/op_host/cache_loc_assign.cpp
++    ${PROJECT_OP_SRC_BASE}/alloc_extend/op_host/alloc_extend_tiling.cpp
+     ${PROJECT_OP_SRC_BASE}/assign_cache_op/op_host/assign_cache.cpp
+     ${PROJECT_OP_SRC_BASE}/mla_preprocess/op_host/mla_preprocess.cpp
+     )
+@@ -20,9 +21,9 @@ ascendc_library(no_workspace_kernel STATIC
+     ${PROJECT_OP_SRC_BASE}/assign_cache_op/op_kernel/assign_cache_op.cpp
+ )
+ 
+-
+ ascendc_library(workspace_kernel STATIC
+     ${PROJECT_OP_SRC_BASE}/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp
++    ${PROJECT_OP_SRC_BASE}/alloc_extend/op_kernel/alloc_extend_kernel.cpp
+ )
+ 
+ ascendc_compile_definitions(workspace_kernel PRIVATE
+@@ -56,4 +57,4 @@ target_include_directories(${OP_PLUGIN_NAME} PRIVATE
+         ${TORCH_DIR}/include
+         ${TORCH_DIR}/include/torch/csrc/api/include
+         ${TORCH_NPU_DIR}/include
+-)
+\ No newline at end of file
++)
+diff --git a/csrc/alloc_extend/op_host/alloc_extend_tiling.cpp b/csrc/alloc_extend/op_host/alloc_extend_tiling.cpp
+new file mode 100644
+index 000000000..66d3b0197
+--- /dev/null
++++ b/csrc/alloc_extend/op_host/alloc_extend_tiling.cpp
+@@ -0,0 +1,63 @@
++// Licensed under the BSD 3-Clause License  (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++#include "defines.h"
++#include "alloc_extend_tiling.h"
++#include "tiling/platform/platform_ascendc.h"
++#include "aclrtlaunch_alloc_extend.h"
++#include "torch_helper.h"
++
++namespace sglang {
++namespace npu_kernel {
++constexpr uint32_t PADDING_BYTE = 32U;
++
++at::Tensor get_tiling(int32_t &block_dim, int32_t &workspace_size, const int64_t &page_size, 
++    int32_t &batch_size, int64_t &total_extend_tokens)
++{
++    auto ascendc_platform = platform_ascendc::PlatformAscendCManager::GetInstance();
++    int32_t max_aiv_core = static_cast<int32_t>(ascendc_platform->GetCoreNumAiv());
++    block_dim = std::min(max_aiv_core, batch_size);
++    workspace_size = static_cast<int32_t>(ascendc_platform->GetLibApiWorkSpaceSize());
++    
++    int32_t tiling_size = (sizeof(AllocExtendTilingData) + PADDING_BYTE - 1) / PADDING_BYTE * PADDING_BYTE;
++    auto tiling_buffer = at::empty({tiling_size}, at::TensorOptions().dtype(at::kByte).device(at::kCPU));
++    
++    AllocExtendTilingData *tiling_data = reinterpret_cast<AllocExtendTilingData *>(tiling_buffer.data_ptr());
++    tiling_data->batch_size = batch_size;
++    tiling_data->page_size =  static_cast<int32_t>(page_size);;
++    tiling_data->used_core_num = block_dim;
++    tiling_data->total_extend_tokens = total_extend_tokens;
++    
++    auto tiling_tensor = TorchNpuHepler::CopyTensorHostToDevice(tiling_buffer);
++    return tiling_tensor;
++}
++
++HOST_API void alloc_extend(const at::Tensor &pre_lens, const at::Tensor &seq_lens,
++    const at::Tensor &last_loc, const at::Tensor &free_pages, int64_t pages_size, at::Tensor &out_indices, at::Tensor &values)
++{
++    if (pre_lens.options().dtype() != at::kLong || seq_lens.options().dtype() != at::kLong ||
++        last_loc.options().dtype() != at::kLong || free_pages.options().dtype() != at::kLong ||
++        out_indices.options().dtype() != at::kLong) {
++        throw std::invalid_argument("Only support int64 input dtype");
++    }
++    int32_t block_dim;
++    int32_t workspace_size;
++    int32_t batch_size = pre_lens.sizes()[0];
++    int64_t total_extend_tokens = out_indices.sizes()[0];  // 64k
++
++    at::Tensor tiling_tensor = get_tiling(block_dim, workspace_size, pages_size, batch_size, total_extend_tokens);
++
++    auto workspace_tensor = 
++        at::empty({workspace_size}, at::TensorOptions().dtype(at::kByte).device(pre_lens.options().device()));
++    /* lauch the kernal function via torch */
++    EXEC_KERNEL_CMD(alloc_extend, block_dim, pre_lens, seq_lens, last_loc, free_pages, out_indices, values, workspace_tensor, tiling_tensor);
++}
++
++}
++}
+diff --git a/csrc/alloc_extend/op_host/alloc_extend_tiling.h b/csrc/alloc_extend/op_host/alloc_extend_tiling.h
+new file mode 100644
+index 000000000..8830a80f6
+--- /dev/null
++++ b/csrc/alloc_extend/op_host/alloc_extend_tiling.h
+@@ -0,0 +1,28 @@
++// Licensed under the BSD 3-Clause License  (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#ifndef ALLOC_EXTENT_TILING_H
++#define ALLOC_EXTENT_TILING_H
++
++#include <cstdint>
++namespace sglang {
++namespace npu_kernel {
++
++struct AllocExtendTilingData {
++    int32_t batch_size;
++    int32_t page_size;
++    int32_t used_core_num;
++    int64_t total_extend_tokens;
++};
++
++}
++}
++
++#endif  // ALLOC_EXTENT_TILING_H
+diff --git a/csrc/alloc_extend/op_kernel/alloc_extend_kernel.cpp b/csrc/alloc_extend/op_kernel/alloc_extend_kernel.cpp
+new file mode 100644
+index 000000000..67458ea0c
+--- /dev/null
++++ b/csrc/alloc_extend/op_kernel/alloc_extend_kernel.cpp
+@@ -0,0 +1,189 @@
++// Licensed under the BSD 3-Clause License  (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++/* include file of ascendc */
++#include "kernel_operator.h"
++#include "../op_host/alloc_extend_tiling.h"
++/* tensor num for each queue */
++constexpr int32_t BUFFER_NUM = 1;
++constexpr int64_t byteAlign = 32;
++
++__aicore__ inline uint32_t ceil_div(int64_t a, int64_t b)
++{
++    if (b == 0)
++        return a;
++    return (a + b - 1) / b;
++}
++
++class KernelAllocExtent {
++public:
++    __aicore__ inline KernelAllocExtent() {}
++    __aicore__ inline void Init(GM_ADDR pre_lens_in, GM_ADDR seq_lens_in, GM_ADDR last_loc_in,
++        GM_ADDR free_pages_in, GM_ADDR out_indices_in, GM_ADDR values_in, 
++        GM_ADDR workspace_in, GM_ADDR tiling_gm_in) {
++        auto tiling_gm = reinterpret_cast<__gm__ sglang::npu_kernel::AllocExtendTilingData *>(tiling_gm_in);
++        this->batch_size = tiling_gm->batch_size;
++        this->page_size = tiling_gm->page_size;
++        this->used_core_num = tiling_gm->used_core_num;
++        this->total_extend_tokens = tiling_gm->total_extend_tokens;
++        this->core_id = AscendC::GetBlockIdx();
++        this->total_block_num = AscendC::GetBlockNum();
++        
++        this->pre_lens_gm.SetGlobalBuffer((__gm__ int64_t*)pre_lens_in, this->batch_size);  // total data
++        this->seq_lens_gm.SetGlobalBuffer((__gm__ int64_t*)seq_lens_in, this->batch_size);
++        this->last_loc_gm.SetGlobalBuffer((__gm__ int64_t*)last_loc_in, this->batch_size);
++        this->free_pages_gm.SetGlobalBuffer((__gm__ int64_t*)free_pages_in);
++        this->out_indices_gm.SetGlobalBuffer((__gm__ int64_t*)out_indices_in, this->total_extend_tokens);
++        this->values_gm.SetGlobalBuffer((__gm__ int64_t*)values_in);
++        
++        this->total_size_aligned = ceil_div(this->batch_size * sizeof(int64_t), byteAlign) * byteAlign;
++        this->pipe.InitBuffer(this->input_que, BUFFER_NUM, this->total_size_aligned * 3);
++    }
++    __aicore__ inline void Process() {
++        for (int32_t task_id = this->core_id; task_id < this->batch_size; task_id += this->total_block_num) {
++            CopyIn();
++            Compute(task_id);
++            CopyOut();
++        }
++    }
++private:
++    __aicore__ inline void CopyIn() {
++        // pad align copy
++        AscendC::LocalTensor<int64_t> pre_lens_ub = this->input_que.AllocTensor<int64_t>();
++        AscendC::DataCopyExtParams copyParams{1, static_cast<uint32_t>(this->batch_size * sizeof(int64_t)), 0, 0, 0};
++        AscendC::DataCopyPadExtParams<int64_t> padParams{true, 0, 0, 0};
++        
++        AscendC::DataCopyPad(pre_lens_ub, this->pre_lens_gm, copyParams, padParams);
++        AscendC::DataCopyPad(pre_lens_ub[this->total_size_aligned], this->seq_lens_gm, copyParams, padParams);
++        AscendC::DataCopyPad(pre_lens_ub[this->total_size_aligned * 2], this->last_loc_gm, copyParams, padParams);
++        this->input_que.EnQue(pre_lens_ub);
++    }
++    __aicore__ inline void Compute(int64_t task_id) {
++        AscendC::LocalTensor<int64_t> pre_lens_ub = input_que.DeQue<int64_t>();
++        AscendC::LocalTensor<int64_t> seq_lens_ub = pre_lens_ub[this->total_size_aligned];
++        AscendC::LocalTensor<int64_t> last_loc_ub = pre_lens_ub[this->total_size_aligned * 2];
++    
++        int64_t extend_lens_sum = 0;
++        int64_t num_new_pages_sum = 0;
++        int64_t cur_extend_len = 0;
++        int64_t cur_need_pages = 0;
++        int64_t cur_seq = 0;
++        int64_t cur_pre_seq = 0;
++        for (int i = 0; i < task_id + 1; i++) {
++            cur_seq = seq_lens_ub.GetValue(i);
++            cur_pre_seq = pre_lens_ub.GetValue(i);
++            cur_extend_len = cur_seq - cur_pre_seq;
++            cur_need_pages = (cur_seq + this->page_size - 1) / this->page_size - (cur_pre_seq + this->page_size - 1) / this->page_size;
++            extend_lens_sum = extend_lens_sum + cur_extend_len;
++            num_new_pages_sum = num_new_pages_sum + cur_need_pages;
++        }
++        
++        int64_t cur_tokens_align = ceil_div(cur_extend_len * sizeof(int64_t), byteAlign) * byteAlign;
++        this->cur_extend_len = cur_extend_len;
++        this->pipe.InitBuffer(this->out_indices_que, BUFFER_NUM, cur_tokens_align);  // 32 align, maybe >64k
++        
++        int64_t free_pages_align = ceil_div(num_new_pages_sum * sizeof(int64_t), byteAlign) * byteAlign;
++        this->pipe.InitBuffer(this->free_pages_que, BUFFER_NUM, free_pages_align);
++        AscendC::LocalTensor<int64_t> free_pages_ub = free_pages_que.AllocTensor<int64_t>();
++        AscendC::DataCopyExtParams copyParams{1, static_cast<uint32_t>(num_new_pages_sum * sizeof(int64_t)), 0, 0, 0};
++        AscendC::DataCopyPadExtParams<int64_t> padParams{true, 0, 0, 0};
++        AscendC::DataCopyPad(free_pages_ub, this->free_pages_gm, copyParams, padParams);
++        this->free_pages_que.EnQue(free_pages_ub);
++        AscendC::LocalTensor<int64_t> free_pages_ub_read = free_pages_que.DeQue<int64_t>();
++        
++        int64_t output_start_loc = extend_lens_sum - cur_extend_len;
++        this->output_start_loc = output_start_loc;
++        int64_t new_pages_start_loc = num_new_pages_sum - cur_need_pages;
++
++        // seq_lens, pre_lens // page_size
++        int64_t last_loc = last_loc_ub.GetValue(task_id);
++        int64_t num_part1 = (min(cur_seq, (cur_pre_seq + this->page_size - 1) / this->page_size * this->page_size) - cur_pre_seq);
++        AscendC::LocalTensor<int64_t> out_indices_ub = out_indices_que.AllocTensor<int64_t>();
++        for (int i = 0; i < num_part1; i++) {
++            out_indices_ub.SetValue(i, last_loc + 1 + i);
++        }
++        if (cur_pre_seq + num_part1 == cur_seq) {
++            out_indices_que.EnQue(out_indices_ub);
++            this->input_que.FreeTensor(pre_lens_ub);
++            this->free_pages_que.FreeTensor(free_pages_ub);
++            return;
++        }
++        int64_t num_part2 = cur_seq / this->page_size * this->page_size - (cur_pre_seq + this->page_size - 1) / this->page_size * this->page_size;
++        int64_t out_offset = num_part1;
++        if (num_part2 > 0) {
++            for (int page_i=0; page_i<num_part2 / this->page_size; page_i++) {
++                int64_t page_value = free_pages_ub_read.GetValue(new_pages_start_loc + page_i);
++                for (int i=0; i<this->page_size; i++) {
++                    out_indices_ub.SetValue(out_offset + page_i * this->page_size + i, page_value * this->page_size + i);
++                }
++            }
++        }
++        if (cur_pre_seq + num_part1 + num_part2 == cur_seq) {
++            out_indices_que.EnQue(out_indices_ub);
++            this->input_que.FreeTensor(pre_lens_ub);
++            this->free_pages_que.FreeTensor(free_pages_ub);
++            return;
++        }
++        int64_t num_part3 = cur_seq - cur_seq / this->page_size * this->page_size;
++
++        int64_t start_page_loc = free_pages_ub_read.GetValue(new_pages_start_loc + cur_need_pages - 1);
++        out_offset = num_part1 + num_part2;
++
++        for (int i = 0; i < num_part3; i++) {
++            out_indices_ub.SetValue(out_offset + i, start_page_loc * this->page_size + i);
++        }
++
++        if (task_id == this->batch_size -1) {
++            values_gm.SetValue(0, num_new_pages_sum);
++        }
++        out_indices_que.EnQue(out_indices_ub);
++        this->input_que.FreeTensor(pre_lens_ub);
++        this->free_pages_que.FreeTensor(free_pages_ub);
++    }
++    __aicore__ inline void CopyOut() {
++        AscendC::LocalTensor<int64_t> out_ub = out_indices_que.DeQue<int64_t>();
++        uint32_t copy_bytes = static_cast<uint32_t>(this->cur_extend_len) * sizeof(int64_t);  // overflow
++        AscendC::DataCopyExtParams copy_params = {1, copy_bytes, 0, 0, 0};
++        AscendC::DataCopyPad<int64_t>(this->out_indices_gm[this->output_start_loc], out_ub, copy_params);
++        out_indices_que.FreeTensor(out_ub);
++    }
++private:
++    AscendC::TPipe pipe;
++    AscendC::TQue<AscendC::TPosition::VECIN, 1> input_que; // 1 for que depth
++    AscendC::TQue<AscendC::TPosition::VECIN, 1> out_indices_que;
++    AscendC::TQue<AscendC::TPosition::VECIN, 1> free_pages_que;
++    AscendC::GlobalTensor<int64_t> pre_lens_gm;
++    AscendC::GlobalTensor<int64_t> seq_lens_gm;
++    AscendC::GlobalTensor<int64_t> last_loc_gm;
++    AscendC::GlobalTensor<int64_t> free_pages_gm;
++    AscendC::GlobalTensor<int64_t> out_indices_gm;
++    AscendC::GlobalTensor<int64_t> values_gm;
++
++    int32_t core_id;
++    int32_t total_block_num;
++    int32_t batch_size;
++    int32_t total_size_aligned;
++    int32_t page_size;
++    int32_t used_core_num;
++    int64_t total_extend_tokens;
++    int64_t output_start_loc;
++    int64_t cur_extend_len;
++};
++
++
++extern "C" __global__ __aicore__ void alloc_extend(GM_ADDR pre_lens_in, GM_ADDR seq_lens_in, GM_ADDR last_loc_in,
++    GM_ADDR free_pages_in, GM_ADDR out_indices_in, GM_ADDR values_in, GM_ADDR workspace_in, GM_ADDR tiling_gm_in)
++{
++    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
++    KernelAllocExtent op;
++    op.Init(pre_lens_in, seq_lens_in, last_loc_in, free_pages_in, out_indices_in, values_in, workspace_in, tiling_gm_in);
++    op.Process();
++}
++
+diff --git a/csrc/pytorch_extensions.cpp b/csrc/pytorch_extensions.cpp
+index 46c9ffaa8..f7de142c4 100644
+--- a/csrc/pytorch_extensions.cpp
++++ b/csrc/pytorch_extensions.cpp
+@@ -23,6 +23,8 @@ TORCH_LIBRARY_FRAGMENT(npu, m)
+     m.def("sgl_kernel_npu_version() -> str", []() { return std::string("") + LIB_VERSION; });
+ 
+     m.def("helloworld(Tensor x, Tensor y) -> Tensor");
++    
++    m.def("alloc_extend(Tensor pre_lens, Tensor seq_lens, Tensor last_loc, Tensor free_pages, int page_size, Tensor(a!) out_indices, Tensor(b!) values) -> ()");
+ 
+     m.def("cache_loc_assign(Tensor req_indices, Tensor token_pool, Tensor start_offset, Tensor end_offset, Tensor "
+           "out_cache_loc) -> Tensor");
+@@ -51,7 +53,9 @@ TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)
+ 
+     m.impl("cache_loc_assign", TORCH_FN(sglang::npu_kernel::cache_loc_assign));
+ 
++    m.impl("alloc_extend", TORCH_FN(sglang::npu_kernel::alloc_extend));
++
+     m.impl("assign_cache_op", TORCH_FN(sglang::npu_kernel::RunCustomAssign));
+     m.impl("mla_preprocess", TORCH_FN(sglang::npu_kernel::mla_preprocess));
+ }
+-}  // namespace
+\ No newline at end of file
++}  // namespace
+diff --git a/include/sgl_kenel_npu_ops.h b/include/sgl_kenel_npu_ops.h
+index e5d9f72a9..bc3b4a0b7 100644
+--- a/include/sgl_kenel_npu_ops.h
++++ b/include/sgl_kenel_npu_ops.h
+@@ -21,6 +21,9 @@ at::Tensor cache_loc_assign(const at::Tensor &req_indices, const at::Tensor &tok
+ bool RunCustomAssign(at::Tensor &dstTensor, const at::Tensor &srcTensor, const at::Tensor &dstStartIdx,
+     const at::Tensor &dstEndIdx, const at::Tensor &srcStartIdx, const at::Tensor &srcEndIdx);
+ 
++void alloc_extend(const at::Tensor &pre_lens, const at::Tensor &seq_lens,
++    const at::Tensor &last_loc, const at::Tensor &free_pages, int64_t pages_size, at::Tensor &out_indices, at::Tensor &values);
++
+ std::tuple<at::Tensor&, at::Tensor&, at::Tensor&, at::Tensor&> mla_preprocess(
+     const at::Tensor &hiddenState, const at::Tensor &gamma0, const at::Tensor &beta0, const at::Tensor &wdqkv,
+     const at::Tensor &descale0, const at::Tensor &gamma1, const at::Tensor &beta1,
+diff --git a/tests/python/sgl_kernel_npu/test_alloc_extend_slot.py b/tests/python/sgl_kernel_npu/test_alloc_extend_slot.py
+new file mode 100644
+index 000000000..95c6ba24b
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_alloc_extend_slot.py
+@@ -0,0 +1,447 @@
++import torch
++import unittest
++
++page_size_range = None
++draft_token_num_range = None
++
++def alloc_extend_pytorch(
++    pre_lens, seq_lens, last_loc, free_pages, page_size, extend_lens
++):
++    # Step 1: compute total extend lengths
++    total_extend_tokens = extend_lens.sum().item()
++
++    # Step 2: Build output buffer
++    out_indices = torch.empty(total_extend_tokens, dtype=torch.int32, device="cpu")
++
++    part1_ends = torch.min(
++        seq_lens, ((pre_lens + page_size - 1) // page_size) * page_size
++    )
++    part1_lens = (part1_ends - pre_lens).to(device="cpu")
++
++    part2_starts = ((pre_lens + page_size - 1) // page_size) * page_size
++    part2_ends = (seq_lens // page_size) * page_size
++    part2_lens = (part2_ends - part2_starts).to(device="cpu")
++
++    part3_lens = (seq_lens % page_size).to(device="cpu")
++
++    # Step 3: Allocate and fill
++    global_token_idx = 0
++    global_page_idx = 0
++    global page_size_range
++    if page_size_range is None:
++        page_size_range = torch.arange(page_size, device="cpu")
++
++    extend_lens = extend_lens.to(device="cpu")
++    last_loc = last_loc.to(device="cpu")
++    free_pages = free_pages.to(device="cpu")
++
++    for i in range(len(pre_lens)):
++        current_token_idx = 0
++        if extend_lens[i] == 0:
++            continue
++
++        # Part 1: Fill the partial page at the end of pre_len
++        if part1_lens[i] > 0:
++            indices = last_loc[i] + 1 + torch.arange(part1_lens[i], device="cpu")
++            out_indices[global_token_idx : global_token_idx + part1_lens[i]] = indices
++            global_token_idx += part1_lens[i]
++            current_token_idx += part1_lens[i]
++        if (
++            global_token_idx >= total_extend_tokens
++            or current_token_idx >= extend_lens[i]
++        ):
++            continue
++
++        # Part 2:Fill full new pages
++        if part2_lens[i] > 0:
++            num_full_pages = part2_lens[i] // page_size
++            page_id = free_pages[global_page_idx : global_page_idx + num_full_pages]
++            slots = (page_id[:, None] * page_size + page_size_range).flatten()
++            valid_slots = slots[
++                : min(len(slots), total_extend_tokens - global_token_idx)
++            ]
++            out_indices[global_token_idx : global_token_idx + len(valid_slots)] = (
++                valid_slots
++            )
++            global_token_idx += len(valid_slots)
++            current_token_idx += len(valid_slots)
++            global_page_idx += num_full_pages
++
++        # Part 3: Fill the final partial page
++        if (
++            part3_lens[i] > 0
++            and global_token_idx < total_extend_tokens
++            and current_token_idx < extend_lens[i]
++        ):
++            page = free_pages[global_page_idx]
++            slots = page * page_size + torch.arange(part3_lens[i], device="cpu")
++            out_indices[global_token_idx : global_token_idx + part3_lens[i]] = slots
++            global_token_idx += part3_lens[i]
++            current_token_idx += part3_lens[i]
++            global_page_idx += 1
++    out_indices = out_indices
++    return out_indices, total_extend_tokens
++
++
++def alloc_extend_native(
++    prefix_lens,
++    seq_lens,
++    last_loc,
++    free_pages,
++    page_size,
++    estimated_num_new_pages,
++    speculative_num_draft_tokens=None,
++):
++    extend_lens = seq_lens - prefix_lens
++    indices_1 = torch.where(extend_lens == 1)[0]  # no accept
++    indices_2 = torch.where(extend_lens == 2)[0]  # accept one token
++    if len(indices_1) > 0 and len(indices_2) == 0:
++        out_indices = last_loc + 1
++        if estimated_num_new_pages > 0:
++            need_new_page_idx = torch.where(seq_lens % page_size == 1)[0]
++            out_indices = out_indices.to(dtype=torch.int32)
++            out_indices[need_new_page_idx] = (
++                page_size * free_pages[: len(need_new_page_idx)]
++            )
++        out_indices = out_indices.to(dtype=torch.int32)
++    elif (
++        len(indices_1) == 0 and len(indices_2) > 0 and speculative_num_draft_tokens == 2
++    ):
++        global draft_token_num_range
++        if draft_token_num_range is None:
++            draft_token_num_range = torch.arange(
++                1, speculative_num_draft_tokens + 1, device=prefix_lens.device
++            )
++        out_indices = (
++            last_loc.repeat_interleave(speculative_num_draft_tokens).reshape(
++                -1, speculative_num_draft_tokens
++            )
++            + draft_token_num_range
++        )
++        out_indices = out_indices.to(dtype=torch.int32)
++        if estimated_num_new_pages > 0:
++            need_new_page_idx_1 = torch.where((prefix_lens + 1) % page_size == 0)[0]
++            need_new_page_idx_2 = torch.where(prefix_lens % page_size == 0)[0]
++            sorted_need_new_page_idx, _ = torch.sort(
++                torch.cat((need_new_page_idx_1, need_new_page_idx_2))
++            )
++            new_pages_first_token_idx = page_size * free_pages[:estimated_num_new_pages]
++            new_page_idx_1_positions = torch.searchsorted(
++                sorted_need_new_page_idx, need_new_page_idx_1
++            )
++            new_page_idx_2_positions = torch.searchsorted(
++                sorted_need_new_page_idx, need_new_page_idx_2
++            )
++            out_indices[need_new_page_idx_1, 1] = new_pages_first_token_idx[
++                new_page_idx_1_positions
++            ]
++            out_indices[need_new_page_idx_2, 0] = new_pages_first_token_idx[
++                new_page_idx_2_positions
++            ]
++            out_indices[need_new_page_idx_2, 1] = (
++                out_indices[need_new_page_idx_2, 0] + 1
++            )
++        out_indices = out_indices.view(-1).to(dtype=torch.int32)
++    else:
++        out_indices, estimated_num_new_pages = alloc_extend_pytorch(
++            prefix_lens, seq_lens, last_loc, free_pages, page_size, extend_lens
++        )
++        out_indices = out_indices.to(dtype=torch.int32)
++
++    return out_indices, estimated_num_new_pages
++
++
++class TestAllocExtend(unittest.TestCase):
++    def setUp(self):
++        self.dtype = torch.int64
++        self.device = 'cpu'
++        
++    def compute(
++        self,
++        prefix_lens, 
++        seq_lens, 
++        last_loc, 
++        free_pages, 
++        page_size, 
++        estimated_num_new_pages,
++    ):
++        out_indices_gt, estimated_num_new_pages_gt = alloc_extend_native(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages
++        )
++        print("=================")
++        print(f"gt out_indices: {out_indices_gt.shape}, estimated_num_new_pages: {estimated_num_new_pages_gt}")
++        print("=================")
++        import sgl_kernel_npu
++        extend_lens = seq_lens - prefix_lens
++        extend_tokens_num = extend_lens.sum().item()
++        out_indices = torch.empty((extend_tokens_num,), dtype=self.dtype, device=self.device).npu()
++        estimated_num_new_pages = torch.empty((1,), dtype=self.dtype, device=self.device).npu()
++        torch.ops.npu.alloc_extend(
++            prefix_lens.npu(), 
++            seq_lens.npu(), 
++            last_loc.npu(), 
++            free_pages.npu(),
++            page_size,
++            out_indices.npu(),
++            estimated_num_new_pages.npu(),
++        )
++        print("=================")
++        out_indices = out_indices.cpu()
++        num_new_pages = estimated_num_new_pages.item()
++        print(f"sgl-kernel out_indices: {out_indices.shape}, estimated_num_new_pages: {estimated_num_new_pages}, num_new_pages: {num_new_pages}")
++        print("=================")
++        ret = torch.equal(out_indices_gt, out_indices)
++        if not ret:
++            close_mask = torch.isclose(out_indices_gt.to(torch.int64), out_indices.to(torch.int64))
++            diff_positions = (~close_mask).nonzero()
++            show_num = 10
++            for idx in range(min(show_num, diff_positions.shape[0])):
++                pos = diff_positions[idx]
++                print(f"total err cnt: {diff_positions.shape}, pos: {pos}, out_indices_gt: {out_indices_gt[pos]}, out_indices: {out_indices[pos]}")
++        self.assertTrue(ret)
++        # self.assertEqual(estimated_num_new_pages_gt, num_new_pages)
++
++    def test_case1_prefill(self):
++        prefix_lens = torch.tensor([0], dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([7], dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([-1], dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 100, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++
++    def test_case2_decoder(self):
++        prefix_lens = torch.tensor([7], dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([8], dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([134], dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 1000, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++
++    def test_case3_decoder_verfiy(self):
++        prefix_lens = torch.tensor([7], dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([9], dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([134], dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 1000, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++    
++    def test_case4_prefill_multi_pages(self):
++        prefix_lens = torch.tensor([0], dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([300], dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([-1], dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 1000, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++    
++    def test_case5_prefill_cache_multi_pages(self):
++        prefix_lens = torch.tensor([100], dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([400], dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([227], dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 1000, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++    
++    def test_case6_prefill_multi_batch(self):
++        prefix_lens = torch.tensor([0] * 19, dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([734, 720, 705, 778, 725, 710, 772, 735, 726, 729, 732, 737, 720, 728, 720, 761, 
++            723, 735, 698], dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([-1] * 19, dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 1066, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++        
++    def test_case7_decoder_multi_batch(self):
++        prefix_lens = torch.tensor([697, 734, 720, 705, 778, 725, 710, 772, 735, 726, 729, 732, 737, 720, 728, 720, 
++        761, 723, 735, 698], dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([698, 735, 721, 706, 779, 726, 711, 773, 736, 727, 730, 733, 738, 721, 729, 721, 
++        762, 724, 736, 699], dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([1720, 2525, 3279, 4032, 4873, 5716, 6469, 7299, 8158, 8917, 9688, 10459, 11232, 
++        11983, 12759, 13519, 14328, 15058, 15838, 16569], dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 950, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++
++    def test_case8_decoder_multi_batch_verfiy(self):
++        prefix_lens = torch.tensor([697, 734, 720, 705, 778, 725, 710, 772, 735, 726, 729, 732, 737, 720, 728, 
++        720, 761, 723, 735, 698], dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([699, 736, 722, 707, 780, 727, 712, 774, 737, 728, 731, 734, 739, 722, 730, 722,
++         763, 725, 737, 700], dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([1720, 2525, 3279, 4032, 4873, 5716, 6469, 7299, 8158, 8917, 9688, 10459, 11232, 
++        11983, 12759, 13519, 14328, 15058, 15838, 16569], dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 950, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++
++    def test_case9_prefill_long_seq(self):
++        prefix_lens = torch.tensor([0, 0, 0, 0, 0, 0, 0], dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([10000, 8000, 3000, 5000, 4000, 6000, 7000], dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([-1, -1, -1, -1, -1, -1, -1], dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 950, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++
++    def test_case10_big_batch_size(self):
++        prefix_lens = torch.tensor([0] * 100, dtype=self.dtype, device=self.device)
++        seq_lens = torch.tensor([2] * 100, dtype=self.dtype, device=self.device)
++        last_loc = torch.tensor([-1] * 100, dtype=self.dtype, device=self.device)
++        free_pages = torch.arange(1, 950, dtype=self.dtype, device=self.device)
++        page_size = 128
++        estimated_num_new_pages = (
++            (
++                (seq_lens + page_size - 1) // page_size
++                - (prefix_lens + page_size - 1) // page_size
++            )
++            .sum()
++            .item()
++        )
++        self.compute(
++            prefix_lens, 
++            seq_lens, 
++            last_loc, 
++            free_pages, 
++            page_size, 
++            estimated_num_new_pages,
++        )
++
++if __name__ == "__main__":
++    unittest.main()

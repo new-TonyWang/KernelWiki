@@ -1,0 +1,114 @@
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py b/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+index e80a24935..b4a54cc20 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+@@ -20,6 +20,8 @@ def _swiglu_quant_kernel(
+     NUM_CORES: tl.constexpr,
+     DTYPE_MAX: tl.constexpr,
+     SCALE: tl.constexpr,
++    DO_LIMIT: tl.constexpr,
++    LIMIT: tl.constexpr,
+ ):
+     # calc real total_rows
+     if GROUP_LIST_TYPE == 0:  # cusum
+@@ -40,12 +42,20 @@ def _swiglu_quant_kernel(
+     for row_idx in range(row_begin, row_end):
+         # swiglu
+         x_offsets = row_idx * TOTAL_COLS + tl.arange(0, TOTAL_COLS)
+-        cur_x = tl.load(x_ptr + x_offsets)
++        cur_x = tl.load(x_ptr + x_offsets).to(tl.float32)
+         x1 = al.extract_slice(cur_x, offsets=(0,), sizes=(HALF_COLS,), strides=(1,))
+         x2 = al.extract_slice(
+             cur_x, offsets=(HALF_COLS,), sizes=(HALF_COLS,), strides=(1,)
+         )
+-        out = x1 * tl.sigmoid(x1) * x2
++
++        # clamp
++        if DO_LIMIT:
++            gate = x1 * tl.sigmoid(x1)
++            gate = tl.minimum(gate, LIMIT)
++            up = tl.maximum(tl.minimum(x2, LIMIT), -LIMIT)
++            out = gate * up
++        else:
++            out = x1 * tl.sigmoid(x1) * x2
+ 
+         # quant
+         if SCALE:
+@@ -74,7 +84,9 @@ def _swiglu_quant_kernel(
+             tl.store(out_ptr + o_offsets, out.to(out_ptr.dtype.element_ty))
+ 
+ 
+-def swiglu_quant(x, group_list, group_list_type, need_quant=True):
++def swiglu_quant(
++    x, group_list, group_list_type, need_quant=True, do_limit=False, limit=7.0
++):
+     # group_list_type must be 0 cusum or 1 count
+     if group_list_type not in [0, 1]:
+         raise ValueError(f"group_list_type must be 0 or 1, but got {group_list_type}")
+@@ -109,5 +121,7 @@ def swiglu_quant(x, group_list, group_list_type, need_quant=True):
+         DTYPE_MAX=127,
+         SCALE=need_quant,
+         multibuffer=True,
++        DO_LIMIT=do_limit,
++        LIMIT=limit,
+     )
+     return out, scale
+diff --git a/tests/python/sgl_kernel_npu/test_swiglu_quant.py b/tests/python/sgl_kernel_npu/test_swiglu_quant.py
+index 72917515b..81751bd26 100644
+--- a/tests/python/sgl_kernel_npu/test_swiglu_quant.py
++++ b/tests/python/sgl_kernel_npu/test_swiglu_quant.py
+@@ -4,6 +4,20 @@
+ from sgl_kernel_npu.activation.swiglu_quant import swiglu_quant
+ 
+ 
++def swiglu_silu_clamp_mul_native(x: torch.Tensor, limit: float = 7.0) -> torch.Tensor:
++    """Out-variant of swiglustep activation.
++
++    Writes into `out`:
++      silu(x[:d]).clamp(max=limit) * x[d:].clamp(-limit, limit)
++    """
++    gate, up = x.chunk(2, dim=-1)
++    gate = F.silu(gate)
++    gate = gate.clamp(max=limit)
++    up = up.clamp(min=-limit, max=limit)
++    out = gate * up
++    return out
++
++
+ def test_swiglu_quant():
+     def to_numpy(x: torch.Tensor) -> np.ndarray:
+         return x.detach().cpu().numpy()
+@@ -41,5 +55,33 @@ def to_numpy(x: torch.Tensor) -> np.ndarray:
+     )
+ 
+ 
++def test_swiglu_quant_with_limit():
++    def to_numpy(x: torch.Tensor) -> np.ndarray:
++        return x.detach().cpu().numpy()
++
++    # create inputs
++    s, h = 4096, 3072
++    x = torch.randn((s, h), dtype=torch.bfloat16).npu()
++    group_list = (
++        torch.Tensor([0, 32, 0, 0, 10, 0, 0, 0, 100, 0, 0, 5, 5, 5, 0, 0])
++        .npu()
++        .to(torch.int64)
++    )
++    # torch native
++    ans1 = swiglu_silu_clamp_mul_native(x)
++    # fused_triton_kernel
++    res1, res2 = swiglu_quant(x, group_list, group_list_type=1, do_limit=True)
++
++    real_tokens = torch.sum(group_list)
++    diff = res1[:real_tokens, :] - ans1[:real_tokens, :]
++
++    max_diff = torch.max(torch.abs(diff))
++    assert max_diff <= 1
++
++    diff_rate = torch.sum(torch.abs(diff)) / (real_tokens * h // 2)
++    assert diff_rate < 2e-2
++
++
+ if __name__ == "__main__":
+     test_swiglu_quant()
++    test_swiglu_quant_with_limit()

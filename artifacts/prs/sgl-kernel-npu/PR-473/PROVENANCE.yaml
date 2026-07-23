@@ -1,0 +1,54 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/473
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: b44cf603
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-473
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 56fcd5bdb323100735275dc6e05dc1f277a118aabb69a6d004c8674f3e963c84
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+  sha256: 18fa26c47b8851bf8fe4b50024b310ffb25c58969669422233b3495a6c2b531a
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+  sha256: 90fb4d59f26450e05ddd148ec63139eada3e8a6895a58e87c62a434b01cdeb3c
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+  sha256: b2e10a6191f26cdd098a22412a6a08818cf80e01b6c42ea51683d784325175a4
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
+  sha256: 911bf89ff9f84b31da4ed310b69b2ce1cc919c05a3f4fa62bc68476715161726
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/norm/rmsnorm_bias.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/norm/rmsnorm_bias.py
+  sha256: 7387998ac211fa7ef1724e0db921bbd390c4d5690516c84a443ede4981e3aaaf
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+  sha256: 4645987b11fd9f170e89d94b2b03755f9c1a283cfff526a44e89792cb3309f48
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+  sha256: 88abb6ea3860d05a45f6fad02e2bfcd90acd28f1223b762e89761e54a8953fcb
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/sample/verify_tree_greedy.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/sample/verify_tree_greedy.py
+  sha256: defb03e6dd0a479e550a4ddfcd5f88f1ecd0bb37de9ac2171c01d210e03413c8

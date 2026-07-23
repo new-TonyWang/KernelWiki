@@ -1,0 +1,74 @@
+diff --git a/csrc/mla_preprocess/op_host/mla_preprocess.cpp b/csrc/mla_preprocess/op_host/mla_preprocess.cpp
+index 3657968f4..5fd706e98 100644
+--- a/csrc/mla_preprocess/op_host/mla_preprocess.cpp
++++ b/csrc/mla_preprocess/op_host/mla_preprocess.cpp
+@@ -61,6 +61,7 @@ constexpr uint32_t INDEX_WUQ = 18;
+ constexpr uint32_t INDEX_WUK = 20;
+ 
+ constexpr uint32_t MAX_SUPPORT_TOKEN_NUMS = 1024;
++constexpr uint32_t MAX_CACHE_MODE_NUMS = 3;
+ 
+ inline uint32_t CeilDiv(const uint32_t dividend, const uint32_t divisor)
+ {
+@@ -679,18 +680,18 @@ std::tuple<at::Tensor &, at::Tensor &, at::Tensor &, at::Tensor &> mla_preproces
+     // tiling
+     int32_t bIndex = N - 1;
+     uint32_t tilingSize = sizeof(MlaTilingData);
++    int32_t tilingOffset = tilingSize * MAX_SUPPORT_TOKEN_NUMS * (opParam.cacheMode - 1) + (tilingSize * bIndex);
+     static auto global_tiling_data =
+-        at::empty({tilingSize * MAX_SUPPORT_TOKEN_NUMS},
++        at::empty({tilingSize * MAX_SUPPORT_TOKEN_NUMS * MAX_CACHE_MODE_NUMS},
+                   at::TensorOptions().dtype(at::kByte).device(hiddenState.options().device()));
+     if (bIndex >= 0 && bIndex < MAX_SUPPORT_TOKEN_NUMS) {
+-        aclrtMemcpy(global_tiling_data.data_ptr<uint8_t>() + (tilingSize * bIndex), tilingSize, &tilingData, tilingSize,
++        aclrtMemcpy(global_tiling_data.data_ptr<uint8_t>() + tilingOffset, tilingSize, &tilingData, tilingSize,
+                     ACL_MEMCPY_HOST_TO_DEVICE);
+     } else {
+         // Handle the case where bIndex is out of range
+         TORCH_CHECK(false, "bIndex is out of range: ", bIndex);
+     }
+-    at::Tensor tiling =
+-        at::from_blob(global_tiling_data.data_ptr<uint8_t>() + (tilingSize * bIndex), tilingSize, at::kByte);
++    at::Tensor tiling = at::from_blob(global_tiling_data.data_ptr<uint8_t>() + tilingOffset, tilingSize, at::kByte);
+ 
+     EXEC_KERNEL_CMD(mla_preprocess, blockDim, hiddenState, gamma0, beta0, quant_scale0, quant_offset0, wdqkv, bias0,
+                     gamma1, beta1, quant_scale1, quant_offset1, gamma2, sin, cos, sin, cos, kv_cache, slotmapping, wuq,
+diff --git a/csrc/mla_preprocess/op_kernel/mla_preprocess.h b/csrc/mla_preprocess/op_kernel/mla_preprocess.h
+index d644f55f5..9e4deb86a 100644
+--- a/csrc/mla_preprocess/op_kernel/mla_preprocess.h
++++ b/csrc/mla_preprocess/op_kernel/mla_preprocess.h
+@@ -101,6 +101,7 @@ constexpr uint32_t KEY_FP16_CACHEMODE_0_QUANTMODE_0 = 0;
+ constexpr uint32_t KEY_FP16_CACHEMODE_1_QUANTMODE_0 = 1;
+ constexpr uint32_t KEY_BF16_CACHEMODE_0_QUANTMODE_0 = 256;
+ constexpr uint32_t KEY_BF16_CACHEMODE_1_QUANTMODE_0 = 257;
++constexpr uint32_t KEY_BF16_CACHEMODE_2_QUANTMODE_0 = 258;
+ constexpr uint32_t KEY_BF16_CACHEMODE_3_QUANTMODE_0 = 259;
+ 
+ enum class QuantMode : int32_t {
+diff --git a/csrc/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp b/csrc/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp
+index f4cb0052b..84c1ce3a5 100644
+--- a/csrc/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp
++++ b/csrc/mla_preprocess/op_kernel/mla_preprocess_kernel.cpp
+@@ -199,6 +199,22 @@ extern "C" __global__ __aicore__ void mla_preprocess(
+             }
+             break;
+         }
++        case KEY_BF16_CACHEMODE_2_QUANTMODE_0: {
++            MLAPO_BF16::MLAOperation<__bf16, 2, DataFormat::NZ, DataFormat::NZ, DataFormat::ND,
++                                     QuantMode::PER_TENSOR_ASYMM_QUANT>
++                opBf16Cm2Qm0(mlaTilingData, tiling);
++            opBf16Cm2Qm0.Init(hiddenState, gamma1, beta1, quantScale1, quantOffset1, wdqkv, bias1, gamma2, beta2,
++                              quantScale2, quantOffset2, gamma3, sin1, cos1, sin2, cos2, keycache, slotMapping, wuq,
++                              bias2, wuk, descale1, descale2, ctkvScale, qnopeScale, q, keycacheOut, q2, keycacheOut2,
++                              s1, s2, s3, s4, s5);
++            if ASCEND_IS_AIC {
++                opBf16Cm2Qm0.ProcessCube();
++            }
++            if ASCEND_IS_AIV {
++                opBf16Cm2Qm0.ProcessVector();
++            }
++            break;
++        }
+         case KEY_BF16_CACHEMODE_3_QUANTMODE_0: {
+             MLAPO_BF16::MLAOperation<__bf16, 3, DataFormat::NZ, DataFormat::NZ, DataFormat::ND,
+                                      QuantMode::PER_TENSOR_ASYMM_QUANT>

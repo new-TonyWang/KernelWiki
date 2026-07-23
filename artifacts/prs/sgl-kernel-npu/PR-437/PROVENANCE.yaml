@@ -1,0 +1,49 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/437
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: acd885a2
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-437
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 540a36ed15628b222b91b1bf16d5906a15058706f52e06d0b13d1834a022b038
+- local_path: key-files/csrc/deepep/ops/op_host/dispatch_ffn_combine_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/dispatch_ffn_combine_tiling.cpp
+  sha256: eb3b96929043809210b7adde453f0ef7d122e183b9badc1df64d4c6136e36498
+- local_path: key-files/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+  sha256: 97527b39e6a738162e5a2117a3098eff7554d25fe99cab8db38b55fba6cf811a
+- local_path: key-files/csrc/deepep/ops/op_kernel/check_winsize.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/check_winsize.h
+  sha256: 16a2402bb709c25a104d48bfe0a5b6e1092fd63a9f3301307d081c83929a1ac6
+- local_path: key-files/csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_v2_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_v2_tiling.h
+  sha256: 558c7733cf806f73dcdee75a8bf9180ad8266c38c42478f3fdaad495719c4eb9
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  sha256: 125acd3a8a81026a881bc02971d5a849f161b5619c49ee7f1a627525458a52e0
+- local_path: key-files/csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+  sha256: 26f7f6ab44cc5be01dc28d2d56c7bf34f5ec4e9afc228dabdc08d537249a0ea4
+- local_path: key-files/csrc/deepep/ops2/op_kernel/check_winsize.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops2/op_kernel/check_winsize.h
+  sha256: 16a2402bb709c25a104d48bfe0a5b6e1092fd63a9f3301307d081c83929a1ac6

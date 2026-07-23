@@ -1,0 +1,39 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/180
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: 5661954f
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-180
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: d49fcaa405483e70fa956d0a39ae391693f697dd0f6f4ff06dc8ab89a923b8f1
+- local_path: key-files/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+  sha256: f153b85cd8210175900e39b90de00ebe821cb5dc5e6f10daaab2ad585f82ebb0
+- local_path: key-files/csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  sha256: 6d0a7a70cf57c7e1ff3bd5b55416e244dab0aae7215cbf9999e7cb8ab300e6c6
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+  sha256: ba361bb428c0067324b3dc8ee46ee3c34a0aa88f44a44e9c90dabeae72578ca8
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
+  sha256: d5e3e942f6bcd4feebc880e59eb29183c5c25813d632c16aeffe09b1b0bccdc6
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  sha256: 9e7ddb7ad1557468133e594b740f803d01b6bafae1bc610fbe6c843603f49d20

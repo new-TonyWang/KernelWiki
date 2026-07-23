@@ -1,0 +1,452 @@
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py b/python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py
+index 9f12f54ea..1177c51a1 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py
+@@ -182,60 +182,61 @@ def _layer_norm_fwd_1pass_kernel_npu(
+     if HAS_BIAS:
+         B += group * N
+ 
+-    # Compute row indices for this program
+-    rows = pid_m * BLOCK_M + tl.arange(0, BLOCK_M)
++    # Load weight once (broadcasted over rows)
+     cols = tl.arange(0, BLOCK_N)
+-
+-    # Mask for valid rows and cols
+-    row_mask = rows < M
+     col_mask = cols < N
+-
+-    # Load weight once (broadcasted over rows)
+     w = tl.load(W + cols, mask=col_mask).to(tl.float32)
+     if HAS_BIAS:
+         b = tl.load(B + cols, mask=col_mask).to(tl.float32)
+ 
+-    # Load X: shape [BLOCK_M, BLOCK_N]
+-    x_ptrs = X + rows[:, None] * stride_x_row + cols[None, :] + group * N
+-    x = tl.load(x_ptrs, mask=row_mask[:, None] & col_mask[None, :]).to(tl.float32)
++    for row_block_start in tl.range(pid_m * BLOCK_M, M, BLOCK_M * tl.num_programs(0)):
++        # Compute row indices for this program
++        rows = row_block_start + tl.arange(0, BLOCK_M)
++        row_mask = rows < M
+ 
+-    # Load Z if needed
+-    if HAS_Z:
+-        z_ptrs = Z + rows[:, None] * stride_z_row + cols[None, :] + group * N
+-        z = tl.load(z_ptrs, mask=row_mask[:, None] & col_mask[None, :]).to(tl.float32)
+-        if not NORM_BEFORE_GATE:
+-            x *= z * tl.sigmoid(z)
++        # Load X: shape [BLOCK_M, BLOCK_N]
++        x_ptrs = X + rows[:, None] * stride_x_row + cols[None, :] + group * N
++        x = tl.load(x_ptrs, mask=row_mask[:, None] & col_mask[None, :]).to(tl.float32)
+ 
+-    # Compute statistics per row
+-    if not IS_RMS_NORM:
+-        mean = tl.sum(x, axis=1) / N  # [BLOCK_M]
+-        xbar = tl.where(col_mask[None, :], x - mean[:, None], 0.0)
+-        var = tl.sum(xbar * xbar, axis=1) / N
+-        tl.store(Mean + rows, mean, mask=row_mask)
+-    else:
+-        xbar = tl.where(col_mask[None, :], x, 0.0)
+-        var = tl.sum(xbar * xbar, axis=1) / N
++        # Load Z if needed
++        if HAS_Z:
++            z_ptrs = Z + rows[:, None] * stride_z_row + cols[None, :] + group * N
++            z = tl.load(z_ptrs, mask=row_mask[:, None] & col_mask[None, :]).to(
++                tl.float32
++            )
++            if not NORM_BEFORE_GATE:
++                x *= z * tl.sigmoid(z)
++
++        # Compute statistics per row
++        if not IS_RMS_NORM:
++            mean = tl.sum(x, axis=1) / N  # [BLOCK_M]
++            xbar = tl.where(col_mask[None, :], x - mean[:, None], 0.0)
++            var = tl.sum(xbar * xbar, axis=1) / N
++            tl.store(Mean + rows, mean, mask=row_mask)
++        else:
++            xbar = tl.where(col_mask[None, :], x, 0.0)
++            var = tl.sum(xbar * xbar, axis=1) / N
+ 
+-    rstd = 1.0 / tl.sqrt(var + eps)  # [BLOCK_M]
+-    tl.store(Rstd + rows, rstd, mask=row_mask)
++        rstd = 1.0 / tl.sqrt(var + eps)  # [BLOCK_M]
++        tl.store(Rstd + rows, rstd, mask=row_mask)
+ 
+-    # Normalize
+-    if not IS_RMS_NORM:
+-        x_hat = (x - mean[:, None]) * rstd[:, None]
+-    else:
+-        x_hat = x * rstd[:, None]
++        # Normalize
++        if not IS_RMS_NORM:
++            x_hat = (x - mean[:, None]) * rstd[:, None]
++        else:
++            x_hat = x * rstd[:, None]
+ 
+-    y = x_hat * w[None, :]
+-    if HAS_BIAS:
+-        y += b[None, :]
++        y = x_hat * w[None, :]
++        if HAS_BIAS:
++            y += b[None, :]
+ 
+-    # Post-gate
+-    if HAS_Z and NORM_BEFORE_GATE:
+-        y *= z * tl.sigmoid(z)
++        # Post-gate
++        if HAS_Z and NORM_BEFORE_GATE:
++            y *= z * tl.sigmoid(z)
+ 
+-    # Store output
+-    y_ptrs = Y + rows[:, None] * stride_y_row + cols[None, :] + group * N
+-    tl.store(y_ptrs, y, mask=row_mask[:, None] & col_mask[None, :])
++        # Store output
++        y_ptrs = Y + rows[:, None] * stride_y_row + cols[None, :] + group * N
++        tl.store(y_ptrs, y, mask=row_mask[:, None] & col_mask[None, :])
+ 
+ 
+ def layer_norm_fwd_npu(
+@@ -284,10 +285,12 @@ def layer_norm_fwd_npu(
+         raise RuntimeError("Feature dim too large.")
+ 
+     # Choose BLOCK_M: e.g., 16, 32, 64 — depends on NPU vector core capacity
+-    BLOCK_M = 64  # Tune this based on your NPU's register/shared memory
++    BLOCK_M = 48
++    _, num_vectorcore = get_device_properties()
++    num_blocks_m = min(triton.cdiv(M, BLOCK_M), num_vectorcore)
+ 
+     # Now grid is (num blocks over M, num groups)
+-    grid = (triton.cdiv(M, BLOCK_M), ngroups)
++    grid = (num_blocks_m, ngroups)
+     _layer_norm_fwd_1pass_kernel_npu[grid](
+         x,
+         out,
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py b/python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+index cf6a0f789..b6380cff5 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+@@ -322,136 +322,153 @@ def merge_16x16_to_64x64_inverse_kernel_reorder_all_masked(
+     H: tl.constexpr,
+     BT: tl.constexpr,
+     IS_VARLEN: tl.constexpr,
++    CHUNKS_PER_PROGRAM: tl.constexpr,
++    NT: tl.constexpr,
+ ):
+-    i_t, i_bh = tl.program_id(0), tl.program_id(1)
++    i_t_, i_bh = tl.program_id(0), tl.program_id(1)
+     i_b, i_h = i_bh // H, i_bh % H
++    A_base = A
++    Ad_base = Ad
++    Ai_base = Ai
++
++    for chunk_offset in range(CHUNKS_PER_PROGRAM):
++        current_chunk = i_t_ * CHUNKS_PER_PROGRAM + chunk_offset
++
++        valid_chunk = current_chunk < NT
++
++        if IS_VARLEN:
++            i_n = tl.load(
++                chunk_indices + current_chunk * 2, mask=valid_chunk, other=0
++            ).to(tl.int32)
++            i_t_val = tl.load(
++                chunk_indices + current_chunk * 2 + 1, mask=valid_chunk, other=0
++            ).to(tl.int32)
++            bos = tl.load(cu_seqlens + i_n, mask=valid_chunk, other=0).to(tl.int32)
++            eos = tl.load(cu_seqlens + i_n + 1, mask=valid_chunk, other=0).to(tl.int32)
++            T = tl.where(valid_chunk, eos - bos, 0)
++            i_t = i_t_val
++        else:
++            bos, eos = i_b * T, i_b * T + T
++            i_t = current_chunk
++
++        # Base pointers (already offset by batch and head)
++        A = A_base + (bos * H + i_h) * 64
++        Ad = Ad_base + (bos * H + i_h) * 16
++        Ai = Ai_base + (bos * H + i_h) * 64
++
++        # ------------------ Load Ai_22 (Ad block at row i_t*64+16, col 0, 16x16) ------------------
++        offs_m = i_t * 64 + 16 + tl.arange(0, 16)
++        offs_n = tl.arange(0, 16)
++        mask_Ad = valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 16)
++        ptr_Ad = Ad + offs_m[:, None] * (H * 16) + offs_n[None, :]
++        Ai_22 = tl.load(ptr_Ad, mask=mask_Ad, other=0.0).to(tl.float32)
++
++        # ------------------ Load A_21 (A block at row i_t*64+16, col 0, 16x16) ------------------
++        mask_A = (
++            valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 64)
++        )  # A has 64 cols
++        ptr_A = A + offs_m[:, None] * (H * 64) + offs_n[None, :]
++        A_21 = tl.load(ptr_A, mask=mask_A, other=0.0).to(tl.float32)
++
++        tmp = tl.dot(Ai_22, A_21, input_precision="ieee")
++
++        # ------------------ Load Ai_11 (Ad block at row i_t*64, col 0, 16x16) ------------------
++        offs_m = i_t * 64 + tl.arange(0, 16)
++        offs_n = tl.arange(0, 16)
++        mask_Ad = valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 16)
++        ptr_Ad = Ad + offs_m[:, None] * (H * 16) + offs_n[None, :]
++        Ai_11 = tl.load(ptr_Ad, mask=mask_Ad, other=0.0).to(tl.float32)
++
++        Ai_21 = -tl.dot(tmp, Ai_11, input_precision="ieee")
++
++        # ------------------ Load Ai_44 (Ad block at row i_t*64+48, col 0, 16x16) ------------------
++        offs_m = i_t * 64 + 48 + tl.arange(0, 16)
++        offs_n = tl.arange(0, 16)
++        mask_Ad = valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 16)
++        ptr_Ad = Ad + offs_m[:, None] * (H * 16) + offs_n[None, :]
++        Ai_44 = tl.load(ptr_Ad, mask=mask_Ad, other=0.0).to(tl.float32)
++
++        # ------------------ Load A_43 (A block at row i_t*64+48, col 32, 16x16) ------------------
++        offs_n = 32 + tl.arange(0, 16)
++        mask_A = valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 64)
++        ptr_A = A + offs_m[:, None] * (H * 64) + offs_n[None, :]
++        A_43 = tl.load(ptr_A, mask=mask_A, other=0.0).to(tl.float32)
++
++        tmp = tl.dot(Ai_44, A_43, input_precision="ieee")
++
++        # ------------------ Load Ai_33 (Ad block at row i_t*64+32, col 0, 16x16) ------------------
++        offs_m = i_t * 64 + 32 + tl.arange(0, 16)
++        offs_n = tl.arange(0, 16)
++        mask_Ad = valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 16)
++        ptr_Ad = Ad + offs_m[:, None] * (H * 16) + offs_n[None, :]
++        Ai_33 = tl.load(ptr_Ad, mask=mask_Ad, other=0.0).to(tl.float32)
++
++        Ai_43 = -tl.dot(tmp, Ai_33, input_precision="ieee")
++
++        # ------------------ Build Ai_22_32 (32x32) ------------------
++        Ai_22_32 = tl.zeros((32, 32), tl.float32)
++        Ai_22_32 = tl.insert_slice(Ai_22_32, Ai_33, (0, 0), (16, 16), (1, 1))
++        Ai_22_32 = tl.insert_slice(Ai_22_32, Ai_44, (16, 16), (16, 16), (1, 1))
++        Ai_22_32 = tl.insert_slice(Ai_22_32, Ai_43, (16, 0), (16, 16), (1, 1))
++
++        # ------------------ Load A_21_32 (A block at row i_t*64+32, col 0, 32x32) ------------------
++        offs_m = i_t * 64 + 32 + tl.arange(0, 32)
++        offs_n = tl.arange(0, 32)
++        mask_A = valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 64)
++        ptr_A = A + offs_m[:, None] * (H * 64) + offs_n[None, :]
++        A_21_32 = tl.load(ptr_A, mask=mask_A, other=0.0).to(tl.float32)
++
++        tmp = tl.dot(Ai_22_32, A_21_32, input_precision="ieee")
++
++        # ------------------ Build Ai_11_32 (32x32) ------------------
++        Ai_11_32 = tl.zeros((32, 32), tl.float32)
++        Ai_11_32 = tl.insert_slice(Ai_11_32, Ai_11, (0, 0), (16, 16), (1, 1))
++        Ai_11_32 = tl.insert_slice(Ai_11_32, Ai_22, (16, 16), (16, 16), (1, 1))
++        Ai_11_32 = tl.insert_slice(Ai_11_32, Ai_21, (16, 0), (16, 16), (1, 1))
++
++        Ai_21_32 = -tl.dot(tmp, Ai_11_32, input_precision="ieee")
++
++        # ------------------ Store Ai_11_32 to (i_t*64, 0) ------------------
++        offs_m = i_t * 64 + tl.arange(0, 32)
++        offs_n = tl.arange(0, 32)
++        mask_store = valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 64)
++        ptr_Ai = Ai + offs_m[:, None] * (H * 64) + offs_n[None, :]
++        tl.store(
++            ptr_Ai,
++            Ai_11_32.to(ptr_Ai.dtype.element_ty, fp_downcast_rounding="rtne"),
++            mask=mask_store,
++        )
+ 
+-    if IS_VARLEN:
+-        i_n, i_t_val = tl.load(chunk_indices + i_t * 2).to(tl.int32), tl.load(
+-            chunk_indices + i_t * 2 + 1
+-        ).to(tl.int32)
+-        bos, eos = tl.load(cu_seqlens + i_n).to(tl.int32), tl.load(
+-            cu_seqlens + i_n + 1
+-        ).to(tl.int32)
+-        T = eos - bos
+-        i_t = i_t_val
+-    else:
+-        bos, eos = i_b * T, i_b * T + T
+-
+-    # Base pointers (already offset by batch and head)
+-    A += (bos * H + i_h) * 64
+-    Ad += (bos * H + i_h) * 16
+-    Ai += (bos * H + i_h) * 64
+-
+-    # ------------------ Load Ai_22 (Ad block at row i_t*64+16, col 0, 16x16) ------------------
+-    offs_m = i_t * 64 + 16 + tl.arange(0, 16)
+-    offs_n = tl.arange(0, 16)
+-    mask_Ad = (offs_m[:, None] < T) & (offs_n[None, :] < 16)
+-    ptr_Ad = Ad + offs_m[:, None] * (H * 16) + offs_n[None, :]
+-    Ai_22 = tl.load(ptr_Ad, mask=mask_Ad, other=0.0).to(tl.float32)
+-
+-    # ------------------ Load A_21 (A block at row i_t*64+16, col 0, 16x16) ------------------
+-    mask_A = (offs_m[:, None] < T) & (offs_n[None, :] < 64)  # A has 64 cols
+-    ptr_A = A + offs_m[:, None] * (H * 64) + offs_n[None, :]
+-    A_21 = tl.load(ptr_A, mask=mask_A, other=0.0).to(tl.float32)
+-
+-    tmp = tl.dot(Ai_22, A_21, input_precision="ieee")
+-
+-    # ------------------ Load Ai_11 (Ad block at row i_t*64, col 0, 16x16) ------------------
+-    offs_m = i_t * 64 + tl.arange(0, 16)
+-    offs_n = tl.arange(0, 16)
+-    mask_Ad = (offs_m[:, None] < T) & (offs_n[None, :] < 16)
+-    ptr_Ad = Ad + offs_m[:, None] * (H * 16) + offs_n[None, :]
+-    Ai_11 = tl.load(ptr_Ad, mask=mask_Ad, other=0.0).to(tl.float32)
+-
+-    Ai_21 = -tl.dot(tmp, Ai_11, input_precision="ieee")
+-
+-    # ------------------ Load Ai_44 (Ad block at row i_t*64+48, col 0, 16x16) ------------------
+-    offs_m = i_t * 64 + 48 + tl.arange(0, 16)
+-    offs_n = tl.arange(0, 16)
+-    mask_Ad = (offs_m[:, None] < T) & (offs_n[None, :] < 16)
+-    ptr_Ad = Ad + offs_m[:, None] * (H * 16) + offs_n[None, :]
+-    Ai_44 = tl.load(ptr_Ad, mask=mask_Ad, other=0.0).to(tl.float32)
+-
+-    # ------------------ Load A_43 (A block at row i_t*64+48, col 32, 16x16) ------------------
+-    offs_n = 32 + tl.arange(0, 16)
+-    mask_A = (offs_m[:, None] < T) & (offs_n[None, :] < 64)
+-    ptr_A = A + offs_m[:, None] * (H * 64) + offs_n[None, :]
+-    A_43 = tl.load(ptr_A, mask=mask_A, other=0.0).to(tl.float32)
+-
+-    tmp = tl.dot(Ai_44, A_43, input_precision="ieee")
+-
+-    # ------------------ Load Ai_33 (Ad block at row i_t*64+32, col 0, 16x16) ------------------
+-    offs_m = i_t * 64 + 32 + tl.arange(0, 16)
+-    offs_n = tl.arange(0, 16)
+-    mask_Ad = (offs_m[:, None] < T) & (offs_n[None, :] < 16)
+-    ptr_Ad = Ad + offs_m[:, None] * (H * 16) + offs_n[None, :]
+-    Ai_33 = tl.load(ptr_Ad, mask=mask_Ad, other=0.0).to(tl.float32)
+-
+-    Ai_43 = -tl.dot(tmp, Ai_33, input_precision="ieee")
+-
+-    # ------------------ Build Ai_22_32 (32x32) ------------------
+-    Ai_22_32 = tl.zeros((32, 32), tl.float32)
+-    Ai_22_32 = tl.insert_slice(Ai_22_32, Ai_33, (0, 0), (16, 16), (1, 1))
+-    Ai_22_32 = tl.insert_slice(Ai_22_32, Ai_44, (16, 16), (16, 16), (1, 1))
+-    Ai_22_32 = tl.insert_slice(Ai_22_32, Ai_43, (16, 0), (16, 16), (1, 1))
+-
+-    # ------------------ Load A_21_32 (A block at row i_t*64+32, col 0, 32x32) ------------------
+-    offs_m = i_t * 64 + 32 + tl.arange(0, 32)
+-    offs_n = tl.arange(0, 32)
+-    mask_A = (offs_m[:, None] < T) & (offs_n[None, :] < 64)
+-    ptr_A = A + offs_m[:, None] * (H * 64) + offs_n[None, :]
+-    A_21_32 = tl.load(ptr_A, mask=mask_A, other=0.0).to(tl.float32)
+-
+-    tmp = tl.dot(Ai_22_32, A_21_32, input_precision="ieee")
+-
+-    # ------------------ Build Ai_11_32 (32x32) ------------------
+-    Ai_11_32 = tl.zeros((32, 32), tl.float32)
+-    Ai_11_32 = tl.insert_slice(Ai_11_32, Ai_11, (0, 0), (16, 16), (1, 1))
+-    Ai_11_32 = tl.insert_slice(Ai_11_32, Ai_22, (16, 16), (16, 16), (1, 1))
+-    Ai_11_32 = tl.insert_slice(Ai_11_32, Ai_21, (16, 0), (16, 16), (1, 1))
+-
+-    Ai_21_32 = -tl.dot(tmp, Ai_11_32, input_precision="ieee")
+-
+-    # ------------------ Store Ai_11_32 to (i_t*64, 0) ------------------
+-    offs_m = i_t * 64 + tl.arange(0, 32)
+-    offs_n = tl.arange(0, 32)
+-    mask_store = (offs_m[:, None] < T) & (offs_n[None, :] < 64)
+-    ptr_Ai = Ai + offs_m[:, None] * (H * 64) + offs_n[None, :]
+-    tl.store(
+-        ptr_Ai,
+-        Ai_11_32.to(ptr_Ai.dtype.element_ty, fp_downcast_rounding="rtne"),
+-        mask=mask_store,
+-    )
+-
+-    # ------------------ Store Ai_22_32 to (i_t*64+32, 32) ------------------
+-    offs_m = i_t * 64 + 32 + tl.arange(0, 32)
+-    offs_n = 32 + tl.arange(0, 32)
+-    mask_store = (offs_m[:, None] < T) & (offs_n[None, :] < 64)
+-    ptr_Ai = Ai + offs_m[:, None] * (H * 64) + offs_n[None, :]
+-    tl.store(
+-        ptr_Ai,
+-        Ai_22_32.to(ptr_Ai.dtype.element_ty, fp_downcast_rounding="rtne"),
+-        mask=mask_store,
+-    )
++        # ------------------ Store Ai_22_32 to (i_t*64+32, 32) ------------------
++        offs_m = i_t * 64 + 32 + tl.arange(0, 32)
++        offs_n = 32 + tl.arange(0, 32)
++        mask_store = valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 64)
++        ptr_Ai = Ai + offs_m[:, None] * (H * 64) + offs_n[None, :]
++        tl.store(
++            ptr_Ai,
++            Ai_22_32.to(ptr_Ai.dtype.element_ty, fp_downcast_rounding="rtne"),
++            mask=mask_store,
++        )
+ 
+-    # ------------------ Store Ai_21_32 to (i_t*64+32, 0) ------------------
+-    offs_n = tl.arange(0, 32)
+-    mask_store = (offs_m[:, None] < T) & (offs_n[None, :] < 64)
+-    ptr_Ai = Ai + offs_m[:, None] * (H * 64) + offs_n[None, :]
+-    tl.store(
+-        ptr_Ai,
+-        Ai_21_32.to(ptr_Ai.dtype.element_ty, fp_downcast_rounding="rtne"),
+-        mask=mask_store,
+-    )
++        # ------------------ Store Ai_21_32 to (i_t*64+32, 0) ------------------
++        offs_n = tl.arange(0, 32)
++        mask_store = valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < 64)
++        ptr_Ai = Ai + offs_m[:, None] * (H * 64) + offs_n[None, :]
++        tl.store(
++            ptr_Ai,
++            Ai_21_32.to(ptr_Ai.dtype.element_ty, fp_downcast_rounding="rtne"),
++            mask=mask_store,
++        )
+ 
+-    # ------------------ Zero out the upper-right 32x32 block (rows 0~31, cols 32~63) ------------------
+-    offs_m = i_t * 64 + tl.arange(0, 32)
+-    offs_n = 32 + tl.arange(0, 32)
+-    mask_store = (offs_m[:, None] < T) & (offs_n[None, :] < BT)  # BT=64
+-    ptr_Ai = Ai + offs_m[:, None] * (H * BT) + offs_n[None, :]
+-    zero_block = tl.zeros((32, 32), dtype=ptr_Ai.dtype.element_ty)
+-    tl.store(ptr_Ai, zero_block, mask=mask_store)
++        # ------------------ Zero out the upper-right 32x32 block (rows 0~31, cols 32~63) ------------------
++        offs_m = i_t * 64 + tl.arange(0, 32)
++        offs_n = 32 + tl.arange(0, 32)
++        mask_store = (
++            valid_chunk & (offs_m[:, None] < T) & (offs_n[None, :] < BT)
++        )  # BT=64
++        ptr_Ai = Ai + offs_m[:, None] * (H * BT) + offs_n[None, :]
++        zero_block = tl.zeros((32, 32), dtype=ptr_Ai.dtype.element_ty)
++        tl.store(ptr_Ai, zero_block, mask=mask_store)
+ 
+ 
+ def solve_tril_npu(
+@@ -517,16 +534,34 @@ def solve_tril_npu(
+         prepare_chunk_indices(cu_seqlens, BT) if cu_seqlens is not None else None
+     )
+     NT = len(chunk_indices) if cu_seqlens is not None else triton.cdiv(T, BT)
+-    merge_fn[NT, B * H](
+-        A=A,
+-        Ad=Ad,
+-        Ai=Ai,
+-        cu_seqlens=cu_seqlens,
+-        chunk_indices=chunk_indices,
+-        T=T,
+-        H=H,
+-        BT=BT,
+-        num_warps=4,
+-        num_stages=3,
+-    )
++    if BT != 32:
++        CHUNKS_PER_PROGRAM = min(NT, 2048)
++        num_programs = triton.cdiv(NT, CHUNKS_PER_PROGRAM)
++        merge_fn[num_programs, B * H](
++            A=A,
++            Ad=Ad,
++            Ai=Ai,
++            cu_seqlens=cu_seqlens,
++            chunk_indices=chunk_indices,
++            T=T,
++            H=H,
++            BT=BT,
++            num_warps=4,
++            num_stages=3,
++            CHUNKS_PER_PROGRAM=CHUNKS_PER_PROGRAM,
++            NT=NT,
++        )
++    else:
++        merge_fn[NT, B * H](
++            A=A,
++            Ad=Ad,
++            Ai=Ai,
++            cu_seqlens=cu_seqlens,
++            chunk_indices=chunk_indices,
++            T=T,
++            H=H,
++            BT=BT,
++            num_warps=4,
++            num_stages=3,
++        )
+     return Ai

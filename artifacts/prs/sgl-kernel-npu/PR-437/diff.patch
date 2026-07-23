@@ -1,0 +1,186 @@
+diff --git a/csrc/deepep/ops/op_host/dispatch_ffn_combine_tiling.cpp b/csrc/deepep/ops/op_host/dispatch_ffn_combine_tiling.cpp
+index 2b999e20d..64e4d0d61 100644
+--- a/csrc/deepep/ops/op_host/dispatch_ffn_combine_tiling.cpp
++++ b/csrc/deepep/ops/op_host/dispatch_ffn_combine_tiling.cpp
+@@ -51,14 +51,6 @@ constexpr uint64_t MB_SIZE = 1024 * 1024UL;
+ 
+ namespace optiling {
+ 
+-static int32_t CeilDev(int32_t num, int32_t div)
+-{
+-    if (div == 0) {
+-        return 0;
+-    }
+-    return (num + div - 1) / div;
+-}
+-
+ static uint64_t GetMaxWindowSize()
+ {
+     uint16_t defaultWindowSize = 200;
+diff --git a/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp b/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+index 76dc450ab..ced9ba3ac 100644
+--- a/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
++++ b/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+@@ -446,7 +446,6 @@ static ge::graphStatus CheckAndSetGroupInfo(const gert::TilingContext *context,
+     auto tpWorldSizePtr = attrs->GetAttrPointer<int64_t>(ATTR_TP_WORLD_SIZE_INDEX);
+     auto epRankIdPtr = attrs->GetAttrPointer<int64_t>(ATTR_EP_RANK_ID_INDEX);
+     auto tpRankIdPtr = attrs->GetAttrPointer<int64_t>(ATTR_TP_RANK_ID_INDEX);
+-    int64_t epWorldSize = *epWorldSizePtr;
+ 
+     // 判空
+     OP_TILING_CHECK((groupEpPtr == nullptr) || (strnlen(groupEpPtr, MAX_GROUP_NAME_LENGTH) == 0) ||
+@@ -457,6 +456,7 @@ static ge::graphStatus CheckAndSetGroupInfo(const gert::TilingContext *context,
+     OP_TILING_CHECK(tpWorldSizePtr == nullptr, OP_LOGE(nodeName, "tpWorldSizePtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(epRankIdPtr == nullptr, OP_LOGE(nodeName, "epRankIdPtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(tpRankIdPtr == nullptr, OP_LOGE(nodeName, "tpRankIdPtr is null."), return ge::GRAPH_FAILED);
++    int64_t epWorldSize = *epWorldSizePtr;
+ 
+     // 判断是否有效
+     OP_TILING_CHECK((epWorldSize < MIN_EP_WORLD_SIZE) || (epWorldSize > MAX_EP_WORLD_SIZE),
+@@ -504,10 +504,8 @@ static ge::graphStatus CheckAndSetExpertInfo(const gert::TilingContext *context,
+     auto moeExpertNumPtr = attrs->GetAttrPointer<int64_t>(ATTR_MOE_EXPERT_NUM_INDEX);
+     auto quantModePtr = attrs->GetAttrPointer<int64_t>(ATTR_QUANT_MODE_INDEX);
+     auto expertTokenNumsTypePtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_EXPERT_TOKEN_NUMS_TYPE_INDEX));
+-    int64_t moeExpertNum = *moeExpertNumPtr;
+-    int64_t epWorldSize = *epWorldSizePtr;
+-    int64_t sharedExpertRankNum = *sharedExpertRankNumPtr;
+ 
++    OP_TILING_CHECK(epWorldSizePtr == nullptr, OP_LOGE(nodeName, "epWorldSizePtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(expertShardPtr == nullptr, OP_LOGE(nodeName, "expertShardPtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(sharedExpertNumPtr == nullptr, OP_LOGE(nodeName, "sharedExpertNumPtr is null."),
+                     return ge::GRAPH_FAILED);
+@@ -517,6 +515,9 @@ static ge::graphStatus CheckAndSetExpertInfo(const gert::TilingContext *context,
+     OP_TILING_CHECK(quantModePtr == nullptr, OP_LOGE(nodeName, "quantModePtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(expertTokenNumsTypePtr == nullptr, OP_LOGE(nodeName, "expertTokenNumsTypePtr is null."),
+                     return ge::GRAPH_FAILED);
++    int64_t sharedExpertRankNum = *sharedExpertRankNumPtr;
++    int64_t moeExpertNum = *moeExpertNumPtr;
++    int64_t epWorldSize = *epWorldSizePtr;
+ 
+     OP_TILING_CHECK(
+         *expertShardPtr != 0,
+@@ -568,11 +569,7 @@ static ge::graphStatus CheckAndSetSpecialExpertInfo(const gert::TilingContext *c
+     auto zeroExpertNumPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_ZERO_EXPERT_NUM_INDEX));
+     auto copyExpertNumPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_COPY_EXPERT_NUM_INDEX));
+     auto constExpertNumPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_CONST_EXPERT_NUM_INDEX));
+-    int64_t moeExpertNum = *(attrs->GetAttrPointer<int64_t>(ATTR_MOE_EXPERT_NUM_INDEX));
+-    int64_t zeroExpertNum = *zeroExpertNumPtr;
+-    int64_t copyExpertNum = *copyExpertNumPtr;
+-    int64_t constExpertNum = *constExpertNumPtr;
+-    int64_t zeroComputeExpertNum = zeroExpertNum + copyExpertNum + constExpertNum;
++    auto moeExpertNumPtr = attrs->GetAttrPointer<int64_t>(ATTR_MOE_EXPERT_NUM_INDEX);
+ 
+     // 判空
+     OP_TILING_CHECK(zeroExpertNumPtr == nullptr, OP_LOGE(nodeName, "zeroExpertNumPtr is null."),
+@@ -581,7 +578,13 @@ static ge::graphStatus CheckAndSetSpecialExpertInfo(const gert::TilingContext *c
+                     return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(constExpertNumPtr == nullptr, OP_LOGE(nodeName, "constExpertNumPtr is null."),
+                     return ge::GRAPH_FAILED);
++    OP_TILING_CHECK(moeExpertNumPtr == nullptr, OP_LOGE(nodeName, "moeExpertNumPtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(commAlgPtr == nullptr, OP_LOGE(nodeName, "commAlgPtr is nullptr."), return ge::GRAPH_FAILED);
++    int64_t zeroExpertNum = *zeroExpertNumPtr;
++    int64_t copyExpertNum = *copyExpertNumPtr;
++    int64_t constExpertNum = *constExpertNumPtr;
++    int64_t moeExpertNum = *moeExpertNumPtr;
++    int64_t zeroComputeExpertNum = zeroExpertNum + copyExpertNum + constExpertNum;
+ 
+     // 判断是否有效
+     OP_TILING_CHECK((zeroExpertNum < 0),
+diff --git a/csrc/deepep/ops/op_kernel/check_winsize.h b/csrc/deepep/ops/op_kernel/check_winsize.h
+index 26ddc5e32..bd177e79d 100644
+--- a/csrc/deepep/ops/op_kernel/check_winsize.h
++++ b/csrc/deepep/ops/op_kernel/check_winsize.h
+@@ -15,7 +15,7 @@ __aicore__ inline void CheckWindowSize(uint64_t tilingWinSizeBytes, uint64_t rea
+         AscendC::TBuf<AscendC::TPosition::VECCALC> exceptionBuf;
+         tpipe_->InitBuffer(exceptionBuf, 1);  // 初始化一个缓冲区
+         AscendC::LocalTensor<int32_t> exceptionLocal = exceptionBuf.Get<int32_t>();
+-        AscendC::DataCopy(exceptionLocal[1], exceptionGlobal, 1);  // 从全局地址复制数据到本地地址
++        AscendC::DataCopy(exceptionLocal[0], exceptionGlobal, 1);  // 从全局地址复制数据到本地地址
+     }
+ }
+ #endif  // CHECK_WINSIZE_H
+diff --git a/csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_v2_tiling.h b/csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_v2_tiling.h
+index 353a8c986..bbfbbc4a9 100644
+--- a/csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_v2_tiling.h
++++ b/csrc/deepep/ops/op_kernel/dispatch_ffn_combine_kernel/moe_init_routing_quant_v2/moe_init_routing_v2_tiling.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <type_traits>
++#include <limits>
+ #include "tiling_base.h"
+ 
+ namespace optiling {
+@@ -51,8 +53,12 @@ inline static int64_t GetPerOrLastValue(int64_t x, int64_t y)
+ }
+ 
+ template <class T>
+-constexpr T CeilDiv(const T dividend, const T divisor)
++static T CeilDiv(const T dividend, const T divisor)
+ {
++    static_assert(std::is_arithmetic<T>::value, "T must be an arithmetic type");
++    if (divisor == 0 || dividend + divisor - 1 < dividend) {
++        return std::numeric_limits<T>::max();
++    }
+     return (dividend + divisor - 1) / divisor;
+ }
+ 
+diff --git a/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h b/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+index 8d91c7f52..88874b02f 100644
+--- a/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
++++ b/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+@@ -38,6 +38,8 @@ constexpr int32_t BUFFER_NUM = 2;
+ constexpr int32_t GATHER_SECOND_NUM = 2;
+ constexpr uint32_t MAX_QUANT_ROW_ONCE = 8;
+ constexpr uint32_t QUANT_SPACE_FACTOR = 176 * 1024 / 11;  // 量化使用UB不超过176KB
++constexpr uint64_t CYCLE_TO_TIME = 50;
++constexpr uint64_t TIMEOUT_DETECTION_THRESHOLD = 5000000000UL;
+ #define OPT_RANK_OFFSET 512
+ 
+ #define CEIL_UP(x) ((x + UB_ALIGN - 1) / UB_ALIGN * UB_ALIGN)
+@@ -334,6 +336,9 @@ __aicore__ inline static void CheckSyncFlag(__gm__ uint8_t *flagAddr, uint8_t id
+     AscendC::PipeBarrier<PIPE_ALL>();
+     AscendC::GlobalTensor<uint8_t> global;
+     global.SetGlobalBuffer(flagAddr + idx * SOFT_SYNC_SPACE_SIZE);
++
++    uint64_t timeoutCheckStart = static_cast<uint64_t>(AscendC::GetSystemCycle());
++    uint64_t timeoutCheckEnd, timeoutCheckDuration;
+     while (true) {
+         __asm__ __volatile__("");
+         AscendC::DataCacheCleanAndInvalid<uint8_t, AscendC::CacheLine::SINGLE_CACHE_LINE,
+@@ -347,6 +352,9 @@ __aicore__ inline static void CheckSyncFlag(__gm__ uint8_t *flagAddr, uint8_t id
+             __asm__ __volatile__("");
+             break;
+         }
++        timeoutCheckEnd = static_cast<uint64_t>(AscendC::GetSystemCycle());
++        timeoutCheckDuration = (timeoutCheckEnd - timeoutCheckStart) / CYCLE_TO_TIME;
++        assert(timeoutCheckDuration < TIMEOUT_DETECTION_THRESHOLD);
+     }
+     AscendC::PipeBarrier<PIPE_ALL>();
+ }
+diff --git a/csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc b/csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+index 6e5b880cf..9ff99f238 100644
+--- a/csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
++++ b/csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+@@ -1428,7 +1428,7 @@ static ge::graphStatus MoeDistributeCombineV2TilingFunc(gert::TilingContext *con
+     if (socVersion == "Ascend910B") {
+         ret = MoeDistributeCombineA2TilingFuncImpl(context);
+     } else {
+-        // ret = MoeDistributeCombineA3TilingFuncImpl(context);
++        OP_LOGE(nodeName, "socVersion is not support");
+     }
+ 
+     return ret;
+diff --git a/csrc/deepep/ops2/op_kernel/check_winsize.h b/csrc/deepep/ops2/op_kernel/check_winsize.h
+index 26ddc5e32..bd177e79d 100644
+--- a/csrc/deepep/ops2/op_kernel/check_winsize.h
++++ b/csrc/deepep/ops2/op_kernel/check_winsize.h
+@@ -15,7 +15,7 @@ __aicore__ inline void CheckWindowSize(uint64_t tilingWinSizeBytes, uint64_t rea
+         AscendC::TBuf<AscendC::TPosition::VECCALC> exceptionBuf;
+         tpipe_->InitBuffer(exceptionBuf, 1);  // 初始化一个缓冲区
+         AscendC::LocalTensor<int32_t> exceptionLocal = exceptionBuf.Get<int32_t>();
+-        AscendC::DataCopy(exceptionLocal[1], exceptionGlobal, 1);  // 从全局地址复制数据到本地地址
++        AscendC::DataCopy(exceptionLocal[0], exceptionGlobal, 1);  // 从全局地址复制数据到本地地址
+     }
+ }
+ #endif  // CHECK_WINSIZE_H

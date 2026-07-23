@@ -1,0 +1,39 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/157
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: 33753fc0
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-157
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: b985c4bab1fbded3618899da72935b077e35905e6480b6a0d7c270b646dcbace
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+  sha256: 204c2cb30b276a14bf7961efcc7787fb170bdcdc6d1f1926b52ec3f8cdb6f2f8
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/norm/__init__.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/norm/__init__.py
+  sha256: e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
+  sha256: ef0a58beaba92965904901fbd65382f34bce7a89b84a1ed46835b15a2c59e945
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/norm/l1_norm.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/norm/l1_norm.py
+  sha256: 3a91f7acbaf7833430d678f82632e75a18f8297078b8e0fcecd2cae8f253a2a5
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+  sha256: 6f074a98b7fc63a87e29ce5150700c2598ebf94e2b4b673b589f1bd38a93608c

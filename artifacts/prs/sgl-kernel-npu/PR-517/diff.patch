@@ -1,0 +1,944 @@
+diff --git a/csrc/CMakeLists.txt b/csrc/CMakeLists.txt
+index 6a16d39ba..29f9096a2 100644
+--- a/csrc/CMakeLists.txt
++++ b/csrc/CMakeLists.txt
+@@ -100,36 +100,22 @@ ascendc_compile_definitions(workspace_kernel PRIVATE
+ )
+ 
+ set(MEGA_CHUNK_GDN_KERNEL_TARGETS)
+-function(add_mega_chunk_gdn_kernel H HG)
+-    set(target "mega_chunk_gdn_kernel_h${H}_hg${HG}")
+-    ascendc_library(${target} STATIC
+-        ${PROJECT_OP_SRC_BASE}/mega_chunk_gdn/op_kernel/mega_kernel.cpp
+-    )
+-    ascendc_include_directories(${target} PRIVATE
+-        ${PROJECT_OP_SRC_BASE}/mega_chunk_gdn/op_kernel
+-        ${PROJECT_SOURCE_DIR}/third-party/pto-isa/include
+-        ${ASCEND_INCLUDE_DIR}
+-        ${ASCEND_INCLUDE_DIR}/experiment/runtime
+-        ${ASCEND_INCLUDE_DIR}/experiment/msprof
+-    )
+-    ascendc_compile_definitions(${target} PRIVATE
+-        -DGDN_KERNEL_NAME=launch_mega_kernel_h${H}_hg${HG}
+-        -DGDN_H=${H}
+-        -DGDN_HG=${HG}
+-        -DGDN_D=128
+-        -DGDN_C=128
+-    )
+-    list(APPEND MEGA_CHUNK_GDN_KERNEL_TARGETS ${target})
+-    set(MEGA_CHUNK_GDN_KERNEL_TARGETS ${MEGA_CHUNK_GDN_KERNEL_TARGETS} PARENT_SCOPE)
+-endfunction()
+-
+-add_mega_chunk_gdn_kernel(16 16)
+-add_mega_chunk_gdn_kernel(32 16)
+-add_mega_chunk_gdn_kernel(48 16)
+-add_mega_chunk_gdn_kernel(64 16)
+-add_mega_chunk_gdn_kernel(16 8)
+-add_mega_chunk_gdn_kernel(32 8)
+-add_mega_chunk_gdn_kernel(16 4)
++set(MEGA_CHUNK_GDN_KERNEL_TARGETS mega_chunk_gdn_kernel)
++ascendc_library(mega_chunk_gdn_kernel STATIC
++    ${PROJECT_OP_SRC_BASE}/mega_chunk_gdn/op_kernel/mega_kernel.cpp
++)
++ascendc_include_directories(mega_chunk_gdn_kernel PRIVATE
++    ${PROJECT_OP_SRC_BASE}/mega_chunk_gdn/op_kernel
++    ${PROJECT_SOURCE_DIR}/third-party/pto-isa/include
++    ${ASCEND_INCLUDE_DIR}
++    ${ASCEND_INCLUDE_DIR}/experiment/runtime
++    ${ASCEND_INCLUDE_DIR}/experiment/msprof
++)
++ascendc_compile_definitions(mega_chunk_gdn_kernel PRIVATE
++    -DGDN_KERNEL_NAME=launch_mega_kernel
++    -DGDN_D=128
++    -DGDN_C=128
++)
+ 
+ # create shared library libsgl_kernel_npu.so
+ add_library(${OP_PLUGIN_NAME} SHARED ${OP_SRCS})
+diff --git a/csrc/mega_chunk_gdn/op_host/mega_chunk_gdn.cpp b/csrc/mega_chunk_gdn/op_host/mega_chunk_gdn.cpp
+index de84d2ce7..d3dad6b78 100644
+--- a/csrc/mega_chunk_gdn/op_host/mega_chunk_gdn.cpp
++++ b/csrc/mega_chunk_gdn/op_host/mega_chunk_gdn.cpp
+@@ -5,95 +5,64 @@
+ #include <limits>
+ #include <stdexcept>
+ 
+-// TP=1, global key heads=16
+-#include "aclrtlaunch_launch_mega_kernel_h16_hg16.h"
+-#include "aclrtlaunch_launch_mega_kernel_h32_hg16.h"
+-#include "aclrtlaunch_launch_mega_kernel_h48_hg16.h"
+-#include "aclrtlaunch_launch_mega_kernel_h64_hg16.h"
+-// TP=2, local key heads=8
+-#include "aclrtlaunch_launch_mega_kernel_h16_hg8.h"
+-#include "aclrtlaunch_launch_mega_kernel_h32_hg8.h"
+-// TP=4, local key heads=4
+-#include "aclrtlaunch_launch_mega_kernel_h16_hg4.h"
++#include "aclrtlaunch_launch_mega_kernel.h"
+ #include "defines.h"
+ #include "torch_helper.h"
+ 
+-#define SGLANG_FOR_EACH_MEGA_CHUNK_GDN_VARIANT(MACRO) \
+-    MACRO(16, 16)                                     \
+-    MACRO(32, 16)                                     \
+-    MACRO(48, 16)                                     \
+-    MACRO(64, 16)                                     \
+-    MACRO(16, 8)                                      \
+-    MACRO(32, 8)                                      \
+-    MACRO(16, 4)
+-
+ namespace sglang {
+ namespace npu_kernel {
+ 
+ namespace {
+-constexpr int64_t kGlobalKeyHeads = 16;
+ constexpr int64_t kHeadDim = 128;
+ 
+-bool is_supported_global_value_heads(int64_t value_heads)
+-{
+-    return value_heads == 16 || value_heads == 32 || value_heads == 48 || value_heads == 64;
+-}
+-
+-bool is_supported_tp_degree(int64_t tp_degree)
+-{
+-    return tp_degree == 1 || tp_degree == 2 || tp_degree == 4 || tp_degree == 8;
+-}
+-
+ bool is_supported_head_pair(int64_t value_heads, int64_t key_heads)
+ {
+-    if (key_heads <= 0 || kGlobalKeyHeads % key_heads != 0) {
+-        return false;
+-    }
+-    int64_t tp_degree = kGlobalKeyHeads / key_heads;
+-    return is_supported_tp_degree(tp_degree) && is_supported_global_value_heads(value_heads * tp_degree);
++    return (value_heads == 16 || value_heads == 24 || value_heads == 32 || value_heads == 48 || value_heads == 64) &&
++           value_heads % key_heads == 0;
+ }
+ 
+ void check_shape(const at::Tensor &q, const at::Tensor &k, const at::Tensor &v, const at::Tensor &g,
+                  const at::Tensor &beta, const at::Tensor &cu_seqlens, const at::Tensor &initial_state,
+                  bool has_initial_state)
+ {
+-    TORCH_CHECK(q.dim() == 4, "q must have shape [B, T, Hg, D]");
+-    TORCH_CHECK(k.dim() == 4, "k must have shape [B, T, Hg, D]");
+-    TORCH_CHECK(v.dim() == 4, "v must have shape [B, T, H, D]");
+-    TORCH_CHECK(g.dim() == 3, "g must have shape [B, T, H]");
+-    TORCH_CHECK(beta.dim() == 3, "beta must have shape [B, T, H]");
+-
+-    TORCH_CHECK(q.size(0) == 1, "mega_chunk_gdn currently supports packed B=1 input");
+-    TORCH_CHECK(q.sizes() == k.sizes(), "q and k must have the same shape");
+-    TORCH_CHECK(q.size(1) == v.size(1), "q/k and v sequence lengths must match");
+-    TORCH_CHECK(is_supported_head_pair(v.size(2), q.size(2)),
+-                "unsupported mega_chunk_gdn (NumValueHeads, NumKeyHeads) pair");
+-    TORCH_CHECK(q.size(3) == kHeadDim && v.size(3) == kHeadDim, "mega_chunk_gdn supports head dimension 128");
+-
+-    TORCH_CHECK(g.size(0) == 1 && beta.size(0) == 1, "g and beta must use packed B=1 layout");
+-    TORCH_CHECK(g.size(1) == q.size(1) && beta.size(1) == q.size(1), "g/beta sequence lengths must match q");
+-    TORCH_CHECK(g.size(2) == v.size(2) && beta.size(2) == v.size(2), "g/beta must use the same NumValueHeads as v");
+-
+-    TORCH_CHECK(q.scalar_type() == at::kHalf, "q must be float16");
+-    TORCH_CHECK(k.scalar_type() == at::kHalf, "k must be float16");
+-    TORCH_CHECK(v.scalar_type() == at::kHalf, "v must be float16");
+-    TORCH_CHECK(beta.scalar_type() == at::kHalf, "beta must be float16");
+-    TORCH_CHECK(g.scalar_type() == at::kFloat, "g must be float32");
+-    TORCH_CHECK(cu_seqlens.scalar_type() == at::kInt, "cu_seqlens must be int32");
+-
+-    TORCH_CHECK(q.is_contiguous() && k.is_contiguous() && v.is_contiguous(), "q, k, and v must be contiguous");
+-    TORCH_CHECK(g.is_contiguous() && beta.is_contiguous() && cu_seqlens.is_contiguous(),
+-                "g, beta, and cu_seqlens must be contiguous");
++    const char *err = "Try running the alternative backend by setting GDN_ATTN_BACKEND_TRITON=1.";
++    auto check = [&err](bool condition, const char *message) { TORCH_CHECK(condition, message, " ", err); };
++
++    check(q.dim() == 4, "q must have shape [B, T, Hg, D]");
++    check(k.dim() == 4, "k must have shape [B, T, Hg, D]");
++    check(v.dim() == 4, "v must have shape [B, T, H, D]");
++    check(g.dim() == 3, "g must have shape [B, T, H]");
++    check(beta.dim() == 3, "beta must have shape [B, T, H]");
++
++    check(q.size(0) == 1, "mega_chunk_gdn currently supports packed B=1 input");
++    check(q.sizes() == k.sizes(), "q and k must have the same shape");
++    check(q.size(1) == v.size(1), "q/k and v sequence lengths must match");
++    check(is_supported_head_pair(v.size(2), q.size(2)), "unsupported mega_chunk_gdn (NumValueHeads, NumKeyHeads) pair");
++    check(q.size(3) == kHeadDim && v.size(3) == kHeadDim, "mega_chunk_gdn supports head dimension 128");
++
++    check(g.size(0) == 1 && beta.size(0) == 1, "g and beta must use packed B=1 layout");
++    check(g.size(1) == q.size(1) && beta.size(1) == q.size(1), "g/beta sequence lengths must match q");
++    check(g.size(2) == v.size(2) && beta.size(2) == v.size(2), "g/beta must use the same NumValueHeads as v");
++
++    check(q.scalar_type() == at::kHalf, "q must be float16");
++    check(k.scalar_type() == at::kHalf, "k must be float16");
++    check(v.scalar_type() == at::kHalf, "v must be float16");
++    check(beta.scalar_type() == at::kHalf, "beta must be float16");
++    check(g.scalar_type() == at::kFloat, "g must be float32");
++    check(cu_seqlens.scalar_type() == at::kInt, "cu_seqlens must be int32");
++
++    check(q.is_contiguous() && k.is_contiguous() && v.is_contiguous(), "q, k, and v must be contiguous");
++    check(g.is_contiguous() && beta.is_contiguous() && cu_seqlens.is_contiguous(),
++          "g, beta, and cu_seqlens must be contiguous");
+ 
+     if (has_initial_state) {
+-        TORCH_CHECK(initial_state.dim() == 4, "initial_state must have shape [N, H, D, D]");
+-        TORCH_CHECK(initial_state.size(0) == cu_seqlens.numel() - 1,
+-                    "initial_state.size(0) must match cu_seqlens sequences");
+-        TORCH_CHECK(initial_state.size(1) == v.size(2), "initial_state.size(1) must match NumValueHeads");
+-        TORCH_CHECK(initial_state.size(2) == kHeadDim && initial_state.size(3) == kHeadDim,
+-                    "initial_state must use head dimensions 128 x 128");
+-        TORCH_CHECK(initial_state.scalar_type() == at::kHalf, "initial_state must be float16");
+-        TORCH_CHECK(initial_state.is_contiguous(), "initial_state must be contiguous");
++        check(initial_state.dim() == 4, "initial_state must have shape [N, H, D, D]");
++        check(initial_state.size(0) == cu_seqlens.numel() - 1, "initial_state.size(0) must match cu_seqlens sequences");
++        check(initial_state.size(1) == v.size(2), "initial_state.size(1) must match NumValueHeads");
++        check(initial_state.size(2) == kHeadDim && initial_state.size(3) == kHeadDim,
++              "initial_state must use head dimensions 128 x 128");
++        check(initial_state.scalar_type() == at::kHalf, "initial_state must be float16");
++        check(initial_state.is_contiguous(), "initial_state must be contiguous");
+     }
+ }
+ }  // namespace
+@@ -119,29 +88,16 @@ HOST_API void mega_chunk_gdn(const at::Tensor &q, const at::Tensor &k, const at:
+ 
+     uint32_t num_matrices_u32 = static_cast<uint32_t>(num_matrices);
+     uint32_t block_dim_u32 = static_cast<uint32_t>(block_dim);
++    uint32_t num_heads_u32 = static_cast<uint32_t>(v.size(2));
++    uint32_t num_key_heads_u32 = static_cast<uint32_t>(q.size(2));
+     int64_t has_initial_state_i64 = has_initial_state ? 1 : 0;
+ 
+-#define LAUNCH_MEGA_CHUNK_GDN(H, HG)                                                                             \
+-    EXEC_KERNEL_CMD(launch_mega_kernel_h##H##_hg##HG, block_dim_u32, q, k, v, g, beta, mask_lower, mask_full,    \
+-                    minus_identity, cu_seqlens, out, g_sum, g_t, beta_t, a, a_inv_f32, a_inv, w, u, s, v_new,    \
+-                    final_state, initial_state, has_initial_state_i64, kkt_workspace, wy_workspace_a1,           \
+-                    wy_workspace_a2, h_workspace, o_workspace_qk, o_workspace_qs, o_workspace_gated, batch_size, \
+-                    seq_len, total_tokens, num_matrices_u32)
+-
+-#define DISPATCH_MEGA_CHUNK_GDN(H, HG)       \
+-    if (v.size(2) == H && q.size(2) == HG) { \
+-        LAUNCH_MEGA_CHUNK_GDN(H, HG);        \
+-        return;                              \
+-    }
+-
+-    SGLANG_FOR_EACH_MEGA_CHUNK_GDN_VARIANT(DISPATCH_MEGA_CHUNK_GDN)
+-    TORCH_CHECK(false, "unsupported mega_chunk_gdn (NumValueHeads, NumKeyHeads) pair");
+-
+-#undef DISPATCH_MEGA_CHUNK_GDN
+-#undef LAUNCH_MEGA_CHUNK_GDN
++    EXEC_KERNEL_CMD(launch_mega_kernel, block_dim_u32, q, k, v, g, beta, mask_lower, mask_full, minus_identity,
++                    cu_seqlens, out, g_sum, g_t, beta_t, a, a_inv_f32, a_inv, w, u, s, v_new, final_state,
++                    initial_state, has_initial_state_i64, kkt_workspace, wy_workspace_a1, wy_workspace_a2, h_workspace,
++                    o_workspace_qk, o_workspace_qs, o_workspace_gated, num_heads_u32, num_key_heads_u32, batch_size,
++                    seq_len, total_tokens, num_matrices_u32);
+ }
+ 
+ }  // namespace npu_kernel
+ }  // namespace sglang
+-
+-#undef SGLANG_FOR_EACH_MEGA_CHUNK_GDN_VARIANT
+diff --git a/csrc/mega_chunk_gdn/op_kernel/chunk_cumsum.cpp b/csrc/mega_chunk_gdn/op_kernel/chunk_cumsum.cpp
+index 7c21eb2c8..cae3b940e 100644
+--- a/csrc/mega_chunk_gdn/op_kernel/chunk_cumsum.cpp
++++ b/csrc/mega_chunk_gdn/op_kernel/chunk_cumsum.cpp
+@@ -52,15 +52,8 @@
+ #include "acl/acl.h"
+ using namespace pto;
+ 
+-// GDN_H, GDN_C: Compile-time constants injected by the build system.
+-//   GDN_H = number of attention heads (e.g., 16)
+-//   GDN_C = chunk size in tokens (e.g., 128)
+-// Using compile-time constants allows the compiler to optimize tile sizes,
+-// unroll loops, and compute UB addresses at compile time.
+-#ifndef GDN_H
+-#define GDN_H 16
+-#endif
+-
++// NumHeads and ChunkSize are template parameters so the compiler can optimize
++// tile sizes, unroll loops, and compute UB addresses at compile time.
+ #ifndef GDN_C
+ #define GDN_C 128
+ #endif
+diff --git a/csrc/mega_chunk_gdn/op_kernel/chunk_h.cpp b/csrc/mega_chunk_gdn/op_kernel/chunk_h.cpp
+index f02f1cbe5..f714664b7 100644
+--- a/csrc/mega_chunk_gdn/op_kernel/chunk_h.cpp
++++ b/csrc/mega_chunk_gdn/op_kernel/chunk_h.cpp
+@@ -262,11 +262,11 @@ gemm_v0(std::conditional_t<transpose_A, TileMatL1<T1, K, M, validK, validM>, Til
+ 
+ #endif
+ 
+-template <int32_t NumHeads, int32_t NumKeyHeads, int32_t HiddenSize, int32_t ChunkSize>
++template <int32_t NumHeads, int32_t HiddenSize, int32_t ChunkSize>
+ AICORE void chunk_h_kernel(__gm__ half *K_handle, __gm__ half *W_handle, __gm__ half *U_handle, __gm__ float *G_handle,
+                            __gm__ half *S_handle, __gm__ half *V_handle, __gm__ half *FS_handle, __gm__ half *H0_handle,
+                            int64_t has_initial_state, __gm__ half *workspace_handle, __gm__ int32_t *cu_seqlens,
+-                           int64_t batch_size, int64_t seq_len, int64_t total_tokens)
++                           int64_t batch_size, int64_t seq_len, int64_t total_tokens, uint32_t num_key_heads)
+ {
+     // chunk_h advances the recurrent hidden state chunk by chunk:
+     //   ws_i      = W_i @ S_i
+@@ -295,12 +295,12 @@ AICORE void chunk_h_kernel(__gm__ half *K_handle, __gm__ half *W_handle, __gm__
+     constexpr int32_t D = HiddenSize;
+     constexpr int32_t C = ChunkSize;
+     constexpr int32_t H = NumHeads;
+-    constexpr int32_t Hg = NumKeyHeads;
+-    static_assert(Hg > 0 && H % Hg == 0, "NumHeads must be divisible by NumKeyHeads");
+-    constexpr int32_t GROUP = H / Hg;
++    const int32_t Hg = static_cast<int32_t>(num_key_heads);
++    if (Hg <= 0 || (H % Hg) != 0) return;
++    const int32_t GROUP = H / Hg;
+     constexpr int32_t HalfC = C / 2;
+     constexpr int32_t BSND_QKV_STRIDE = H * D;
+-    constexpr int32_t BSND_K_STRIDE = Hg * D;
++    const int32_t BSND_K_STRIDE = Hg * D;
+     constexpr int32_t DD = D * D;
+ 
+     constexpr int32_t WS_WS = 0;
+diff --git a/csrc/mega_chunk_gdn/op_kernel/chunk_o.cpp b/csrc/mega_chunk_gdn/op_kernel/chunk_o.cpp
+index 9b8e7a1f9..e05a81a81 100644
+--- a/csrc/mega_chunk_gdn/op_kernel/chunk_o.cpp
++++ b/csrc/mega_chunk_gdn/op_kernel/chunk_o.cpp
+@@ -82,18 +82,6 @@
+ #include "acl/acl.h"
+ using namespace pto;
+ 
+-// ── Compile-time configuration (overridable at build time via -D flags) ──
+-// GDN_H: number of attention heads (default 16)
+-// GDN_D: hidden dimension per head (default 128)
+-// GDN_C: chunk size in tokens (default 128)
+-#ifndef GDN_H
+-#define GDN_H 16
+-#endif
+-
+-#ifndef GDN_HG
+-#define GDN_HG GDN_H
+-#endif
+-
+ #ifndef GDN_D
+ #define GDN_D 128
+ #endif
+@@ -135,15 +123,21 @@ template <typename T, int R, int C, int RV = R, int CV = C>
+ using L1MatZN = pto::Tile<pto::TileType::Mat, T, R, C, pto::BLayout::RowMajor, RV, CV, pto::SLayout::ColMajor, 512,
+                           pto::PadValue::Zero>;
+ 
++using GmShape2D = pto::Shape<1, 1, 1, pto::DYNAMIC, pto::DYNAMIC>;
++using GmStride2D = pto::Stride<1, 1, 1, pto::DYNAMIC, 1>;
++
++template <typename T>
++using GmTensor2D = pto::GlobalTensor<T, GmShape2D, GmStride2D>;
++
+ #endif  // __CCE_AICORE__
+ 
+-template <int32_t NumHeads, int32_t NumKeyHeads, int32_t HiddenSize, int32_t ChunkSize>
++template <int32_t NumHeads, int32_t HiddenSize, int32_t ChunkSize>
+ static inline AICORE void chunk_o_kernel(__gm__ half *Q_handle, __gm__ half *K_handle, __gm__ half *V_handle,
+                                          __gm__ half *S_handle, __gm__ float *G_handle, __gm__ float *Msk_handle,
+                                          __gm__ half *workspace_qk_handle, __gm__ half *workspace_qs_qkv_handle,
+                                          __gm__ half *workspace_qk_gated_handle, __gm__ half *O_handle,
+                                          __gm__ int32_t *cu_seqlens, int64_t batch_size, int64_t seq_len,
+-                                         int64_t total_tokens)
++                                         int64_t total_tokens, uint32_t num_key_heads)
+ {
+     // Half the chunk — each Vec sub-block handles C/2 rows independently.
+     constexpr int32_t HalfChunk = ChunkSize / 2;
+@@ -153,11 +147,11 @@ static inline AICORE void chunk_o_kernel(__gm__ half *Q_handle, __gm__ half *K_h
+     constexpr uint32_t CTail = (ChunkSize % 128 == 0) ? 128 : (ChunkSize % 128);
+ 
+     constexpr int32_t H = NumHeads;
+-    constexpr int32_t Hg = NumKeyHeads;
+-    static_assert(Hg > 0 && H % Hg == 0, "NumHeads must be divisible by NumKeyHeads");
+-    constexpr int32_t GROUP = H / Hg;
++    const int32_t Hg = static_cast<int32_t>(num_key_heads);
++    if (Hg <= 0 || (H % Hg) != 0) return;
++    const int32_t GROUP = H / Hg;
+     constexpr int32_t BSND_V_STRIDE = H * HiddenSize;
+-    constexpr int32_t BSND_QK_STRIDE = Hg * HiddenSize;
++    const int32_t BSND_QK_STRIDE = Hg * HiddenSize;
+ 
+     // Workspace sizes (in elements) shared between Cube and Vec via GM
+     constexpr int32_t WsQKSize = ChunkSize * ChunkSize;
+@@ -314,10 +308,9 @@ static inline AICORE void chunk_o_kernel(__gm__ half *Q_handle, __gm__ half *K_h
+             {
+                 L1Mat<half, ChunkSize, HiddenSize, DYNAMIC, DYNAMIC> _l1(valid_rows, HiddenSize);
+                 TASSIGN(_l1, 0);
+-                Shape<1, 1, 1, DYNAMIC, DYNAMIC> _gs;
+-                _gs.shape[3] = valid_rows;
+-                _gs.shape[4] = HiddenSize;
+-                GlobalTensor<half, decltype(_gs), Stride<1, 1, 1, BSND_QK_STRIDE, 1>> _gm(Q_handle + qk_off, _gs);
++                GmShape2D _gs(valid_rows, HiddenSize);
++                GmStride2D _stride(BSND_QK_STRIDE);
++                GmTensor2D<half> _gm(Q_handle + qk_off, _gs, _stride);
+                 TLOAD(_l1, _gm);
+                 if (valid_rows != ChunkSize) TFILLPAD(_l1, _l1);
+             }
+@@ -325,10 +318,9 @@ static inline AICORE void chunk_o_kernel(__gm__ half *Q_handle, __gm__ half *K_h
+             {
+                 L1Mat<half, ChunkSize, HiddenSize, DYNAMIC, DYNAMIC> _l1(valid_rows, HiddenSize);
+                 TASSIGN(_l1, 32768);
+-                Shape<1, 1, 1, DYNAMIC, DYNAMIC> _gs;
+-                _gs.shape[3] = valid_rows;
+-                _gs.shape[4] = HiddenSize;
+-                GlobalTensor<half, decltype(_gs), Stride<1, 1, 1, BSND_QK_STRIDE, 1>> _gm(K_handle + qk_off, _gs);
++                GmShape2D _gs(valid_rows, HiddenSize);
++                GmStride2D _stride(BSND_QK_STRIDE);
++                GmTensor2D<half> _gm(K_handle + qk_off, _gs, _stride);
+                 TLOAD(_l1, _gm);
+                 if (valid_rows != ChunkSize) TFILLPAD(_l1, _l1);
+             }
+@@ -560,11 +552,9 @@ static inline AICORE void chunk_o_kernel(__gm__ half *Q_handle, __gm__ half *K_h
+                         {
+                             L1Mat<half, ChunkSize, HiddenSize, DYNAMIC, DYNAMIC> _l1(valid_rows, HiddenSize);
+                             TASSIGN(_l1, 0);
+-                            Shape<1, 1, 1, DYNAMIC, DYNAMIC> _gs;
+-                            _gs.shape[3] = valid_rows;
+-                            _gs.shape[4] = HiddenSize;
+-                            GlobalTensor<half, decltype(_gs), Stride<1, 1, 1, BSND_QK_STRIDE, 1>> _gm(Q_handle + qk_off,
+-                                                                                                      _gs);
++                            GmShape2D _gs(valid_rows, HiddenSize);
++                            GmStride2D _stride(BSND_QK_STRIDE);
++                            GmTensor2D<half> _gm(Q_handle + qk_off, _gs, _stride);
+                             TLOAD(_l1, _gm);
+                             if (valid_rows != ChunkSize) TFILLPAD(_l1, _l1);
+                         }
+@@ -572,11 +562,9 @@ static inline AICORE void chunk_o_kernel(__gm__ half *Q_handle, __gm__ half *K_h
+                         {
+                             L1Mat<half, ChunkSize, HiddenSize, DYNAMIC, DYNAMIC> _l1(valid_rows, HiddenSize);
+                             TASSIGN(_l1, 32768);
+-                            Shape<1, 1, 1, DYNAMIC, DYNAMIC> _gs;
+-                            _gs.shape[3] = valid_rows;
+-                            _gs.shape[4] = HiddenSize;
+-                            GlobalTensor<half, decltype(_gs), Stride<1, 1, 1, BSND_QK_STRIDE, 1>> _gm(K_handle + qk_off,
+-                                                                                                      _gs);
++                            GmShape2D _gs(valid_rows, HiddenSize);
++                            GmStride2D _stride(BSND_QK_STRIDE);
++                            GmTensor2D<half> _gm(K_handle + qk_off, _gs, _stride);
+                             TLOAD(_l1, _gm);
+                             if (valid_rows != ChunkSize) TFILLPAD(_l1, _l1);
+                         }
+diff --git a/csrc/mega_chunk_gdn/op_kernel/mega_kernel.cpp b/csrc/mega_chunk_gdn/op_kernel/mega_kernel.cpp
+index a36561d3b..a4ee6a3e0 100644
+--- a/csrc/mega_chunk_gdn/op_kernel/mega_kernel.cpp
++++ b/csrc/mega_chunk_gdn/op_kernel/mega_kernel.cpp
+@@ -1,8 +1,7 @@
+ // mega_kernel.cpp — GDN Mega-Kernel (group-value / GQA): all PTO stages in one launch
+ //
+-// Same pipeline as pto_mega_kernel, but scaled_dot_kkt / wy_fast / chunk_h / chunk_o use
+-// templates (H, Hg) from dynamic_bsnd_groupvalue; cumsum still uses H (value heads) like
+-// dynamic_bsnd.
++// Same pipeline as pto_mega_kernel, with value heads (H) and key heads (Hg)
++// passed at runtime. H dispatches to finite compile-time specializations.
+ //
+ // Stages:
+ //   1. cumsum      (Vec)
+@@ -13,12 +12,6 @@
+ //   6. chunk_h     (Cube+Vec)
+ //   7. chunk_o     (Cube+Vec)
+ 
+-#ifndef GDN_H
+-#define GDN_H 16
+-#endif
+-#ifndef GDN_HG
+-#define GDN_HG GDN_H
+-#endif
+ #ifndef GDN_D
+ #define GDN_D 128
+ #endif
+@@ -31,6 +24,7 @@
+ #ifndef GDN_KERNEL_NAME
+ #define GDN_KERNEL_NAME launch_mega_kernel
+ #endif
++// Note the codegen parser does not support arguments of form "type *name", only "type* name"
+ // clang-format off
+ #ifndef GM_ADDR
+ #define GM_ADDR __gm__ uint8_t*
+@@ -93,17 +87,20 @@ AICORE inline void mega_transpose_TH_to_HT(__gm__ T *src, __gm__ T *dst, int64_t
+     constexpr int32_t BLOCK = 128;
+     constexpr int32_t H = static_cast<int32_t>(H_val);
+     constexpr int32_t ES = static_cast<int32_t>(sizeof(T));
++    constexpr int32_t MinTransposeCols = 16;
++    constexpr int32_t AlignElems = ((32 / ES) > MinTransposeCols) ? (32 / ES) : MinTransposeCols;
++    constexpr int32_t HP = ((H + AlignElems - 1) / AlignElems) * AlignElems;
+     constexpr int32_t SRC_UB = 0;
+-    constexpr int32_t DST_UB = SRC_UB + BLOCK * H * ES;
+-    constexpr int32_t TMP_UB = DST_UB + H * BLOCK * ES;
++    constexpr int32_t DST_UB = SRC_UB + BLOCK * HP * ES;
++    constexpr int32_t TMP_UB = DST_UB + HP * BLOCK * ES;
+ 
+     using UBSrcFull =
+-        Tile<TileType::Vec, T, BLOCK, H, BLayout::RowMajor, BLOCK, H, SLayout::NoneBox, 512, PadValue::Zero>;
++        Tile<TileType::Vec, T, BLOCK, HP, BLayout::RowMajor, BLOCK, HP, SLayout::NoneBox, 512, PadValue::Zero>;
+     using UBSrcDyn =
+-        Tile<TileType::Vec, T, BLOCK, H, BLayout::RowMajor, DYNAMIC, DYNAMIC, SLayout::NoneBox, 512, PadValue::Zero>;
+-    using UBDst = Tile<TileType::Vec, T, H, BLOCK, BLayout::RowMajor, H, BLOCK, SLayout::NoneBox, 512>;
+-    using UBDstDyn = Tile<TileType::Vec, T, H, BLOCK, BLayout::RowMajor, DYNAMIC, DYNAMIC, SLayout::NoneBox, 512>;
+-    using UBTmp = Tile<TileType::Vec, T, BLOCK, H, BLayout::RowMajor, BLOCK, H, SLayout::NoneBox, 512>;
++        Tile<TileType::Vec, T, BLOCK, HP, BLayout::RowMajor, DYNAMIC, DYNAMIC, SLayout::NoneBox, 512, PadValue::Zero>;
++    using UBDst = Tile<TileType::Vec, T, HP, BLOCK, BLayout::RowMajor, HP, BLOCK, SLayout::NoneBox, 512>;
++    using UBDstDyn = Tile<TileType::Vec, T, HP, BLOCK, BLayout::RowMajor, DYNAMIC, DYNAMIC, SLayout::NoneBox, 512>;
++    using UBTmp = Tile<TileType::Vec, T, BLOCK, HP, BLayout::RowMajor, BLOCK, HP, SLayout::NoneBox, 512>;
+ 
+     using UBRow = Tile<TileType::Vec, T, 1, BLOCK, BLayout::RowMajor, 1, BLOCK, SLayout::NoneBox, 512>;
+     using UBRowDyn = Tile<TileType::Vec, T, 1, BLOCK, BLayout::RowMajor, DYNAMIC, DYNAMIC, SLayout::NoneBox, 512>;
+@@ -134,7 +131,7 @@ AICORE inline void mega_transpose_TH_to_HT(__gm__ T *src, __gm__ T *dst, int64_t
+             UBSrcDyn ld(valid, H);
+             TASSIGN(ld, SRC_UB);
+             TLOAD(ld, gm);
+-            if (valid != BLOCK) TFILLPAD_INPLACE(ub_src, ld);
++            if (valid != BLOCK || H != HP) TFILLPAD_INPLACE(ub_src, ld);
+         }
+         set_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+         wait_flag(PIPE_MTE2, PIPE_V, EVENT_ID0);
+@@ -268,21 +265,25 @@ AICORE inline void mega_solve_tril(__gm__ half *out, __gm__ half *in, __gm__ hal
+                                                                               num_bsnd_heads, cu_seqlens, is_lower);
+ }
+ 
+-// Note the codegen parser does not support arguments of form "type *name", only "type* name"
+-extern "C" __global__ AICORE void
+-GDN_KERNEL_NAME(GM_ADDR q_ptr, GM_ADDR k_ptr, GM_ADDR v_ptr, GM_ADDR g_in_ptr, GM_ADDR beta_ptr, GM_ADDR msk_lower_ptr,
+-                GM_ADDR msk_full_ptr, GM_ADDR minus_id_ptr, GM_ADDR cu_seqlens_ptr, GM_ADDR o_ptr, GM_ADDR g_sum_ptr,
+-                GM_ADDR g_t_ptr, GM_ADDR beta_t_ptr, GM_ADDR A_ptr, GM_ADDR A_inv_f32_ptr, GM_ADDR A_inv_ptr,
+-                GM_ADDR w_ptr, GM_ADDR u_ptr, GM_ADDR s_ptr, GM_ADDR v_new_ptr, GM_ADDR fs_ptr, GM_ADDR h0_ptr,
+-                int64_t has_initial_state, GM_ADDR kkt_ws_ptr, GM_ADDR wy_ws_a1_ptr, GM_ADDR wy_ws_a2_ptr,
+-                GM_ADDR h_ws_ptr, GM_ADDR o_ws_qk_ptr, GM_ADDR o_ws_qs_ptr, GM_ADDR o_ws_gated_ptr, int64_t batch_size,
+-                int64_t seq_len, int64_t total_tokens, uint32_t num_matrices)
++template <int32_t H>
++AICORE inline void mega_kernel_impl(GM_ADDR q_ptr, GM_ADDR k_ptr, GM_ADDR v_ptr, GM_ADDR g_in_ptr, GM_ADDR beta_ptr,
++                                    GM_ADDR msk_lower_ptr, GM_ADDR msk_full_ptr, GM_ADDR minus_id_ptr,
++                                    GM_ADDR cu_seqlens_ptr, GM_ADDR o_ptr, GM_ADDR g_sum_ptr, GM_ADDR g_t_ptr,
++                                    GM_ADDR beta_t_ptr, GM_ADDR A_ptr, GM_ADDR A_inv_f32_ptr, GM_ADDR A_inv_ptr,
++                                    GM_ADDR w_ptr, GM_ADDR u_ptr, GM_ADDR s_ptr, GM_ADDR v_new_ptr, GM_ADDR fs_ptr,
++                                    GM_ADDR h0_ptr, int64_t has_initial_state, GM_ADDR kkt_ws_ptr,
++                                    GM_ADDR wy_ws_a1_ptr, GM_ADDR wy_ws_a2_ptr, GM_ADDR h_ws_ptr,
++                                    GM_ADDR o_ws_qk_ptr, GM_ADDR o_ws_qs_ptr, GM_ADDR o_ws_gated_ptr,
++                                    uint32_t num_key_heads, int64_t batch_size, int64_t seq_len,
++                                    int64_t total_tokens, uint32_t num_matrices)
+ {
+-    constexpr int32_t H = GDN_H;
+-    constexpr int32_t HG = GDN_HG;
+     constexpr int32_t D = GDN_D;
+     constexpr int32_t C = GDN_C;
+ 
++    if (num_key_heads == 0 || (static_cast<uint32_t>(H) % num_key_heads) != 0) {
++        return;
++    }
++
+     mk_cumsum::cumsum_kernel<H, C>(reinterpret_cast<__gm__ float *>(g_in_ptr),
+                                    reinterpret_cast<__gm__ float *>(g_sum_ptr),
+                                    reinterpret_cast<__gm__ int32_t *>(cu_seqlens_ptr), batch_size, seq_len);
+@@ -310,11 +311,11 @@ GDN_KERNEL_NAME(GM_ADDR q_ptr, GM_ADDR k_ptr, GM_ADDR v_ptr, GM_ADDR g_in_ptr, G
+ 
+     SyncAllImpl<false>();
+ 
+-    mk_kkt::kkt_kernel<H, HG, D, C>(
++    mk_kkt::kkt_kernel<H, D, C>(
+         reinterpret_cast<__gm__ half *>(k_ptr), reinterpret_cast<__gm__ half *>(beta_t_ptr),
+         reinterpret_cast<__gm__ float *>(g_t_ptr), reinterpret_cast<__gm__ float *>(msk_lower_ptr),
+         reinterpret_cast<__gm__ half *>(kkt_ws_ptr), reinterpret_cast<__gm__ half *>(A_ptr),
+-        reinterpret_cast<__gm__ int32_t *>(cu_seqlens_ptr), batch_size, seq_len, total_tokens);
++        reinterpret_cast<__gm__ int32_t *>(cu_seqlens_ptr), batch_size, seq_len, total_tokens, num_key_heads);
+ 
+ #if defined(__DAV_C220_CUBE__)
+     pipe_barrier(PIPE_ALL);
+@@ -351,13 +352,13 @@ GDN_KERNEL_NAME(GM_ADDR q_ptr, GM_ADDR k_ptr, GM_ADDR v_ptr, GM_ADDR g_in_ptr, G
+     return;
+ #endif
+ 
+-    mk_wy::wy_fast_kernel<H, HG, D, C>(
++    mk_wy::wy_fast_kernel<H, D, C>(
+         reinterpret_cast<__gm__ half *>(k_ptr), reinterpret_cast<__gm__ half *>(v_ptr),
+         reinterpret_cast<__gm__ half *>(beta_t_ptr), reinterpret_cast<__gm__ float *>(g_t_ptr),
+         reinterpret_cast<__gm__ half *>(A_inv_ptr), reinterpret_cast<__gm__ half *>(wy_ws_a1_ptr),
+         reinterpret_cast<__gm__ half *>(wy_ws_a2_ptr), reinterpret_cast<__gm__ half *>(w_ptr),
+         reinterpret_cast<__gm__ half *>(u_ptr), reinterpret_cast<__gm__ int32_t *>(cu_seqlens_ptr), batch_size, seq_len,
+-        total_tokens);
++        total_tokens, num_key_heads);
+ 
+ #if defined(__DAV_C220_VEC__)
+     if (get_block_idx() < num_matrices) {
+@@ -374,13 +375,13 @@ GDN_KERNEL_NAME(GM_ADDR q_ptr, GM_ADDR k_ptr, GM_ADDR v_ptr, GM_ADDR g_in_ptr, G
+ 
+     SyncAllImpl<false>();
+ 
+-    mk_h::chunk_h_kernel<H, HG, D, C>(
++    mk_h::chunk_h_kernel<H, D, C>(
+         reinterpret_cast<__gm__ half *>(k_ptr), reinterpret_cast<__gm__ half *>(w_ptr),
+         reinterpret_cast<__gm__ half *>(u_ptr), reinterpret_cast<__gm__ float *>(g_t_ptr),
+         reinterpret_cast<__gm__ half *>(s_ptr), reinterpret_cast<__gm__ half *>(v_new_ptr),
+         reinterpret_cast<__gm__ half *>(fs_ptr), reinterpret_cast<__gm__ half *>(h0_ptr), has_initial_state,
+         reinterpret_cast<__gm__ half *>(h_ws_ptr), reinterpret_cast<__gm__ int32_t *>(cu_seqlens_ptr), batch_size,
+-        seq_len, total_tokens);
++        seq_len, total_tokens, num_key_heads);
+ 
+ #ifdef MEGA_STOP_AFTER_H
+     pipe_barrier(PIPE_ALL);
+@@ -389,13 +390,13 @@ GDN_KERNEL_NAME(GM_ADDR q_ptr, GM_ADDR k_ptr, GM_ADDR v_ptr, GM_ADDR g_in_ptr, G
+ 
+     SyncAllImpl<false>();
+ 
+-    mk_o::chunk_o_kernel<H, HG, D, C>(
++    mk_o::chunk_o_kernel<H, D, C>(
+         reinterpret_cast<__gm__ half *>(q_ptr), reinterpret_cast<__gm__ half *>(k_ptr),
+         reinterpret_cast<__gm__ half *>(v_new_ptr), reinterpret_cast<__gm__ half *>(s_ptr),
+         reinterpret_cast<__gm__ float *>(g_t_ptr), reinterpret_cast<__gm__ float *>(msk_full_ptr),
+         reinterpret_cast<__gm__ half *>(o_ws_qk_ptr), reinterpret_cast<__gm__ half *>(o_ws_qs_ptr),
+         reinterpret_cast<__gm__ half *>(o_ws_gated_ptr), reinterpret_cast<__gm__ half *>(o_ptr),
+-        reinterpret_cast<__gm__ int32_t *>(cu_seqlens_ptr), batch_size, seq_len, total_tokens);
++        reinterpret_cast<__gm__ int32_t *>(cu_seqlens_ptr), batch_size, seq_len, total_tokens, num_key_heads);
+ 
+ #if defined(__DAV_C220_CUBE__)
+     if (get_block_idx() < num_matrices) {
+@@ -404,3 +405,40 @@ GDN_KERNEL_NAME(GM_ADDR q_ptr, GM_ADDR k_ptr, GM_ADDR v_ptr, GM_ADDR g_in_ptr, G
+     }
+ #endif
+ }
++
++// Note the codegen parser does not support arguments of form "type *name", only "type* name"
++extern "C" __global__ AICORE void
++GDN_KERNEL_NAME(GM_ADDR q_ptr, GM_ADDR k_ptr, GM_ADDR v_ptr, GM_ADDR g_in_ptr, GM_ADDR beta_ptr, GM_ADDR msk_lower_ptr,
++                GM_ADDR msk_full_ptr, GM_ADDR minus_id_ptr, GM_ADDR cu_seqlens_ptr, GM_ADDR o_ptr, GM_ADDR g_sum_ptr,
++                GM_ADDR g_t_ptr, GM_ADDR beta_t_ptr, GM_ADDR A_ptr, GM_ADDR A_inv_f32_ptr, GM_ADDR A_inv_ptr,
++                GM_ADDR w_ptr, GM_ADDR u_ptr, GM_ADDR s_ptr, GM_ADDR v_new_ptr, GM_ADDR fs_ptr, GM_ADDR h0_ptr,
++                int64_t has_initial_state, GM_ADDR kkt_ws_ptr, GM_ADDR wy_ws_a1_ptr, GM_ADDR wy_ws_a2_ptr,
++                GM_ADDR h_ws_ptr, GM_ADDR o_ws_qk_ptr, GM_ADDR o_ws_qs_ptr, GM_ADDR o_ws_gated_ptr,
++                uint32_t num_heads, uint32_t num_key_heads, int64_t batch_size, int64_t seq_len,
++                int64_t total_tokens, uint32_t num_matrices)
++{
++#define DISPATCH_MEGA_H(H)                                                                                         \
++    case H:                                                                                                        \
++        mega_kernel_impl<H>(q_ptr, k_ptr, v_ptr, g_in_ptr, beta_ptr, msk_lower_ptr, msk_full_ptr, minus_id_ptr,    \
++                            cu_seqlens_ptr, o_ptr, g_sum_ptr, g_t_ptr, beta_t_ptr, A_ptr, A_inv_f32_ptr, A_inv_ptr, \
++                            w_ptr, u_ptr, s_ptr, v_new_ptr, fs_ptr, h0_ptr, has_initial_state, kkt_ws_ptr,          \
++                            wy_ws_a1_ptr, wy_ws_a2_ptr, h_ws_ptr, o_ws_qk_ptr, o_ws_qs_ptr, o_ws_gated_ptr,         \
++                            num_key_heads, batch_size, seq_len, total_tokens, num_matrices);                       \
++        return
++
++    switch (num_heads) {
++        // DISPATCH_MEGA_H(2);
++        // DISPATCH_MEGA_H(4);
++        // DISPATCH_MEGA_H(8);
++        // DISPATCH_MEGA_H(12);
++        DISPATCH_MEGA_H(16);
++        DISPATCH_MEGA_H(24);
++        DISPATCH_MEGA_H(32);
++        DISPATCH_MEGA_H(48);
++        DISPATCH_MEGA_H(64);
++        default:
++            return;
++    }
++
++#undef DISPATCH_MEGA_H
++}
+diff --git a/csrc/mega_chunk_gdn/op_kernel/scaled_dot_kkt.cpp b/csrc/mega_chunk_gdn/op_kernel/scaled_dot_kkt.cpp
+index 9550e2b10..91a82f9ac 100644
+--- a/csrc/mega_chunk_gdn/op_kernel/scaled_dot_kkt.cpp
++++ b/csrc/mega_chunk_gdn/op_kernel/scaled_dot_kkt.cpp
+@@ -72,17 +72,8 @@
+ #include "acl/acl.h"         // ACL (Ascend Computing Language): runtime API
+ using namespace pto;
+ 
+-// ── Compile-time constants (set by the JIT compiler from Python) ──────
+-// These are typically passed as -DGDN_H=16 -DGDN_D=128 -DGDN_C=128 on the
+-// compiler command line. The #ifndef guards provide defaults for IDE tooling.
+-#ifndef GDN_H
+-#define GDN_H 16  // H = number of value heads (gates A β,g index here)
+-#endif
+-
+-#ifndef GDN_HG
+-#define GDN_HG GDN_H  // Hg = shared key-query heads (GQA); default MHA
+-#endif
+-
++// NumHeads, HiddenSize, and ChunkSize are template parameters. The mega kernel
++// dispatches NumHeads from a runtime value to a finite set of specializations.
+ #ifndef GDN_D
+ #define GDN_D 128  // D = hidden dimension per head
+ #endif
+@@ -123,24 +114,32 @@ using L1Mat = pto::Tile<pto::TileType::Mat, T, R, C, pto::BLayout::ColMajor, RV,
+ template <typename T, int R, int C, int RV = R, int CV = C>
+ using L1MatZN = pto::Tile<pto::TileType::Mat, T, R, C, pto::BLayout::RowMajor, RV, CV, pto::SLayout::ColMajor, 512,
+                           pto::PadValue::Zero>;
++
++using GmShape2D = pto::Shape<1, 1, 1, pto::DYNAMIC, pto::DYNAMIC>;
++using GmStride2D = pto::Stride<1, 1, 1, pto::DYNAMIC, 1>;
++
++template <typename T>
++using GmTensor2D = pto::GlobalTensor<T, GmShape2D, GmStride2D>;
+ #endif
+ 
+ // ── Main kernel function (runs on each AI core) ──────────────────────
+-// Template parameters: NumHeads (H value), NumKeyHeads (Hg), HiddenSize, ChunkSize.
++// Template parameters: NumHeads (H value), HiddenSize, ChunkSize.
+ // GROUP = H/Hg; Cube loads K at head_g = head_idx / GROUP.
+ //
+ // __gm__: Marks pointers as Global Memory (HBM) — the NPU equivalent of
+ // CUDA's device memory. All input/output tensors live in GM.
+-template <int32_t NumHeads, int32_t NumKeyHeads, int32_t HiddenSize, int32_t ChunkSize>
++template <int32_t NumHeads, int32_t HiddenSize, int32_t ChunkSize>
+ AICORE void kkt_kernel(__gm__ half *K_handle, __gm__ half *Beta_handle, __gm__ float *G_handle,
+                        __gm__ float *Msk_handle, __gm__ half *workspace_handle, __gm__ half *A_handle,
+-                       __gm__ int32_t *cu_seqlens, int64_t batch_size, int64_t seq_len, int64_t total_tokens)
++                       __gm__ int32_t *cu_seqlens, int64_t batch_size, int64_t seq_len, int64_t total_tokens,
++                       uint32_t num_key_heads)
+ {
+     constexpr int32_t HalfChunk = ChunkSize / 2;
+     constexpr int32_t ChunkSquare = ChunkSize * ChunkSize;
+-    static_assert(NumHeads % NumKeyHeads == 0, "NumHeads must be divisible by NumKeyHeads (GQA grouping)");
+-    constexpr int32_t GROUP = NumHeads / NumKeyHeads;
+-    constexpr int32_t BSND_QK_STRIDE = NumKeyHeads * HiddenSize;
++    const int32_t key_heads = static_cast<int32_t>(num_key_heads);
++    if (key_heads <= 0 || (NumHeads % key_heads) != 0) return;
++    const int32_t group = NumHeads / key_heads;
++    const int32_t bsnd_qk_stride = key_heads * HiddenSize;
+     // KTail: number of valid columns in the last 128-wide fractal block of K.
+     // If HiddenSize is a multiple of 128, the last block is fully used (128).
+     // Otherwise it's the remainder. Used internally by TLOAD for partial blocks.
+@@ -276,10 +275,9 @@ AICORE void kkt_kernel(__gm__ half *K_handle, __gm__ half *Beta_handle, __gm__ f
+ 
+             // BSND key layout [Seq, Hg, D]: token stride Hg * D (see BSND_QK_STRIDE).
+             // Value head head_idx maps to head_g = head_idx / GROUP for shared K rows.
+-            int32_t head_g = head_idx / GROUP;
+-            int64_t k_offset =
+-                ((bos + chunk_start) * static_cast<int64_t>(NumKeyHeads) + static_cast<int64_t>(head_g)) *
+-                static_cast<int64_t>(HiddenSize);
++            int32_t head_g = head_idx / group;
++            int64_t k_offset = ((bos + chunk_start) * static_cast<int64_t>(key_heads) + static_cast<int64_t>(head_g)) *
++                               static_cast<int64_t>(HiddenSize);
+ 
+             // ── Load K chunk from GM → L1 (MTE2 pipe) ──────────────────────
+             // DYNAMIC shape: valid_rows may be < ChunkSize for the last chunk.
+@@ -290,10 +288,9 @@ AICORE void kkt_kernel(__gm__ half *K_handle, __gm__ half *Beta_handle, __gm__ f
+             {
+                 L1Mat<half, ChunkSize, HiddenSize, DYNAMIC, DYNAMIC> _l1(valid_rows, HiddenSize);
+                 TASSIGN(_l1, 0);
+-                Shape<1, 1, 1, DYNAMIC, DYNAMIC> _gs;
+-                _gs.shape[3] = valid_rows;
+-                _gs.shape[4] = HiddenSize;
+-                GlobalTensor<half, decltype(_gs), Stride<1, 1, 1, BSND_QK_STRIDE, 1>> _gm(K_handle + k_offset, _gs);
++                GmShape2D _gs(valid_rows, HiddenSize);
++                GmStride2D _stride(bsnd_qk_stride);
++                GmTensor2D<half> _gm(K_handle + k_offset, _gs, _stride);
+                 TLOAD(_l1, _gm);
+                 if (valid_rows != ChunkSize) TFILLPAD(_l1, _l1);
+             }
+diff --git a/csrc/mega_chunk_gdn/op_kernel/wy_fast.cpp b/csrc/mega_chunk_gdn/op_kernel/wy_fast.cpp
+index ac479d69c..530f85a63 100644
+--- a/csrc/mega_chunk_gdn/op_kernel/wy_fast.cpp
++++ b/csrc/mega_chunk_gdn/op_kernel/wy_fast.cpp
+@@ -56,14 +56,6 @@
+ #include <type_traits>
+ using namespace pto;
+ 
+-#ifndef GDN_H
+-#define GDN_H 16
+-#endif
+-
+-#ifndef GDN_HG
+-#define GDN_HG GDN_H
+-#endif
+-
+ #ifndef GDN_D
+ #define GDN_D 128
+ #endif
+@@ -242,11 +234,12 @@ gemm_v0(std::conditional_t<transpose_A, TileMatL1<T1, K, M, validK, validM>, Til
+ 
+ #endif
+ 
+-template <int32_t NumHeads, int32_t NumKeyHeads, int32_t HiddenSize, int32_t ChunkSize>
++template <int32_t NumHeads, int32_t HiddenSize, int32_t ChunkSize>
+ AICORE void wy_fast_kernel(__gm__ half *K_handle, __gm__ half *V_handle, __gm__ half *Beta_handle,
+                            __gm__ float *G_handle, __gm__ half *A_handle, __gm__ half *workspace_a1_handle,
+                            __gm__ half *workspace_a2_handle, __gm__ half *W_handle, __gm__ half *U_handle,
+-                           __gm__ int32_t *cu_seqlens, int64_t batch_size, int64_t seq_len, int64_t total_tokens)
++                           __gm__ int32_t *cu_seqlens, int64_t batch_size, int64_t seq_len, int64_t total_tokens,
++                           uint32_t num_key_heads)
+ {
+     // WY recompute materializes two diagonal reweightings of the same A tile:
+     //   A2[:, j] = A[:, j] * beta_j
+@@ -273,11 +266,11 @@ AICORE void wy_fast_kernel(__gm__ half *K_handle, __gm__ half *V_handle, __gm__
+     constexpr uint32_t KTail = (HiddenSize % 128 == 0) ? 128 : (HiddenSize % 128);
+ 
+     constexpr int32_t H = NumHeads;
+-    constexpr int32_t Hg = NumKeyHeads;
+-    static_assert(Hg > 0 && H % Hg == 0, "NumHeads must be divisible by NumKeyHeads");
+-    constexpr int32_t GROUP = H / Hg;
++    const int32_t Hg = static_cast<int32_t>(num_key_heads);
++    if (Hg <= 0 || (H % Hg) != 0) return;
++    const int32_t GROUP = H / Hg;
+     constexpr int32_t BSND_V_STRIDE = H * HiddenSize;
+-    constexpr int32_t BSND_QK_STRIDE = Hg * HiddenSize;
++    const int32_t BSND_QK_STRIDE = Hg * HiddenSize;
+ 
+     constexpr int32_t GHeadTileCols = ((NumHeads + 7) / 8) * 8;
+     constexpr int32_t BetaHeadTileCols = ((NumHeads + 15) / 16) * 16;
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py b/python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+index 286ac17ee..4f933b93a 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+@@ -17,7 +17,7 @@
+ )
+ from sgl_kernel_npu.fla.cumsum import chunk_local_cumsum
+ from sgl_kernel_npu.fla.l2norm import l2norm_fwd
+-from sgl_kernel_npu.fla.mega_chunk_gdn import mega_gdn_supported, run_mega_chunk_gdn
++from sgl_kernel_npu.fla.mega_chunk_gdn import run_mega_chunk_gdn
+ from sgl_kernel_npu.fla.solve_tril import solve_tril_npu as solve_tril
+ from sgl_kernel_npu.fla.utils import SUPPRESS_LEVEL, input_guard
+ from sgl_kernel_npu.fla.wy_fast import recompute_w_u_fwd_npu as recompute_w_u_fwd
+@@ -213,9 +213,7 @@ def chunk_gated_delta_rule_fwd(
+     output_final_state: bool,
+     cu_seqlens: Optional[torch.LongTensor] = None,
+ ):
+-    if not _use_triton_backend() and mega_gdn_supported(
+-        q, k, v, g, beta, initial_state, cu_seqlens
+-    ):
++    if not _use_triton_backend():
+         g, o, A, final_state, w, h, v_new = run_mega_chunk_gdn(
+             q, k, v, g, beta, scale, initial_state, output_final_state, cu_seqlens
+         )
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/fla/mega_chunk_gdn.py b/python/sgl_kernel_npu/sgl_kernel_npu/fla/mega_chunk_gdn.py
+index 4157a98a1..4fcc24b34 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/fla/mega_chunk_gdn.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/fla/mega_chunk_gdn.py
+@@ -3,9 +3,7 @@
+ 
+ import torch
+ 
+-GLOBAL_VALUE_HEADS = (16, 32, 48, 64)
+-GLOBAL_KEY_HEADS = 16
+-SUPPORTED_TP_DEGREES = (1, 2, 4, 8)
++SUPPORTED_HEAD = (16, 24, 32, 48, 64)
+ HEAD_DIM = 128
+ CHUNK_SIZE = 128
+ 
+@@ -56,55 +54,6 @@ def _block_dim(device: torch.device) -> int:
+         return 24
+ 
+ 
+-def _head_pair_supported(num_value_heads: int, num_key_heads: int) -> bool:
+-    if num_key_heads <= 0 or GLOBAL_KEY_HEADS % num_key_heads != 0:
+-        return False
+-    tp_degree = GLOBAL_KEY_HEADS // num_key_heads
+-    if tp_degree not in SUPPORTED_TP_DEGREES:
+-        return False
+-    return num_value_heads * tp_degree in GLOBAL_VALUE_HEADS
+-
+-
+-def mega_gdn_supported(
+-    q: torch.Tensor,
+-    k: torch.Tensor,
+-    v: torch.Tensor,
+-    g: torch.Tensor,
+-    beta: torch.Tensor,
+-    initial_state: Optional[torch.Tensor],
+-    cu_seqlens: Optional[torch.Tensor] = None,
+-) -> bool:
+-    if q.dim() != 4 or v.dim() != 4:
+-        return False
+-    if k.shape != q.shape:
+-        return False
+-    if q.shape[0] != 1 or v.shape[0] != 1 or q.shape[1] != v.shape[1]:
+-        return False
+-
+-    if not _head_pair_supported(v.shape[2], q.shape[2]):
+-        return False
+-    if q.shape[3] != HEAD_DIM or v.shape[3] != HEAD_DIM:
+-        return False
+-
+-    if g.shape != beta.shape:
+-        return False
+-    if g.shape != (1, q.shape[1], v.shape[2]):
+-        return False
+-
+-    if initial_state is not None:
+-        if initial_state.dim() != 4:
+-            return False
+-        num_sequences = 1 if cu_seqlens is None else cu_seqlens.numel() - 1
+-        if initial_state.shape != (
+-            num_sequences,
+-            v.shape[2],
+-            HEAD_DIM,
+-            HEAD_DIM,
+-        ):
+-            return False
+-    return True
+-
+-
+ def run_mega_chunk_gdn(
+     q: torch.Tensor,
+     k: torch.Tensor,
+diff --git a/tests/python/sgl_kernel_npu/test_mega_chunk_gdn.py b/tests/python/sgl_kernel_npu/test_mega_chunk_gdn.py
+index ae43e8073..04c88565a 100644
+--- a/tests/python/sgl_kernel_npu/test_mega_chunk_gdn.py
++++ b/tests/python/sgl_kernel_npu/test_mega_chunk_gdn.py
+@@ -12,13 +12,35 @@ def _has_npu() -> bool:
+ pytestmark = pytest.mark.skipif(not _has_npu(), reason="NPU is required")
+ 
+ SUPPORTED_HEAD_CONFIGS = [
++    pytest.param(16, 4, id="H16-Hg4"),
++    pytest.param(16, 8, id="H16-Hg8"),
+     pytest.param(16, 16, id="H16-Hg16"),
++    pytest.param(24, 8, id="H24-Hg8"),
++    pytest.param(32, 4, id="H32-Hg4"),
++    pytest.param(32, 8, id="H32-Hg8"),
+     pytest.param(32, 16, id="H32-Hg16"),
++    pytest.param(32, 32, id="H32-Hg32"),
++    pytest.param(48, 8, id="H48-Hg8"),
++    pytest.param(48, 12, id="H48-Hg12"),
+     pytest.param(48, 16, id="H48-Hg16"),
++    pytest.param(64, 4, id="H64-Hg4"),
++    pytest.param(64, 8, id="H64-Hg8"),
+     pytest.param(64, 16, id="H64-Hg16"),
+-    pytest.param(16, 8, id="H16-Hg8"),
++]
++
++DEFAULT_HEAD_CONFIGS = [
++    pytest.param(16, 4, id="H16-Hg4"),
++    pytest.param(24, 8, id="H24-Hg8"),
+     pytest.param(32, 8, id="H32-Hg8"),
++    pytest.param(48, 16, id="H48-Hg16"),
++    pytest.param(64, 16, id="H64-Hg16"),
++]
++
++INITIAL_STATE_HEAD_CONFIGS = [
+     pytest.param(16, 4, id="H16-Hg4"),
++    pytest.param(32, 8, id="H32-Hg8"),
++    pytest.param(48, 16, id="H48-Hg16"),
++    pytest.param(64, 16, id="H64-Hg16"),
+ ]
+ 
+ 
+@@ -88,15 +110,15 @@ def _native_reference(
+         (2560, [0, 96, 128, 2560]),
+     ],
+ )
+-@pytest.mark.parametrize("num_value_heads", [16, 32, 48, 64])
+-def test_mega_chunk_gdn_e2e(total_tokens, cu_list, num_value_heads):
++@pytest.mark.parametrize(("num_value_heads", "num_key_heads"), DEFAULT_HEAD_CONFIGS)
++def test_mega_chunk_gdn_e2e(total_tokens, cu_list, num_value_heads, num_key_heads):
+     if not hasattr(torch.ops.npu, "mega_chunk_gdn"):
+         pytest.skip("mega_chunk_gdn op is not registered")
+ 
+     torch.manual_seed(0)
+     device = torch.device("npu")
+-    Hg = 16
+     H = num_value_heads
++    Hg = num_key_heads
+     D = 128
+ 
+     q_cpu = F.normalize(torch.randn(1, total_tokens, Hg, D), p=2, dim=-1).to(
+@@ -145,18 +167,20 @@ def test_mega_chunk_gdn_e2e(total_tokens, cu_list, num_value_heads):
+         (256, [0, 96, 128, 256]),
+     ],
+ )
+-@pytest.mark.parametrize("num_value_heads", [16, 32])
++@pytest.mark.parametrize(
++    ("num_value_heads", "num_key_heads"), INITIAL_STATE_HEAD_CONFIGS
++)
+ @pytest.mark.parametrize("state_kind", ["zero", "random"])
+ def test_mega_chunk_gdn_initial_state(
+-    total_tokens, cu_list, num_value_heads, state_kind
++    total_tokens, cu_list, num_value_heads, num_key_heads, state_kind
+ ):
+     if not hasattr(torch.ops.npu, "mega_chunk_gdn"):
+         pytest.skip("mega_chunk_gdn op is not registered")
+ 
+     torch.manual_seed(1)
+     device = torch.device("npu")
+-    Hg = 16
+     H = num_value_heads
++    Hg = num_key_heads
+     D = 128
+     num_sequences = 1 if cu_list is None else len(cu_list) - 1
+ 

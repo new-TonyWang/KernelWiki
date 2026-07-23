@@ -1,0 +1,2403 @@
+diff --git a/csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp b/csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+index 15dafd6af..2cc5b5cd5 100644
+--- a/csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
++++ b/csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+@@ -27,7 +27,7 @@ namespace sglang {
+ namespace npu_kernel {
+ 
+ constexpr uint32_t PADDING_BYTE = 32U;
+-constexpr uint32_t MAX_CAPTURE_NUM = 1024; // 对齐 lightning_indexer
++constexpr uint32_t MAX_CAPTURE_NUM = 1024;  // 对齐 lightning_indexer
+ 
+ // Graph mode tiling cache
+ uint32_t actualCaptureNum = 0;
+@@ -47,18 +47,19 @@ struct CausalConv1dUpdateTilingKey {
+     int64_t activationMode;
+     int64_t padSlotId;
+ 
+-    bool operator==(const CausalConv1dUpdateTilingKey& other) const {
+-        return batch == other.batch && seqLen == other.seqLen && dim == other.dim &&
+-               width == other.width && stateLen == other.stateLen && hasIndices == other.hasIndices &&
+-               hasBias == other.hasBias && hasNumAccept == other.hasNumAccept &&
+-               hasQueryLoc == other.hasQueryLoc && activationMode == other.activationMode &&
+-               padSlotId == other.padSlotId;
++    bool operator==(const CausalConv1dUpdateTilingKey &other) const
++    {
++        return batch == other.batch && seqLen == other.seqLen && dim == other.dim && width == other.width &&
++               stateLen == other.stateLen && hasIndices == other.hasIndices && hasBias == other.hasBias &&
++               hasNumAccept == other.hasNumAccept && hasQueryLoc == other.hasQueryLoc &&
++               activationMode == other.activationMode && padSlotId == other.padSlotId;
+     }
+ };
+ 
+ // Hash function for CausalConv1dUpdateTilingKey
+ struct CausalConv1dUpdateTilingKeyHash {
+-    std::size_t operator()(const CausalConv1dUpdateTilingKey& k) const {
++    std::size_t operator()(const CausalConv1dUpdateTilingKey &k) const
++    {
+         std::size_t h1 = std::hash<int64_t>{}(k.batch);
+         std::size_t h2 = std::hash<int64_t>{}(k.seqLen);
+         std::size_t h3 = std::hash<int64_t>{}(k.dim);
+@@ -70,20 +71,22 @@ struct CausalConv1dUpdateTilingKeyHash {
+         std::size_t h9 = std::hash<int64_t>{}(k.hasQueryLoc);
+         std::size_t h10 = std::hash<int64_t>{}(k.activationMode);
+         std::size_t h11 = std::hash<int64_t>{}(k.padSlotId);
+-        return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3) ^ (h5 << 4) ^ (h6 << 5) ^ (h7 << 6) ^ (h8 << 7) ^ (h9 << 8) ^ (h10 << 9) ^ (h11 << 10);
++        return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3) ^ (h5 << 4) ^ (h6 << 5) ^ (h7 << 6) ^ (h8 << 7) ^ (h9 << 8) ^
++               (h10 << 9) ^ (h11 << 10);
+     }
+ };
+ 
+-HOST_API at::Tensor causal_conv1d_update_impl(
+-    const at::Tensor& x, const at::Tensor& weight, const at::Tensor& conv_state,
+-    const at::Tensor& conv_state_indices, const at::Tensor& bias,
+-    const at::Tensor& num_accepted_tokens, const at::Tensor& query_start_loc,
+-    bool activation_mode, int64_t pad_slot_id)
++HOST_API at::Tensor causal_conv1d_update_impl(const at::Tensor &x, const at::Tensor &weight,
++                                              const at::Tensor &conv_state, const at::Tensor &conv_state_indices,
++                                              const at::Tensor &bias, const at::Tensor &num_accepted_tokens,
++                                              const at::Tensor &query_start_loc, bool activation_mode,
++                                              int64_t pad_slot_id)
+ {
+     // Input validation
+     TORCH_CHECK(x.dim() == 3, "x must be 3D tensor [batch, seq_len, dim], got shape ", x.sizes());
+     TORCH_CHECK(weight.dim() == 2, "weight must be 2D tensor [width, dim], got shape ", weight.sizes());
+-    TORCH_CHECK(conv_state.dim() == 3, "conv_state must be 3D tensor [cache_len, width-1, dim], got shape ", conv_state.sizes());
++    TORCH_CHECK(conv_state.dim() == 3, "conv_state must be 3D tensor [cache_len, width-1, dim], got shape ",
++                conv_state.sizes());
+ 
+     const at::ScalarType dtype = x.scalar_type();
+     TORCH_CHECK(dtype == at::kBFloat16 || dtype == at::kHalf, "Only BF16 and FP16 are supported, got ", dtype);
+@@ -91,7 +94,8 @@ HOST_API at::Tensor causal_conv1d_update_impl(
+     TORCH_CHECK(conv_state.scalar_type() == dtype, "conv_state dtype must match x dtype");
+ 
+     TORCH_CHECK(x.is_contiguous(), "x must be contiguous before entering the NPU kernel. Fix this in Python.");
+-    TORCH_CHECK(weight.is_contiguous(), "weight must be contiguous. Transposed weights are NOT allowed. Fix this in Python.");
++    TORCH_CHECK(weight.is_contiguous(),
++                "weight must be contiguous. Transposed weights are NOT allowed. Fix this in Python.");
+     TORCH_CHECK(conv_state.is_contiguous(), "conv_state must be contiguous. Fix this in Python.");
+ 
+     const int64_t batch = x.size(0);
+@@ -119,28 +123,30 @@ HOST_API at::Tensor causal_conv1d_update_impl(
+ 
+     // 1. Prepare Tiling Data Struct
+     CausalConv1dUpdateTilingData tiling_data;
+-    SGLang::CausalConv1dUpdate::ComputeTilingData(
+-        batch, seq_len, dim, width, state_len,
+-        has_indices, has_bias, has_num_accept, has_query_loc,
+-        activation_mode, pad_slot_id, block_dim,
+-        tiling_data
+-    );
++    SGLang::CausalConv1dUpdate::ComputeTilingData(batch, seq_len, dim, width, state_len, has_indices, has_bias,
++                                                  has_num_accept, has_query_loc, activation_mode, pad_slot_id,
++                                                  block_dim, tiling_data);
+ 
+     int32_t tilingSize = (sizeof(CausalConv1dUpdateTilingData) + PADDING_BYTE - 1) / PADDING_BYTE * PADDING_BYTE;
+     at::Tensor tilingTensor;
+ 
+     // 2. Hash computation
+-    CausalConv1dUpdateTilingKey key{
+-        .batch = batch, .seqLen = seq_len, .dim = dim, .width = width, .stateLen = state_len,
+-        .hasIndices = has_indices ? 1 : 0, .hasBias = has_bias ? 1 : 0, 
+-        .hasNumAccept = has_num_accept ? 1 : 0, .hasQueryLoc = has_query_loc ? 1 : 0,
+-        .activationMode = activation_mode ? 1 : 0, .padSlotId = pad_slot_id
+-    };
++    CausalConv1dUpdateTilingKey key{.batch = batch,
++                                    .seqLen = seq_len,
++                                    .dim = dim,
++                                    .width = width,
++                                    .stateLen = state_len,
++                                    .hasIndices = has_indices ? 1 : 0,
++                                    .hasBias = has_bias ? 1 : 0,
++                                    .hasNumAccept = has_num_accept ? 1 : 0,
++                                    .hasQueryLoc = has_query_loc ? 1 : 0,
++                                    .activationMode = activation_mode ? 1 : 0,
++                                    .padSlotId = pad_slot_id};
+     uint64_t hashValue = CausalConv1dUpdateTilingKeyHash{}(key);
+ 
+     // 3. cache management
+-    static auto globalTilingBuffer = at::empty({tilingSize * MAX_CAPTURE_NUM},
+-                                               at::TensorOptions().dtype(at::kByte).device(x.options().device()));
++    static auto globalTilingBuffer =
++        at::empty({tilingSize * MAX_CAPTURE_NUM}, at::TensorOptions().dtype(at::kByte).device(x.options().device()));
+ 
+     if (captureMap.find(hashValue) != captureMap.end()) {
+         tilingTensor = at::from_blob(globalTilingBuffer.data_ptr<uint8_t>() + (tilingSize * captureMap[hashValue]),
+@@ -148,19 +154,22 @@ HOST_API at::Tensor causal_conv1d_update_impl(
+     } else if (actualCaptureNum >= MAX_CAPTURE_NUM) {
+         static auto tilingBuffer =
+             at::empty({tilingSize}, at::TensorOptions().dtype(at::kByte).device(x.options().device()));
+-        aclrtMemcpy(tilingBuffer.data_ptr<uint8_t>(), sizeof(CausalConv1dUpdateTilingData), &tiling_data, sizeof(CausalConv1dUpdateTilingData), ACL_MEMCPY_HOST_TO_DEVICE);
++        aclrtMemcpy(tilingBuffer.data_ptr<uint8_t>(), sizeof(CausalConv1dUpdateTilingData), &tiling_data,
++                    sizeof(CausalConv1dUpdateTilingData), ACL_MEMCPY_HOST_TO_DEVICE);
+         tilingTensor = at::from_blob(tilingBuffer.data_ptr<uint8_t>(), tilingSize, at::kByte);
+     } else {
+         captureMap[hashValue] = actualCaptureNum;
+-        aclrtMemcpy(globalTilingBuffer.data_ptr<uint8_t>() + actualCaptureNum * tilingSize, sizeof(CausalConv1dUpdateTilingData), &tiling_data,
+-                    sizeof(CausalConv1dUpdateTilingData), ACL_MEMCPY_HOST_TO_DEVICE);
++        aclrtMemcpy(globalTilingBuffer.data_ptr<uint8_t>() + actualCaptureNum * tilingSize,
++                    sizeof(CausalConv1dUpdateTilingData), &tiling_data, sizeof(CausalConv1dUpdateTilingData),
++                    ACL_MEMCPY_HOST_TO_DEVICE);
+         actualCaptureNum++;
+         tilingTensor = at::from_blob(globalTilingBuffer.data_ptr<uint8_t>() + (tilingSize * captureMap[hashValue]),
+                                      tilingSize, at::kByte);
+     }
+ 
+     // 4. Create workspace
+-    auto workspace_tensor = at::empty({workspace_size}, at::TensorOptions().dtype(at::kByte).device(x.options().device()));
++    auto workspace_tensor =
++        at::empty({workspace_size}, at::TensorOptions().dtype(at::kByte).device(x.options().device()));
+ 
+     // 5. Launch kernel
+     if (dtype == at::kBFloat16) {
+@@ -168,15 +177,13 @@ HOST_API at::Tensor causal_conv1d_update_impl(
+                         has_indices ? conv_state_indices : at::empty(0, x.options()),
+                         has_bias ? bias : at::empty(0, x.options()),
+                         has_num_accept ? num_accepted_tokens : at::empty(0, x.options()),
+-                        has_query_loc ? query_start_loc : at::empty(0, x.options()),
+-                        y, workspace_tensor, tilingTensor);
++                        has_query_loc ? query_start_loc : at::empty(0, x.options()), y, workspace_tensor, tilingTensor);
+     } else {
+         EXEC_KERNEL_CMD(causal_conv1d_update_half, block_dim, x, weight, conv_state,
+                         has_indices ? conv_state_indices : at::empty(0, x.options()),
+                         has_bias ? bias : at::empty(0, x.options()),
+                         has_num_accept ? num_accepted_tokens : at::empty(0, x.options()),
+-                        has_query_loc ? query_start_loc : at::empty(0, x.options()),
+-                        y, workspace_tensor, tilingTensor);
++                        has_query_loc ? query_start_loc : at::empty(0, x.options()), y, workspace_tensor, tilingTensor);
+     }
+ 
+     return y;
+diff --git a/csrc/causal_conv1d_update/op_host/causal_conv1d_update.h b/csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+index c134aa172..32b6959d5 100644
+--- a/csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
++++ b/csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+@@ -22,13 +22,13 @@
+ namespace sglang {
+ namespace npu_kernel {
+ 
+-HOST_API at::Tensor causal_conv1d_update_impl(
+-    const at::Tensor& x, const at::Tensor& weight, const at::Tensor& conv_state,
+-    const at::Tensor& conv_state_indices, const at::Tensor& bias,
+-    const at::Tensor& num_accepted_tokens, const at::Tensor& query_start_loc,
+-    bool activation_mode, int64_t pad_slot_id);
++HOST_API at::Tensor causal_conv1d_update_impl(const at::Tensor &x, const at::Tensor &weight,
++                                              const at::Tensor &conv_state, const at::Tensor &conv_state_indices,
++                                              const at::Tensor &bias, const at::Tensor &num_accepted_tokens,
++                                              const at::Tensor &query_start_loc, bool activation_mode,
++                                              int64_t pad_slot_id);
+ 
+ }  // namespace npu_kernel
+ }  // namespace sglang
+ 
+-#endif // CAUSAL_CONV1D_UPDATE_HOST_H_
++#endif  // CAUSAL_CONV1D_UPDATE_HOST_H_
+diff --git a/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h b/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h
+index ebbf0b528..10d080b52 100644
+--- a/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h
++++ b/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h
+@@ -6,5 +6,9 @@
+ #define ACLRT_LAUNCH_KERNEL(kernel_func) aclrtlaunch_##kernel_func
+ #endif
+ 
+-extern "C" uint32_t aclrtlaunch_causal_conv1d_update_bfloat16_t(uint32_t numBlocks, aclrtStream stream, void* x, void* weight, void* conv_state, void* conv_state_indices, void* bias, void* num_accepted_tokens, void* query_start_loc, void* y, void* workspace, void* tiling);
++extern "C" uint32_t aclrtlaunch_causal_conv1d_update_bfloat16_t(uint32_t numBlocks, aclrtStream stream, void *x,
++                                                                void *weight, void *conv_state,
++                                                                void *conv_state_indices, void *bias,
++                                                                void *num_accepted_tokens, void *query_start_loc,
++                                                                void *y, void *workspace, void *tiling);
+ #endif
+diff --git a/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h b/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h
+index 94ef11538..a2bf2d4fa 100644
+--- a/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h
++++ b/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h
+@@ -6,5 +6,8 @@
+ #define ACLRT_LAUNCH_KERNEL(kernel_func) aclrtlaunch_##kernel_func
+ #endif
+ 
+-extern "C" uint32_t aclrtlaunch_causal_conv1d_update_half(uint32_t numBlocks, aclrtStream stream, void* x, void* weight, void* conv_state, void* conv_state_indices, void* bias, void* num_accepted_tokens, void* query_start_loc, void* y, void* workspace, void* tiling);
++extern "C" uint32_t aclrtlaunch_causal_conv1d_update_half(uint32_t numBlocks, aclrtStream stream, void *x, void *weight,
++                                                          void *conv_state, void *conv_state_indices, void *bias,
++                                                          void *num_accepted_tokens, void *query_start_loc, void *y,
++                                                          void *workspace, void *tiling);
+ #endif
+diff --git a/csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h b/csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+index 54320d658..0a488c843 100644
+--- a/csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
++++ b/csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+@@ -46,21 +46,12 @@ namespace SGLang {
+ namespace CausalConv1dUpdate {
+ 
+ // Helper function to compute tiling data
+-inline void ComputeTilingData(
+-    const int64_t batch,
+-    const int64_t seq_len,
+-    const int64_t dim,
+-    const int64_t width,
+-    const int64_t state_len,
+-    const bool has_indices,
+-    const bool has_bias,
+-    const bool has_num_accept,
+-    const bool has_query_loc,
+-    const bool activation_mode,
+-    const int64_t pad_slot_id,
+-    const int32_t num_cores,
+-    CausalConv1dUpdateTilingData& tiling_data
+-) {
++inline void ComputeTilingData(const int64_t batch, const int64_t seq_len, const int64_t dim, const int64_t width,
++                              const int64_t state_len, const bool has_indices, const bool has_bias,
++                              const bool has_num_accept, const bool has_query_loc, const bool activation_mode,
++                              const int64_t pad_slot_id, const int32_t num_cores,
++                              CausalConv1dUpdateTilingData &tiling_data)
++{
+     tiling_data.batch = batch;
+     tiling_data.seqLen = seq_len;
+     tiling_data.dim = dim;
+@@ -78,7 +69,7 @@ inline void ComputeTilingData(
+     tiling_data.blockTailFactor = batch - tiling_data.blockFactor * (num_cores - 1);
+ }
+ 
+-} // namespace CausalConv1dUpdate
+-} // namespace SGLang
++}  // namespace CausalConv1dUpdate
++}  // namespace SGLang
+ 
+-#endif // CAUSAL_CONV1D_UPDATE_TILING_HOST_H_
++#endif  // CAUSAL_CONV1D_UPDATE_TILING_HOST_H_
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+index bcfa2d28d..aaa438f35 100644
+--- a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+@@ -17,18 +17,21 @@
+ #include "causal_conv1d_update.h"
+ #include "causal_conv1d_update_struct.h"
+ 
+-extern "C" __global__ __aicore__ void causal_conv1d_update_bfloat16_t(GM_ADDR x, GM_ADDR weight, GM_ADDR conv_state, GM_ADDR conv_state_indices,
+-                                                                   GM_ADDR bias, GM_ADDR num_accepted_tokens, GM_ADDR query_start_loc,
+-                                                                   GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
++extern "C" __global__ __aicore__ void causal_conv1d_update_bfloat16_t(GM_ADDR x, GM_ADDR weight, GM_ADDR conv_state,
++                                                                      GM_ADDR conv_state_indices, GM_ADDR bias,
++                                                                      GM_ADDR num_accepted_tokens,
++                                                                      GM_ADDR query_start_loc, GM_ADDR y,
++                                                                      GM_ADDR workspace, GM_ADDR tiling)
+ {
+     CausalConv1dUpdateOp::CausalConv1dUpdate<bfloat16_t> op;
+     op.Init(x, weight, conv_state, conv_state_indices, bias, num_accepted_tokens, query_start_loc, y, tiling);
+     op.Process();
+ }
+ 
+-extern "C" __global__ __aicore__ void causal_conv1d_update_half(GM_ADDR x, GM_ADDR weight, GM_ADDR conv_state, GM_ADDR conv_state_indices,
+-                                                               GM_ADDR bias, GM_ADDR num_accepted_tokens, GM_ADDR query_start_loc,
+-                                                               GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
++extern "C" __global__ __aicore__ void causal_conv1d_update_half(GM_ADDR x, GM_ADDR weight, GM_ADDR conv_state,
++                                                                GM_ADDR conv_state_indices, GM_ADDR bias,
++                                                                GM_ADDR num_accepted_tokens, GM_ADDR query_start_loc,
++                                                                GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
+ {
+     CausalConv1dUpdateOp::CausalConv1dUpdate<half> op;
+     op.Init(x, weight, conv_state, conv_state_indices, bias, num_accepted_tokens, query_start_loc, y, tiling);
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+index 9f88e32a7..544ba62a2 100644
+--- a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+@@ -21,12 +21,12 @@
+ namespace CausalConv1dUpdateOp {
+ using namespace AscendC;
+ template <typename T>
+-class CausalConv1dUpdate : public CausalConv1dUpdateBase<T> {
++class CausalConv1dUpdate : public CausalConv1dUpdateBase<T>
++{
+ public:
+     __aicore__ inline CausalConv1dUpdate(){};
+-    __aicore__ inline void Init(GM_ADDR x, GM_ADDR weight, GM_ADDR convState, GM_ADDR convStateIndices,
+-                                GM_ADDR bias, GM_ADDR numAcceptedTokens, GM_ADDR queryStartLoc,
+-                                GM_ADDR y, GM_ADDR tiling);
++    __aicore__ inline void Init(GM_ADDR x, GM_ADDR weight, GM_ADDR convState, GM_ADDR convStateIndices, GM_ADDR bias,
++                                GM_ADDR numAcceptedTokens, GM_ADDR queryStartLoc, GM_ADDR y, GM_ADDR tiling);
+     __aicore__ inline void Process();
+ 
+ private:
+@@ -103,22 +103,22 @@ class CausalConv1dUpdate : public CausalConv1dUpdateBase<T> {
+ };
+ 
+ template <typename T>
+-__aicore__ inline void CausalConv1dUpdate<T>::Init(GM_ADDR x, GM_ADDR weight, GM_ADDR convState, GM_ADDR convStateIndices,
+-                                                   GM_ADDR bias, GM_ADDR numAcceptedTokens, GM_ADDR queryStartLoc,
+-                                                   GM_ADDR y, GM_ADDR tiling)
++__aicore__ inline void CausalConv1dUpdate<T>::Init(GM_ADDR x, GM_ADDR weight, GM_ADDR convState,
++                                                   GM_ADDR convStateIndices, GM_ADDR bias, GM_ADDR numAcceptedTokens,
++                                                   GM_ADDR queryStartLoc, GM_ADDR y, GM_ADDR tiling)
+ {
+     blockIdx_ = GetBlockIdx();
+-    xGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(x));
+-    weightGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(weight));
+-    convStateGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(convState));
+-    convStateIndicesGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(convStateIndices));
+-    biasGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(bias));
+-    numAcceptGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(numAcceptedTokens));
+-    queryLocGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(queryStartLoc));
+-    yGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(y));
++    xGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(x));
++    weightGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(weight));
++    convStateGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(convState));
++    convStateIndicesGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(convStateIndices));
++    biasGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(bias));
++    numAcceptGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(numAcceptedTokens));
++    queryLocGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(queryStartLoc));
++    yGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T *>(y));
+ 
+     // Parse tiling data directly
+-    auto tiling_data = reinterpret_cast<__gm__ sglang::npu_kernel::CausalConv1dUpdateTilingData*>(tiling);
++    auto tiling_data = reinterpret_cast<__gm__ sglang::npu_kernel::CausalConv1dUpdateTilingData *>(tiling);
+     tilingData_.numCore = tiling_data->numCore;
+     tilingData_.blockFactor = tiling_data->blockFactor;
+     tilingData_.blockTailFactor = tiling_data->blockTailFactor;
+@@ -176,7 +176,7 @@ __aicore__ inline void CausalConv1dUpdate<T>::ComputeUpdate(int64_t xOffset)
+     castWeight = castBufWeight_.Get<float>();
+     int64_t stateOffset = 0;
+ 
+-    if(!tilingData_.hasIndices) {
++    if (!tilingData_.hasIndices) {
+         gmStateOffset_ = blockIdx_ * tilingData_.blockFactor * tilingData_.stateLen * tilingData_.dim;
+     }
+ 
+@@ -216,7 +216,7 @@ __aicore__ inline void CausalConv1dUpdate<T>::ComputeUpdate(int64_t xOffset)
+ 
+                 if ((k + inStateOffset_) != 0) {
+                     // Shift the cached state left once there is a previous slot to overwrite.
+-                    CopyOutState(tilingData_.dim, stateOffset + (k + inStateOffset_ -1) * tilingData_.dim);
++                    CopyOutState(tilingData_.dim, stateOffset + (k + inStateOffset_ - 1) * tilingData_.dim);
+                     MTE3ToMTE2Sync();
+                 }
+ 
+@@ -370,5 +370,5 @@ __aicore__ inline void CausalConv1dUpdate<T>::CopyOutY(int64_t yLen, int64_t yOu
+     DataCopyPad<T>(yGm_[yOutOffset], outLocal, copyParams);
+     outQueueY_.FreeTensor(outLocal);
+ }
+-} // namespace CausalConv1dUpdateOp
++}  // namespace CausalConv1dUpdateOp
+ #endif
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+index 839b3b2f3..000be726f 100644
+--- a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+@@ -27,30 +27,30 @@ using namespace AscendC;
+ using sglang::npu_kernel::CausalConv1dUpdateTilingData;
+ 
+ template <typename T>
+-class CausalConv1dUpdateBase {
++class CausalConv1dUpdateBase
++{
+ public:
+     __aicore__ inline CausalConv1dUpdateBase(){};
+ 
+ protected:
+-    __aicore__ inline void ParseTilingData(
+-        const sglang::npu_kernel::CausalConv1dUpdateTilingData* tilingData, CausalConv1dUpdateTilingData& runTilingData);
+-    __aicore__ inline void ParseCoreBlocks(
+-        const CausalConv1dUpdateTilingData& runTilingData, int32_t blockIdx, int64_t& batchNum);
+-    __aicore__ inline void GetXInCopyParams(int64_t xLen, AscendC::DataCopyExtParams& copyParams);
+-    __aicore__ inline void GetWeightInCopyParams(int64_t weightLen, AscendC::DataCopyExtParams& copyParams);
+-    __aicore__ inline void GetStateInCopyParams(int64_t stateLen, AscendC::DataCopyExtParams& copyParams);
+-    __aicore__ inline void GetBiasInCopyParams(int64_t biasLen, AscendC::DataCopyExtParams& copyParams);
+-    __aicore__ inline void GetYOutCopyParams(int64_t yLen, AscendC::DataCopyExtParams& copyParams);
+-    __aicore__ inline void GetStateOutCopyParams(int64_t stateLen, AscendC::DataCopyExtParams& copyParams);
+-
+-// protected:
+-//     constexpr static int32_t BLOCK_SIZE = GetUbBlockSize();
+-
++    __aicore__ inline void ParseTilingData(const sglang::npu_kernel::CausalConv1dUpdateTilingData *tilingData,
++                                           CausalConv1dUpdateTilingData &runTilingData);
++    __aicore__ inline void ParseCoreBlocks(const CausalConv1dUpdateTilingData &runTilingData, int32_t blockIdx,
++                                           int64_t &batchNum);
++    __aicore__ inline void GetXInCopyParams(int64_t xLen, AscendC::DataCopyExtParams &copyParams);
++    __aicore__ inline void GetWeightInCopyParams(int64_t weightLen, AscendC::DataCopyExtParams &copyParams);
++    __aicore__ inline void GetStateInCopyParams(int64_t stateLen, AscendC::DataCopyExtParams &copyParams);
++    __aicore__ inline void GetBiasInCopyParams(int64_t biasLen, AscendC::DataCopyExtParams &copyParams);
++    __aicore__ inline void GetYOutCopyParams(int64_t yLen, AscendC::DataCopyExtParams &copyParams);
++    __aicore__ inline void GetStateOutCopyParams(int64_t stateLen, AscendC::DataCopyExtParams &copyParams);
++
++    // protected:
++    //     constexpr static int32_t BLOCK_SIZE = GetUbBlockSize();
+ };
+ 
+ template <typename T>
+ __aicore__ inline void CausalConv1dUpdateBase<T>::ParseTilingData(
+-    const sglang::npu_kernel::CausalConv1dUpdateTilingData* tilingData, CausalConv1dUpdateTilingData& runTilingData)
++    const sglang::npu_kernel::CausalConv1dUpdateTilingData *tilingData, CausalConv1dUpdateTilingData &runTilingData)
+ {
+     runTilingData.numCore = tilingData->numCore;
+     runTilingData.blockFactor = tilingData->blockFactor;
+@@ -68,8 +68,8 @@ __aicore__ inline void CausalConv1dUpdateBase<T>::ParseTilingData(
+ }
+ 
+ template <typename T>
+-__aicore__ inline void CausalConv1dUpdateBase<T>::ParseCoreBlocks(
+-    const CausalConv1dUpdateTilingData& runTilingData, int32_t blockIdx, int64_t& batchNum)
++__aicore__ inline void CausalConv1dUpdateBase<T>::ParseCoreBlocks(const CausalConv1dUpdateTilingData &runTilingData,
++                                                                  int32_t blockIdx, int64_t &batchNum)
+ {
+     if (blockIdx == runTilingData.numCore - 1) {
+         batchNum = runTilingData.blockTailFactor;
+@@ -79,7 +79,7 @@ __aicore__ inline void CausalConv1dUpdateBase<T>::ParseCoreBlocks(
+ }
+ 
+ template <typename T>
+-__aicore__ inline void CausalConv1dUpdateBase<T>::GetXInCopyParams(int64_t xLen, DataCopyExtParams& copyParams)
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetXInCopyParams(int64_t xLen, DataCopyExtParams &copyParams)
+ {
+     copyParams.blockCount = 1;
+     copyParams.blockLen = xLen * sizeof(T);
+@@ -89,7 +89,8 @@ __aicore__ inline void CausalConv1dUpdateBase<T>::GetXInCopyParams(int64_t xLen,
+ }
+ 
+ template <typename T>
+-__aicore__ inline void CausalConv1dUpdateBase<T>::GetWeightInCopyParams(int64_t weightLen, DataCopyExtParams& copyParams)
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetWeightInCopyParams(int64_t weightLen,
++                                                                        DataCopyExtParams &copyParams)
+ {
+     copyParams.blockCount = 1;
+     copyParams.blockLen = weightLen * sizeof(T);
+@@ -99,7 +100,7 @@ __aicore__ inline void CausalConv1dUpdateBase<T>::GetWeightInCopyParams(int64_t
+ }
+ 
+ template <typename T>
+-__aicore__ inline void CausalConv1dUpdateBase<T>::GetStateInCopyParams(int64_t stateLen, DataCopyExtParams& copyParams)
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetStateInCopyParams(int64_t stateLen, DataCopyExtParams &copyParams)
+ {
+     copyParams.blockCount = 1;
+     copyParams.blockLen = stateLen * sizeof(T);
+@@ -109,7 +110,7 @@ __aicore__ inline void CausalConv1dUpdateBase<T>::GetStateInCopyParams(int64_t s
+ }
+ 
+ template <typename T>
+-__aicore__ inline void CausalConv1dUpdateBase<T>::GetBiasInCopyParams(int64_t biasLen, DataCopyExtParams& copyParams)
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetBiasInCopyParams(int64_t biasLen, DataCopyExtParams &copyParams)
+ {
+     copyParams.blockCount = 1;
+     copyParams.blockLen = biasLen * sizeof(T);
+@@ -119,7 +120,7 @@ __aicore__ inline void CausalConv1dUpdateBase<T>::GetBiasInCopyParams(int64_t bi
+ }
+ 
+ template <typename T>
+-__aicore__ inline void CausalConv1dUpdateBase<T>::GetYOutCopyParams(int64_t yLen, DataCopyExtParams& copyParams)
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetYOutCopyParams(int64_t yLen, DataCopyExtParams &copyParams)
+ {
+     copyParams.blockCount = 1;
+     copyParams.blockLen = yLen * sizeof(T);
+@@ -129,7 +130,7 @@ __aicore__ inline void CausalConv1dUpdateBase<T>::GetYOutCopyParams(int64_t yLen
+ }
+ 
+ template <typename T>
+-__aicore__ inline void CausalConv1dUpdateBase<T>::GetStateOutCopyParams(int64_t stateLen, DataCopyExtParams& copyParams)
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetStateOutCopyParams(int64_t stateLen, DataCopyExtParams &copyParams)
+ {
+     copyParams.blockCount = 1;
+     copyParams.blockLen = stateLen * sizeof(T);
+@@ -138,6 +139,6 @@ __aicore__ inline void CausalConv1dUpdateBase<T>::GetStateOutCopyParams(int64_t
+     copyParams.rsv = 0;
+ }
+ 
+-} // namespace CausalConv1dUpdateOp
++}  // namespace CausalConv1dUpdateOp
+ 
+ #endif
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+index 74d7c4d86..d00607f90 100644
+--- a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+@@ -20,4 +20,4 @@
+ #define CAUSAL_CONV1D_UPDATE_DTYPE_BF16 0
+ #define CAUSAL_CONV1D_UPDATE_DTYPE_FP16 1
+ 
+-#endif // __CAUSAL_CONV1D_UPDATE_STRUCT_H__
++#endif  // __CAUSAL_CONV1D_UPDATE_STRUCT_H__
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+index cd30b71b4..816e738f5 100644
+--- a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+@@ -50,4 +50,4 @@ struct CausalConv1dUpdateTilingData {
+ }  // namespace npu_kernel
+ }  // namespace sglang
+ 
+-#endif // CAUSAL_CONV1D_UPDATE_TILING_DATA_H_
++#endif  // CAUSAL_CONV1D_UPDATE_TILING_DATA_H_
+diff --git a/csrc/pytorch_extensions.cpp b/csrc/pytorch_extensions.cpp
+index 82614cbb5..92faaef1f 100644
+--- a/csrc/pytorch_extensions.cpp
++++ b/csrc/pytorch_extensions.cpp
+@@ -157,20 +157,21 @@ TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)
+ 
+     m.impl("triangular_inverse", TORCH_FN(sglang::npu_kernel::tri_inv_col_sweep));
+ 
+-    m.impl("causal_conv1d_update", [](const at::Tensor& x, const at::Tensor& weight,
+-                                       const at::Tensor& conv_state, const at::Tensor& conv_state_indices,
+-                                       const c10::optional<at::Tensor>& bias,
+-                                       const c10::optional<at::Tensor>& num_accepted_tokens,
+-                                       const c10::optional<at::Tensor>& query_start_loc,
+-                                       bool activation_mode, int64_t pad_slot_id) {
+-        // Handle optional parameters - convert None to empty tensors
+-        auto bias_or_empty = bias.has_value() ? *bias : at::empty({0}, x.options());
+-        auto num_accepted_or_empty = num_accepted_tokens.has_value() ? *num_accepted_tokens : at::empty({0}, x.options().dtype(at::kInt));
+-        auto query_loc_or_empty = query_start_loc.has_value() ? *query_start_loc : at::empty({0}, x.options().dtype(at::kInt));
+-
+-        return sglang::npu_kernel::causal_conv1d_update_impl(x, weight, conv_state, conv_state_indices,
+-                                                              bias_or_empty, num_accepted_or_empty, query_loc_or_empty,
+-                                                              activation_mode, pad_slot_id);
+-    });
++    m.impl("causal_conv1d_update",
++           [](const at::Tensor &x, const at::Tensor &weight, const at::Tensor &conv_state,
++              const at::Tensor &conv_state_indices, const c10::optional<at::Tensor> &bias,
++              const c10::optional<at::Tensor> &num_accepted_tokens, const c10::optional<at::Tensor> &query_start_loc,
++              bool activation_mode, int64_t pad_slot_id) {
++               // Handle optional parameters - convert None to empty tensors
++               auto bias_or_empty = bias.has_value() ? *bias : at::empty({0}, x.options());
++               auto num_accepted_or_empty =
++                   num_accepted_tokens.has_value() ? *num_accepted_tokens : at::empty({0}, x.options().dtype(at::kInt));
++               auto query_loc_or_empty =
++                   query_start_loc.has_value() ? *query_start_loc : at::empty({0}, x.options().dtype(at::kInt));
++
++               return sglang::npu_kernel::causal_conv1d_update_impl(x, weight, conv_state, conv_state_indices,
++                                                                    bias_or_empty, num_accepted_or_empty,
++                                                                    query_loc_or_empty, activation_mode, pad_slot_id);
++           });
+ }
+ }  // namespace
+diff --git a/csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp b/csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+index e210ec76c..d88a4d5ee 100644
+--- a/csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
++++ b/csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+@@ -30,21 +30,13 @@
+ namespace sglang {
+ namespace npu_kernel {
+ 
+-
+-HOST_API at::Tensor recurrent_gated_delta_rule(
+-    at::Tensor &mix_qkv,
+-    at::Tensor &recurrent_state,
+-    at::Tensor &beta,
+-    double scale,
+-    at::Tensor &actual_seq_lengths,
+-    at::Tensor &ssm_state_indices,
+-    int64_t nk,
+-    int64_t nv,
+-    c10::optional<at::Tensor> intermediate_state_opt,
+-    c10::optional<at::Tensor> cache_indices_opt,
+-    c10::optional<at::Tensor> num_accepted_tokens_opt,
+-    c10::optional<at::Tensor> g_opt,
+-    c10::optional<at::Tensor> gk_opt)
++HOST_API at::Tensor recurrent_gated_delta_rule(at::Tensor &mix_qkv, at::Tensor &recurrent_state, at::Tensor &beta,
++                                               double scale, at::Tensor &actual_seq_lengths,
++                                               at::Tensor &ssm_state_indices, int64_t nk, int64_t nv,
++                                               c10::optional<at::Tensor> intermediate_state_opt,
++                                               c10::optional<at::Tensor> cache_indices_opt,
++                                               c10::optional<at::Tensor> num_accepted_tokens_opt,
++                                               c10::optional<at::Tensor> g_opt, c10::optional<at::Tensor> gk_opt)
+ {
+     TORCH_CHECK(mix_qkv.defined(), "MixQKV tensor must be defined");
+     TORCH_CHECK(recurrent_state.defined(), "State tensor must be defined");
+@@ -60,12 +52,10 @@ HOST_API at::Tensor recurrent_gated_delta_rule(
+     int64_t dk = recurrent_state.size(3);
+ 
+     int64_t expectedD = 2 * nk * dk + nv * dv;
+-    TORCH_CHECK(d == expectedD,
+-        "mix_qkv width mismatch. Expected: " + std::to_string(expectedD) +
+-        ", Got: " + std::to_string(d) +
+-        ". Formula: D = nv*dv + 2*nk*dk, where nv=" + std::to_string(nv) +
+-        ", dv(or State.size(2))=" + std::to_string(dv) + ", nk=" + std::to_string(nk) +
+-        ", dk(or State.size(3))=" + std::to_string(dk));
++    TORCH_CHECK(d == expectedD, "mix_qkv width mismatch. Expected: " + std::to_string(expectedD) +
++                                    ", Got: " + std::to_string(d) + ". Formula: D = nv*dv + 2*nk*dk, where nv=" +
++                                    std::to_string(nv) + ", dv(or State.size(2))=" + std::to_string(dv) +
++                                    ", nk=" + std::to_string(nk) + ", dk(or State.size(3))=" + std::to_string(dk));
+ 
+     TORCH_CHECK(recurrent_state.size(1) == nv, "State third dimension must match nv");
+ 
+@@ -91,52 +81,47 @@ HOST_API at::Tensor recurrent_gated_delta_rule(
+     const int64_t MAX_MTP = 8;
+     const int64_t ALIGN_SIZE = 16;
+ 
+-    auto ceilAlign = [](int64_t value, int64_t align) {
+-        return (value + align - 1) & ~(align - 1);
+-    };
++    auto ceilAlign = [](int64_t value, int64_t align) { return (value + align - 1) & ~(align - 1); };
+ 
+-    auto ceilDiv = [](int64_t dividend, int64_t divisor) {
+-        return (dividend + divisor - 1) / divisor;
+-    };
++    auto ceilDiv = [](int64_t dividend, int64_t divisor) { return (dividend + divisor - 1) / divisor; };
+ 
+     int64_t aNv = ceilAlign(nv, ALIGN_SIZE);
+     int64_t aDv = ceilAlign(dv, ALIGN_SIZE);
+     int64_t aDk = ceilAlign(dk, ALIGN_SIZE);
+ 
+-    int64_t usedUbBytes = MAX_MTP * (4 * aDk + 2 * aDv);    // 4 for qLocal & kLocal, 2 for vLocal
+-    usedUbBytes += 128;                                     // reserve 128 Bytes
+-    usedUbBytes += MAX_MTP * (4 * aNv + 2 * aNv);           // 4 for gamaLocal, 2 for betaLocal
++    int64_t usedUbBytes = MAX_MTP * (4 * aDk + 2 * aDv);  // 4 for qLocal & kLocal, 2 for vLocal
++    usedUbBytes += 128;                                   // reserve 128 Bytes
++    usedUbBytes += MAX_MTP * (4 * aNv + 2 * aNv);         // 4 for gamaLocal, 2 for betaLocal
+ 
+     int64_t ubRestBytes = ubSize - usedUbBytes;
+ 
+-    usedUbBytes += MAX_MTP * (8 * aDk + 4 * aDv + 4 * aNv); // 8 for qk in ub, 4 for v in ub, 4 for beta in ub
+-    int64_t coeff = (2 + 2) * aDk + 4;                      // 2 for stateLocal, stateOutLocal, 4 for attnOutLocal
+-    coeff += (4 + 4) * aDk + 4 + 4;                         // 4 for qInUb, kInUb, vInUb, deltaInUb, attnInUb
++    usedUbBytes += MAX_MTP * (8 * aDk + 4 * aDv + 4 * aNv);  // 8 for qk in ub, 4 for v in ub, 4 for beta in ub
++    int64_t coeff = (2 + 2) * aDk + 4;                       // 2 for stateLocal, stateOutLocal, 4 for attnOutLocal
++    coeff += (4 + 4) * aDk + 4 + 4;                          // 4 for qInUb, kInUb, vInUb, deltaInUb, attnInUb
+ 
+-    int64_t vStep = (ubSize - usedUbBytes) / coeff / 8 * 8; // 8 * sizeof(float) = 32
+-    if (vStep < 8) {                                        // vStep must be no less than 8
++    int64_t vStep = (ubSize - usedUbBytes) / coeff / 8 * 8;  // 8 * sizeof(float) = 32
++    if (vStep < 8) {                                         // vStep must be no less than 8
+         TORCH_CHECK(false, "vStep should be bigger than 8, shape is too big");
+         TORCH_CHECK(false, "vStep (" + std::to_string(vStep) + ") should be bigger than 8 ");
+     }
+ 
+     int64_t rptime = ceilDiv(dv, static_cast<uint32_t>(vStep));
+-    vStep = ceilAlign(ceilDiv(dv, static_cast<uint32_t>(rptime)), 8);   // 8 * sizeof(float) = 32
+-    ubRestBytes -= ((2 + 2) * aDk + 4) * vStep;                         // 2 for stateLocal, stateOutLocal, 4 for attnOutLocal
++    vStep = ceilAlign(ceilDiv(dv, static_cast<uint32_t>(rptime)), 8);  // 8 * sizeof(float) = 32
++    ubRestBytes -= ((2 + 2) * aDk + 4) * vStep;  // 2 for stateLocal, stateOutLocal, 4 for attnOutLocal
+ 
+     // ===================== optional inputs =====================
+ 
+     bool hasIntermediateState = false;
+-    void* intermediateStatePtr = nullptr;
++    void *intermediateStatePtr = nullptr;
+ 
+     at::Tensor intermediate_state_tensor;
+ 
+-    void* recurrentStatePtr = recurrent_state.data_ptr();
+-    void* initStatePtr = recurrentStatePtr;
+-    void* stateOutPtr = recurrentStatePtr;
+-    void* mtpRecurrentStatePtr = nullptr;
++    void *recurrentStatePtr = recurrent_state.data_ptr();
++    void *initStatePtr = recurrentStatePtr;
++    void *stateOutPtr = recurrentStatePtr;
++    void *mtpRecurrentStatePtr = nullptr;
+ 
+-    if (intermediate_state_opt.has_value() &&
+-        intermediate_state_opt.value().defined()) {
++    if (intermediate_state_opt.has_value() && intermediate_state_opt.value().defined()) {
+         hasIntermediateState = true;
+         intermediate_state_tensor = intermediate_state_opt.value().contiguous();
+         intermediateStatePtr = intermediate_state_tensor.data_ptr();
+@@ -147,26 +132,21 @@ HOST_API at::Tensor recurrent_gated_delta_rule(
+         mtpRecurrentStatePtr = recurrentStatePtr;
+     }
+ 
+-    void* cacheIndicesPtr = nullptr;
++    void *cacheIndicesPtr = nullptr;
+     at::Tensor cache_indices_tensor;
+ 
+-    if (cache_indices_opt.has_value() &&
+-        cache_indices_opt.value().defined()) {
+-
++    if (cache_indices_opt.has_value() && cache_indices_opt.value().defined()) {
+         cache_indices_tensor = cache_indices_opt.value().to(at::kInt).contiguous();
+         cacheIndicesPtr = cache_indices_tensor.data_ptr();
+     }
+ 
+     bool hasAcceptedTokens = false;
+-    void* numAcceptedTokensPtr = nullptr;
++    void *numAcceptedTokensPtr = nullptr;
+     at::Tensor num_accepted_tokens_int32;
+ 
+-    if (num_accepted_tokens_opt.has_value() &&
+-        num_accepted_tokens_opt.value().defined()) {
+-
++    if (num_accepted_tokens_opt.has_value() && num_accepted_tokens_opt.value().defined()) {
+         hasAcceptedTokens = true;
+-        num_accepted_tokens_int32 =
+-            num_accepted_tokens_opt.value().to(at::kInt).contiguous();
++        num_accepted_tokens_int32 = num_accepted_tokens_opt.value().to(at::kInt).contiguous();
+ 
+         numAcceptedTokensPtr = num_accepted_tokens_int32.data_ptr();
+     }
+@@ -178,14 +158,12 @@ HOST_API at::Tensor recurrent_gated_delta_rule(
+         hasGama = true;
+         g_tensor = g_opt.value().to(at::kFloat).contiguous();
+     } else {
+-        g_tensor = torch::ones(
+-            {t, nv},
+-            torch::TensorOptions().dtype(at::kFloat).device(mix_qkv.device()));
++        g_tensor = torch::ones({t, nv}, torch::TensorOptions().dtype(at::kFloat).device(mix_qkv.device()));
+     }
+ 
+-    void* gPtr = g_tensor.data_ptr();
++    void *gPtr = g_tensor.data_ptr();
+ 
+-    void* gkPtr = nullptr;
++    void *gkPtr = nullptr;
+     at::Tensor gk_local;
+ 
+     if (gk_opt.has_value() && gk_opt.value().defined()) {
+@@ -196,31 +174,12 @@ HOST_API at::Tensor recurrent_gated_delta_rule(
+ 
+     at::Tensor output = torch::empty({b, s, nv, dv}, mix_qkv.options());
+ 
+-    EXEC_KERNEL_CMD(
+-        recurrent_gated_delta_rule,
+-        coreNum,
+-        mix_qkv,
+-        beta,
+-        initStatePtr,
+-        actual_seq_lengths,
+-        ssm_state_indices,
+-        mtpRecurrentStatePtr,
+-        cacheIndicesPtr,
+-        gPtr,
+-        gkPtr,
+-        numAcceptedTokensPtr,
+-        output,
+-        stateOutPtr,
+-        b, s, nk, dk, nv, dv,
+-        hasIntermediateState,
+-        hasAcceptedTokens,
+-        hasGama,
+-        vStep,
+-        ubRestBytes,
+-        scale
+-    );
++    EXEC_KERNEL_CMD(recurrent_gated_delta_rule, coreNum, mix_qkv, beta, initStatePtr, actual_seq_lengths,
++                    ssm_state_indices, mtpRecurrentStatePtr, cacheIndicesPtr, gPtr, gkPtr, numAcceptedTokensPtr, output,
++                    stateOutPtr, b, s, nk, dk, nv, dv, hasIntermediateState, hasAcceptedTokens, hasGama, vStep,
++                    ubRestBytes, scale);
+ 
+     return output;
+ }
+-}
+-}
+\ No newline at end of file
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp b/csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+index 45778727a..954c857a4 100644
+--- a/csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
++++ b/csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+@@ -16,7 +16,6 @@
+ 
+ #include "tensorutils.h"
+ 
+-
+ using namespace matmul;
+ using namespace AscendC;
+ 
+@@ -24,7 +23,7 @@ constexpr uint64_t BUFFER_NUM = 1;
+ constexpr uint64_t MAX_MTP = 8;
+ constexpr uint64_t BF16_NUM_PER_BLOCK = 16;
+ constexpr uint64_t FP32_NUM_PER_BLOCK = 8;
+-constexpr uint32_t REPEAT_LENTH = 64; // 256Byte for float
++constexpr uint32_t REPEAT_LENTH = 64;  // 256Byte for float
+ constexpr uint32_t MAX_REPEAT_TIME = 255;
+ constexpr float EPSILON_FOR_STABILITY = 1e-6f;
+ 
+@@ -48,22 +47,12 @@ struct RGDRInitParams {
+ };
+ 
+ template <typename inType, typename outType>
+-class RGDR {
++class RGDR
++{
+ public:
+-    __aicore__ inline RGDR(
+-        uint32_t B,
+-        uint32_t S,
+-        uint32_t nk,
+-        uint32_t dk,
+-        uint32_t nv,
+-        uint32_t dv,
+-        bool hasIntermediateState,
+-        bool hasAcceptedTokens,
+-        bool hasGama,
+-        uint32_t vStep,
+-        uint32_t ubRestBytes,
+-        float scale
+-    )
++    __aicore__ inline RGDR(uint32_t B, uint32_t S, uint32_t nk, uint32_t dk, uint32_t nv, uint32_t dv,
++                           bool hasIntermediateState, bool hasAcceptedTokens, bool hasGama, uint32_t vStep,
++                           uint32_t ubRestBytes, float scale)
+     {
+         B_ = B;
+         S_ = S;
+@@ -126,10 +115,8 @@ class RGDR {
+         uint32_t singleVSize = vStep_ * sizeof(float);
+         uint32_t vSize = MAX_MTP * alignV_ * sizeof(float);
+         uint32_t kSize = MAX_MTP * alignK_ * sizeof(float);
+-        uint32_t betaUbNum =
+-            Ceil(MAX_MTP * NV_, BF16_NUM_PER_BLOCK) * BF16_NUM_PER_BLOCK; // 8: 8 * 4 = 32B;
+-        uint32_t sumLocalNum =
+-            Ceil(MAX_MTP, FP32_NUM_PER_BLOCK) * FP32_NUM_PER_BLOCK;
++        uint32_t betaUbNum = Ceil(MAX_MTP * NV_, BF16_NUM_PER_BLOCK) * BF16_NUM_PER_BLOCK;  // 8: 8 * 4 = 32B;
++        uint32_t sumLocalNum = Ceil(MAX_MTP, FP32_NUM_PER_BLOCK) * FP32_NUM_PER_BLOCK;
+ 
+         uint32_t inQSize = BUFFER_NUM * MAX_MTP * alignK_ * sizeof(inType);
+         uint32_t inVSize = BUFFER_NUM * MAX_MTP * alignV_ * sizeof(inType);
+@@ -138,40 +125,38 @@ class RGDR {
+         uint32_t inBetaSize = BUFFER_NUM * MAX_MTP * NV_ * sizeof(inType);
+         uint32_t outStateSize = BUFFER_NUM * alignK_ * vStep_ * sizeof(outType);
+         uint32_t outAttnSize = BUFFER_NUM * vStep_ * sizeof(outType);
+-        uint32_t totalBufferSize =
+-            inQSize * 2 +  // Q and K queues (each double buffered)
+-            inVSize +      // V queue (double buffered)
+-            inStateSize +  // State input queue (double buffered)
+-            inGamaSize +   // Gamma queue
+-            inBetaSize +   // Beta queue
+-            outStateSize + // State output queue (double buffered)
+-            outAttnSize;
++        uint32_t totalBufferSize = inQSize * 2 +   // Q and K queues (each double buffered)
++                                   inVSize +       // V queue (double buffered)
++                                   inStateSize +   // State input queue (double buffered)
++                                   inGamaSize +    // Gamma queue
++                                   inBetaSize +    // Beta queue
++                                   outStateSize +  // State output queue (double buffered)
++                                   outAttnSize;
+ 
+         pipe_->InitBuffer(stageBuff, totalBufferSize);
+         uint32_t totalBufferOffset = 0;
+-        qLocal = stageBuff.GetWithOffset<inType>(
+-            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * alignK_), totalBufferOffset);
++        qLocal =
++            stageBuff.GetWithOffset<inType>(static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * alignK_), totalBufferOffset);
+         totalBufferOffset += inQSize;
+-        kLocal = stageBuff.GetWithOffset<inType>(
+-            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * alignK_), totalBufferOffset);
++        kLocal =
++            stageBuff.GetWithOffset<inType>(static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * alignK_), totalBufferOffset);
+         totalBufferOffset += inQSize;
+-        vLocal = stageBuff.GetWithOffset<inType>(
+-            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * alignV_), totalBufferOffset);
++        vLocal =
++            stageBuff.GetWithOffset<inType>(static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * alignV_), totalBufferOffset);
+         totalBufferOffset += inVSize;
+-        stateLocal = stageBuff.GetWithOffset<inType>(
+-            static_cast<uint32_t>(BUFFER_NUM * alignK_ * vStep_), totalBufferOffset);
++        stateLocal =
++            stageBuff.GetWithOffset<inType>(static_cast<uint32_t>(BUFFER_NUM * alignK_ * vStep_), totalBufferOffset);
+         totalBufferOffset += inStateSize;
+-        gamaLocal = stageBuff.GetWithOffset<float>(
+-            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * NV_), totalBufferOffset);
++        gamaLocal =
++            stageBuff.GetWithOffset<float>(static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * NV_), totalBufferOffset);
+         totalBufferOffset += inGamaSize;
+-        betaLocal = stageBuff.GetWithOffset<inType>(
+-            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * NV_), totalBufferOffset);
++        betaLocal =
++            stageBuff.GetWithOffset<inType>(static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * NV_), totalBufferOffset);
+         totalBufferOffset += inBetaSize;
+-        stateOutLocal = stageBuff.GetWithOffset<inType>(
+-            static_cast<uint32_t>(BUFFER_NUM * alignK_ * vStep_), totalBufferOffset);
++        stateOutLocal =
++            stageBuff.GetWithOffset<inType>(static_cast<uint32_t>(BUFFER_NUM * alignK_ * vStep_), totalBufferOffset);
+         totalBufferOffset += outStateSize;
+-        attnOutLocal = stageBuff.GetWithOffset<inType>(
+-            static_cast<uint32_t>(BUFFER_NUM * vStep_), totalBufferOffset);
++        attnOutLocal = stageBuff.GetWithOffset<inType>(static_cast<uint32_t>(BUFFER_NUM * vStep_), totalBufferOffset);
+         pipe_->InitBuffer(tmpBuff, restUbSize_);
+         uint32_t buffOffset = 0;
+         deltaInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(vStep_), buffOffset);
+@@ -233,9 +218,9 @@ class RGDR {
+             uint64_t seq0 = batchIdx * S_;
+             uint64_t seq1 = seq0 + cuSeqlensGm_.GetValue(batchIdx);
+ 
+-            uint64_t stateOffset = hasAcceptedTokens_ ?
+-                    ssmStateIndicesGm_.GetValue(seq0 + numAcceptedTokensGm_.GetValue(batchIdx) - 1) :
+-                    ssmStateIndicesGm_.GetValue(seq0);
++            uint64_t stateOffset = hasAcceptedTokens_
++                                       ? ssmStateIndicesGm_.GetValue(seq0 + numAcceptedTokensGm_.GetValue(batchIdx) - 1)
++                                       : ssmStateIndicesGm_.GetValue(seq0);
+             uint64_t recurrentStateOffset = 0;
+             if (hasIntermediateState_) {
+                 recurrentStateOffset = cacheIndicesGm_.GetValue(batchIdx);
+@@ -254,7 +239,7 @@ class RGDR {
+             ProcessHead(seq0, seq1, headIdx, stateOffset, recurrentStateOffset);
+             in_empty_Beta.set();
+         }
+-        in_empty_Beta.release(); // wait
++        in_empty_Beta.release();  // wait
+         out_empty_Attn.release();
+     }
+ 
+@@ -282,22 +267,20 @@ class RGDR {
+      * Note: This method is specifically designed and invoked only when
+      * curSingleV == 64 and alignK_ == 128.
+      */
+-    __aicore__ inline void ReduceSum_AR_64x128_ReuseSource(
+-        const LocalTensor<float>& dstTensor,
+-        const LocalTensor<float>& srcTensor,
+-        const uint32_t srcShape[2]
+-    )
++    __aicore__ inline void ReduceSum_AR_64x128_ReuseSource(const LocalTensor<float> &dstTensor,
++                                                           const LocalTensor<float> &srcTensor,
++                                                           const uint32_t srcShape[2])
+     {
+         const uint32_t B32_DATA_NUM_PER_REPEAT = 64;
+         const uint32_t B32_DATA_NUM_PER_BLOCK = 8;
+-        uint32_t first = srcShape[0];      // 64
+-        uint32_t last = srcShape[1];       // 128
+-        uint32_t padLast = 128;            // AlignUp(128, 8) = 128（已对齐）
++        uint32_t first = srcShape[0];  // 64
++        uint32_t last = srcShape[1];   // 128
++        uint32_t padLast = 128;        // AlignUp(128, 8) = 128（已对齐）
+         LocalTensor<float> tmpBuf = srcTensor;
+ 
+-        uint32_t splitK = 128;     // 1 << FindClosestPowerOfTwo(128) = 128
+-        uint32_t tail = 0;         // last - splitK = 0
+-        uint32_t perRowReduceSize = 64; // splitK >> 1 = 64
++        uint32_t splitK = 128;           // 1 << FindClosestPowerOfTwo(128) = 128
++        uint32_t tail = 0;               // last - splitK = 0
++        uint32_t perRowReduceSize = 64;  // splitK >> 1 = 64
+         SetMaskCount();
+ 
+         uint32_t perRowSize = padLast;
+@@ -307,18 +290,18 @@ class RGDR {
+ 
+         SetMaskNorm();
+         SetVectorMask<float, MaskMode::NORMAL>(B32_DATA_NUM_PER_REPEAT);  // 64
+-        uint32_t srcOffset = perRowReduceSize;  // 64
+-        uint32_t tmpOffset = 0;                 // 0
++        uint32_t srcOffset = perRowReduceSize;                            // 64
++        uint32_t tmpOffset = 0;                                           // 0
+ 
+         Add<float, false>(tmpBuf[tmpOffset], tmpBuf[tmpOffset], srcTensor[srcOffset], MASK_PLACEHOLDER, first,
+-            {1, 1, 1, dstRepStride, src0RepStride, src1RepStride});
++                          {1, 1, 1, dstRepStride, src0RepStride, src1RepStride});
+         PipeBarrier<PIPE_V>();
+-        uint16_t blockCount = first;        // 64
+-        uint16_t blockLen = perRowReduceSize / B32_DATA_NUM_PER_BLOCK;  // 64 / 8 = 8
++        uint16_t blockCount = first;                                                 // 64
++        uint16_t blockLen = perRowReduceSize / B32_DATA_NUM_PER_BLOCK;               // 64 / 8 = 8
+         uint16_t srcStride = (padLast - perRowReduceSize) / B32_DATA_NUM_PER_BLOCK;  // (128 - 64) / 8 = 8
+         uint16_t dstStride = 0;
+ 
+-        DataCopy(tmpBuf, tmpBuf, { blockCount, blockLen, srcStride, dstStride});
++        DataCopy(tmpBuf, tmpBuf, {blockCount, blockLen, srcStride, dstStride});
+         PipeBarrier<PIPE_V>();
+ 
+         ResetMask();
+@@ -399,9 +382,9 @@ class RGDR {
+         }
+     }
+ 
+-    __aicore__ inline void Compute(uint32_t curSingleV, uint64_t curQKOffset,
+-        uint64_t curVOffset, uint64_t seq_i, uint64_t attnOffset, int32_t seq0,
+-        int32_t seq1, uint64_t head_i, uint64_t stateOffset, uint64_t v_i)
++    __aicore__ inline void Compute(uint32_t curSingleV, uint64_t curQKOffset, uint64_t curVOffset, uint64_t seq_i,
++                                   uint64_t attnOffset, int32_t seq0, int32_t seq1, uint64_t head_i,
++                                   uint64_t stateOffset, uint64_t v_i)
+     {
+         uint32_t qk_head_idx = head_i / (NV_ / NK_);
+         int32_t seqLen = seq1 - seq0;
+@@ -420,7 +403,7 @@ class RGDR {
+         uint32_t vSrcStride = tokenStrideSize_ - realV_ * sizeof(inType);
+ 
+         DataCopyExtParams qkInParams{static_cast<uint16_t>(seqLen), static_cast<uint32_t>(realK_ * sizeof(inType)),
+-                                    qkSrcStride, 0, 0};
++                                     qkSrcStride, 0, 0};
+         DataCopyPadExtParams<inType> qkPadParams{true, 0, static_cast<uint8_t>(alignK_ - realK_), 0};
+ 
+         DataCopyExtParams vInParams{static_cast<uint16_t>(seqLen), static_cast<uint32_t>(realV_ * sizeof(inType)),
+@@ -466,8 +449,8 @@ class RGDR {
+             // {1, 8} * {1, alignK_} => {1, alignK_}
+             uint32_t index = i * VEC_FLOAT;  // 0, 64
+ 
+-            Mul<float, false>(broadTmpInUb[index], stateInUb[index], kInUb[curQKOffset + index],
+-                MASK_PLACEHOLDER, curSingleV, {1, 1, 1, 16, 16, 0});
++            Mul<float, false>(broadTmpInUb[index], stateInUb[index], kInUb[curQKOffset + index], MASK_PLACEHOLDER,
++                              curSingleV, {1, 1, 1, 16, 16, 0});
+             AscendC::PipeBarrier<PIPE_V>();
+         }
+ 
+@@ -502,8 +485,8 @@ class RGDR {
+         for (uint32_t i = 0; i < alignK_ / VEC_FLOAT; i++) {
+             // {1, 8} * {1, alignK_} => {1, alignK_}
+             uint32_t index = i * VEC_FLOAT;  // 0, 64
+-            MulAddDst<float, float, false>(stateInUb[index], broadTmpInUb, kInUb[curQKOffset + index],
+-                MASK_PLACEHOLDER, curSingleV, {1, 0, 1, 16, 1, 0});
++            MulAddDst<float, float, false>(stateInUb[index], broadTmpInUb, kInUb[curQKOffset + index], MASK_PLACEHOLDER,
++                                           curSingleV, {1, 0, 1, 16, 1, 0});
+             AscendC::PipeBarrier<PIPE_V>();
+         }
+ 
+@@ -514,8 +497,7 @@ class RGDR {
+         out_ready_Attn.set();
+         out_ready_Attn.wait();
+ 
+-        uint64_t curStateOutOffset =
+-            ((ssmStateIndicesGm_.GetValue(seq_i) * NV_ + head_i) * realV_ + v_i) * realK_;
++        uint64_t curStateOutOffset = ((ssmStateIndicesGm_.GetValue(seq_i) * NV_ + head_i) * realV_ + v_i) * realK_;
+ 
+         CopyOutState(curStateOutOffset, curSingleV);
+ 
+@@ -523,8 +505,8 @@ class RGDR {
+             // {1, 8} * {1, alignK_} => {1, alignK_}
+             uint32_t index = i * VEC_FLOAT;  // 0, 64
+ 
+-            Mul<float, false>(broadTmpInUb[index], stateInUb[index], qInUb[curQKOffset + index],
+-                MASK_PLACEHOLDER, curSingleV, {1, 1, 1, 16, 16, 0});
++            Mul<float, false>(broadTmpInUb[index], stateInUb[index], qInUb[curQKOffset + index], MASK_PLACEHOLDER,
++                              curSingleV, {1, 1, 1, 16, 16, 0});
+             AscendC::PipeBarrier<PIPE_V>();
+         }
+ 
+@@ -559,7 +541,7 @@ class RGDR {
+         DataCopyPad(finalStateGm_[stateOffset], stateOutLocal, stateOutParams);
+     }
+ 
+-   __aicore__ inline void CopyInGamaBeta(int32_t seq0, int32_t seq1)
++    __aicore__ inline void CopyInGamaBeta(int32_t seq0, int32_t seq1)
+     {
+         int32_t seqLen = seq1 - seq0;
+         uint64_t bBatchSize = Ceil(seqLen * NV_, BF16_NUM_PER_BLOCK) * BF16_NUM_PER_BLOCK;
+@@ -594,7 +576,8 @@ class RGDR {
+         WaitFlag<HardEvent::V_S>(eventIDS);
+     }
+ 
+-    __aicore__ inline void ProcessHead(int32_t seq0, int32_t seq1, uint64_t head_i, uint64_t stateOffset, uint64_t recurrentStateOffset)
++    __aicore__ inline void ProcessHead(int32_t seq0, int32_t seq1, uint64_t head_i, uint64_t stateOffset,
++                                       uint64_t recurrentStateOffset)
+     {
+         qkvcopyFlag_ = false;
+         for (uint64_t v_i = 0; v_i < realV_; v_i += vStep_) {
+@@ -677,7 +660,6 @@ class RGDR {
+     SEvent<HardEvent::V_MTE3> out_ready_Attn;
+     SEvent<HardEvent::MTE3_V> out_empty_Attn;
+ 
+-
+     bool hasIntermediateState_;
+     bool needRecurrentInit_;
+     bool hasAcceptedTokens_;
+@@ -690,40 +672,17 @@ class RGDR {
+     bool qkvcopyFlag_;
+ };
+ 
+-extern "C" __global__ __aicore__ void
+-recurrent_gated_delta_rule(
+-    GM_ADDR mixqkv,
+-    GM_ADDR beta,
+-    GM_ADDR initState,
+-    GM_ADDR cuSeqlens,
+-    GM_ADDR ssmStateIndices,
+-    GM_ADDR mtpRecurrentState,
+-    GM_ADDR cacheIndices,
+-    GM_ADDR g,
+-    GM_ADDR gk,
+-    GM_ADDR numAcceptedTokens,
+-    GM_ADDR out,
+-    GM_ADDR stateOut,
+-    uint32_t b,
+-    uint32_t s,
+-    uint32_t nk,
+-    uint32_t dk,
+-    uint32_t nv,
+-    uint32_t dv,
+-    bool hasIntermediateState,
+-    bool hasAcceptedTokens,
+-    bool hasGama,
+-    uint32_t vStep,
+-    uint32_t ubRestBytes,
+-    float scale)
++extern "C" __global__ __aicore__ void recurrent_gated_delta_rule(
++    GM_ADDR mixqkv, GM_ADDR beta, GM_ADDR initState, GM_ADDR cuSeqlens, GM_ADDR ssmStateIndices,
++    GM_ADDR mtpRecurrentState, GM_ADDR cacheIndices, GM_ADDR g, GM_ADDR gk, GM_ADDR numAcceptedTokens, GM_ADDR out,
++    GM_ADDR stateOut, uint32_t b, uint32_t s, uint32_t nk, uint32_t dk, uint32_t nv, uint32_t dv,
++    bool hasIntermediateState, bool hasAcceptedTokens, bool hasGama, uint32_t vStep, uint32_t ubRestBytes, float scale)
+ {
+     KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
+     TPipe pipe;
+ 
+-    RGDR<bfloat16_t, bfloat16_t> op(
+-        b, s, nk, dk, nv, dv, hasIntermediateState,
+-        hasAcceptedTokens, hasGama, vStep, ubRestBytes, scale
+-    );
++    RGDR<bfloat16_t, bfloat16_t> op(b, s, nk, dk, nv, dv, hasIntermediateState, hasAcceptedTokens, hasGama, vStep,
++                                    ubRestBytes, scale);
+ 
+     RGDRInitParams initParams{
+         mixqkv,
+diff --git a/csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h b/csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+index 89a956a4f..0a248ff9d 100644
+--- a/csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
++++ b/csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+@@ -24,7 +24,7 @@ using namespace AscendC;
+ #define WAIT_VEC(iiii) CrossCoreWaitFlag(iiii)
+ 
+ constexpr uint64_t VECTORFULLMASK[2] = {(uint64_t)-1, (uint64_t)-1};
+-constexpr int SGL_TWO = 2; // vector per core; dbuff
++constexpr int SGL_TWO = 2;  // vector per core; dbuff
+ constexpr int SGL_THREE = 3;
+ constexpr int SGL_FOUR = 4;
+ 
+@@ -82,7 +82,7 @@ __aicore__ constexpr HardEvent GetHardEventByPipe(pipe_t src, pipe_t dst)
+ __aicore__ inline void OccupyMMTE1Events()
+ {
+     if ASCEND_IS_AIC {
+-        TPipe* pipe_ptr = GetTPipePtr();
++        TPipe *pipe_ptr = GetTPipePtr();
+         pipe_ptr->AllocEventID<HardEvent::M_MTE1>();
+         pipe_ptr->AllocEventID<HardEvent::M_MTE1>();
+         pipe_ptr->AllocEventID<HardEvent::M_MTE1>();
+@@ -122,19 +122,20 @@ template <TPosition pos, typename T>
+ __aicore__ inline void AllocateLocalTensor(LocalTensor<T> &tsr, int len)
+ {
+     TBuf<pos> tbuf;
+-    TPipe* ptr = GetTPipePtr();
++    TPipe *ptr = GetTPipePtr();
+     ptr->InitBuffer(tbuf, len * sizeof(T));
+     tsr = tbuf.template Get<T>();
+ }
+ 
+ /* ------------- Double Buffer ------------- */
+ template <typename T, TPosition pos>
+-class DBuff {
++class DBuff
++{
+ public:
+     __aicore__ inline DBuff() {}
+     __aicore__ inline void Init(int len)
+     {
+-        TPipe* ptr = GetTPipePtr();
++        TPipe *ptr = GetTPipePtr();
+         ptr->InitBuffer(buf1, len * sizeof(T));
+         ptr->InitBuffer(buf2, len * sizeof(T));
+         tsr1 = buf1.template Get<T>();
+@@ -149,6 +150,7 @@ class DBuff {
+             return tsr2;
+         }
+     }
++
+ private:
+     TBuf<pos> buf1, buf2;
+     LocalTensor<T> tsr1, tsr2;
+@@ -156,12 +158,13 @@ class DBuff {
+ 
+ /* ------------- Triple Buffer ------------- */
+ template <typename T, TPosition pos>
+-class TBuff {
++class TBuff
++{
+ public:
+     __aicore__ inline TBuff() {}
+     __aicore__ inline void Init(int len)
+     {
+-        TPipe* ptr = GetTPipePtr();
++        TPipe *ptr = GetTPipePtr();
+         ptr->InitBuffer(buf1, len * sizeof(T));
+         ptr->InitBuffer(buf2, len * sizeof(T));
+         ptr->InitBuffer(buf3, len * sizeof(T));
+@@ -180,6 +183,7 @@ class TBuff {
+             return tsr3;
+         }
+     }
++
+ private:
+     TBuf<pos> buf1, buf2, buf3;
+     LocalTensor<T> tsr1, tsr2, tsr3;
+@@ -187,12 +191,13 @@ class TBuff {
+ 
+ /* ------------- Events ------------- */
+ template <HardEvent hardevent_t>
+-class SEvent {
++class SEvent
++{
+ public:
+     __aicore__ inline SEvent() {}
+     __aicore__ inline void Init()
+     {
+-        TPipe* pipe_ptr = GetTPipePtr();
++        TPipe *pipe_ptr = GetTPipePtr();
+         id1 = (event_t)pipe_ptr->AllocEventID<hardevent_t>();
+     }
+     __aicore__ inline void wait()
+@@ -217,12 +222,13 @@ class SEvent {
+ };
+ 
+ template <pipe_t p1, pipe_t p2>
+-class DEvent {
++class DEvent
++{
+ public:
+     __aicore__ inline DEvent() {}
+     __aicore__ inline void Init()
+     {
+-        TPipe* pipe_ptr = GetTPipePtr();
++        TPipe *pipe_ptr = GetTPipePtr();
+         id1 = (event_t)pipe_ptr->AllocEventID<GetHardEventByPipe(p1, p2)>();
+         id2 = (event_t)pipe_ptr->AllocEventID<GetHardEventByPipe(p1, p2)>();
+     }
+diff --git a/include/sgl_kenel_npu_ops.h b/include/sgl_kenel_npu_ops.h
+index fb41d711d..95460b68a 100644
+--- a/include/sgl_kenel_npu_ops.h
++++ b/include/sgl_kenel_npu_ops.h
+@@ -99,19 +99,12 @@ void sgemmv_shrink(at::Tensor &x, at::Tensor &weight, at::Tensor &lora_indices,
+                    at::Tensor &lora_scales, at::Tensor &y);
+ 
+ at::Tensor recurrent_gated_delta_rule(
+-    at::Tensor &mix_qkv,
+-    at::Tensor &recurrent_state,
+-    at::Tensor &beta,
+-    double scale,
+-    at::Tensor &actual_seq_lengths,
+-    at::Tensor &ssm_state_indices,
+-    int64_t nk,
+-    int64_t nv,
+-    c10::optional<at::Tensor> intermediate_state_opt,
++    at::Tensor &mix_qkv, at::Tensor &recurrent_state, at::Tensor &beta,
++    double scale, at::Tensor &actual_seq_lengths, at::Tensor &ssm_state_indices,
++    int64_t nk, int64_t nv, c10::optional<at::Tensor> intermediate_state_opt,
+     c10::optional<at::Tensor> cache_indices_opt,
+     c10::optional<at::Tensor> num_accepted_tokens_opt,
+-    c10::optional<at::Tensor> g_opt,
+-    c10::optional<at::Tensor> gk_opt);
++    c10::optional<at::Tensor> g_opt, c10::optional<at::Tensor> gk_opt);
+ 
+ #ifdef BUILD_CATLASS_MODULE
+ void catlass_matmul_basic(const at::Tensor &tensor_a,
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py b/python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+new file mode 100644
+index 000000000..e089dfc82
+--- /dev/null
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+@@ -0,0 +1,277 @@
++"""
++Complete the following functions:
++    Fully fused gather-scatter with built-in masking for mamba state updates.
++
++    This function fuses the following operations into a single kernel:
++    1. valid_mask = step_indices_raw >= 0
++    2. valid_indices = valid_mask.nonzero()
++    3. dst_indices = dst_indices_raw[valid_indices]  (index_select)
++    4. step_indices = step_indices_raw[valid_indices]  (index_select)
++    5. for each valid i: dst[:, dst_indices[i], :] = src[:, i, step_indices[i], :]
++
++follow gpu kernel: https://github.com/sgl-project/sglang/blob/main/python/sglang/srt/layers/attention/mamba/mamba_state_scatter_triton.py
++"""
++
++import torch
++import triton
++import triton.language as tl
++
++
++@triton.jit
++def move_cache_dynamic_last_kernel_h_block(
++    dst_cache_ptr,
++    src_cache_ptr,
++    valid_indices_ptr,
++    last_steps_ptr,
++    layer_stride,
++    size_stride,
++    draft_stride,
++    dst_layer_stride,
++    dst_size_stride,
++    h_dim,
++    dim_v,
++    dim_k,
++    num_layers,
++    H_BLOCK_SIZE: tl.constexpr,
++    BLOCK_V: tl.constexpr,  # Block size for dim_v
++    BLOCK_K: tl.constexpr,  # Block size for dim_k
++):
++    valid_id = tl.program_id(0)
++
++    # Load actual indices
++    valid_idx_val = tl.load(valid_indices_ptr + valid_id)
++    last_step_val = tl.load(last_steps_ptr + valid_id)
++    if last_step_val < 0:
++        return
++    h_offsets = tl.arange(0, H_BLOCK_SIZE)
++    v_offsets = tl.arange(0, BLOCK_V)
++    k_offsets = tl.arange(0, BLOCK_K)
++
++    # Process each layer
++    for l in range(num_layers):
++        src_base_addr = (
++            src_cache_ptr
++            + tl.cast(l, tl.int64) * layer_stride
++            + tl.cast(valid_idx_val, tl.int64) * size_stride
++        )
++        dst_base_addr = (
++            dst_cache_ptr
++            + tl.cast(l, tl.int64) * dst_layer_stride
++            + tl.cast(valid_idx_val, tl.int64) * dst_size_stride
++        )
++        src_addr = src_base_addr + tl.cast(last_step_val, tl.int64) * draft_stride
++
++        # Process h dimension in blocks
++        for h_start in range(0, h_dim, H_BLOCK_SIZE):
++            h_real = h_start + h_offsets
++            h_mask = h_real < h_dim
++
++            v_mask = v_offsets < dim_v
++            k_mask = k_offsets < dim_k
++
++            mask = h_mask[:, None, None] & v_mask[None, :, None] & k_mask[None, None, :]
++
++            linear_offset = (
++                h_real[:, None, None] * dim_v * dim_k
++                + v_offsets[None, :, None] * dim_k
++                + k_offsets[None, None, :]
++            )
++
++            src_block = tl.load(src_addr + linear_offset, mask=mask, other=0)
++            tl.store(dst_base_addr + linear_offset, src_block, mask=mask)
++
++
++def move_intermediate_cache(
++    ssm_states,
++    intermediate_state_cache,
++    valid_tensor,
++    last_steps_tensor,
++    h_block_size=2,
++):
++    """
++    Move intermediate cache to SSM states using Triton kernel.
++
++    Args:
++        ssm_states: Destination SSM states tensor
++        intermediate_state_cache: Source intermediate state cache
++        valid_tensor: Valid indices tensor
++        last_steps_tensor: Last steps tensor
++        h_block_size: Block size for h dimension processing
++    """
++    L, S, D, H, V, K = intermediate_state_cache.shape
++
++    strides = intermediate_state_cache.stride()
++    layer_stride, size_stride, draft_stride = (
++        int(strides[0]),
++        int(strides[1]),
++        int(strides[2]),
++    )
++    dst_layer_stride, dst_size_stride = int(ssm_states.stride()[0]), int(
++        ssm_states.stride()[1]
++    )
++    assert len(valid_tensor) == len(last_steps_tensor), "Lengths must match"
++
++    # Grid: one thread per valid index
++    grid = (len(valid_tensor),)
++
++    move_cache_dynamic_last_kernel_h_block[grid](
++        dst_cache_ptr=ssm_states,
++        src_cache_ptr=intermediate_state_cache,
++        valid_indices_ptr=valid_tensor,
++        last_steps_ptr=last_steps_tensor,
++        layer_stride=layer_stride,
++        size_stride=size_stride,
++        draft_stride=draft_stride,
++        dst_layer_stride=dst_layer_stride,
++        dst_size_stride=dst_size_stride,
++        h_dim=H,
++        dim_v=V,
++        dim_k=K,
++        num_layers=L,
++        H_BLOCK_SIZE=h_block_size,  # Process 2 h elements per block
++        BLOCK_V=triton.next_power_of_2(V),  # Block size for dim_v
++        BLOCK_K=triton.next_power_of_2(K),  # Block size for dim_k
++    )
++
++    return ssm_states
++
++
++@triton.jit
++def _conv_state_rollback_kernel(
++    conv_states_ptr,
++    state_indices_ptr,
++    step_indices_ptr,
++    draft_token_num,
++    num_layers,
++    num_dims: tl.constexpr,
++    conv_window_size: tl.constexpr,
++    layer_stride: tl.constexpr,
++    req_stride: tl.constexpr,
++    window_stride: tl.constexpr,
++    dim_stride: tl.constexpr,
++):
++    """
++    Triton kernel for rolling back conv states after MTP verification.
++
++    Args:
++        conv_states_ptr: Pointer to conv states tensor [num_layers, pool_size, conv_window_size, num_dims]
++        state_indices_ptr: Pointer to state indices [num_requests]
++        step_indices_ptr: Pointer to step indices (accepted steps) [num_requests]
++        draft_token_num: Number of draft tokens
++        num_layers: Number of layers
++        num_dims: Number of dimensions
++        conv_window_size: Convolution window size
++        layer_stride: Stride for layer dimension
++        req_stride: Stride for request dimension
++        window_stride: Stride for window dimension
++        dim_stride: Stride for dimension dimension
++    """
++    pid_req = tl.program_id(0)
++
++    # Load state and step indices
++    state_idx = tl.load(state_indices_ptr + pid_req).to(tl.int64)
++    step_idx = tl.load(step_indices_ptr + pid_req).to(tl.int64)
++
++    if step_idx < 0:
++        return
++
++    # Calculate rollback shift
++    shift = (draft_token_num - 1) - step_idx
++
++    # Early exit if no rollback needed
++    if shift <= 0:
++        return
++
++    # Generate dimension offsets once
++    dim_offsets = tl.arange(0, num_dims)
++
++    # Process each layer
++    for layer in range(num_layers):
++        # Calculate base offset for this request and layer
++        base_offset = state_idx * req_stride + layer * layer_stride
++
++        # Process each window position that needs to be moved
++        # Move data from [0, conv_window_size-shift) to [shift, conv_window_size)
++        for window_idx1 in range(0, conv_window_size - shift):
++            window_idx = conv_window_size - shift - 1 - window_idx1
++
++            # Calculate source and destination pointers
++            src_offset = (
++                base_offset + window_idx * window_stride + dim_offsets * dim_stride
++            )
++            src_ptr = conv_states_ptr + src_offset
++
++            dst_offset = (
++                base_offset
++                + (window_idx + shift) * window_stride
++                + dim_offsets * dim_stride
++            )
++            dst_ptr = conv_states_ptr + dst_offset
++
++            # Load and store all dimensions at once
++            data = tl.load(src_ptr)
++            tl.store(dst_ptr, data)
++
++
++def conv_state_rollback(
++    conv_states: torch.Tensor,  # [num_layers, pool_size, conv_window_size, num_dims]
++    state_indices: torch.Tensor,  # [num_requests]
++    step_indices: torch.Tensor,  # [num_requests]
++    draft_token_num: int,
++):
++    """
++    Roll back conv states after MTP verification using Triton kernel.
++
++    Args:
++        conv_states: Conv states tensor [num_layers, pool_size, conv_window_size, num_dims]
++        state_indices: State indices for each request [num_requests]
++        step_indices: Accepted steps for each request [num_requests]
++        draft_token_num: Number of draft tokens
++    """
++    num_requests = state_indices.shape[0]
++    if num_requests == 0:
++        return
++
++    if conv_states.ndim != 4:
++        raise ValueError(f"conv_states must be 4D, got {conv_states.ndim}D")
++    if state_indices.ndim != 1 or step_indices.ndim != 1:
++        raise ValueError("state_indices and step_indices must be 1D")
++    if state_indices.shape[0] != step_indices.shape[0]:
++        raise ValueError("state_indices and step_indices must have the same length")
++
++    num_layers = conv_states.shape[0]
++    conv_window_size = conv_states.shape[2]
++    num_dims = conv_states.shape[3]
++
++    # Get strides (in elements, not bytes)
++    layer_stride = conv_states.stride(0)
++    req_stride = conv_states.stride(1)
++    window_stride = conv_states.stride(2)
++    dim_stride = conv_states.stride(3)
++
++    # Ensure indices are int32 and contiguous
++    state_indices = state_indices.to(torch.int32).contiguous()
++    step_indices = step_indices.to(torch.int32).contiguous()
++
++    # Ensure conv_states is contiguous
++    if not conv_states.is_contiguous():
++        conv_states = conv_states.contiguous()
++
++    # Grid over all requests
++    grid = (num_requests,)
++
++    _conv_state_rollback_kernel[grid](
++        conv_states,
++        state_indices,
++        step_indices,
++        draft_token_num,
++        num_layers,
++        num_dims,
++        conv_window_size,
++        layer_stride,
++        req_stride,
++        window_stride,
++        dim_stride,
++    )
++
++    return conv_states
+diff --git a/tests/python/sgl_kernel_npu/test_conv1d_update.py b/tests/python/sgl_kernel_npu/test_conv1d_update.py
+index 89b2b30bd..6e9251cd6 100644
+--- a/tests/python/sgl_kernel_npu/test_conv1d_update.py
++++ b/tests/python/sgl_kernel_npu/test_conv1d_update.py
+@@ -1,13 +1,15 @@
++import logging
++from typing import Optional, Tuple
++
+ import torch
+ import torch.nn.functional as F
+-from typing import Optional, Tuple
+-import logging
+ 
+ # Logging configuration
+ logging.basicConfig(level=logging.INFO)
+ logger = logging.getLogger("TestScript")
+ torch.manual_seed(42)
+ 
++
+ # ==========================================
+ # 1. Original SGLang implementation
+ # ==========================================
+@@ -50,6 +52,7 @@ def torch_causal_conv1d_update_npu(
+         conv_state = conv_state.transpose(1, 2)
+         return out, conv_state_update
+ 
++
+ # ==========================================
+ # 2. vLLM-style reference implementation (V3)
+ # ==========================================
+@@ -70,10 +73,12 @@ def vllm_causal_conv1d_update_v3(
+     # Keep (kernel_size - 1) history tokens plus the latest generated suffix.
+     target_state_len = (kernel_size - 1) + (seq_len - 1)
+ 
+-    full_context = torch.cat([conv_state[conv_state_indices], hidden_state], dim=-1).to(weight.dtype)
++    full_context = torch.cat([conv_state[conv_state_indices], hidden_state], dim=-1).to(
++        weight.dtype
++    )
+ 
+     # Compute the output.
+-    computation_input = full_context[:, :, -(kernel_size - 1 + seq_len):]
++    computation_input = full_context[:, :, -(kernel_size - 1 + seq_len) :]
+     windows = computation_input.unfold(-1, kernel_size, 1)
+ 
+     # This path also assumes weight has shape [H, K].
+@@ -91,13 +96,16 @@ def vllm_causal_conv1d_update_v3(
+     if target_state_len > 0:
+         new_conv_state = full_context[:, :, -target_state_len:]
+     else:
+-        new_conv_state = torch.empty(bsz, hidden_size, 0, device=hidden_state.device, dtype=hidden_state.dtype)
++        new_conv_state = torch.empty(
++            bsz, hidden_size, 0, device=hidden_state.device, dtype=hidden_state.dtype
++        )
+     conv_state[conv_state_indices] = new_conv_state
+     conv_state = conv_state.transpose(1, 2)
+     out = out.transpose(1, 2)
+ 
+     return out
+ 
++
+ # ==========================================
+ # 3. Correctness test
+ # ==========================================
+@@ -118,15 +126,16 @@ def test_correctness_fixed():
+     bias = torch.randn(HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
+ 
+     hidden_state = torch.randn(BSZ, SEQ_LEN, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
+-    conv_state_init = torch.randn(CACHE_LEN, KERNEL_SIZE - 1, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++    conv_state_init = torch.randn(
++        CACHE_LEN, KERNEL_SIZE - 1, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE
++    )
+ 
+     conv_state_indices = torch.arange(BSZ, device=hidden_state.device)
+ 
+     # --- SGLang Execution ---
+     sglang_model = SGLangImpl()
+     sglang_cache_buffer = torch.zeros(
+-        BSZ, SEQ_LEN, HIDDEN_SIZE, KERNEL_SIZE - 1,
+-        device=DEVICE, dtype=DTYPE
++        BSZ, SEQ_LEN, HIDDEN_SIZE, KERNEL_SIZE - 1, device=DEVICE, dtype=DTYPE
+     )
+ 
+     out_sg, final_buffer_sg = sglang_model.torch_causal_conv1d_update_npu(
+@@ -134,7 +143,7 @@ def test_correctness_fixed():
+         conv_state=conv_state_init.transpose(1, 2)[conv_state_indices],
+         weight=weight.transpose(0, 1),
+         conv_state_update=sglang_cache_buffer,
+-        bias=bias
++        bias=bias,
+     )
+ 
+     # --- vLLM Execution ---
+@@ -144,7 +153,7 @@ def test_correctness_fixed():
+         weight=weight,
+         bias=bias,
+         conv_state_indices=conv_state_indices,
+-        activation=True
++        activation=True,
+     )
+ 
+     # --- Validation ---
+@@ -161,8 +170,12 @@ def test_correctness_fixed():
+     # 2. State Length Check
+     state_vl_t = state_vl.transpose(1, 2)
+     expected_len = (KERNEL_SIZE - 1) + (SEQ_LEN - 1)
+-    print(f"State Shapes -> SGLang Buffer: {final_buffer_sg.shape}, vLLM State: {state_vl_t.shape}")
+-    assert state_vl_t.shape[-1] == expected_len, f"Length mismatch: {state_vl_t.shape[-1]} vs {expected_len}"
++    print(
++        f"State Shapes -> SGLang Buffer: {final_buffer_sg.shape}, vLLM State: {state_vl_t.shape}"
++    )
++    assert (
++        state_vl_t.shape[-1] == expected_len
++    ), f"Length mismatch: {state_vl_t.shape[-1]} vs {expected_len}"
+     print(f"✅ vLLM State length is correct: {expected_len}")
+ 
+     # 3. Cache Content Check
+@@ -179,7 +192,7 @@ def test_correctness_fixed():
+         end_idx = state_vl_t.shape[-1] - (SEQ_LEN - 1 - i)
+         start_idx = end_idx - (KERNEL_SIZE - 1)
+ 
+-        vl_slice = state_vl_t[:, :, start_idx : end_idx]
++        vl_slice = state_vl_t[:, :, start_idx:end_idx]
+ 
+         try:
+             torch.testing.assert_close(sg_slice, vl_slice, rtol=1e-5, atol=1e-5)
+@@ -193,6 +206,7 @@ def test_correctness_fixed():
+     else:
+         print("❌ Cache content verification failed.")
+ 
++
+ # ==========================================
+ # 4. NPU operator test
+ # ==========================================
+@@ -213,7 +227,7 @@ def test_npu_causal_conv1d_update():
+ 
+     # Check NPU availability
+     try:
+-        if not (hasattr(torch_npu, 'npu') and torch.npu.device_count() > 0):
++        if not (hasattr(torch_npu, "npu") and torch.npu.device_count() > 0):
+             print("⚠️  NPU not available, skipping NPU test")
+             return
+     except Exception as e:
+@@ -221,9 +235,11 @@ def test_npu_causal_conv1d_update():
+         return
+ 
+     # Verify operator is registered
+-    if not hasattr(torch.ops.npu, 'causal_conv1d_update'):
++    if not hasattr(torch.ops.npu, "causal_conv1d_update"):
+         print("⚠️  causal_conv1d_update operator not registered!")
+-        print(f"Available npu ops: {[op for op in dir(torch.ops.npu) if not op.startswith('_')][:10]}")
++        print(
++            f"Available npu ops: {[op for op in dir(torch.ops.npu) if not op.startswith('_')][:10]}"
++        )
+         return
+ 
+     # --- Config ---
+@@ -233,7 +249,9 @@ def test_npu_causal_conv1d_update():
+     KERNEL_SIZE = 4
+     CACHE_LEN = 10
+     # conv_state must be large enough to hold (width - 1) + (seq_len - 1) values.
+-    CONV_STATE_LEN = KERNEL_SIZE - 1 + SEQ_LEN - 1  # The current NPU kernel expects a fixed-size state buffer.
++    CONV_STATE_LEN = (
++        KERNEL_SIZE - 1 + SEQ_LEN - 1
++    )  # The current NPU kernel expects a fixed-size state buffer.
+     DTYPE = torch.bfloat16
+     DEVICE = "npu"
+ 
+@@ -246,11 +264,17 @@ def test_npu_causal_conv1d_update():
+     # bias = torch.randn(HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
+     bias = None
+     hidden_state = torch.randn(BSZ, SEQ_LEN, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
+-    conv_state_init = torch.randn(CACHE_LEN, CONV_STATE_LEN, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++    conv_state_init = torch.randn(
++        CACHE_LEN, CONV_STATE_LEN, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE
++    )
+     conv_state_indices = torch.arange(BSZ, device=DEVICE, dtype=torch.int32)
+-    num_accepted_tokens = torch.tensor([SEQ_LEN] * BSZ, device=DEVICE, dtype=torch.int32)
++    num_accepted_tokens = torch.tensor(
++        [SEQ_LEN] * BSZ, device=DEVICE, dtype=torch.int32
++    )
+     # Optional tensor used when queries are packed by start offset.
+-    query_start_loc = torch.tensor([0, SEQ_LEN, 2*SEQ_LEN, 3*SEQ_LEN], device=DEVICE, dtype=torch.int32)
++    query_start_loc = torch.tensor(
++        [0, SEQ_LEN, 2 * SEQ_LEN, 3 * SEQ_LEN], device=DEVICE, dtype=torch.int32
++    )
+     conv_state_vl = conv_state_init.clone()
+     # --- vLLM Execution (CPU/CUDA reference) ---
+     out_vl = vllm_causal_conv1d_update_v3(
+@@ -259,11 +283,13 @@ def test_npu_causal_conv1d_update():
+         weight=weight,
+         bias=bias,
+         conv_state_indices=conv_state_indices,
+-        activation=True
++        activation=True,
+     )
+ 
+     # --- NPU Execution ---
+-    print(f"Input shapes: x={hidden_state.shape}, weight={weight.shape}, conv_state={conv_state_init.shape}")
++    print(
++        f"Input shapes: x={hidden_state.shape}, weight={weight.shape}, conv_state={conv_state_init.shape}"
++    )
+     print(f"Calling torch.ops.npu.causal_conv1d_update...")
+ 
+     # Clone conv_state because the NPU kernel updates it in place.
+@@ -279,7 +305,7 @@ def test_npu_causal_conv1d_update():
+             num_accepted_tokens=num_accepted_tokens,
+             # query_start_loc=None,  # Leave unset for dense [batch, seq, hidden] inputs.
+             activation_mode=True,
+-            pad_slot_id=-1
++            pad_slot_id=-1,
+         )
+ 
+         print(f"✅ NPU kernel executed successfully!")
+@@ -290,10 +316,10 @@ def test_npu_causal_conv1d_update():
+         out_npu_cpu = out_npu.cpu()
+         out_vl = out_vl.cpu()
+ 
+-
+         # Check the output shape.
+-        assert out_npu_cpu.shape == out_vl.shape, \
+-            f"Output shape mismatch: {out_npu_cpu.shape} vs {out_vl.shape}"
++        assert (
++            out_npu_cpu.shape == out_vl.shape
++        ), f"Output shape mismatch: {out_npu_cpu.shape} vs {out_vl.shape}"
+         print(f"✅ Output shape matched: {out_npu_cpu.shape}")
+ 
+         # Ensure the output is not all zeros.
+@@ -301,8 +327,12 @@ def test_npu_causal_conv1d_update():
+         print(f"✅ NPU output is not all zeros")
+ 
+         print(f"\n--- Numerical Comparison ---")
+-        print(f"NPU output - shape: {out_npu_cpu.shape}, dtype: {out_npu_cpu.dtype}, mean: {out_npu_cpu.mean().item():.6f}")
+-        print(f"vLLM output (transposed) - shape: {out_vl.shape}, dtype: {out_vl.dtype}, mean: {out_vl.mean().item():.6f}")
++        print(
++            f"NPU output - shape: {out_npu_cpu.shape}, dtype: {out_npu_cpu.dtype}, mean: {out_npu_cpu.mean().item():.6f}"
++        )
++        print(
++            f"vLLM output (transposed) - shape: {out_vl.shape}, dtype: {out_vl.dtype}, mean: {out_vl.mean().item():.6f}"
++        )
+ 
+         # Compare precision element by element.
+         diff = out_npu_cpu - out_vl
+@@ -322,7 +352,9 @@ def test_npu_causal_conv1d_update():
+         tol = ATOL + RTOL * torch.abs(out_vl)
+         matched = (abs_diff <= tol).sum().item()
+         total = abs_diff.numel()
+-        print(f"Matched (atol={ATOL}, rtol={RTOL}): {matched}/{total} ({100*matched/total:.2f}%)")
++        print(
++            f"Matched (atol={ATOL}, rtol={RTOL}): {matched}/{total} ({100*matched/total:.2f}%)"
++        )
+ 
+         # --- Conv state verification ---
+         print(f"\n--- Conv State Update Verification ---")
+@@ -336,7 +368,9 @@ def test_npu_causal_conv1d_update():
+         state_exact_match = (state_diff < 1e-6).sum().item()
+         state_total = state_diff.numel()
+ 
+-        print(f"State exact match (diff < 1e-6): {state_exact_match}/{state_total} ({100*state_exact_match/state_total:.2f}%)")
++        print(
++            f"State exact match (diff < 1e-6): {state_exact_match}/{state_total} ({100*state_exact_match/state_total:.2f}%)"
++        )
+         if state_exact_match == state_total:
+             print(f"✅ Conv state values match exactly!")
+         else:
+@@ -346,11 +380,17 @@ def test_npu_causal_conv1d_update():
+         print(f"\n{'='*60}")
+         print("PRECISION TEST SUMMARY")
+         print(f"{'='*60}")
+-        print(f"Output precision:  {matched}/{total} ({100*matched/total:.2f}%) match (atol={ATOL}, rtol={RTOL})")
+-        print(f"State precision:   {state_exact_match}/{state_total} ({100*state_exact_match/state_total:.2f}%) exact match")
++        print(
++            f"Output precision:  {matched}/{total} ({100*matched/total:.2f}%) match (atol={ATOL}, rtol={RTOL})"
++        )
++        print(
++            f"State precision:   {state_exact_match}/{state_total} ({100*state_exact_match/state_total:.2f}%) exact match"
++        )
+ 
+         if matched >= total * 0.95 and state_exact_match == state_total:
+-            print(f"\\n✅ PASS: Output and state are correctly aligned to torch reference!")
++            print(
++                f"\\n✅ PASS: Output and state are correctly aligned to torch reference!"
++            )
+         else:
+             print(f"\\n⚠️  WARNING: Precision below expected threshold")
+ 
+@@ -359,15 +399,17 @@ def test_npu_causal_conv1d_update():
+     except Exception as e:
+         print(f"❌ NPU test failed with error: {e}")
+         import traceback
++
+         traceback.print_exc()
+ 
++
+ if __name__ == "__main__":
+     # print("="*60)
+     # print("Running test_correctness_fixed (CPU/CUDA reference)")
+     # print("="*60)
+     # test_correctness_fixed()
+ 
+-    print("\n" + "="*60)
++    print("\n" + "=" * 60)
+     print("Running test_npu_causal_conv1d_update (NPU kernel)")
+-    print("="*60)
++    print("=" * 60)
+     test_npu_causal_conv1d_update()
+diff --git a/tests/python/sgl_kernel_npu/test_mamba_state_update.py b/tests/python/sgl_kernel_npu/test_mamba_state_update.py
+new file mode 100644
+index 000000000..fa1f48539
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_mamba_state_update.py
+@@ -0,0 +1,152 @@
++# -*- coding: utf-8 -*-
++import random
++
++import pytest
++import torch
++from sgl_kernel_npu.mamba.mamba_state_update_triton import (
++    conv_state_rollback,
++    move_intermediate_cache,
++)
++
++device = "npu"
++
++
++def get_abs_err(x, y):
++    return (x.detach() - y.detach()).flatten().abs().max().item()
++
++
++def get_err_ratio(x, y):
++    err = (x.detach() - y.detach()).flatten().square().mean().sqrt().item()
++    base = (x.detach()).flatten().square().mean().sqrt().item()
++    return err / (base + 1e-8)
++
++
++def assert_close(prefix, ref, tri, ratio, warning=False, err_atol=1e-6):
++    abs_atol = get_abs_err(ref, tri)
++    msg = f"{prefix:>16} diff: {abs_atol:.6f} ratio: {get_err_ratio(ref, tri):.6f}"
++    error_rate = get_err_ratio(ref, tri)
++    if abs_atol <= err_atol:
++        return
++    else:
++        assert error_rate < ratio, msg
++
++
++def conv_state_rollback_ref(
++    conv_states, valid_state_indices, last_steps, draft_token_num
++):
++    cpu_valid_indices = valid_state_indices.cpu().numpy()
++    cpu_last_steps = last_steps.cpu().numpy()
++
++    for idx, step in zip(cpu_valid_indices, cpu_last_steps):
++        # Calculate rollback steps
++        shift = (draft_token_num - 1) - step
++        if shift > 0:
++            # Select states for this request across all layers and dims
++            req_conv_state = conv_states[:, idx, :, :]
++
++            # Perform right shift (Rollback)
++            req_conv_state[:, shift:, :].copy_(req_conv_state[:, :-shift, :])
++
++    return conv_states
++
++
++@pytest.mark.parametrize(
++    ("num_layers", "pool_size", "num_dims", "draft_token_num", "num_requests", "dtype"),
++    [
++        pytest.param(
++            *test,
++            id="layers{0}_pool{1}_dims{2}_draft{3}_req{4}_{5}".format(*test),
++        )
++        for test in [
++            (32, 32, 2048, 3, 3, torch.bfloat16),
++            (16, 16, 1024, 3, 2, torch.bfloat16),
++            (32, 32, 2048, 4, 4, torch.bfloat16),
++            (16, 16, 1024, 4, 1, torch.bfloat16),
++        ]
++    ],
++)
++@torch.no_grad
++def test_conv_state_rollback(
++    num_layers: int,
++    pool_size: int,
++    num_dims: int,
++    draft_token_num: int,
++    num_requests: int,
++    dtype: torch.dtype,
++):
++    torch.manual_seed(42)
++    conv_window_size = 3 + draft_token_num - 1
++
++    conv_states = torch.randn(
++        num_layers, pool_size, conv_window_size, num_dims, device=device, dtype=dtype
++    )
++
++    valid_state_indices = torch.randint(
++        0, pool_size, (num_requests,), device=device, dtype=torch.int32
++    )
++    last_steps = torch.randint(
++        -1, draft_token_num, (num_requests,), device=device, dtype=torch.int32
++    )
++    original_states = conv_states.clone()
++
++    gt_states = conv_state_rollback_ref(
++        original_states, valid_state_indices, last_steps, draft_token_num
++    )
++
++    result_states = conv_state_rollback(
++        conv_states,
++        valid_state_indices,
++        last_steps,
++        draft_token_num,
++    )
++    assert_close("conv_state", gt_states, result_states, 1e-3)
++
++
++@pytest.mark.parametrize(
++    ("L", "S", "D", "H", "V", "K", "num_valid", "dtype"),
++    [
++        pytest.param(
++            *test,
++            id="L{0}_S{1}_D{2}_H{3}_V{4}_K{5}_valid{6}_{7}".format(*test),
++        )
++        for test in [
++            (36, 229, 4, 8, 128, 128, 180, torch.bfloat16),
++            (18, 100, 4, 4, 64, 64, 50, torch.bfloat16),
++            (36, 229, 4, 8, 128, 128, 229, torch.bfloat16),
++            (18, 100, 4, 4, 64, 64, 100, torch.bfloat16),
++        ]
++    ],
++)
++@torch.no_grad
++def test_move_intermediate_cache(
++    L: int,
++    S: int,
++    D: int,
++    H: int,
++    V: int,
++    K: int,
++    num_valid: int,
++    dtype: torch.dtype,
++):
++    torch.manual_seed(42)
++
++    dst_cache = torch.randn(L, S, H, V, K, device=device, dtype=dtype)
++    dst_cache_clone = dst_cache.clone()
++    src_cache = torch.randn(L, S, D, H, V, K, device=device, dtype=dtype)
++
++    population = range(S)
++    valid_indices = random.sample(population, num_valid)
++    last_step_pos = [random.randint(0, D - 1) for _ in range(num_valid)]
++
++    valid_tensor = torch.tensor(valid_indices, device=device, dtype=torch.int32)
++    last_steps_tensor = torch.tensor(last_step_pos, device=device, dtype=torch.int32)
++    valid_mask = last_steps_tensor >= 0
++    valid_state_indices = valid_tensor[valid_mask].to(torch.int64)
++    valid_last_steps = last_steps_tensor[valid_mask].to(torch.int64)
++    dst_cache[:, valid_state_indices, :] = src_cache[
++        :, valid_state_indices, valid_last_steps
++    ]
++
++    move_intermediate_cache(dst_cache_clone, src_cache, valid_tensor, last_steps_tensor)
++
++    assert_close("move_cache", dst_cache, dst_cache_clone, 1e-3)
+diff --git a/tests/python/sgl_kernel_npu/test_recurrent_gated_delta_rule.py b/tests/python/sgl_kernel_npu/test_recurrent_gated_delta_rule.py
+index d8c9afa83..1b930d8fd 100644
+--- a/tests/python/sgl_kernel_npu/test_recurrent_gated_delta_rule.py
++++ b/tests/python/sgl_kernel_npu/test_recurrent_gated_delta_rule.py
+@@ -1,17 +1,16 @@
++import logging
+ import os
+-import time
+ import shutil
+-import logging
+-import numpy as np
++import time
+ 
++import numpy as np
++import sgl_kernel_npu
+ import torch
+ import torch_npu
+ import torchair as tng
+ from torchair.configs.compiler_config import CompilerConfig
+ from torchair.core.utils import logger
+ 
+-import sgl_kernel_npu
+-
+ EPSILON_FOR_DIVISION = 1e-9
+ # Global Configuration
+ _USE_GRAPH = False
+@@ -37,14 +36,16 @@ def verify_result(output, golden):
+     golden = golden.to(torch.float32).cpu().reshape(-1)
+ 
+     different_element_results = np.isclose(
+-        output, golden, rtol=2**(-8), atol=2**(-8), equal_nan=True
++        output, golden, rtol=2 ** (-8), atol=2 ** (-8), equal_nan=True
+     )
+     different_element_indexes = np.where(~different_element_results)[0]
+ 
+     for index, real_index in enumerate(different_element_indexes):
+         golden_data = golden[real_index]
+         output_data = output[real_index]
+-        diff_ratio = abs(output_data - golden_data) / (golden_data + EPSILON_FOR_DIVISION) # Added epsilon to prevent division by zero
++        diff_ratio = abs(output_data - golden_data) / (
++            golden_data + EPSILON_FOR_DIVISION
++        )  # Added epsilon to prevent division by zero
+ 
+         print(
+             f"data index: {real_index:06d}, expected: {golden_data:-.9f}, "
+@@ -55,18 +56,25 @@ def verify_result(output, golden):
+             break
+ 
+ 
+-def visualize_error_flatline_ansi(output, golden, tolerance=2**(-8), width=100):
++def visualize_error_flatline_ansi(output, golden, tolerance=2 ** (-8), width=100):
+     """Prints an ANSI color-coded visual representation of the error map."""
+     output = output.cpu()
+     golden = golden.cpu()
+-    error = torch.abs(output.to(torch.float) - golden.to(torch.float)).flatten().cpu().numpy()
++    error = (
++        torch.abs(output.to(torch.float) - golden.to(torch.float))
++        .flatten()
++        .cpu()
++        .numpy()
++    )
+ 
+     total_count = len(error)
+     fail_count = np.sum(error > tolerance)
+     max_error = np.max(error)
+ 
+     step = max(total_count // width, 1)
+-    compressed_error = [np.max(error[i:i+step]) for i in range(0, total_count, step)]
++    compressed_error = [
++        np.max(error[i : i + step]) for i in range(0, total_count, step)
++    ]
+ 
+     def ansi_block(color_code):
+         return f"\033[{color_code}m  \033[0m"
+@@ -85,19 +93,34 @@ def ansi_block(color_code):
+ 
+     print("\n?? Summary:")
+     print(f"  ?? Max Error: {max_error:.4e}")
+-    print(f"  ?? Failed elements (> {tolerance}): {fail_count}/{total_count} ({(fail_count / total_count) * 100:.2f}%)\n")
++    print(
++        f"  ?? Failed elements (> {tolerance}): {fail_count}/{total_count} ({(fail_count / total_count) * 100:.2f}%)\n"
++    )
+     verify_result(output, golden)
+ 
+ 
+ class MyModel(torch.nn.Module):
+     """Wrapper module for the recurrent_gated_delta_rule NPU operation."""
++
+     def __init__(self):
+         super().__init__()
+ 
+-    def forward(self, mix_qkv, recurrent_state, beta=None, scale=None, actual_seq_lengths=None,
+-                ssm_state_indices=None, nk=None, nv=None,
+-                intermediate_state=None, cache_indices=None,
+-                num_accepted_tokens=None, g=None, gk=None):
++    def forward(
++        self,
++        mix_qkv,
++        recurrent_state,
++        beta=None,
++        scale=None,
++        actual_seq_lengths=None,
++        ssm_state_indices=None,
++        nk=None,
++        nv=None,
++        intermediate_state=None,
++        cache_indices=None,
++        num_accepted_tokens=None,
++        g=None,
++        gk=None,
++    ):
+ 
+         return torch.ops.npu.recurrent_gated_delta_rule(
+             mix_qkv,
+@@ -118,9 +141,22 @@ def forward(self, mix_qkv, recurrent_state, beta=None, scale=None, actual_seq_le
+ 
+ class TestCase:
+     """Class to generate inputs, run golden PyTorch logic, run NPU logic, and compare results."""
+-    def __init__(self, b=64, mtp=2, nk=4, nv=8, dk=128, dv=128,
+-                 is_continue=True, has_beta=True, has_scale=True, has_g=True, has_gk=False,
+-                 has_num_accepted_tokens=True):
++
++    def __init__(
++        self,
++        b=64,
++        mtp=2,
++        nk=4,
++        nv=8,
++        dk=128,
++        dv=128,
++        is_continue=True,
++        has_beta=True,
++        has_scale=True,
++        has_g=True,
++        has_gk=False,
++        has_num_accepted_tokens=True,
++    ):
+         self.b = b
+         self.mtp = mtp
+         self.nk = nk
+@@ -152,9 +188,11 @@ def __init__(self, b=64, mtp=2, nk=4, nv=8, dk=128, dv=128,
+         self.state_golden = None
+ 
+     def __repr__(self):
+-        return (f"B={self.b}, MTP={self.mtp}, Nk={self.nk}, Nv={self.nv}, Dk={self.dk}, Dv={self.dv}, "
+-                f"is_continue={self.is_continue}, has_beta={self.has_beta}, has_scale={self.has_scale}, "
+-                f"has_g={self.has_g}, has_gk={self.has_gk}, has_num_accepted_tokens={self.has_num_accepted_tokens}")
++        return (
++            f"B={self.b}, MTP={self.mtp}, Nk={self.nk}, Nv={self.nv}, Dk={self.dk}, Dv={self.dv}, "
++            f"is_continue={self.is_continue}, has_beta={self.has_beta}, has_scale={self.has_scale}, "
++            f"has_g={self.has_g}, has_gk={self.has_gk}, has_num_accepted_tokens={self.has_num_accepted_tokens}"
++        )
+ 
+     def generate_input(self):
+         bs = self.b
+@@ -177,38 +215,48 @@ def make_mix_qkv(q_tensor, k_tensor, v_tensor):
+         if self.is_continue:
+             self.actual_seq_lengths = (torch.ones(bs) * S).npu().to(torch.int32)
+             if mtp > 1:
+-                self.intermediate_state = torch.rand((self.max_slots, S, nv, dv, dk), dtype=torch.bfloat16, device='npu')
++                self.intermediate_state = torch.rand(
++                    (self.max_slots, S, nv, dv, dk), dtype=torch.bfloat16, device="npu"
++                )
+ 
+-            self.recurrent_state = torch.rand((self.max_slots, nv, dv, dk), dtype=torch.bfloat16, device='npu')
++            self.recurrent_state = torch.rand(
++                (self.max_slots, nv, dv, dk), dtype=torch.bfloat16, device="npu"
++            )
+ 
+-            v_temp = torch.rand((bs, S, nv, dv), dtype=torch.bfloat16, device='npu')
+-            q_temp = torch.rand((bs, S, nk, dk), dtype=torch.bfloat16, device='npu')
+-            k_temp = torch.rand((bs, S, nk, dk), dtype=torch.bfloat16, device='npu')
++            v_temp = torch.rand((bs, S, nv, dv), dtype=torch.bfloat16, device="npu")
++            q_temp = torch.rand((bs, S, nk, dk), dtype=torch.bfloat16, device="npu")
++            k_temp = torch.rand((bs, S, nk, dk), dtype=torch.bfloat16, device="npu")
+ 
+             self.mix_qkv = make_mix_qkv(q_temp, k_temp, v_temp).contiguous()
+ 
+-            self.g = torch.rand((bs, S, nv), dtype=torch.float32, device='npu') * (-1.0)
+-            self.be = torch.rand((bs, S, nv), dtype=torch.bfloat16, device='npu')
++            self.g = torch.rand((bs, S, nv), dtype=torch.float32, device="npu") * (-1.0)
++            self.be = torch.rand((bs, S, nv), dtype=torch.bfloat16, device="npu")
+ 
+-            cache_indices = torch.randperm(self.max_slots, device='npu')[:bs].to(torch.int32)
++            cache_indices = torch.randperm(self.max_slots, device="npu")[:bs].to(
++                torch.int32
++            )
+             base_indices = (cache_indices * S).unsqueeze(1)  # shape: (bs, 1)
+-            offsets = torch.arange(S, device='npu', dtype=torch.int32)  # shape: (S,)
++            offsets = torch.arange(S, device="npu", dtype=torch.int32)  # shape: (S,)
+ 
+             self.ssm_state_indices = (base_indices + offsets).contiguous()
+             if mtp > 1:
+                 self.cache_indices = cache_indices
+ 
+-            self.scale = dk ** -0.5
+-            self.num_accepted_tokens = (torch.randint(1, mtp + 1, (bs,)).npu()).to(torch.int32)
++            self.scale = dk**-0.5
++            self.num_accepted_tokens = (torch.randint(1, mtp + 1, (bs,)).npu()).to(
++                torch.int32
++            )
+         else:
+             raise NotImplementedError(
+-                    "Initialization for is_continue=False is not defined. "
+-                    "The 'recurrent_gated_delta_rule' operator currently only supports continuous input tensors."
+-                )
++                "Initialization for is_continue=False is not defined. "
++                "The 'recurrent_gated_delta_rule' operator currently only supports continuous input tensors."
++            )
+ 
+         self.be = self.be if self.has_beta else None
+         self.scale = self.scale if self.has_scale else None
+-        self.num_accepted_tokens = self.num_accepted_tokens if self.has_num_accepted_tokens else None
++        self.num_accepted_tokens = (
++            self.num_accepted_tokens if self.has_num_accepted_tokens else None
++        )
+         self.g = self.g if self.has_g else None
+         self.gk = self.gk if self.has_gk else None
+ 
+@@ -222,7 +270,9 @@ def run_golden(self):
+         mix_qkv_fp32 = self.mix_qkv.to(torch.float32)
+         mix_qkv_flat = mix_qkv_fp32.view(T, -1)
+ 
+-        q_flat, k_flat, v_flat = torch.split(mix_qkv_flat, [dim_q, dim_k, dim_v], dim=-1)
++        q_flat, k_flat, v_flat = torch.split(
++            mix_qkv_flat, [dim_q, dim_k, dim_v], dim=-1
++        )
+ 
+         # Reshape back to the original shapes required by the logic
+         q = q_flat.view(T, nk, dk)  # [B, S, nk, dk]
+@@ -252,8 +302,16 @@ def run_golden(self):
+         T, n_heads_v, Dv = v.shape
+         n_heads_qk = q.shape[-2]
+ 
+-        g = torch.ones(T, n_heads_v).to(torch.float32) if self.g is None else self.g.to(torch.float32).reshape(T, n_heads_v).exp()
+-        be = torch.ones(T, n_heads_v).to(torch.float32) if self.be is None else self.be.to(torch.float32).view(T, n_heads_v)
++        g = (
++            torch.ones(T, n_heads_v).to(torch.float32)
++            if self.g is None
++            else self.g.to(torch.float32).reshape(T, n_heads_v).exp()
++        )
++        be = (
++            torch.ones(T, n_heads_v).to(torch.float32)
++            if self.be is None
++            else self.be.to(torch.float32).view(T, n_heads_v)
++        )
+         beta = be.sigmoid()
+ 
+         o = torch.empty_like(v).to(torch.float32)
+@@ -266,7 +324,9 @@ def run_golden(self):
+             if num_accepted_tokens is None:
+                 init_state = initial_state[ssm_state_indices[seq_start]]
+             else:
+-                init_state = initial_state[ssm_state_indices[seq_start + num_accepted_tokens[i] - 1]]
++                init_state = initial_state[
++                    ssm_state_indices[seq_start + num_accepted_tokens[i] - 1]
++                ]
+ 
+             for head_id in range(n_heads_v):
+                 S = init_state[head_id]  # [Dv, Dk]
+@@ -284,7 +344,7 @@ def run_golden(self):
+                     S = S + S_  # [Dv, Dk]
+ 
+                     initial_state[ssm_state_indices[slot_id]][head_id] = S
+-                    o[slot_id][head_id] = ((S * q_i.unsqueeze(-2)).sum(dim=-1))  # [Dv]
++                    o[slot_id][head_id] = (S * q_i.unsqueeze(-2)).sum(dim=-1)  # [Dv]
+ 
+             seq_start += actual_seq_lengths[i]
+ 
+@@ -306,11 +366,19 @@ def run_npu(self):
+ 
+         initial_state = self.recurrent_state.clone()
+         o = model(
+-            self.mix_qkv, initial_state,
+-            beta=self.be, scale=self.scale, actual_seq_lengths=self.actual_seq_lengths,
+-            ssm_state_indices=self.ssm_state_indices, nk=self.nk, nv=self.nv,
+-            intermediate_state=intermediate_state, cache_indices=cache_indices,
+-            num_accepted_tokens=self.num_accepted_tokens, g=self.g, gk=self.gk
++            self.mix_qkv,
++            initial_state,
++            beta=self.be,
++            scale=self.scale,
++            actual_seq_lengths=self.actual_seq_lengths,
++            ssm_state_indices=self.ssm_state_indices,
++            nk=self.nk,
++            nv=self.nv,
++            intermediate_state=intermediate_state,
++            cache_indices=cache_indices,
++            num_accepted_tokens=self.num_accepted_tokens,
++            g=self.g,
++            gk=self.gk,
+         )
+ 
+         self.out_npu = o.to(torch.float32)
+@@ -320,9 +388,13 @@ def run_npu(self):
+             self.state_npu = initial_state.to(torch.float32)
+ 
+     def compare(self):
+-        eps = 2**(-8)
+-        is_close_o = torch.allclose(self.out_golden, self.out_npu, rtol=eps, atol=eps, equal_nan=False)
+-        is_close_state = torch.allclose(self.state_golden, self.state_npu, rtol=eps, atol=eps, equal_nan=False)
++        eps = 2 ** (-8)
++        is_close_o = torch.allclose(
++            self.out_golden, self.out_npu, rtol=eps, atol=eps, equal_nan=False
++        )
++        is_close_state = torch.allclose(
++            self.state_golden, self.state_npu, rtol=eps, atol=eps, equal_nan=False
++        )
+ 
+         if is_close_o and is_close_state:
+             print(f"\t{eps=}: passed.")
+@@ -338,12 +410,36 @@ def compatible_cases():
+     """Defines the matrix of test cases to be executed."""
+     res = []
+     # format: {'shape': (b, mtp, dk, dv, nk, nv), 'is_cont': bool, 'option': (beta, scale, g, num_accepted_tokens, gk)}
+-    res.append({'shape': (2, 1, 128, 128, 8, 16), 'is_cont': True, 'option': (True, True, True, True, False)})
+-    res.append({'shape': (64, 2, 128, 128, 8, 16), 'is_cont': True, 'option': (True, True, True, True, False)})
+-    res.append({'shape': (32, 8, 128, 128, 8, 16), 'is_cont': True, 'option': (True, True, True, True, False)})
+-    res.append({'shape': (32, 8, 128, 128, 16, 32), 'is_cont': True, 'option': (True, True, True, True, False)})
++    res.append(
++        {
++            "shape": (2, 1, 128, 128, 8, 16),
++            "is_cont": True,
++            "option": (True, True, True, True, False),
++        }
++    )
++    res.append(
++        {
++            "shape": (64, 2, 128, 128, 8, 16),
++            "is_cont": True,
++            "option": (True, True, True, True, False),
++        }
++    )
++    res.append(
++        {
++            "shape": (32, 8, 128, 128, 8, 16),
++            "is_cont": True,
++            "option": (True, True, True, True, False),
++        }
++    )
++    res.append(
++        {
++            "shape": (32, 8, 128, 128, 16, 32),
++            "is_cont": True,
++            "option": (True, True, True, True, False),
++        }
++    )
+ 
+-    return res, 'compatible'
++    return res, "compatible"
+ 
+ 
+ def run_cases(cases):
+@@ -354,13 +450,23 @@ def run_cases(cases):
+     fault_count = 0
+ 
+     for case in cases[0]:
+-        b, mtp, dk, dv, nk, nv = case['shape']
+-        is_cont = case['is_cont']
+-        beta, scale, g, n_acc_tokens, gk = case['option']
++        b, mtp, dk, dv, nk, nv = case["shape"]
++        is_cont = case["is_cont"]
++        beta, scale, g, n_acc_tokens, gk = case["option"]
+ 
+         tc = TestCase(
+-            b=b, mtp=mtp, nk=nk, nv=nv, dk=dk, dv=dv, is_continue=is_cont,
+-            has_g=g, has_scale=scale, has_beta=beta, has_gk=gk, has_num_accepted_tokens=n_acc_tokens
++            b=b,
++            mtp=mtp,
++            nk=nk,
++            nv=nv,
++            dk=dk,
++            dv=dv,
++            is_continue=is_cont,
++            has_g=g,
++            has_scale=scale,
++            has_beta=beta,
++            has_gk=gk,
++            has_num_accepted_tokens=n_acc_tokens,
+         )
+ 
+         print(f"{tc}")
+@@ -371,7 +477,9 @@ def run_cases(cases):
+         if not tc.compare():
+             fault_count += 1
+ 
+-    print(f"{cases[1]} cases time cost: {time.time() - t0:.4f}s, total: {len(cases[0])}, failed: {fault_count}")
++    print(
++        f"{cases[1]} cases time cost: {time.time() - t0:.4f}s, total: {len(cases[0])}, failed: {fault_count}"
++    )
+ 
+ 
+ if __name__ == "__main__":
+@@ -379,4 +487,4 @@ def run_cases(cases):
+     target_device = "npu:0"
+     torch.npu.set_device(target_device)
+ 
+-    run_cases(compatible_cases())
+\ No newline at end of file
++    run_cases(compatible_cases())

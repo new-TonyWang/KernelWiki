@@ -1,0 +1,624 @@
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py b/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+index 91935aaa3..e80a24935 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/activation/swiglu_quant.py
+@@ -1,6 +1,7 @@
+ import torch
+ import triton
+ import triton.language as tl
++import triton.language.extra.cann.extension as al
+ from sgl_kernel_npu.utils.triton_utils import get_device_properties
+ 
+ 
+@@ -40,8 +41,8 @@ def _swiglu_quant_kernel(
+         # swiglu
+         x_offsets = row_idx * TOTAL_COLS + tl.arange(0, TOTAL_COLS)
+         cur_x = tl.load(x_ptr + x_offsets)
+-        x1 = tl.extract_slice(cur_x, offsets=(0,), sizes=(HALF_COLS,), strides=(1,))
+-        x2 = tl.extract_slice(
++        x1 = al.extract_slice(cur_x, offsets=(0,), sizes=(HALF_COLS,), strides=(1,))
++        x2 = al.extract_slice(
+             cur_x, offsets=(HALF_COLS,), sizes=(HALF_COLS,), strides=(1,)
+         )
+         out = x1 * tl.sigmoid(x1) * x2
+@@ -53,7 +54,7 @@ def _swiglu_quant_kernel(
+             tl.store(scale_ptr + row_idx, scale.to(scale_ptr.dtype.element_ty))
+             # out = tl.math.rint(out / scale.reshape(SUB_BLOCK_SIZE, 1))   # ub overflow
+             for col_blk_idx in range(0, HALF_COLS, COL_BLOCK_SIZE):
+-                tmp_out = tl.extract_slice(
++                tmp_out = al.extract_slice(
+                     out, offsets=(col_blk_idx,), sizes=(COL_BLOCK_SIZE,), strides=(1,)
+                 )
+                 tmp_out = (tmp_out.to(tl.float32) / scale).to(x_ptr.dtype.element_ty)
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py b/python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+index b6380cff5..0806d00e0 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/fla/solve_tril.py
+@@ -9,6 +9,7 @@
+ import torch.nn.functional as F
+ import triton
+ import triton.language as tl
++import triton.language.extra.cann.extension as al
+ from sgl_kernel_npu.fla.utils import (
+     exp,
+     prepare_chunk_indices,
+@@ -61,7 +62,7 @@ def solve_tril_16x16_kernel_paral(
+         b_A_subrec16 = tl.load(p_A_subrec16, boundary_check=(0, 1)).to(
+             tl.float32
+         )  # (16, 16)
+-        b_A = tl.insert_slice(
++        b_A = al.insert_slice(
+             ful=b_A,
+             sub=b_A_subrec16[None, :, :],  # (1, 16, 16)
+             offsets=[blkid, 0, 0],
+@@ -82,7 +83,7 @@ def solve_tril_16x16_kernel_paral(
+     o_i = tl.arange(0, 16)
+     for i in range(1, 16):
+ 
+-        nblks_vec16 = -tl.extract_slice(
++        nblks_vec16 = -al.extract_slice(
+             local_ori_A, (i, 0), (1, 16 * N_BLOCKS), (16 * N_BLOCKS, 1)
+         )
+         b_a = tl.reshape(nblks_vec16, (N_BLOCKS, 16))
+@@ -168,7 +169,7 @@ def solve_tril_16x16_kernel_paral_v3(
+             b_A_subrec16 = tl.load(ptr_A_subrec16, mask=load_mask, other=0.0).to(
+                 tl.float32
+             )
+-            b_A = tl.insert_slice(
++            b_A = al.insert_slice(
+                 ful=b_A,
+                 sub=b_A_subrec16[None, :, :],  # (1, 16, 16)
+                 offsets=[blkid, 0, 0],
+@@ -189,7 +190,7 @@ def solve_tril_16x16_kernel_paral_v3(
+ 
+         for i in range(1, 16):
+ 
+-            nblks_vec16 = -tl.extract_slice(
++            nblks_vec16 = -al.extract_slice(
+                 local_ori_A, (i, 0), (1, 16 * N_BLOCKS), (16 * N_BLOCKS, 1)
+             )
+             b_a = tl.reshape(nblks_vec16, (N_BLOCKS, 16))
+@@ -199,7 +200,7 @@ def solve_tril_16x16_kernel_paral_v3(
+             b_a = b_a + dot_product  # (N_BLOCKS, 16)
+ 
+             b_a_new_expanded = b_a[:, None, :]  # (N_BLOCKS, 1, 16)
+-            b_A = tl.insert_slice(
++            b_A = al.insert_slice(
+                 ful=b_A,
+                 sub=b_a_new_expanded,
+                 offsets=[0, i, 0],
+@@ -407,9 +408,9 @@ def merge_16x16_to_64x64_inverse_kernel_reorder_all_masked(
+ 
+         # ------------------ Build Ai_22_32 (32x32) ------------------
+         Ai_22_32 = tl.zeros((32, 32), tl.float32)
+-        Ai_22_32 = tl.insert_slice(Ai_22_32, Ai_33, (0, 0), (16, 16), (1, 1))
+-        Ai_22_32 = tl.insert_slice(Ai_22_32, Ai_44, (16, 16), (16, 16), (1, 1))
+-        Ai_22_32 = tl.insert_slice(Ai_22_32, Ai_43, (16, 0), (16, 16), (1, 1))
++        Ai_22_32 = al.insert_slice(Ai_22_32, Ai_33, (0, 0), (16, 16), (1, 1))
++        Ai_22_32 = al.insert_slice(Ai_22_32, Ai_44, (16, 16), (16, 16), (1, 1))
++        Ai_22_32 = al.insert_slice(Ai_22_32, Ai_43, (16, 0), (16, 16), (1, 1))
+ 
+         # ------------------ Load A_21_32 (A block at row i_t*64+32, col 0, 32x32) ------------------
+         offs_m = i_t * 64 + 32 + tl.arange(0, 32)
+@@ -422,9 +423,9 @@ def merge_16x16_to_64x64_inverse_kernel_reorder_all_masked(
+ 
+         # ------------------ Build Ai_11_32 (32x32) ------------------
+         Ai_11_32 = tl.zeros((32, 32), tl.float32)
+-        Ai_11_32 = tl.insert_slice(Ai_11_32, Ai_11, (0, 0), (16, 16), (1, 1))
+-        Ai_11_32 = tl.insert_slice(Ai_11_32, Ai_22, (16, 16), (16, 16), (1, 1))
+-        Ai_11_32 = tl.insert_slice(Ai_11_32, Ai_21, (16, 0), (16, 16), (1, 1))
++        Ai_11_32 = al.insert_slice(Ai_11_32, Ai_11, (0, 0), (16, 16), (1, 1))
++        Ai_11_32 = al.insert_slice(Ai_11_32, Ai_22, (16, 16), (16, 16), (1, 1))
++        Ai_11_32 = al.insert_slice(Ai_11_32, Ai_21, (16, 0), (16, 16), (1, 1))
+ 
+         Ai_21_32 = -tl.dot(tmp, Ai_11_32, input_precision="ieee")
+ 
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py b/python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+index 4091376fc..f9db1fce8 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/mamba/causal_conv1d.py
+@@ -11,6 +11,7 @@
+ import torch.nn.functional as F
+ import triton
+ import triton.language as tl
++import triton.language.extra.cann.extension as al
+ 
+ PAD_SLOT_ID = -1
+ 
+@@ -888,14 +889,14 @@ def _causal_conv1d_update_kernel_no_cache_len_no_mtp(
+         )
+ 
+         x_new_T = tl.full([cat_len * DIM_BLOCK], 0, x_ptr.dtype.element_ty)
+-        x_new_T = tl.insert_slice(
++        x_new_T = al.insert_slice(
+             x_new_T,
+             conv_state_T,
+             offsets=(0,),
+             sizes=(state_len * DIM_BLOCK,),
+             strides=(1,),
+         )  # [cat_len , DIM_BLOCK].view(-1)
+-        x_new_T = tl.insert_slice(
++        x_new_T = al.insert_slice(
+             x_new_T,
+             x_T,
+             offsets=(state_len * DIM_BLOCK,),
+@@ -903,7 +904,7 @@ def _causal_conv1d_update_kernel_no_cache_len_no_mtp(
+             strides=(1,),
+         )
+ 
+-        new_conv_state_T = tl.extract_slice(
++        new_conv_state_T = al.extract_slice(
+             x_new_T, (seq_len * DIM_BLOCK,), (state_len * DIM_BLOCK,), (1,)
+         )  # [state_len, DIM_BLOCK].view(-1)
+         new_conv_state = (
+@@ -954,7 +955,7 @@ def _causal_conv1d_update_kernel_no_cache_len_no_mtp(
+             )
+         else:
+             for i in range(seq_len):
+-                x_conv_part = tl.extract_slice(
++                x_conv_part = al.extract_slice(
+                     x_new_T, ((conv_begin + i) * DIM_BLOCK), (width * DIM_BLOCK), (1,)
+                 ).to(tl.float32)
+                 result = (
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py b/python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
+index b512f76ef..39c242ecc 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/norm/add_rmsnorm_bias.py
+@@ -1,6 +1,7 @@
+ import torch
+ import triton
+ import triton.language as tl
++import triton.language.extra.cann.extension as al
+ from sgl_kernel_npu.utils.triton_utils import get_device_properties
+ 
+ 
+@@ -49,7 +50,7 @@ def add_rmsnorm_bias_kernel(
+             for block_offset in range(0, hidden_size, COL_BLOCK_SIZE):
+                 col_indices = block_offset + block_cols
+                 valid_mask2 = col_indices < hidden_size
+-                block_buffered_values = tl.extract_slice(
++                block_buffered_values = al.extract_slice(
+                     buffered_values, (block_offset,), (COL_BLOCK_SIZE,), (1,)
+                 )
+                 # quant
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/norm/rmsnorm_bias.py b/python/sgl_kernel_npu/sgl_kernel_npu/norm/rmsnorm_bias.py
+index a13571818..72cbd28e8 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/norm/rmsnorm_bias.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/norm/rmsnorm_bias.py
+@@ -1,6 +1,7 @@
+ import torch
+ import triton
+ import triton.language as tl
++import triton.language.extra.cann.extension as al
+ from sgl_kernel_npu.utils.triton_utils import get_device_properties
+ 
+ 
+@@ -43,7 +44,7 @@ def rmsnorm_bias_kernel(
+             for block_offset in range(0, hidden_size, COL_BLOCK_SIZE):
+                 col_indices = block_offset + block_cols
+                 valid_mask2 = col_indices < hidden_size
+-                block_buffered_values = tl.extract_slice(
++                block_buffered_values = al.extract_slice(
+                     buffered_values, (block_offset,), (COL_BLOCK_SIZE,), (1,)
+                 )
+                 # quant tl.multiple_of(index_x * NUM_COLUMNS, NUM_COLUMNS)
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py b/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+index b1b8f0539..51c2e94cf 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope.py
+@@ -1,6 +1,7 @@
+ import torch
+ import triton
+ import triton.language as tl
++import triton.language.extra.cann.extension as al
+ from sgl_kernel_npu.utils.triton_utils import get_device_properties
+ 
+ 
+@@ -74,13 +75,13 @@ def split_qkv_rmsnorm_rope_kernel(
+         sin = (tl.load(sin_ptr + sc_offsets)).reshape(1, ROPE_DIM)
+         cos = (tl.load(cos_ptr + sc_offsets)).reshape(1, ROPE_DIM)
+         if DO_PARTIAL:
+-            rot_x = tl.extract_slice(
++            rot_x = al.extract_slice(
+                 normalized_values,
+                 offsets=(0, 0),
+                 sizes=(Q_BLOCK_SIZE // HEAD_DIM, ROPE_DIM),
+                 strides=(1, 1),
+             )
+-            pass_x = tl.extract_slice(
++            pass_x = al.extract_slice(
+                 normalized_values,
+                 offsets=(0, ROPE_DIM),
+                 sizes=(Q_BLOCK_SIZE // HEAD_DIM, PASS_DIM),
+@@ -88,27 +89,27 @@ def split_qkv_rmsnorm_rope_kernel(
+             )
+         else:
+             rot_x = normalized_values
+-        x1 = tl.extract_slice(
++        x1 = al.extract_slice(
+             rot_x,
+             offsets=(0, 0),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+-        x2 = tl.extract_slice(
++        x2 = al.extract_slice(
+             rot_x,
+             offsets=(0, HALF_ROPE_DIM),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+         cat_x = tl.zeros((Q_BLOCK_SIZE // HEAD_DIM, ROPE_DIM), dtype=tl.bfloat16)
+-        cat_x = tl.insert_slice(
++        cat_x = al.insert_slice(
+             cat_x,
+             -x2,
+             offsets=(0, 0),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+-        cat_x = tl.insert_slice(
++        cat_x = al.insert_slice(
+             cat_x,
+             x1,
+             offsets=(0, HALF_ROPE_DIM),
+@@ -117,14 +118,14 @@ def split_qkv_rmsnorm_rope_kernel(
+         )
+         roped_q = cat_x * sin + rot_x * cos
+         if DO_PARTIAL:
+-            normalized_values = tl.insert_slice(
++            normalized_values = al.insert_slice(
+                 normalized_values,
+                 roped_q,
+                 offsets=(0, 0),
+                 sizes=(Q_BLOCK_SIZE // HEAD_DIM, ROPE_DIM),
+                 strides=(1, 1),
+             )
+-            normalized_values = tl.insert_slice(
++            normalized_values = al.insert_slice(
+                 normalized_values,
+                 pass_x,
+                 offsets=(0, ROPE_DIM),
+@@ -182,13 +183,13 @@ def split_qkv_rmsnorm_rope_kernel(
+         cos = (tl.load(cos_ptr + sc_offsets)).reshape(1, ROPE_DIM)
+ 
+         if DO_PARTIAL:
+-            rot_x = tl.extract_slice(
++            rot_x = al.extract_slice(
+                 normalized_values,
+                 offsets=(0, 0),
+                 sizes=(KV_BLOCK_SIZE // HEAD_DIM, ROPE_DIM),
+                 strides=(1, 1),
+             )
+-            pass_x = tl.extract_slice(
++            pass_x = al.extract_slice(
+                 normalized_values,
+                 offsets=(0, ROPE_DIM),
+                 sizes=(KV_BLOCK_SIZE // HEAD_DIM, PASS_DIM),
+@@ -196,27 +197,27 @@ def split_qkv_rmsnorm_rope_kernel(
+             )
+         else:
+             rot_x = normalized_values
+-        x1 = tl.extract_slice(
++        x1 = al.extract_slice(
+             rot_x,
+             offsets=(0, 0),
+             sizes=(KV_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+-        x2 = tl.extract_slice(
++        x2 = al.extract_slice(
+             rot_x,
+             offsets=(0, HALF_ROPE_DIM),
+             sizes=(KV_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+         cat_x = tl.zeros((KV_BLOCK_SIZE // HEAD_DIM, ROPE_DIM), dtype=tl.bfloat16)
+-        cat_x = tl.insert_slice(
++        cat_x = al.insert_slice(
+             cat_x,
+             -x2,
+             offsets=(0, 0),
+             sizes=(KV_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+-        cat_x = tl.insert_slice(
++        cat_x = al.insert_slice(
+             cat_x,
+             x1,
+             offsets=(0, HALF_ROPE_DIM),
+@@ -225,14 +226,14 @@ def split_qkv_rmsnorm_rope_kernel(
+         )
+         roped_k = cat_x * sin + rot_x * cos
+         if DO_PARTIAL:
+-            normalized_values = tl.insert_slice(
++            normalized_values = al.insert_slice(
+                 normalized_values,
+                 roped_k,
+                 offsets=(0, 0),
+                 sizes=(KV_BLOCK_SIZE // HEAD_DIM, ROPE_DIM),
+                 strides=(1, 1),
+             )
+-            normalized_values = tl.insert_slice(
++            normalized_values = al.insert_slice(
+                 normalized_values,
+                 pass_x,
+                 offsets=(0, ROPE_DIM),
+@@ -376,14 +377,14 @@ def split_qkvgate_gemma_rmsnorm_rope_kernel(
+             .to(tl.float32)
+             .reshape(Q_BLOCK_SIZE // HEAD_DIM, HEAD_DIM * 2)
+         )
+-        q = tl.extract_slice(
++        q = al.extract_slice(
+             input_values,
+             offsets=(0, 0),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, HEAD_DIM),
+             strides=(1, 1),
+         ).reshape(Q_BLOCK_SIZE // HEAD_DIM, HEAD_DIM)
+ 
+-        gate = tl.extract_slice(
++        gate = al.extract_slice(
+             input_values,
+             offsets=(0, HEAD_DIM),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, HEAD_DIM),
+@@ -400,39 +401,39 @@ def split_qkvgate_gemma_rmsnorm_rope_kernel(
+         sc_offsets = row_idx * ROPE_DIM + tl.arange(0, ROPE_DIM)
+         sin = (tl.load(sin_ptr + sc_offsets)).to(tl.float32).reshape(1, ROPE_DIM)
+         cos = (tl.load(cos_ptr + sc_offsets)).to(tl.float32).reshape(1, ROPE_DIM)
+-        rot_x = tl.extract_slice(
++        rot_x = al.extract_slice(
+             normalized_values,
+             offsets=(0, 0),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, ROPE_DIM),
+             strides=(1, 1),
+         )
+-        pass_x = tl.extract_slice(
++        pass_x = al.extract_slice(
+             normalized_values,
+             offsets=(0, ROPE_DIM),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, PASS_DIM),
+             strides=(1, 1),
+         )
+-        x1 = tl.extract_slice(
++        x1 = al.extract_slice(
+             rot_x,
+             offsets=(0, 0),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+-        x2 = tl.extract_slice(
++        x2 = al.extract_slice(
+             rot_x,
+             offsets=(0, HALF_ROPE_DIM),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+         cat_x = tl.zeros((Q_BLOCK_SIZE // HEAD_DIM, ROPE_DIM), dtype=tl.float32)
+-        cat_x = tl.insert_slice(
++        cat_x = al.insert_slice(
+             cat_x,
+             -x2,
+             offsets=(0, 0),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+-        cat_x = tl.insert_slice(
++        cat_x = al.insert_slice(
+             cat_x,
+             x1,
+             offsets=(0, HALF_ROPE_DIM),
+@@ -440,14 +441,14 @@ def split_qkvgate_gemma_rmsnorm_rope_kernel(
+             strides=(1, 1),
+         )
+         roped_q = cat_x * sin + rot_x * cos
+-        normalized_values = tl.insert_slice(
++        normalized_values = al.insert_slice(
+             normalized_values,
+             roped_q,
+             offsets=(0, 0),
+             sizes=(Q_BLOCK_SIZE // HEAD_DIM, ROPE_DIM),
+             strides=(1, 1),
+         )
+-        normalized_values = tl.insert_slice(
++        normalized_values = al.insert_slice(
+             normalized_values,
+             pass_x,
+             offsets=(0, ROPE_DIM),
+@@ -497,39 +498,39 @@ def split_qkvgate_gemma_rmsnorm_rope_kernel(
+         sin = (tl.load(sin_ptr + sc_offsets)).to(tl.float32).reshape(1, ROPE_DIM)
+         cos = (tl.load(cos_ptr + sc_offsets)).to(tl.float32).reshape(1, ROPE_DIM)
+ 
+-        rot_x = tl.extract_slice(
++        rot_x = al.extract_slice(
+             normalized_values,
+             offsets=(0, 0),
+             sizes=(KV_BLOCK_SIZE // HEAD_DIM, ROPE_DIM),
+             strides=(1, 1),
+         )
+-        pass_x = tl.extract_slice(
++        pass_x = al.extract_slice(
+             normalized_values,
+             offsets=(0, ROPE_DIM),
+             sizes=(KV_BLOCK_SIZE // HEAD_DIM, PASS_DIM),
+             strides=(1, 1),
+         )
+-        x1 = tl.extract_slice(
++        x1 = al.extract_slice(
+             rot_x,
+             offsets=(0, 0),
+             sizes=(KV_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+-        x2 = tl.extract_slice(
++        x2 = al.extract_slice(
+             rot_x,
+             offsets=(0, HALF_ROPE_DIM),
+             sizes=(KV_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+         cat_x = tl.zeros((KV_BLOCK_SIZE // HEAD_DIM, ROPE_DIM), dtype=tl.float32)
+-        cat_x = tl.insert_slice(
++        cat_x = al.insert_slice(
+             cat_x,
+             -x2,
+             offsets=(0, 0),
+             sizes=(KV_BLOCK_SIZE // HEAD_DIM, HALF_ROPE_DIM),
+             strides=(1, 1),
+         )
+-        cat_x = tl.insert_slice(
++        cat_x = al.insert_slice(
+             cat_x,
+             x1,
+             offsets=(0, HALF_ROPE_DIM),
+@@ -537,14 +538,14 @@ def split_qkvgate_gemma_rmsnorm_rope_kernel(
+             strides=(1, 1),
+         )
+         roped_k = cat_x * sin + rot_x * cos
+-        normalized_values = tl.insert_slice(
++        normalized_values = al.insert_slice(
+             normalized_values,
+             roped_k,
+             offsets=(0, 0),
+             sizes=(KV_BLOCK_SIZE // HEAD_DIM, ROPE_DIM),
+             strides=(1, 1),
+         )
+-        normalized_values = tl.insert_slice(
++        normalized_values = al.insert_slice(
+             normalized_values,
+             pass_x,
+             offsets=(0, ROPE_DIM),
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py b/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+index 849cdddad..55717cd4c 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/norm/split_qkv_rmsnorm_rope_pos_cache_half_npu.py
+@@ -8,6 +8,7 @@
+ import torch
+ import triton
+ import triton.language as tl
++import triton.language.extra.cann.extension as al
+ from sgl_kernel_npu.utils.triton_utils import get_device_properties
+ 
+ 
+@@ -111,14 +112,14 @@ def split_qkv_rmsnorm_rope_half_pos_cache_kernel(
+         else:
+             y_base = y
+ 
+-        y_rot = tl.extract_slice(
++        y_rot = al.extract_slice(
+             y_base, offsets=(0, 0), sizes=(q_block_n, rope_dim), strides=(1, 1)
+         )
+         y_rot_f = y_rot.to(tl.float32)
+-        x1 = tl.extract_slice(
++        x1 = al.extract_slice(
+             y_rot_f, offsets=(0, 0), sizes=(q_block_n, half_rope_dim), strides=(1, 1)
+         )
+-        x2 = tl.extract_slice(
++        x2 = al.extract_slice(
+             y_rot_f,
+             offsets=(0, half_rope_dim),
+             sizes=(q_block_n, half_rope_dim),
+@@ -129,10 +130,10 @@ def split_qkv_rmsnorm_rope_half_pos_cache_kernel(
+         ro1 = o1.to(tl.bfloat16)
+         ro2 = o2.to(tl.bfloat16)
+         roped = tl.zeros((q_block_n, rope_dim), dtype=tl.bfloat16)
+-        roped = tl.insert_slice(
++        roped = al.insert_slice(
+             roped, ro1, offsets=(0, 0), sizes=(q_block_n, half_rope_dim), strides=(1, 1)
+         )
+-        roped = tl.insert_slice(
++        roped = al.insert_slice(
+             roped,
+             ro2,
+             offsets=(0, half_rope_dim),
+@@ -143,7 +144,7 @@ def split_qkv_rmsnorm_rope_half_pos_cache_kernel(
+             y_out = y_base
+         else:
+             y_out = y_base.to(tl.bfloat16)
+-        y_out = tl.insert_slice(
++        y_out = al.insert_slice(
+             y_out, roped, offsets=(0, 0), sizes=(q_block_n, rope_dim), strides=(1, 1)
+         )
+         tl.store(
+@@ -175,14 +176,14 @@ def split_qkv_rmsnorm_rope_half_pos_cache_kernel(
+         else:
+             y_base = y
+ 
+-        y_rot = tl.extract_slice(
++        y_rot = al.extract_slice(
+             y_base, offsets=(0, 0), sizes=(k_block_n, rope_dim), strides=(1, 1)
+         )
+         y_rot_f = y_rot.to(tl.float32)
+-        x1 = tl.extract_slice(
++        x1 = al.extract_slice(
+             y_rot_f, offsets=(0, 0), sizes=(k_block_n, half_rope_dim), strides=(1, 1)
+         )
+-        x2 = tl.extract_slice(
++        x2 = al.extract_slice(
+             y_rot_f,
+             offsets=(0, half_rope_dim),
+             sizes=(k_block_n, half_rope_dim),
+@@ -193,10 +194,10 @@ def split_qkv_rmsnorm_rope_half_pos_cache_kernel(
+         ro1 = o1.to(tl.bfloat16)
+         ro2 = o2.to(tl.bfloat16)
+         roped = tl.zeros((k_block_n, rope_dim), dtype=tl.bfloat16)
+-        roped = tl.insert_slice(
++        roped = al.insert_slice(
+             roped, ro1, offsets=(0, 0), sizes=(k_block_n, half_rope_dim), strides=(1, 1)
+         )
+-        roped = tl.insert_slice(
++        roped = al.insert_slice(
+             roped,
+             ro2,
+             offsets=(0, half_rope_dim),
+@@ -207,7 +208,7 @@ def split_qkv_rmsnorm_rope_half_pos_cache_kernel(
+             y_out = y_base
+         else:
+             y_out = y_base.to(tl.bfloat16)
+-        y_out = tl.insert_slice(
++        y_out = al.insert_slice(
+             y_out, roped, offsets=(0, 0), sizes=(k_block_n, rope_dim), strides=(1, 1)
+         )
+         tl.store(
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/sample/verify_tree_greedy.py b/python/sgl_kernel_npu/sgl_kernel_npu/sample/verify_tree_greedy.py
+index afa3cec06..032f7b1b9 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/sample/verify_tree_greedy.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/sample/verify_tree_greedy.py
+@@ -1,5 +1,6 @@
+ import triton
+ import triton.language as tl
++import triton.language.extra.cann.extension as al
+ 
+ 
+ @triton.jit
+@@ -39,18 +40,18 @@ def verify_tree_greedy_kernel(
+         target_predict + cur_tokens_offset, mask=mask_draft_mask, other=0
+     )
+ 
+-    last_accepted_idx = tl.get_element(cur_retrive_index, (0,))
++    last_accepted_idx = al.get_element(cur_retrive_index, (0,))
+     tl.store(accept_index + req_idx * num_draft_tokens, last_accepted_idx)
+     num_accepted = 0
+ 
+     rejected = False
+     for i in range(1, num_draft_tokens):
+         if not rejected:
+-            draft_token = tl.get_element(cur_candidates, (i,))
+-            target_token = tl.get_element(cur_target, (i - 1,))
++            draft_token = al.get_element(cur_candidates, (i,))
++            target_token = al.get_element(cur_target, (i - 1,))
+ 
+             if draft_token == target_token:
+-                draft_idx = tl.get_element(cur_retrive_index, (i,))
++                draft_idx = al.get_element(cur_retrive_index, (i,))
+                 tl.store(predicts + last_accepted_idx, target_token)
+                 num_accepted += 1
+                 tl.store(
+@@ -59,7 +60,7 @@ def verify_tree_greedy_kernel(
+                 last_accepted_idx = draft_idx
+             else:
+                 rejected = True
+-    target_token = tl.get_element(
++    target_token = al.get_element(
+         cur_target, (last_accepted_idx - num_draft_tokens * req_idx,)
+     )
+     tl.store(accept_token_num + req_idx, num_accepted)

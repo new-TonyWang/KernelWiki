@@ -1,0 +1,1716 @@
+diff --git a/csrc/CMakeLists.txt b/csrc/CMakeLists.txt
+index 6b3236f8b..d248dadf0 100644
+--- a/csrc/CMakeLists.txt
++++ b/csrc/CMakeLists.txt
+@@ -22,6 +22,7 @@ FILE(GLOB OP_SRCS
+     ${PROJECT_OP_SRC_BASE}/lightning_indexer/op_host/lightning_indexer.cpp
+     ${PROJECT_OP_SRC_BASE}/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp
+     ${PROJECT_OP_SRC_BASE}/tri_inv/op_host/tri_inv.cpp
++    ${PROJECT_OP_SRC_BASE}/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+     )
+ if(BUILD_CATLASS_MODULE)
+     list(APPEND OP_SRCS
+@@ -45,6 +46,7 @@ ascendc_library(no_workspace_kernel STATIC
+     ${PROJECT_OP_SRC_BASE}/lora/op_kernel/sgemmv_expand_kernel.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_kernel/sgemmv_shrink_kernel.cpp
+     ${PROJECT_OP_SRC_BASE}/tri_inv/op_kernel/tri_inv_kernel.cpp
++    ${PROJECT_OP_SRC_BASE}/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+ )
+ 
+ # kernel side files with workspace
+diff --git a/csrc/pytorch_extensions.cpp b/csrc/pytorch_extensions.cpp
+index a7d093730..172ac43dd 100644
+--- a/csrc/pytorch_extensions.cpp
++++ b/csrc/pytorch_extensions.cpp
+@@ -87,6 +87,13 @@ TORCH_LIBRARY_FRAGMENT(npu, m)
+         "sgemmv_shrink(Tensor! x, Tensor! weight, Tensor! lora_indices, Tensor! seq_len, Tensor! lora_ranks,"
+         "              Tensor! lora_scales, Tensor! y) -> ()");
+ 
++    m.def(
++        "recurrent_gated_delta_rule(Tensor mix_qkv, Tensor(a!) recurrent_state, Tensor beta, "
++        "float scale, Tensor actual_seq_lengths, Tensor ssm_state_indices, "
++        "int nk, int nv, "
++        "Tensor(b!)? intermediate_state=None, Tensor? cache_indices=None, "
++        "Tensor? num_accepted_tokens=None, Tensor? g=None, Tensor? gk=None) -> Tensor");
++
+ #ifdef BUILD_CATLASS_MODULE
+     m.def("catlass_matmul_basic(Tensor tensor_a, Tensor tensor_b, Tensor(a!) tensor_c, str? format_mode=None) -> ()");
+ #endif
+@@ -134,6 +141,8 @@ TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)
+ 
+     m.impl("sgemmv_shrink", TORCH_FN(sglang::npu_kernel::sgemmv_shrink));
+ 
++    m.impl("recurrent_gated_delta_rule", TORCH_FN(sglang::npu_kernel::recurrent_gated_delta_rule));
++
+ #ifdef BUILD_CATLASS_MODULE
+     m.impl("catlass_matmul_basic", TORCH_FN(sglang::npu_kernel::catlass_matmul_basic));
+ #endif
+diff --git a/csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp b/csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+new file mode 100644
+index 000000000..e210ec76c
+--- /dev/null
++++ b/csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+@@ -0,0 +1,226 @@
++/**
++ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++#include <cstdint>
++#include <iostream>
++
++#include "acl/acl.h"
++
++#include <ATen/Operators.h>
++#include <torch/all.h>
++#include <torch/library.h>
++
++#include "torch_npu/csrc/core/npu/NPUStream.h"
++#include "torch_npu/csrc/core/npu/DeviceUtils.h"
++#include "torch_npu/csrc/framework/OpCommand.h"
++
++#include "tiling/platform/platform_ascendc.h"
++
++#include "defines.h"
++#include "torch_helper.h"
++#include "aclrtlaunch_recurrent_gated_delta_rule.h"
++
++namespace sglang {
++namespace npu_kernel {
++
++
++HOST_API at::Tensor recurrent_gated_delta_rule(
++    at::Tensor &mix_qkv,
++    at::Tensor &recurrent_state,
++    at::Tensor &beta,
++    double scale,
++    at::Tensor &actual_seq_lengths,
++    at::Tensor &ssm_state_indices,
++    int64_t nk,
++    int64_t nv,
++    c10::optional<at::Tensor> intermediate_state_opt,
++    c10::optional<at::Tensor> cache_indices_opt,
++    c10::optional<at::Tensor> num_accepted_tokens_opt,
++    c10::optional<at::Tensor> g_opt,
++    c10::optional<at::Tensor> gk_opt)
++{
++    TORCH_CHECK(mix_qkv.defined(), "MixQKV tensor must be defined");
++    TORCH_CHECK(recurrent_state.defined(), "State tensor must be defined");
++
++    TORCH_CHECK(mix_qkv.dim() == 3, "MixQKV must be 3-dimensional (B, S, D)");
++    TORCH_CHECK(recurrent_state.dim() == 4, "State must be 4-dimensional (N, nv, dv, dk)");
++
++    int64_t b = mix_qkv.size(0);
++    int64_t s = mix_qkv.size(1);
++    int64_t d = mix_qkv.size(2);
++    int t = b * s;
++    int64_t dv = recurrent_state.size(2);
++    int64_t dk = recurrent_state.size(3);
++
++    int64_t expectedD = 2 * nk * dk + nv * dv;
++    TORCH_CHECK(d == expectedD,
++        "mix_qkv width mismatch. Expected: " + std::to_string(expectedD) +
++        ", Got: " + std::to_string(d) +
++        ". Formula: D = nv*dv + 2*nk*dk, where nv=" + std::to_string(nv) +
++        ", dv(or State.size(2))=" + std::to_string(dv) + ", nk=" + std::to_string(nk) +
++        ", dk(or State.size(3))=" + std::to_string(dk));
++
++    TORCH_CHECK(recurrent_state.size(1) == nv, "State third dimension must match nv");
++
++    TORCH_CHECK(beta.dim() == 3, "Beta must be 3-dimensional (B, S, nv)");
++    TORCH_CHECK(beta.size(0) == b, "Beta batch size must match MixQKV");
++    TORCH_CHECK(beta.size(1) == s, "Beta sequence length must match MixQKV");
++    TORCH_CHECK(beta.size(2) == nv, "Beta last dimension must equal nv");
++
++    TORCH_CHECK(ssm_state_indices.dim() == 2, "ssm_state_indices must be 2-dimensional (B, S)");
++    TORCH_CHECK(ssm_state_indices.size(0) == b, "ssm_state_indices batch size must match MixQKV");
++    TORCH_CHECK(ssm_state_indices.size(1) == s, "ssm_state_indices sequence length must match MixQKV");
++
++    uint64_t ubSize{0UL};
++    auto ascendcPlatform = platform_ascendc::PlatformAscendCManager::GetInstance();
++    ascendcPlatform->GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
++
++    uint32_t coreNum = ascendcPlatform->GetCoreNum();
++
++    int devidx = mix_qkv.device().index();
++    c10_npu::set_device(devidx);
++
++    // =================================Calculate the size of UB===================================
++    const int64_t MAX_MTP = 8;
++    const int64_t ALIGN_SIZE = 16;
++
++    auto ceilAlign = [](int64_t value, int64_t align) {
++        return (value + align - 1) & ~(align - 1);
++    };
++
++    auto ceilDiv = [](int64_t dividend, int64_t divisor) {
++        return (dividend + divisor - 1) / divisor;
++    };
++
++    int64_t aNv = ceilAlign(nv, ALIGN_SIZE);
++    int64_t aDv = ceilAlign(dv, ALIGN_SIZE);
++    int64_t aDk = ceilAlign(dk, ALIGN_SIZE);
++
++    int64_t usedUbBytes = MAX_MTP * (4 * aDk + 2 * aDv);    // 4 for qLocal & kLocal, 2 for vLocal
++    usedUbBytes += 128;                                     // reserve 128 Bytes
++    usedUbBytes += MAX_MTP * (4 * aNv + 2 * aNv);           // 4 for gamaLocal, 2 for betaLocal
++
++    int64_t ubRestBytes = ubSize - usedUbBytes;
++
++    usedUbBytes += MAX_MTP * (8 * aDk + 4 * aDv + 4 * aNv); // 8 for qk in ub, 4 for v in ub, 4 for beta in ub
++    int64_t coeff = (2 + 2) * aDk + 4;                      // 2 for stateLocal, stateOutLocal, 4 for attnOutLocal
++    coeff += (4 + 4) * aDk + 4 + 4;                         // 4 for qInUb, kInUb, vInUb, deltaInUb, attnInUb
++
++    int64_t vStep = (ubSize - usedUbBytes) / coeff / 8 * 8; // 8 * sizeof(float) = 32
++    if (vStep < 8) {                                        // vStep must be no less than 8
++        TORCH_CHECK(false, "vStep should be bigger than 8, shape is too big");
++        TORCH_CHECK(false, "vStep (" + std::to_string(vStep) + ") should be bigger than 8 ");
++    }
++
++    int64_t rptime = ceilDiv(dv, static_cast<uint32_t>(vStep));
++    vStep = ceilAlign(ceilDiv(dv, static_cast<uint32_t>(rptime)), 8);   // 8 * sizeof(float) = 32
++    ubRestBytes -= ((2 + 2) * aDk + 4) * vStep;                         // 2 for stateLocal, stateOutLocal, 4 for attnOutLocal
++
++    // ===================== optional inputs =====================
++
++    bool hasIntermediateState = false;
++    void* intermediateStatePtr = nullptr;
++
++    at::Tensor intermediate_state_tensor;
++
++    void* recurrentStatePtr = recurrent_state.data_ptr();
++    void* initStatePtr = recurrentStatePtr;
++    void* stateOutPtr = recurrentStatePtr;
++    void* mtpRecurrentStatePtr = nullptr;
++
++    if (intermediate_state_opt.has_value() &&
++        intermediate_state_opt.value().defined()) {
++        hasIntermediateState = true;
++        intermediate_state_tensor = intermediate_state_opt.value().contiguous();
++        intermediateStatePtr = intermediate_state_tensor.data_ptr();
++
++        // MTP input and output
++        initStatePtr = intermediateStatePtr;
++        stateOutPtr = intermediateStatePtr;
++        mtpRecurrentStatePtr = recurrentStatePtr;
++    }
++
++    void* cacheIndicesPtr = nullptr;
++    at::Tensor cache_indices_tensor;
++
++    if (cache_indices_opt.has_value() &&
++        cache_indices_opt.value().defined()) {
++
++        cache_indices_tensor = cache_indices_opt.value().to(at::kInt).contiguous();
++        cacheIndicesPtr = cache_indices_tensor.data_ptr();
++    }
++
++    bool hasAcceptedTokens = false;
++    void* numAcceptedTokensPtr = nullptr;
++    at::Tensor num_accepted_tokens_int32;
++
++    if (num_accepted_tokens_opt.has_value() &&
++        num_accepted_tokens_opt.value().defined()) {
++
++        hasAcceptedTokens = true;
++        num_accepted_tokens_int32 =
++            num_accepted_tokens_opt.value().to(at::kInt).contiguous();
++
++        numAcceptedTokensPtr = num_accepted_tokens_int32.data_ptr();
++    }
++
++    bool hasGama = false;
++    at::Tensor g_tensor;
++
++    if (g_opt.has_value() && g_opt.value().defined()) {
++        hasGama = true;
++        g_tensor = g_opt.value().to(at::kFloat).contiguous();
++    } else {
++        g_tensor = torch::ones(
++            {t, nv},
++            torch::TensorOptions().dtype(at::kFloat).device(mix_qkv.device()));
++    }
++
++    void* gPtr = g_tensor.data_ptr();
++
++    void* gkPtr = nullptr;
++    at::Tensor gk_local;
++
++    if (gk_opt.has_value() && gk_opt.value().defined()) {
++        gk_local = gk_opt.value().to(at::kFloat).contiguous();
++
++        gkPtr = gk_local.data_ptr();
++    }
++
++    at::Tensor output = torch::empty({b, s, nv, dv}, mix_qkv.options());
++
++    EXEC_KERNEL_CMD(
++        recurrent_gated_delta_rule,
++        coreNum,
++        mix_qkv,
++        beta,
++        initStatePtr,
++        actual_seq_lengths,
++        ssm_state_indices,
++        mtpRecurrentStatePtr,
++        cacheIndicesPtr,
++        gPtr,
++        gkPtr,
++        numAcceptedTokensPtr,
++        output,
++        stateOutPtr,
++        b, s, nk, dk, nv, dv,
++        hasIntermediateState,
++        hasAcceptedTokens,
++        hasGama,
++        vStep,
++        ubRestBytes,
++        scale
++    );
++
++    return output;
++}
++}
++}
+\ No newline at end of file
+diff --git a/csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp b/csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+new file mode 100644
+index 000000000..45778727a
+--- /dev/null
++++ b/csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+@@ -0,0 +1,746 @@
++/**
++ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++#ifndef __RECURRENT_GATED_DELTA_RULE_KERNEL_H_
++#define __RECURRENT_GATED_DELTA_RULE_KERNEL_H_
++
++#include "kernel_operator.h"
++#include "lib/matmul_intf.h"
++
++#include "tensorutils.h"
++
++
++using namespace matmul;
++using namespace AscendC;
++
++constexpr uint64_t BUFFER_NUM = 1;
++constexpr uint64_t MAX_MTP = 8;
++constexpr uint64_t BF16_NUM_PER_BLOCK = 16;
++constexpr uint64_t FP32_NUM_PER_BLOCK = 8;
++constexpr uint32_t REPEAT_LENTH = 64; // 256Byte for float
++constexpr uint32_t MAX_REPEAT_TIME = 255;
++constexpr float EPSILON_FOR_STABILITY = 1e-6f;
++
++constexpr int BLK_SIZE = 64;
++constexpr int VEC_FLOAT = 64;
++constexpr int NUM_DBLK_FLOAT = 8;
++
++struct RGDRInitParams {
++    GM_ADDR mixqkv;
++    GM_ADDR gama;
++    GM_ADDR beta;
++    GM_ADDR initState;
++    GM_ADDR cuSeqlens;
++    GM_ADDR ssmStateIndices;
++    GM_ADDR numAcceptedTokens;
++    GM_ADDR attnOut;
++    GM_ADDR finalState;
++
++    GM_ADDR recurrentState;
++    GM_ADDR cacheIndices;
++};
++
++template <typename inType, typename outType>
++class RGDR {
++public:
++    __aicore__ inline RGDR(
++        uint32_t B,
++        uint32_t S,
++        uint32_t nk,
++        uint32_t dk,
++        uint32_t nv,
++        uint32_t dv,
++        bool hasIntermediateState,
++        bool hasAcceptedTokens,
++        bool hasGama,
++        uint32_t vStep,
++        uint32_t ubRestBytes,
++        float scale
++    )
++    {
++        B_ = B;
++        S_ = S;
++        T_ = B * S;
++        NK_ = nk;
++        realK_ = dk;
++        NV_ = nv;
++        realV_ = dv;
++
++        hasIntermediateState_ = hasIntermediateState;
++        needRecurrentInit_ = false;
++
++        hasAcceptedTokens_ = hasAcceptedTokens;
++        hasGama_ = hasGama;
++        vStep_ = vStep;
++        restUbSize_ = ubRestBytes;
++        alignK_ = Ceil(dk, BF16_NUM_PER_BLOCK) * BF16_NUM_PER_BLOCK;
++        alignV_ = Ceil(dv, BF16_NUM_PER_BLOCK) * BF16_NUM_PER_BLOCK;
++        scale_ = scale;
++        load = 0;
++        usedblk = 0;
++    }
++
++    __aicore__ inline void Init(const RGDRInitParams &initParams, TPipe *pipe)
++    {
++        uint64_t blockDim = GetBlockNum();
++        blockIdx = GetBlockIdx();
++        if (blockIdx >= blockDim) {
++            return;
++        }
++        pipe_ = pipe;
++
++        tokenStrideSize_ = (NK_ * realK_ + NK_ * realK_ + NV_ * realV_) * sizeof(inType);
++
++        SetGlobalTensors(initParams);
++        InitLocalBuffers();
++    }
++
++    __aicore__ inline void SetGlobalTensors(const RGDRInitParams &initParams)
++    {
++        mixqkvGm_.SetGlobalBuffer((__gm__ inType *)initParams.mixqkv);
++        gamaGm_.SetGlobalBuffer((__gm__ float *)initParams.gama);
++        betaGm_.SetGlobalBuffer((__gm__ inType *)initParams.beta);
++        initStateGm_.SetGlobalBuffer((__gm__ inType *)initParams.initState);
++        cuSeqlensGm_.SetGlobalBuffer((__gm__ int32_t *)initParams.cuSeqlens);
++        ssmStateIndicesGm_.SetGlobalBuffer((__gm__ int32_t *)initParams.ssmStateIndices);
++        numAcceptedTokensGm_.SetGlobalBuffer((__gm__ int32_t *)initParams.numAcceptedTokens);
++        finalStateGm_.SetGlobalBuffer((__gm__ outType *)initParams.finalState);
++        attnOutGm_.SetGlobalBuffer((__gm__ outType *)initParams.attnOut);
++
++        if (hasIntermediateState_) {
++            recurrentStateGm_.SetGlobalBuffer((__gm__ inType *)initParams.recurrentState);
++            cacheIndicesGm_.SetGlobalBuffer((__gm__ int32_t *)initParams.cacheIndices);
++        }
++    }
++
++    __aicore__ inline void InitLocalBuffers()
++    {
++        uint32_t cubeSize = alignK_ * vStep_ * sizeof(float);
++        uint32_t singleVSize = vStep_ * sizeof(float);
++        uint32_t vSize = MAX_MTP * alignV_ * sizeof(float);
++        uint32_t kSize = MAX_MTP * alignK_ * sizeof(float);
++        uint32_t betaUbNum =
++            Ceil(MAX_MTP * NV_, BF16_NUM_PER_BLOCK) * BF16_NUM_PER_BLOCK; // 8: 8 * 4 = 32B;
++        uint32_t sumLocalNum =
++            Ceil(MAX_MTP, FP32_NUM_PER_BLOCK) * FP32_NUM_PER_BLOCK;
++
++        uint32_t inQSize = BUFFER_NUM * MAX_MTP * alignK_ * sizeof(inType);
++        uint32_t inVSize = BUFFER_NUM * MAX_MTP * alignV_ * sizeof(inType);
++        uint32_t inStateSize = BUFFER_NUM * alignK_ * vStep_ * sizeof(inType);
++        uint32_t inGamaSize = BUFFER_NUM * MAX_MTP * NV_ * sizeof(float);
++        uint32_t inBetaSize = BUFFER_NUM * MAX_MTP * NV_ * sizeof(inType);
++        uint32_t outStateSize = BUFFER_NUM * alignK_ * vStep_ * sizeof(outType);
++        uint32_t outAttnSize = BUFFER_NUM * vStep_ * sizeof(outType);
++        uint32_t totalBufferSize =
++            inQSize * 2 +  // Q and K queues (each double buffered)
++            inVSize +      // V queue (double buffered)
++            inStateSize +  // State input queue (double buffered)
++            inGamaSize +   // Gamma queue
++            inBetaSize +   // Beta queue
++            outStateSize + // State output queue (double buffered)
++            outAttnSize;
++
++        pipe_->InitBuffer(stageBuff, totalBufferSize);
++        uint32_t totalBufferOffset = 0;
++        qLocal = stageBuff.GetWithOffset<inType>(
++            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * alignK_), totalBufferOffset);
++        totalBufferOffset += inQSize;
++        kLocal = stageBuff.GetWithOffset<inType>(
++            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * alignK_), totalBufferOffset);
++        totalBufferOffset += inQSize;
++        vLocal = stageBuff.GetWithOffset<inType>(
++            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * alignV_), totalBufferOffset);
++        totalBufferOffset += inVSize;
++        stateLocal = stageBuff.GetWithOffset<inType>(
++            static_cast<uint32_t>(BUFFER_NUM * alignK_ * vStep_), totalBufferOffset);
++        totalBufferOffset += inStateSize;
++        gamaLocal = stageBuff.GetWithOffset<float>(
++            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * NV_), totalBufferOffset);
++        totalBufferOffset += inGamaSize;
++        betaLocal = stageBuff.GetWithOffset<inType>(
++            static_cast<uint32_t>(BUFFER_NUM * MAX_MTP * NV_), totalBufferOffset);
++        totalBufferOffset += inBetaSize;
++        stateOutLocal = stageBuff.GetWithOffset<inType>(
++            static_cast<uint32_t>(BUFFER_NUM * alignK_ * vStep_), totalBufferOffset);
++        totalBufferOffset += outStateSize;
++        attnOutLocal = stageBuff.GetWithOffset<inType>(
++            static_cast<uint32_t>(BUFFER_NUM * vStep_), totalBufferOffset);
++        pipe_->InitBuffer(tmpBuff, restUbSize_);
++        uint32_t buffOffset = 0;
++        deltaInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(vStep_), buffOffset);
++        buffOffset += singleVSize;
++        attnInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(vStep_), buffOffset);
++        buffOffset += singleVSize;
++        vInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(MAX_MTP * alignV_), buffOffset);
++        buffOffset += vSize;
++        qInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(MAX_MTP * alignK_), buffOffset);
++        buffOffset += kSize;
++        kInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(MAX_MTP * alignK_), buffOffset);
++        buffOffset += kSize;
++
++        qTempInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(MAX_MTP * alignK_), buffOffset);
++        buffOffset += kSize;
++        kTempInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(MAX_MTP * alignK_), buffOffset);
++        buffOffset += kSize;
++
++        stateInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(alignK_ * vStep_), buffOffset);
++        buffOffset += cubeSize;
++        broadTmpInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(alignK_ * vStep_), buffOffset);
++        buffOffset += cubeSize;
++
++        qSumLocal = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(sumLocalNum), buffOffset);
++        buffOffset += sumLocalNum * sizeof(float);
++        kSumLocal = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(sumLocalNum), buffOffset);
++        buffOffset += sumLocalNum * sizeof(float);
++
++        betaInUb = tmpBuff.GetWithOffset<float>(static_cast<uint32_t>(betaUbNum), buffOffset);
++
++        in_ready_Beta.Init();
++        in_empty_Beta.Init();
++        out_ready_Attn.Init();
++        out_empty_Attn.Init();
++    }
++
++    __aicore__ inline void ComputeAvgload()
++    {
++        avgload = Ceil(B_ * NV_, GetBlockNum());
++    }
++
++    __aicore__ inline void Process()
++    {
++        ComputeAvgload();
++        const uint64_t totalWorkload = B_ * NV_;
++        const uint64_t startIdx = blockIdx * avgload;
++        uint64_t calculatedIdx = (blockIdx + 1) * avgload;
++        const uint64_t endIdx = (calculatedIdx < totalWorkload) ? calculatedIdx : totalWorkload;
++        if (startIdx >= totalWorkload) {
++            return;
++        }
++        in_empty_Beta.setall();
++        out_empty_Attn.setall();
++        uint64_t lastProcessedBatch = UINT64_MAX;
++        for (uint64_t workIdx = startIdx; workIdx < endIdx; workIdx++) {
++            uint64_t batchIdx = workIdx / NV_;
++            uint64_t headIdx = workIdx % NV_;
++            // Each batch has only one token. seq0 = batchIdx, seq1 = batchIdx + 1
++            uint64_t seq0 = batchIdx * S_;
++            uint64_t seq1 = seq0 + cuSeqlensGm_.GetValue(batchIdx);
++
++            uint64_t stateOffset = hasAcceptedTokens_ ?
++                    ssmStateIndicesGm_.GetValue(seq0 + numAcceptedTokensGm_.GetValue(batchIdx) - 1) :
++                    ssmStateIndicesGm_.GetValue(seq0);
++            uint64_t recurrentStateOffset = 0;
++            if (hasIntermediateState_) {
++                recurrentStateOffset = cacheIndicesGm_.GetValue(batchIdx);
++            }
++
++            if (batchIdx != lastProcessedBatch) {
++                needRecurrentInit_ = false;
++
++                if (hasIntermediateState_ && stateOffset % S_ == 0) {
++                    needRecurrentInit_ = true;
++                }
++                CopyInGamaBeta(seq0, seq1);
++                lastProcessedBatch = batchIdx;
++            }
++            in_empty_Beta.wait();
++            ProcessHead(seq0, seq1, headIdx, stateOffset, recurrentStateOffset);
++            in_empty_Beta.set();
++        }
++        in_empty_Beta.release(); // wait
++        out_empty_Attn.release();
++    }
++
++private:
++    __aicore__ inline void CopyInState(uint64_t stateOffset, uint64_t recurrentOffset, uint32_t curSingleV)
++    {
++        DataCopyExtParams stateInParams{static_cast<uint16_t>(curSingleV),
++                                        static_cast<uint16_t>(realK_ * sizeof(inType)), 0, 0, 0};
++        DataCopyPadExtParams<inType> padParams{true, 0, static_cast<uint8_t>(alignK_ - realK_), 0};
++
++        if (needRecurrentInit_) {
++            DataCopyPad(stateLocal, recurrentStateGm_[recurrentOffset], stateInParams, padParams);
++        } else {
++            DataCopyPad(stateLocal, initStateGm_[stateOffset], stateInParams, padParams);
++        }
++
++        in_ready_Beta.set();
++        in_ready_Beta.wait();
++        AscendC::PipeBarrier<PIPE_V>();
++        Cast(stateInUb, stateLocal, AscendC::RoundMode::CAST_NONE, alignK_ * curSingleV);
++        AscendC::PipeBarrier<PIPE_V>();
++    }
++
++    /**
++     * Note: This method is specifically designed and invoked only when
++     * curSingleV == 64 and alignK_ == 128.
++     */
++    __aicore__ inline void ReduceSum_AR_64x128_ReuseSource(
++        const LocalTensor<float>& dstTensor,
++        const LocalTensor<float>& srcTensor,
++        const uint32_t srcShape[2]
++    )
++    {
++        const uint32_t B32_DATA_NUM_PER_REPEAT = 64;
++        const uint32_t B32_DATA_NUM_PER_BLOCK = 8;
++        uint32_t first = srcShape[0];      // 64
++        uint32_t last = srcShape[1];       // 128
++        uint32_t padLast = 128;            // AlignUp(128, 8) = 128（已对齐）
++        LocalTensor<float> tmpBuf = srcTensor;
++
++        uint32_t splitK = 128;     // 1 << FindClosestPowerOfTwo(128) = 128
++        uint32_t tail = 0;         // last - splitK = 0
++        uint32_t perRowReduceSize = 64; // splitK >> 1 = 64
++        SetMaskCount();
++
++        uint32_t perRowSize = padLast;
++        uint8_t dstRepStride = static_cast<uint8_t>(perRowSize / B32_DATA_NUM_PER_BLOCK);
++        uint8_t src0RepStride = dstRepStride;  // 16
++        uint8_t src1RepStride = static_cast<uint8_t>(padLast / B32_DATA_NUM_PER_BLOCK);
++
++        SetMaskNorm();
++        SetVectorMask<float, MaskMode::NORMAL>(B32_DATA_NUM_PER_REPEAT);  // 64
++        uint32_t srcOffset = perRowReduceSize;  // 64
++        uint32_t tmpOffset = 0;                 // 0
++
++        Add<float, false>(tmpBuf[tmpOffset], tmpBuf[tmpOffset], srcTensor[srcOffset], MASK_PLACEHOLDER, first,
++            {1, 1, 1, dstRepStride, src0RepStride, src1RepStride});
++        PipeBarrier<PIPE_V>();
++        uint16_t blockCount = first;        // 64
++        uint16_t blockLen = perRowReduceSize / B32_DATA_NUM_PER_BLOCK;  // 64 / 8 = 8
++        uint16_t srcStride = (padLast - perRowReduceSize) / B32_DATA_NUM_PER_BLOCK;  // (128 - 64) / 8 = 8
++        uint16_t dstStride = 0;
++
++        DataCopy(tmpBuf, tmpBuf, { blockCount, blockLen, srcStride, dstStride});
++        PipeBarrier<PIPE_V>();
++
++        ResetMask();
++        SetMaskCount();
++
++        SetVectorMask<float, MaskMode::COUNTER>(first * B32_DATA_NUM_PER_REPEAT);  // 64 * 64 = 4096
++        BlockReduceSum<float, false>(tmpBuf, tmpBuf, 1, MASK_PLACEHOLDER, 1, 1, 8);
++        PipeBarrier<PIPE_V>();
++
++        SetVectorMask<float, MaskMode::COUNTER>(first * B32_DATA_NUM_PER_BLOCK);  // 64 * 8 = 512
++        BlockReduceSum<float, false>(dstTensor, tmpBuf, 1, MASK_PLACEHOLDER, 1, 1, 8);
++        PipeBarrier<PIPE_V>();
++
++        SetMaskNorm();
++        PipeBarrier<PIPE_V>();
++        ResetMask();
++    }
++
++    __aicore__ inline void kL2Norm(uint32_t seqLen)
++    {
++        Mul<float>(kTempInUb, kInUb, kInUb, seqLen * alignK_);
++        PipeBarrier<PIPE_V>();
++
++        Sum<float>(kSumLocal, kTempInUb, {seqLen, alignK_, realK_});
++        PipeBarrier<PIPE_V>();
++
++        Adds<float>(kSumLocal, kSumLocal, EPSILON_FOR_STABILITY, seqLen);
++        PipeBarrier<PIPE_V>();
++        Rsqrt<float>(kSumLocal, kSumLocal, seqLen);
++
++        AscendC::TEventID eventIDS = GetTPipePtr()->FetchEventID(HardEvent::V_S);
++        SetFlag<HardEvent::V_S>(eventIDS);
++        WaitFlag<HardEvent::V_S>(eventIDS);
++
++        float normFactors[MAX_MTP];
++        for (uint32_t i = 0; i < seqLen; ++i) {
++            normFactors[i] = kSumLocal.GetValue(i);
++
++            eventIDS = GetTPipePtr()->FetchEventID(HardEvent::S_V);
++            SetFlag<HardEvent::S_V>(eventIDS);
++            WaitFlag<HardEvent::S_V>(eventIDS);
++
++            uint32_t offset = i * alignK_;
++            float inv_norm = normFactors[i];
++
++            Muls<float>(kInUb[offset], kInUb[offset], inv_norm, realK_);
++        }
++    }
++
++    __aicore__ inline void qL2Norm(uint32_t seqLen)
++    {
++        Mul<float>(qTempInUb, qInUb, qInUb, seqLen * alignK_);
++        PipeBarrier<PIPE_V>();
++
++        Sum<float>(qSumLocal, qTempInUb, {seqLen, alignK_, realK_});
++        PipeBarrier<PIPE_V>();
++
++        Adds<float>(qSumLocal, qSumLocal, EPSILON_FOR_STABILITY, seqLen);
++        PipeBarrier<PIPE_V>();
++        Rsqrt<float>(qSumLocal, qSumLocal, seqLen);
++
++        AscendC::TEventID eventIDS = GetTPipePtr()->FetchEventID(HardEvent::V_S);
++        SetFlag<HardEvent::V_S>(eventIDS);
++        WaitFlag<HardEvent::V_S>(eventIDS);
++
++        float normFactors[MAX_MTP];
++        for (uint32_t i = 0; i < seqLen; ++i) {
++            normFactors[i] = qSumLocal.GetValue(i);
++
++            eventIDS = GetTPipePtr()->FetchEventID(HardEvent::S_V);
++            SetFlag<HardEvent::S_V>(eventIDS);
++            WaitFlag<HardEvent::S_V>(eventIDS);
++
++            uint32_t offset = i * alignK_;
++            float inv_norm = normFactors[i];
++
++            Muls<float>(qInUb[offset], qInUb[offset], inv_norm, realK_);
++        }
++    }
++
++    __aicore__ inline void Compute(uint32_t curSingleV, uint64_t curQKOffset,
++        uint64_t curVOffset, uint64_t seq_i, uint64_t attnOffset, int32_t seq0,
++        int32_t seq1, uint64_t head_i, uint64_t stateOffset, uint64_t v_i)
++    {
++        uint32_t qk_head_idx = head_i / (NV_ / NK_);
++        int32_t seqLen = seq1 - seq0;
++
++        uint64_t qTokenOffset = qk_head_idx * realK_;
++
++        uint64_t kTokenOffset = (NK_ * realK_) + (qk_head_idx * realK_);
++
++        uint64_t vTokenOffset = (2 * NK_ * realK_) + (head_i * realV_) + v_i;
++
++        uint64_t mixQGlobalOffset = seq0 * (tokenStrideSize_ / sizeof(inType)) + qTokenOffset;
++        uint64_t mixKGlobalOffset = seq0 * (tokenStrideSize_ / sizeof(inType)) + kTokenOffset;
++        uint64_t mixVGlobalOffset = seq0 * (tokenStrideSize_ / sizeof(inType)) + vTokenOffset;
++
++        uint32_t qkSrcStride = tokenStrideSize_ - realK_ * sizeof(inType);
++        uint32_t vSrcStride = tokenStrideSize_ - realV_ * sizeof(inType);
++
++        DataCopyExtParams qkInParams{static_cast<uint16_t>(seqLen), static_cast<uint32_t>(realK_ * sizeof(inType)),
++                                    qkSrcStride, 0, 0};
++        DataCopyPadExtParams<inType> qkPadParams{true, 0, static_cast<uint8_t>(alignK_ - realK_), 0};
++
++        DataCopyExtParams vInParams{static_cast<uint16_t>(seqLen), static_cast<uint32_t>(realV_ * sizeof(inType)),
++                                    vSrcStride, 0, 0};
++        DataCopyPadExtParams<inType> vPadParams{true, 0, static_cast<uint8_t>(alignV_ - realV_), 0};
++
++        if (!qkvcopyFlag_) {
++            //===================================KV START===============================
++            DataCopyPad(kLocal, mixqkvGm_[mixKGlobalOffset], qkInParams, qkPadParams);
++            DataCopyPad(vLocal, mixqkvGm_[mixVGlobalOffset], vInParams, vPadParams);
++
++            in_ready_Beta.set();
++            in_ready_Beta.wait();
++
++            Cast(kInUb, kLocal, AscendC::RoundMode::CAST_NONE, alignK_ * seqLen);
++            AscendC::PipeBarrier<PIPE_V>();
++            kL2Norm(seqLen);
++            AscendC::PipeBarrier<PIPE_V>();
++            Cast(vInUb, vLocal, AscendC::RoundMode::CAST_NONE, alignV_ * seqLen);
++            AscendC::PipeBarrier<PIPE_V>();
++            //===================================KV END===============================
++            DataCopyPad(qLocal, mixqkvGm_[mixQGlobalOffset], qkInParams, qkPadParams);
++            in_ready_Beta.set();
++        }
++
++        uint32_t stateShape[2] = {curSingleV, alignK_};
++        uint32_t ktShape[2] = {1, alignK_};
++        uint32_t deltaShape[2] = {curSingleV, 1};
++
++        {
++            uint64_t gbOffset = head_i + (seq_i - seq0) * NV_;
++            gama_ = hasGama_ ? gamaLocal.GetValue(gbOffset) : 1;
++            beta_ = betaInUb.GetValue(gbOffset);
++        }
++
++        if (hasGama_) {
++            AscendC::PipeBarrier<PIPE_V>();
++            Muls(stateInUb, stateInUb, gama_, alignK_ * curSingleV);
++        }
++        AscendC::PipeBarrier<PIPE_V>();
++
++        for (uint32_t i = 0; i < alignK_ / VEC_FLOAT; i++) {
++            // {1, 8} * {1, alignK_} => {1, alignK_}
++            uint32_t index = i * VEC_FLOAT;  // 0, 64
++
++            Mul<float, false>(broadTmpInUb[index], stateInUb[index], kInUb[curQKOffset + index],
++                MASK_PLACEHOLDER, curSingleV, {1, 1, 1, 16, 16, 0});
++            AscendC::PipeBarrier<PIPE_V>();
++        }
++
++        AscendC::PipeBarrier<PIPE_V>();
++        if (curSingleV == 64 && alignK_ == 128) {
++            ReduceSum_AR_64x128_ReuseSource(deltaInUb, broadTmpInUb, stateShape);
++        } else {
++            ReduceSum<float, Pattern::Reduce::AR, true>(deltaInUb, broadTmpInUb, stateShape, true);
++        }
++        AscendC::PipeBarrier<PIPE_V>();
++        Sub<float>(deltaInUb, vInUb[curVOffset], deltaInUb, curSingleV);
++        AscendC::PipeBarrier<PIPE_V>();
++        Muls(deltaInUb, deltaInUb, beta_, curSingleV);
++        AscendC::PipeBarrier<PIPE_V>();
++
++        if (!qkvcopyFlag_) {
++            //===================================QQQQQQQ START===============================
++            in_ready_Beta.wait();
++            Cast(qInUb, qLocal, AscendC::RoundMode::CAST_NONE, alignK_ * seqLen);
++            AscendC::PipeBarrier<PIPE_V>();
++            qL2Norm(seqLen);
++            AscendC::PipeBarrier<PIPE_V>();
++            Muls(qInUb, qInUb, scale_, seqLen * alignK_);
++            AscendC::PipeBarrier<PIPE_V>();
++            //===================================QQQQQQQ END===============================
++            qkvcopyFlag_ = true;
++        }
++
++        Brcb(broadTmpInUb, deltaInUb, curSingleV / 8, {1, NUM_DBLK_FLOAT});
++        AscendC::PipeBarrier<PIPE_V>();
++
++        for (uint32_t i = 0; i < alignK_ / VEC_FLOAT; i++) {
++            // {1, 8} * {1, alignK_} => {1, alignK_}
++            uint32_t index = i * VEC_FLOAT;  // 0, 64
++            MulAddDst<float, float, false>(stateInUb[index], broadTmpInUb, kInUb[curQKOffset + index],
++                MASK_PLACEHOLDER, curSingleV, {1, 0, 1, 16, 1, 0});
++            AscendC::PipeBarrier<PIPE_V>();
++        }
++
++        out_empty_Attn.wait();
++
++        Cast(stateOutLocal, stateInUb, AscendC::RoundMode::CAST_RINT, alignK_ * curSingleV);
++
++        out_ready_Attn.set();
++        out_ready_Attn.wait();
++
++        uint64_t curStateOutOffset =
++            ((ssmStateIndicesGm_.GetValue(seq_i) * NV_ + head_i) * realV_ + v_i) * realK_;
++
++        CopyOutState(curStateOutOffset, curSingleV);
++
++        for (uint32_t i = 0; i < alignK_ / VEC_FLOAT; i++) {
++            // {1, 8} * {1, alignK_} => {1, alignK_}
++            uint32_t index = i * VEC_FLOAT;  // 0, 64
++
++            Mul<float, false>(broadTmpInUb[index], stateInUb[index], qInUb[curQKOffset + index],
++                MASK_PLACEHOLDER, curSingleV, {1, 1, 1, 16, 16, 0});
++            AscendC::PipeBarrier<PIPE_V>();
++        }
++
++        AscendC::PipeBarrier<PIPE_V>();
++        if (curSingleV == 64 && alignK_ == 128) {
++            ReduceSum_AR_64x128_ReuseSource(attnInUb, broadTmpInUb, stateShape);
++        } else {
++            ReduceSum<float, Pattern::Reduce::AR, true>(attnInUb, broadTmpInUb, stateShape, true);
++        }
++        AscendC::PipeBarrier<PIPE_V>();
++        Cast(attnOutLocal, attnInUb, AscendC::RoundMode::CAST_RINT, curSingleV);
++        out_ready_Attn.set();
++        out_ready_Attn.wait();
++
++        CopyOutAttn(attnOffset, curSingleV);
++
++        out_empty_Attn.set();
++    }
++
++    __aicore__ inline void CopyOutAttn(uint64_t attnOffset, uint32_t curSingleV)
++    {
++        DataCopyParams attnOutParams{1, static_cast<uint16_t>(curSingleV * sizeof(outType)), 0, 0};
++
++        DataCopyPad(attnOutGm_[attnOffset], attnOutLocal, attnOutParams);
++    }
++
++    __aicore__ inline void CopyOutState(uint64_t stateOffset, uint32_t curSingleV)
++    {
++        DataCopyParams stateOutParams{static_cast<uint16_t>(curSingleV),
++                                      static_cast<uint16_t>(realK_ * sizeof(outType)), 0, 0};
++
++        DataCopyPad(finalStateGm_[stateOffset], stateOutLocal, stateOutParams);
++    }
++
++   __aicore__ inline void CopyInGamaBeta(int32_t seq0, int32_t seq1)
++    {
++        int32_t seqLen = seq1 - seq0;
++        uint64_t bBatchSize = Ceil(seqLen * NV_, BF16_NUM_PER_BLOCK) * BF16_NUM_PER_BLOCK;
++
++        DataCopyParams betaInParams{1, static_cast<uint16_t>(seqLen * NV_ * sizeof(inType)), 0, 0};
++        DataCopyPadParams padParams;
++        DataCopyPad(betaLocal, betaGm_[seq0 * NV_], betaInParams, padParams);
++
++        AscendC::PipeBarrier<PIPE_MTE2>();
++
++        in_ready_Beta.set();
++        in_ready_Beta.wait();
++
++        Cast(betaInUb, betaLocal, AscendC::RoundMode::CAST_NONE, bBatchSize);
++        AscendC::PipeBarrier<PIPE_V>();
++        Sigmoid<float, false>(betaInUb, betaInUb, bBatchSize);
++        AscendC::PipeBarrier<PIPE_V>();
++
++        if (hasGama_) {
++            DataCopyParams gamaInParams{1, static_cast<uint16_t>(seqLen * NV_ * sizeof(float)), 0, 0};
++            DataCopyPad(gamaLocal, gamaGm_[seq0 * NV_], gamaInParams, padParams);
++            AscendC::PipeBarrier<PIPE_MTE2>();
++
++            in_ready_Beta.set();
++            in_ready_Beta.wait();
++            Exp(gamaLocal, gamaLocal, seqLen * NV_);
++            AscendC::PipeBarrier<PIPE_V>();
++        }
++
++        AscendC::TEventID eventIDS = GetTPipePtr()->FetchEventID(HardEvent::V_S);
++        SetFlag<HardEvent::V_S>(eventIDS);
++        WaitFlag<HardEvent::V_S>(eventIDS);
++    }
++
++    __aicore__ inline void ProcessHead(int32_t seq0, int32_t seq1, uint64_t head_i, uint64_t stateOffset, uint64_t recurrentStateOffset)
++    {
++        qkvcopyFlag_ = false;
++        for (uint64_t v_i = 0; v_i < realV_; v_i += vStep_) {
++            uint32_t curSingleV = v_i + vStep_ > realV_ ? realV_ - v_i : vStep_;
++            uint64_t curStateOffset = ((stateOffset * NV_ + head_i) * realV_ + v_i) * realK_;
++            uint64_t curRecurrentOffset = ((recurrentStateOffset * NV_ + head_i) * realV_ + v_i) * realK_;
++
++            CopyInState(curStateOffset, curRecurrentOffset, curSingleV);
++            for (uint64_t seq_i = seq0; seq_i < seq1; seq_i++) {
++                uint64_t curQKOffset = (seq_i - seq0) * alignK_;
++                uint64_t curVOffset = (seq_i - seq0) * alignV_ + v_i;
++                uint64_t attnOffset = (seq_i * NV_ + head_i) * realV_ + v_i;
++
++                Compute(curSingleV, curQKOffset, curVOffset, seq_i, attnOffset, seq0, seq1, head_i, stateOffset, v_i);
++            }
++        }
++    }
++
++private:
++    GlobalTensor<inType> mixqkvGm_;
++    GlobalTensor<inType> betaGm_;
++    GlobalTensor<float> gamaGm_;
++    GlobalTensor<inType> initStateGm_;
++    GlobalTensor<int32_t> cuSeqlensGm_;
++    GlobalTensor<int32_t> ssmStateIndicesGm_;
++    GlobalTensor<int32_t> numAcceptedTokensGm_;
++    GlobalTensor<outType> finalStateGm_;
++    GlobalTensor<outType> attnOutGm_;
++    GlobalTensor<inType> recurrentStateGm_;
++    GlobalTensor<int32_t> cacheIndicesGm_;
++
++    TPipe *pipe_;
++
++    LocalTensor<inType> qLocal;
++    LocalTensor<inType> kLocal;
++    LocalTensor<inType> vLocal;
++    LocalTensor<float> gamaLocal;
++    LocalTensor<inType> betaLocal;
++    LocalTensor<inType> stateLocal;
++    LocalTensor<outType> stateOutLocal;
++    LocalTensor<outType> attnOutLocal;
++
++    TBuf<TPosition::VECCALC> tmpBuff;
++    TBuf<TPosition::VECCALC> stageBuff;
++
++    LocalTensor<float> qInUb;
++    LocalTensor<float> kInUb;
++    LocalTensor<float> vInUb;
++    LocalTensor<float> qTempInUb;
++    LocalTensor<float> kTempInUb;
++
++    LocalTensor<float> betaInUb;
++    LocalTensor<float> deltaInUb;
++    LocalTensor<float> broadTmpInUb;
++    LocalTensor<float> attnInUb;
++    LocalTensor<float> stateInUb;
++
++    LocalTensor<float> qSumLocal;
++    LocalTensor<float> kSumLocal;
++
++    uint32_t B_;
++    uint32_t S_;
++    uint32_t T_;
++    uint32_t NK_;
++    uint32_t alignK_;
++    uint32_t realK_;
++    uint32_t NV_;
++    uint32_t alignV_;
++    uint32_t realV_;
++    uint32_t vStep_;
++    uint32_t restUbSize_;
++    uint32_t load;
++    uint32_t usedblk;
++    uint32_t avgload;
++
++    uint32_t tokenStrideSize_;
++
++    SEvent<HardEvent::MTE2_V> in_ready_Beta;
++    SEvent<HardEvent::V_MTE2> in_empty_Beta;
++    SEvent<HardEvent::V_MTE3> out_ready_Attn;
++    SEvent<HardEvent::MTE3_V> out_empty_Attn;
++
++
++    bool hasIntermediateState_;
++    bool needRecurrentInit_;
++    bool hasAcceptedTokens_;
++    bool hasGama_;
++    float gama_;
++    float beta_;
++    float scale_;
++    uint64_t blockIdx;
++
++    bool qkvcopyFlag_;
++};
++
++extern "C" __global__ __aicore__ void
++recurrent_gated_delta_rule(
++    GM_ADDR mixqkv,
++    GM_ADDR beta,
++    GM_ADDR initState,
++    GM_ADDR cuSeqlens,
++    GM_ADDR ssmStateIndices,
++    GM_ADDR mtpRecurrentState,
++    GM_ADDR cacheIndices,
++    GM_ADDR g,
++    GM_ADDR gk,
++    GM_ADDR numAcceptedTokens,
++    GM_ADDR out,
++    GM_ADDR stateOut,
++    uint32_t b,
++    uint32_t s,
++    uint32_t nk,
++    uint32_t dk,
++    uint32_t nv,
++    uint32_t dv,
++    bool hasIntermediateState,
++    bool hasAcceptedTokens,
++    bool hasGama,
++    uint32_t vStep,
++    uint32_t ubRestBytes,
++    float scale)
++{
++    KERNEL_TASK_TYPE_DEFAULT(KERNEL_TYPE_AIV_ONLY);
++    TPipe pipe;
++
++    RGDR<bfloat16_t, bfloat16_t> op(
++        b, s, nk, dk, nv, dv, hasIntermediateState,
++        hasAcceptedTokens, hasGama, vStep, ubRestBytes, scale
++    );
++
++    RGDRInitParams initParams{
++        mixqkv,
++        g,
++        beta,
++        initState,
++        cuSeqlens,
++        ssmStateIndices,
++        numAcceptedTokens,
++        out,
++        stateOut,
++        mtpRecurrentState,
++        cacheIndices,
++    };
++
++    op.Init(initParams, &pipe);
++    op.Process();
++}
++
++#endif
+diff --git a/csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h b/csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+new file mode 100644
+index 000000000..89a956a4f
+--- /dev/null
++++ b/csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+@@ -0,0 +1,263 @@
++/**
++ * Copyright (c) 2025 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++#pragma once
++#include "kernel_operator.h"
++
++using namespace AscendC;
++#define PIPE_FIX (pipe_t)10
++
++#define ALLCUBE_READY(iiii, append_to_pipe) CrossCoreSetFlag<0x0, append_to_pipe>(iiii)
++#define ALLCUBE_WAIT(iiii) CrossCoreWaitFlag(iiii)
++#define ALLVEC_READY(iiii, append_to_pipe) CrossCoreSetFlag<0x0, append_to_pipe>(iiii)
++#define ALLVEC_WAIT(iiii) CrossCoreWaitFlag(iiii)
++#define CUBE_READY(iiii, append_to_pipe) CrossCoreSetFlag<0x2, append_to_pipe>(iiii)
++#define WAIT_CUBE(iiii) CrossCoreWaitFlag(iiii)
++#define VEC_READY(iiii, append_to_pipe) CrossCoreSetFlag<0x2, append_to_pipe>(iiii)
++#define WAIT_VEC(iiii) CrossCoreWaitFlag(iiii)
++
++constexpr uint64_t VECTORFULLMASK[2] = {(uint64_t)-1, (uint64_t)-1};
++constexpr int SGL_TWO = 2; // vector per core; dbuff
++constexpr int SGL_THREE = 3;
++constexpr int SGL_FOUR = 4;
++
++constexpr int M_BLK_SIZE = 16;
++constexpr int N_BLK_SIZE = 32;
++constexpr int SGL_BLK_SIZE = 64;
++
++constexpr int MTE_FLOAT = 8;
++constexpr int MTE_HALF = 16;
++constexpr int VEC_HALF = 128;
++
++constexpr int NUM_ELE_PERBLK_FLOAT = 8;
++
++__aicore__ constexpr HardEvent GetHardEventByPipe(pipe_t src, pipe_t dst)
++{
++    if (src == PIPE_MTE2) {
++        if (dst == PIPE_MTE1) {
++            return HardEvent::MTE2_MTE1;
++        } else if (dst == PIPE_V) {
++            return HardEvent::MTE2_V;
++        }
++    } else if (src == PIPE_MTE1) {
++        if (dst == PIPE_MTE2) {
++            return HardEvent::MTE1_MTE2;
++        } else if (dst == PIPE_M) {
++            return HardEvent::MTE1_M;
++        } else if (dst == PIPE_FIX) {
++            return HardEvent::MTE1_FIX;
++        }
++    } else if (src == PIPE_M) {
++        if (dst == PIPE_MTE1) {
++            return HardEvent::M_MTE1;
++        } else if (dst == PIPE_FIX) {
++            return HardEvent::M_FIX;
++        }
++    } else if (src == PIPE_FIX) {
++        if (dst == PIPE_M) {
++            return HardEvent::FIX_M;
++        } else if (dst == PIPE_MTE1) {
++            return HardEvent::FIX_MTE1;
++        }
++    } else if (src == PIPE_V) {
++        if (dst == PIPE_MTE2) {
++            return HardEvent::V_MTE2;
++        } else if (dst == PIPE_MTE3) {
++            return HardEvent::V_MTE3;
++        }
++    } else if (src == PIPE_MTE3) {
++        if (dst == PIPE_V) {
++            return HardEvent::MTE3_V;
++        }
++    }
++}
++
++__aicore__ inline void OccupyMMTE1Events()
++{
++    if ASCEND_IS_AIC {
++        TPipe* pipe_ptr = GetTPipePtr();
++        pipe_ptr->AllocEventID<HardEvent::M_MTE1>();
++        pipe_ptr->AllocEventID<HardEvent::M_MTE1>();
++        pipe_ptr->AllocEventID<HardEvent::M_MTE1>();
++    }
++}
++
++__aicore__ constexpr int Align16B(int x)
++{
++    return (x + (M_BLK_SIZE - 1)) / M_BLK_SIZE * M_BLK_SIZE;
++}
++
++__aicore__ constexpr int Align32B(int x)
++{
++    return (x + (N_BLK_SIZE - 1)) / N_BLK_SIZE * N_BLK_SIZE;
++}
++
++__aicore__ constexpr int Align64B(int x)
++{
++    return (x + (SGL_BLK_SIZE - 1)) / SGL_BLK_SIZE * SGL_BLK_SIZE;
++}
++
++__aicore__ inline int CeilDiv(int a, int b)
++{
++    return (a + b - 1) / b;
++}
++
++template <typename T, typename T1, typename T2>
++__aicore__ inline T1 shiftAddr(T1 base, uint64_t size, T2 &offset)
++{
++    auto res = base + offset;
++    offset += size * sizeof(T);
++    return res;
++}
++
++/* ------------- Tensor ------------- */
++template <TPosition pos, typename T>
++__aicore__ inline void AllocateLocalTensor(LocalTensor<T> &tsr, int len)
++{
++    TBuf<pos> tbuf;
++    TPipe* ptr = GetTPipePtr();
++    ptr->InitBuffer(tbuf, len * sizeof(T));
++    tsr = tbuf.template Get<T>();
++}
++
++/* ------------- Double Buffer ------------- */
++template <typename T, TPosition pos>
++class DBuff {
++public:
++    __aicore__ inline DBuff() {}
++    __aicore__ inline void Init(int len)
++    {
++        TPipe* ptr = GetTPipePtr();
++        ptr->InitBuffer(buf1, len * sizeof(T));
++        ptr->InitBuffer(buf2, len * sizeof(T));
++        tsr1 = buf1.template Get<T>();
++        tsr2 = buf2.template Get<T>();
++    }
++
++    __aicore__ inline LocalTensor<T> get(int i)
++    {
++        if (i % SGL_TWO == 0) {
++            return tsr1;
++        } else {
++            return tsr2;
++        }
++    }
++private:
++    TBuf<pos> buf1, buf2;
++    LocalTensor<T> tsr1, tsr2;
++};
++
++/* ------------- Triple Buffer ------------- */
++template <typename T, TPosition pos>
++class TBuff {
++public:
++    __aicore__ inline TBuff() {}
++    __aicore__ inline void Init(int len)
++    {
++        TPipe* ptr = GetTPipePtr();
++        ptr->InitBuffer(buf1, len * sizeof(T));
++        ptr->InitBuffer(buf2, len * sizeof(T));
++        ptr->InitBuffer(buf3, len * sizeof(T));
++        tsr1 = buf1.template Get<T>();
++        tsr2 = buf2.template Get<T>();
++        tsr3 = buf3.template Get<T>();
++    }
++
++    __aicore__ inline LocalTensor<T> get(int i)
++    {
++        if (i % SGL_THREE == 0) {
++            return tsr1;
++        } else if (i % SGL_THREE == 1) {
++            return tsr2;
++        } else {
++            return tsr3;
++        }
++    }
++private:
++    TBuf<pos> buf1, buf2, buf3;
++    LocalTensor<T> tsr1, tsr2, tsr3;
++};
++
++/* ------------- Events ------------- */
++template <HardEvent hardevent_t>
++class SEvent {
++public:
++    __aicore__ inline SEvent() {}
++    __aicore__ inline void Init()
++    {
++        TPipe* pipe_ptr = GetTPipePtr();
++        id1 = (event_t)pipe_ptr->AllocEventID<hardevent_t>();
++    }
++    __aicore__ inline void wait()
++    {
++        AscendC::WaitFlag<hardevent_t>(id1);
++    }
++    __aicore__ inline void set()
++    {
++        AscendC::SetFlag<hardevent_t>(id1);
++    }
++    __aicore__ inline void setall()
++    {
++        set();
++    }
++    __aicore__ inline void release()
++    {
++        wait();
++    }
++
++private:
++    event_t id1;
++};
++
++template <pipe_t p1, pipe_t p2>
++class DEvent {
++public:
++    __aicore__ inline DEvent() {}
++    __aicore__ inline void Init()
++    {
++        TPipe* pipe_ptr = GetTPipePtr();
++        id1 = (event_t)pipe_ptr->AllocEventID<GetHardEventByPipe(p1, p2)>();
++        id2 = (event_t)pipe_ptr->AllocEventID<GetHardEventByPipe(p1, p2)>();
++    }
++    __aicore__ inline void wait()
++    {
++        if (wait_cnt % SGL_TWO == 0) {
++            wait_flag(p1, p2, id1);
++        } else {
++            wait_flag(p1, p2, id2);
++        }
++        wait_cnt++;
++    }
++    __aicore__ inline void set()
++    {
++        if (set_cnt % SGL_TWO == 0) {
++            set_flag(p1, p2, id1);
++        } else {
++            set_flag(p1, p2, id2);
++        }
++        set_cnt++;
++    }
++    __aicore__ inline void setall()
++    {
++        set();
++        set();
++    }
++    __aicore__ inline void release()
++    {
++        for (int i = wait_cnt; i < set_cnt; ++i) {
++            wait();
++        }
++    }
++
++private:
++    event_t id1, id2;
++    int wait_cnt = 0;
++    int set_cnt = 0;
++};
+diff --git a/include/sgl_kenel_npu_ops.h b/include/sgl_kenel_npu_ops.h
+index e2f5a6804..fb41d711d 100644
+--- a/include/sgl_kenel_npu_ops.h
++++ b/include/sgl_kenel_npu_ops.h
+@@ -98,6 +98,21 @@ void sgemmv_shrink(at::Tensor &x, at::Tensor &weight, at::Tensor &lora_indices,
+                    at::Tensor &seq_len, at::Tensor &lora_ranks,
+                    at::Tensor &lora_scales, at::Tensor &y);
+ 
++at::Tensor recurrent_gated_delta_rule(
++    at::Tensor &mix_qkv,
++    at::Tensor &recurrent_state,
++    at::Tensor &beta,
++    double scale,
++    at::Tensor &actual_seq_lengths,
++    at::Tensor &ssm_state_indices,
++    int64_t nk,
++    int64_t nv,
++    c10::optional<at::Tensor> intermediate_state_opt,
++    c10::optional<at::Tensor> cache_indices_opt,
++    c10::optional<at::Tensor> num_accepted_tokens_opt,
++    c10::optional<at::Tensor> g_opt,
++    c10::optional<at::Tensor> gk_opt);
++
+ #ifdef BUILD_CATLASS_MODULE
+ void catlass_matmul_basic(const at::Tensor &tensor_a,
+                           const at::Tensor &tensor_b, at::Tensor &tensor_c,
+diff --git a/tests/python/sgl_kernel_npu/test_recurrent_gated_delta_rule.py b/tests/python/sgl_kernel_npu/test_recurrent_gated_delta_rule.py
+new file mode 100644
+index 000000000..d8c9afa83
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_recurrent_gated_delta_rule.py
+@@ -0,0 +1,382 @@
++import os
++import time
++import shutil
++import logging
++import numpy as np
++
++import torch
++import torch_npu
++import torchair as tng
++from torchair.configs.compiler_config import CompilerConfig
++from torchair.core.utils import logger
++
++import sgl_kernel_npu
++
++EPSILON_FOR_DIVISION = 1e-9
++# Global Configuration
++_USE_GRAPH = False
++
++if _USE_GRAPH:
++    logger.setLevel(logging.ERROR)
++
++    # Safely remove cache directories instead of using os.system
++    for path in ["kernel_meta/", "/root/atc_data/kernel_cache/"]:
++        if os.path.exists(path):
++            shutil.rmtree(path)
++
++    # "ENABLE_ACLNN" determines if it falls back to aclnn.
++    # true: fallback to aclnn, false: online compilation
++    os.environ["ENABLE_ACLNN"] = "false"
++    config = CompilerConfig()
++    npu_backend = tng.get_npu_backend(compiler_config=config)
++
++
++def verify_result(output, golden):
++    """Verifies if the output matches the golden expected values."""
++    output = output.to(torch.float32).cpu().reshape(-1)
++    golden = golden.to(torch.float32).cpu().reshape(-1)
++
++    different_element_results = np.isclose(
++        output, golden, rtol=2**(-8), atol=2**(-8), equal_nan=True
++    )
++    different_element_indexes = np.where(~different_element_results)[0]
++
++    for index, real_index in enumerate(different_element_indexes):
++        golden_data = golden[real_index]
++        output_data = output[real_index]
++        diff_ratio = abs(output_data - golden_data) / (golden_data + EPSILON_FOR_DIVISION) # Added epsilon to prevent division by zero
++
++        print(
++            f"data index: {real_index:06d}, expected: {golden_data:-.9f}, "
++            f"actual: {output_data:-.9f}, rdiff: {diff_ratio:-.6f}"
++        )
++
++        if index == 10:
++            break
++
++
++def visualize_error_flatline_ansi(output, golden, tolerance=2**(-8), width=100):
++    """Prints an ANSI color-coded visual representation of the error map."""
++    output = output.cpu()
++    golden = golden.cpu()
++    error = torch.abs(output.to(torch.float) - golden.to(torch.float)).flatten().cpu().numpy()
++
++    total_count = len(error)
++    fail_count = np.sum(error > tolerance)
++    max_error = np.max(error)
++
++    step = max(total_count // width, 1)
++    compressed_error = [np.max(error[i:i+step]) for i in range(0, total_count, step)]
++
++    def ansi_block(color_code):
++        return f"\033[{color_code}m  \033[0m"
++
++    print(f"\n?? Flatline Color Error Map (normalized to {width} chars):\n")
++    for e in compressed_error[:width]:
++        if e > tolerance * 10:
++            print(ansi_block("41"), end="")  # Red
++        elif e > tolerance * 2:
++            print(ansi_block("43"), end="")  # Yellow
++        elif e > tolerance:
++            print(ansi_block("42"), end="")  # Green
++        else:
++            print(ansi_block("47"), end="")  # Gray
++    print()
++
++    print("\n?? Summary:")
++    print(f"  ?? Max Error: {max_error:.4e}")
++    print(f"  ?? Failed elements (> {tolerance}): {fail_count}/{total_count} ({(fail_count / total_count) * 100:.2f}%)\n")
++    verify_result(output, golden)
++
++
++class MyModel(torch.nn.Module):
++    """Wrapper module for the recurrent_gated_delta_rule NPU operation."""
++    def __init__(self):
++        super().__init__()
++
++    def forward(self, mix_qkv, recurrent_state, beta=None, scale=None, actual_seq_lengths=None,
++                ssm_state_indices=None, nk=None, nv=None,
++                intermediate_state=None, cache_indices=None,
++                num_accepted_tokens=None, g=None, gk=None):
++
++        return torch.ops.npu.recurrent_gated_delta_rule(
++            mix_qkv,
++            recurrent_state,
++            beta=beta,
++            scale=scale,
++            actual_seq_lengths=actual_seq_lengths,
++            ssm_state_indices=ssm_state_indices,
++            nk=nk,
++            nv=nv,
++            intermediate_state=intermediate_state,
++            cache_indices=cache_indices,
++            num_accepted_tokens=num_accepted_tokens,
++            g=g,
++            gk=gk,
++        )
++
++
++class TestCase:
++    """Class to generate inputs, run golden PyTorch logic, run NPU logic, and compare results."""
++    def __init__(self, b=64, mtp=2, nk=4, nv=8, dk=128, dv=128,
++                 is_continue=True, has_beta=True, has_scale=True, has_g=True, has_gk=False,
++                 has_num_accepted_tokens=True):
++        self.b = b
++        self.mtp = mtp
++        self.nk = nk
++        self.nv = nv
++        self.dk = dk
++        self.dv = dv
++        self.is_continue = is_continue
++        self.has_beta = has_beta
++        self.has_scale = has_scale
++        self.has_g = has_g
++        self.has_gk = has_gk
++        self.has_num_accepted_tokens = has_num_accepted_tokens
++
++        self.max_slots = 65
++        self.mix_qkv = None
++        self.recurrent_state = None
++        self.intermediate_state = None
++        self.cache_indices = None
++        self.be = None
++        self.scale = None
++        self.actual_seq_lengths = None
++        self.ssm_state_indices = None
++        self.num_accepted_tokens = None
++        self.g = None
++        self.gk = None
++        self.out_npu = None
++        self.state_npu = None
++        self.out_golden = None
++        self.state_golden = None
++
++    def __repr__(self):
++        return (f"B={self.b}, MTP={self.mtp}, Nk={self.nk}, Nv={self.nv}, Dk={self.dk}, Dv={self.dv}, "
++                f"is_continue={self.is_continue}, has_beta={self.has_beta}, has_scale={self.has_scale}, "
++                f"has_g={self.has_g}, has_gk={self.has_gk}, has_num_accepted_tokens={self.has_num_accepted_tokens}")
++
++    def generate_input(self):
++        bs = self.b
++        mtp = self.mtp
++        nv = self.nv
++        dv = self.dv
++        dk = self.dk
++        nk = self.nk
++        S = mtp
++
++        def make_mix_qkv(q_tensor, k_tensor, v_tensor):
++            # The dimensions of q, k, v should be [T, nk, dk] and [T, nv, dv]
++            # Flatten the feature dimension
++            q_flat = q_tensor.flatten(start_dim=2)  # [T, nk*dk]
++            k_flat = k_tensor.flatten(start_dim=2)  # [T, nk*dk]
++            v_flat = v_tensor.flatten(start_dim=2)  # [T, nv*dv]
++            # Concatenate
++            return torch.cat([q_flat, k_flat, v_flat], dim=-1)
++
++        if self.is_continue:
++            self.actual_seq_lengths = (torch.ones(bs) * S).npu().to(torch.int32)
++            if mtp > 1:
++                self.intermediate_state = torch.rand((self.max_slots, S, nv, dv, dk), dtype=torch.bfloat16, device='npu')
++
++            self.recurrent_state = torch.rand((self.max_slots, nv, dv, dk), dtype=torch.bfloat16, device='npu')
++
++            v_temp = torch.rand((bs, S, nv, dv), dtype=torch.bfloat16, device='npu')
++            q_temp = torch.rand((bs, S, nk, dk), dtype=torch.bfloat16, device='npu')
++            k_temp = torch.rand((bs, S, nk, dk), dtype=torch.bfloat16, device='npu')
++
++            self.mix_qkv = make_mix_qkv(q_temp, k_temp, v_temp).contiguous()
++
++            self.g = torch.rand((bs, S, nv), dtype=torch.float32, device='npu') * (-1.0)
++            self.be = torch.rand((bs, S, nv), dtype=torch.bfloat16, device='npu')
++
++            cache_indices = torch.randperm(self.max_slots, device='npu')[:bs].to(torch.int32)
++            base_indices = (cache_indices * S).unsqueeze(1)  # shape: (bs, 1)
++            offsets = torch.arange(S, device='npu', dtype=torch.int32)  # shape: (S,)
++
++            self.ssm_state_indices = (base_indices + offsets).contiguous()
++            if mtp > 1:
++                self.cache_indices = cache_indices
++
++            self.scale = dk ** -0.5
++            self.num_accepted_tokens = (torch.randint(1, mtp + 1, (bs,)).npu()).to(torch.int32)
++        else:
++            raise NotImplementedError(
++                    "Initialization for is_continue=False is not defined. "
++                    "The 'recurrent_gated_delta_rule' operator currently only supports continuous input tensors."
++                )
++
++        self.be = self.be if self.has_beta else None
++        self.scale = self.scale if self.has_scale else None
++        self.num_accepted_tokens = self.num_accepted_tokens if self.has_num_accepted_tokens else None
++        self.g = self.g if self.has_g else None
++        self.gk = self.gk if self.has_gk else None
++
++    def run_golden(self):
++        nk, dk, nv, dv = self.nk, self.dk, self.nv, self.dv
++        dim_q = nk * dk
++        dim_k = nk * dk
++        dim_v = nv * dv
++        B, Seq = self.mix_qkv.shape[0], self.mix_qkv.shape[1]
++        T = B * Seq
++        mix_qkv_fp32 = self.mix_qkv.to(torch.float32)
++        mix_qkv_flat = mix_qkv_fp32.view(T, -1)
++
++        q_flat, k_flat, v_flat = torch.split(mix_qkv_flat, [dim_q, dim_k, dim_v], dim=-1)
++
++        # Reshape back to the original shapes required by the logic
++        q = q_flat.view(T, nk, dk)  # [B, S, nk, dk]
++        k = k_flat.view(T, nk, dk)  # [B, S, nk, dk]
++        v = v_flat.view(T, nv, dv)  # [B, S, nv, dv]
++
++        q = torch.nn.functional.normalize(q, p=2, dim=-1)
++        k = torch.nn.functional.normalize(k, p=2, dim=-1)
++
++        scale = self.scale
++        recurrent_state = self.recurrent_state.clone()
++
++        if self.intermediate_state is not None:
++            intermediate_state = self.intermediate_state.clone()
++            cache_indices = self.cache_indices
++
++            intermediate_state[cache_indices, 0] = recurrent_state[cache_indices]
++            ssm_state = intermediate_state.view(-1, nv, dv, dk)
++        else:
++            ssm_state = recurrent_state
++
++        initial_state = ssm_state.to(torch.float32)
++        actual_seq_lengths = self.actual_seq_lengths
++        num_accepted_tokens = self.num_accepted_tokens
++        ssm_state_indices = self.ssm_state_indices.view(-1)
++
++        T, n_heads_v, Dv = v.shape
++        n_heads_qk = q.shape[-2]
++
++        g = torch.ones(T, n_heads_v).to(torch.float32) if self.g is None else self.g.to(torch.float32).reshape(T, n_heads_v).exp()
++        be = torch.ones(T, n_heads_v).to(torch.float32) if self.be is None else self.be.to(torch.float32).view(T, n_heads_v)
++        beta = be.sigmoid()
++
++        o = torch.empty_like(v).to(torch.float32)
++        if scale is None:
++            scale = k.shape[-1] ** -0.5
++        q = q * scale
++
++        seq_start = 0
++        for i in range(len(actual_seq_lengths)):
++            if num_accepted_tokens is None:
++                init_state = initial_state[ssm_state_indices[seq_start]]
++            else:
++                init_state = initial_state[ssm_state_indices[seq_start + num_accepted_tokens[i] - 1]]
++
++            for head_id in range(n_heads_v):
++                S = init_state[head_id]  # [Dv, Dk]
++                for slot_id in range(seq_start, seq_start + actual_seq_lengths[i]):
++                    q_i = q[slot_id][head_id // (n_heads_v // n_heads_qk)]  # [Dk]
++                    k_i = k[slot_id][head_id // (n_heads_v // n_heads_qk)]  # [Dk]
++                    v_i = v[slot_id][head_id]  # [Dv]
++                    alpha_i = g[slot_id][head_id]
++                    beta_i = beta[slot_id][head_id]
++
++                    S = S * alpha_i
++                    x = (S * k_i.unsqueeze(-2)).sum(dim=-1)
++                    y = (v_i - x) * beta_i  # [Dv]
++                    S_ = y[:, None] * k_i[None, :]  # [Dv, Dk]
++                    S = S + S_  # [Dv, Dk]
++
++                    initial_state[ssm_state_indices[slot_id]][head_id] = S
++                    o[slot_id][head_id] = ((S * q_i.unsqueeze(-2)).sum(dim=-1))  # [Dv]
++
++            seq_start += actual_seq_lengths[i]
++
++        self.out_golden = o.view(B, Seq, nv, dv)
++        self.state_golden = initial_state.view(self.max_slots * Seq, nv, dv, dk)
++
++    def run_npu(self):
++        model = MyModel().npu()
++        if _USE_GRAPH:
++            model = torch.compile(model, backend=npu_backend, dynamic=False)
++
++        intermediate_state = None
++        cache_indices = None
++
++        if self.mtp > 1:
++            intermediate_state = self.intermediate_state.clone()
++            intermediate_state = intermediate_state.view(-1, self.nv, self.dv, self.dk)
++            cache_indices = self.cache_indices
++
++        initial_state = self.recurrent_state.clone()
++        o = model(
++            self.mix_qkv, initial_state,
++            beta=self.be, scale=self.scale, actual_seq_lengths=self.actual_seq_lengths,
++            ssm_state_indices=self.ssm_state_indices, nk=self.nk, nv=self.nv,
++            intermediate_state=intermediate_state, cache_indices=cache_indices,
++            num_accepted_tokens=self.num_accepted_tokens, g=self.g, gk=self.gk
++        )
++
++        self.out_npu = o.to(torch.float32)
++        if self.mtp > 1:
++            self.state_npu = intermediate_state.to(torch.float32)
++        else:
++            self.state_npu = initial_state.to(torch.float32)
++
++    def compare(self):
++        eps = 2**(-8)
++        is_close_o = torch.allclose(self.out_golden, self.out_npu, rtol=eps, atol=eps, equal_nan=False)
++        is_close_state = torch.allclose(self.state_golden, self.state_npu, rtol=eps, atol=eps, equal_nan=False)
++
++        if is_close_o and is_close_state:
++            print(f"\t{eps=}: passed.")
++            return True
++        else:
++            print(f"\t{eps=}: {is_close_o=}, {is_close_state=}")
++            visualize_error_flatline_ansi(self.out_npu, self.out_golden)
++            visualize_error_flatline_ansi(self.state_npu, self.state_golden)
++            return False
++
++
++def compatible_cases():
++    """Defines the matrix of test cases to be executed."""
++    res = []
++    # format: {'shape': (b, mtp, dk, dv, nk, nv), 'is_cont': bool, 'option': (beta, scale, g, num_accepted_tokens, gk)}
++    res.append({'shape': (2, 1, 128, 128, 8, 16), 'is_cont': True, 'option': (True, True, True, True, False)})
++    res.append({'shape': (64, 2, 128, 128, 8, 16), 'is_cont': True, 'option': (True, True, True, True, False)})
++    res.append({'shape': (32, 8, 128, 128, 8, 16), 'is_cont': True, 'option': (True, True, True, True, False)})
++    res.append({'shape': (32, 8, 128, 128, 16, 32), 'is_cont': True, 'option': (True, True, True, True, False)})
++
++    return res, 'compatible'
++
++
++def run_cases(cases):
++    """Executes the provided test cases."""
++    print("=" * 50)
++    print(f"{cases[1]} cases, total: {len(cases[0])}, start time: {time.time()}")
++    t0 = time.time()
++    fault_count = 0
++
++    for case in cases[0]:
++        b, mtp, dk, dv, nk, nv = case['shape']
++        is_cont = case['is_cont']
++        beta, scale, g, n_acc_tokens, gk = case['option']
++
++        tc = TestCase(
++            b=b, mtp=mtp, nk=nk, nv=nv, dk=dk, dv=dv, is_continue=is_cont,
++            has_g=g, has_scale=scale, has_beta=beta, has_gk=gk, has_num_accepted_tokens=n_acc_tokens
++        )
++
++        print(f"{tc}")
++        tc.generate_input()
++        tc.run_golden()
++        tc.run_npu()
++
++        if not tc.compare():
++            fault_count += 1
++
++    print(f"{cases[1]} cases time cost: {time.time() - t0:.4f}s, total: {len(cases[0])}, failed: {fault_count}")
++
++
++if __name__ == "__main__":
++    # Specify NPU device; default to 0 for general environments, switch to 6 if strictly required
++    target_device = "npu:0"
++    torch.npu.set_device(target_device)
++
++    run_cases(compatible_cases())
+\ No newline at end of file

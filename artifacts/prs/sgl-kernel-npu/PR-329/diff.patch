@@ -1,0 +1,191 @@
+diff --git a/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp b/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+index e6016938a..2885d016e 100644
+--- a/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
++++ b/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+@@ -36,15 +36,15 @@ namespace {
+ class Mc2TilingUtils
+ {
+ public:
+-#define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
+     static uint64_t GetMaxWindowSize(const char *nodeName)
+     {
+         uint16_t defaultWindowSize = 200;
+-        if (getenv(HCCL_BUFFSIZE) == nullptr) {
++        const char *hcclBuffSize = getenv("DEEPEP_HCCL_BUFFSIZE") == nullptr ? "HCCL_BUFFSIZE" : "DEEPEP_HCCL_BUFFSIZE";
++        if (getenv(hcclBuffSize) == nullptr) {
+             OPS_LOG_D(nodeName, "Env HCCL_BUFFSIZE don't set");
+         } else {
+             try {
+-                std::string envStr(getenv(HCCL_BUFFSIZE));
++                std::string envStr(getenv(hcclBuffSize));
+                 defaultWindowSize = std::stoi(envStr);
+             } catch (...) {
+                 OPS_LOG_E(nodeName, "Unknown Exception encountered when parser env HCCL_BUFFERSIZE");
+diff --git a/csrc/deepep/ops/op_host/mc2_tiling_utils.h b/csrc/deepep/ops/op_host/mc2_tiling_utils.h
+index 7867d8619..958d46719 100644
+--- a/csrc/deepep/ops/op_host/mc2_tiling_utils.h
++++ b/csrc/deepep/ops/op_host/mc2_tiling_utils.h
+@@ -12,15 +12,15 @@
+ class Mc2TilingUtils
+ {
+ public:
+-#define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
+     static uint64_t GetMaxWindowSize()
+     {
+         uint16_t defaultWindowSize = 200;
+-        if (getenv(HCCL_BUFFSIZE) == nullptr) {
++        const char *hcclBuffSize = getenv("DEEPEP_HCCL_BUFFSIZE") == nullptr ? "HCCL_BUFFSIZE" : "DEEPEP_HCCL_BUFFSIZE";
++        if (getenv(hcclBuffSize) == nullptr) {
+             OP_LOGD("", "Env HCCL_BUFFSIZE don't set");
+         } else {
+             try {
+-                std::string envStr(getenv(HCCL_BUFFSIZE));
++                std::string envStr(getenv(hcclBuffSize));
+                 defaultWindowSize = std::stoi(envStr);
+             } catch (const std::invalid_argument &ia) {
+                 OP_LOGE("", "Invalid argument when parsing HCCL_BUFFSIZE: %s", ia.what());
+diff --git a/csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc b/csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
+index 639ba10fa..a2018d1d8 100644
+--- a/csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
++++ b/csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
+@@ -29,18 +29,20 @@ namespace {
+ class Mc2TilingUtils
+ {
+ public:
+-#define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
+     static uint64_t GetMaxWindowSize()
+     {
+         uint16_t defaultWindowSize = 200;
+-        if (getenv(HCCL_BUFFSIZE) == nullptr) {
++        const char *hcclBuffSize = getenv("DEEPEP_HCCL_BUFFSIZE") == nullptr ? "HCCL_BUFFSIZE" : "DEEPEP_HCCL_BUFFSIZE";
++        if (getenv(hcclBuffSize) == nullptr) {
+             OP_LOGD("", "Env HCCL_BUFFSIZE don't set");
+         } else {
+             try {
+-                std::string envStr(getenv(HCCL_BUFFSIZE));
++                std::string envStr(getenv(hcclBuffSize));
+                 defaultWindowSize = std::stoi(envStr);
+-            } catch (...) {
+-                OP_LOGE("", "Unknown Exception encountered when parser env HCCL_BUFFERSIZE");
++            } catch (const std::invalid_argument &ia) {
++                OP_LOGE("", "Invalid argument when parsing HCCL_BUFFSIZE: %s", ia.what());
++            } catch (const std::out_of_range &oor) {
++                OP_LOGE("", "Out of range when parsing HCCL_BUFFSIZE: %s", oor.what());
+             }
+         }
+         const uint64_t maxWindowSize = static_cast<uint64_t>(defaultWindowSize) * 1024UL * 1024UL;
+diff --git a/csrc/deepep/ops2/op_host/cam_moe_dispatch_normal_tiling.cc b/csrc/deepep/ops2/op_host/cam_moe_dispatch_normal_tiling.cc
+index 0063b627a..cb55957f8 100644
+--- a/csrc/deepep/ops2/op_host/cam_moe_dispatch_normal_tiling.cc
++++ b/csrc/deepep/ops2/op_host/cam_moe_dispatch_normal_tiling.cc
+@@ -28,15 +28,15 @@ namespace {
+ class Mc2TilingUtils
+ {
+ public:
+-#define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
+     static uint64_t GetMaxWindowSize()
+     {
+         uint16_t defaultWindowSize = 200;
+-        if (getenv(HCCL_BUFFSIZE) == nullptr) {
++        const char *hcclBuffSize = getenv("DEEPEP_HCCL_BUFFSIZE") == nullptr ? "HCCL_BUFFSIZE" : "DEEPEP_HCCL_BUFFSIZE";
++        if (getenv(hcclBuffSize) == nullptr) {
+             OP_LOGD("", "Env HCCL_BUFFSIZE don't set");
+         } else {
+             try {
+-                std::string envStr(getenv(HCCL_BUFFSIZE));
++                std::string envStr(getenv(hcclBuffSize));
+                 defaultWindowSize = std::stoi(envStr);
+             } catch (const std::invalid_argument &ia) {
+                 OP_LOGE("", "Invalid argument when parsing HCCL_BUFFSIZE: %s", ia.what());
+diff --git a/csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp b/csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
+index 433f3f895..3b63d5fca 100644
+--- a/csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
++++ b/csrc/deepep/ops2/op_host/dispatch_normal_a2_tiling.cpp
+@@ -33,15 +33,15 @@ namespace {
+ class Mc2TilingUtils
+ {
+ public:
+-#define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
+     static uint64_t GetMaxWindowSize()
+     {
+         uint16_t defaultWindowSize = 200;
+-        if (getenv(HCCL_BUFFSIZE) == nullptr) {
++        const char *hcclBuffSize = getenv("DEEPEP_HCCL_BUFFSIZE") == nullptr ? "HCCL_BUFFSIZE" : "DEEPEP_HCCL_BUFFSIZE";
++        if (getenv(hcclBuffSize) == nullptr) {
+             OP_LOGD("", "Env HCCL_BUFFSIZE don't set");
+         } else {
+             try {
+-                std::string envStr(getenv(HCCL_BUFFSIZE));
++                std::string envStr(getenv(hcclBuffSize));
+                 defaultWindowSize = std::stoi(envStr);
+             } catch (const std::invalid_argument &ia) {
+                 OP_LOGE("", "Invalid argument when parsing HCCL_BUFFSIZE: %s", ia.what());
+diff --git a/csrc/deepep/ops2/op_host/mc2_tiling_utils.h b/csrc/deepep/ops2/op_host/mc2_tiling_utils.h
+index 6004ac4b0..bd43f0d28 100644
+--- a/csrc/deepep/ops2/op_host/mc2_tiling_utils.h
++++ b/csrc/deepep/ops2/op_host/mc2_tiling_utils.h
+@@ -36,15 +36,15 @@ constexpr uint32_t AICPU_BLOCK_DIM_A2 = 6U;
+ class Mc2TilingUtils
+ {
+ public:
+-#define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
+     static uint64_t GetMaxWindowSize()
+     {
+         uint16_t defaultWindowSize = 200;
+-        if (getenv(HCCL_BUFFSIZE) == nullptr) {
++        const char *hcclBuffSize = getenv("DEEPEP_HCCL_BUFFSIZE") == nullptr ? "HCCL_BUFFSIZE" : "DEEPEP_HCCL_BUFFSIZE";
++        if (getenv(hcclBuffSize) == nullptr) {
+             OP_LOGD("", "Env HCCL_BUFFSIZE don't set");
+         } else {
+             try {
+-                std::string envStr(getenv(HCCL_BUFFSIZE));
++                std::string envStr(getenv(hcclBuffSize));
+                 defaultWindowSize = std::stoi(envStr);
+             } catch (const std::invalid_argument &ia) {
+                 OP_LOGE("", "Invalid argument when parsing HCCL_BUFFSIZE: %s", ia.what());
+diff --git a/csrc/deepep/ops2/op_host/notify_dispatch_tiling.cc b/csrc/deepep/ops2/op_host/notify_dispatch_tiling.cc
+index 29cc5d89b..bdd2234d7 100644
+--- a/csrc/deepep/ops2/op_host/notify_dispatch_tiling.cc
++++ b/csrc/deepep/ops2/op_host/notify_dispatch_tiling.cc
+@@ -31,15 +31,15 @@ namespace {
+ class Mc2TilingUtils
+ {
+ public:
+-#define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
+     static uint64_t GetMaxWindowSize()
+     {
+         uint16_t defaultWindowSize = 200;
+-        if (getenv(HCCL_BUFFSIZE) == nullptr) {
++        const char *hcclBuffSize = getenv("DEEPEP_HCCL_BUFFSIZE") == nullptr ? "HCCL_BUFFSIZE" : "DEEPEP_HCCL_BUFFSIZE";
++        if (getenv(hcclBuffSize) == nullptr) {
+             OP_LOGD("", "Env HCCL_BUFFSIZE don't set");
+         } else {
+             try {
+-                std::string envStr(getenv(HCCL_BUFFSIZE));
++                std::string envStr(getenv(hcclBuffSize));
+                 defaultWindowSize = std::stoi(envStr);
+             } catch (const std::invalid_argument &ia) {
+                 OP_LOGE("", "Invalid argument when parsing HCCL_BUFFSIZE: %s", ia.what());
+diff --git a/csrc/deepep/ops2/op_host/notify_dispatch_tiling_a2.cc b/csrc/deepep/ops2/op_host/notify_dispatch_tiling_a2.cc
+index a19420b53..3a4bcbdad 100644
+--- a/csrc/deepep/ops2/op_host/notify_dispatch_tiling_a2.cc
++++ b/csrc/deepep/ops2/op_host/notify_dispatch_tiling_a2.cc
+@@ -30,15 +30,15 @@ namespace {
+ class Mc2TilingUtils
+ {
+ public:
+-#define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
+     static uint64_t GetMaxWindowSize()
+     {
+         uint16_t defaultWindowSize = 200;
+-        if (getenv(HCCL_BUFFSIZE) == nullptr) {
++        const char *hcclBuffSize = getenv("DEEPEP_HCCL_BUFFSIZE") == nullptr ? "HCCL_BUFFSIZE" : "DEEPEP_HCCL_BUFFSIZE";
++        if (getenv(hcclBuffSize) == nullptr) {
+             OP_LOGD("", "Env HCCL_BUFFSIZE don't set");
+         } else {
+             try {
+-                std::string envStr(getenv(HCCL_BUFFSIZE));
++                std::string envStr(getenv(hcclBuffSize));
+                 defaultWindowSize = std::stoi(envStr);
+             } catch (const std::invalid_argument &ia) {
+                 OP_LOGE("", "Invalid argument when parsing HCCL_BUFFSIZE: %s", ia.what());

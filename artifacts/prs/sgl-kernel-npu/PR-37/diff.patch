@@ -1,0 +1,1598 @@
+diff --git a/csrc/deepep/ops/op_host/notify_dispatch.cpp b/csrc/deepep/ops/op_host/notify_dispatch.cpp
+new file mode 100644
+index 000000000..b0e09b3fe
+--- /dev/null
++++ b/csrc/deepep/ops/op_host/notify_dispatch.cpp
+@@ -0,0 +1,49 @@
++#include "register/op_def_registry.h"
++
++namespace ops {
++class NotifyDispatch : public OpDef {
++public:
++    explicit NotifyDispatch(const char *name) : OpDef(name)
++    {
++        this->Input("sendData")
++            .ParamType(REQUIRED)
++            .DataType({ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT, ge::DT_INT32})
++            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
++            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
++        this->Output("recvData")
++            .ParamType(REQUIRED)
++            .DataType({ge::DT_FLOAT16, ge::DT_BF16, ge::DT_FLOAT, ge::DT_INT32})
++            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
++            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND});
++
++        this->Attr("sendCount").Int();
++        this->Attr("comm_group").String();
++        this->Attr("rank_size").Int();
++        this->Attr("rank_id").Int();
++        this->Attr("local_rank_size").Int();
++        this->Attr("local_rank_id").Int();
++
++        OpAICoreConfig aicore_config_base;
++        aicore_config_base.DynamicCompileStaticFlag(true)
++            .DynamicFormatFlag(true)
++            .DynamicRankSupportFlag(true)
++            .DynamicShapeSupportFlag(true)
++            .NeedCheckSupportFlag(false)
++            .PrecisionReduceFlag(true)
++            .ExtendCfgInfo("aclnnSupport.value", "support_aclnn")
++            .ExtendCfgInfo("multiKernelSupportDynamicGraph.value", "multi_kernel");
++
++        OpAICoreConfig aicore_config_A2 = aicore_config_base;
++        aicore_config_A2.ExtendCfgInfo("jitCompile.flag", "static_false");
++
++        OpAICoreConfig aicore_config = aicore_config_base;
++        aicore_config.ExtendCfgInfo("jitCompile.flag", "static_true");
++
++        this->AICore().AddConfig("ascend910_93", aicore_config);
++        this->AICore().AddConfig("ascend910b", aicore_config_A2);
++        this->MC2().HcclGroup("comm_group");
++    }
++};
++
++OP_ADD(NotifyDispatch);
++}  // namespace ops
+diff --git a/csrc/deepep/ops/op_host/notify_dispatch_tiling.cc b/csrc/deepep/ops/op_host/notify_dispatch_tiling.cc
+new file mode 100644
+index 000000000..c312d3745
+--- /dev/null
++++ b/csrc/deepep/ops/op_host/notify_dispatch_tiling.cc
+@@ -0,0 +1,267 @@
++#include <queue>
++#include <vector>
++#include <dlfcn.h>
++#include <fcntl.h>
++#include <cstdio>
++#include <cstdlib>
++#include <sys/stat.h>
++#include <sys/types.h>
++#include <unistd.h>
++#include <cmath>
++#include <cstdint>
++#include <string>
++
++#include "error_log.h"
++#include "graph/utils/type_utils.h"
++#include "register/op_def_registry.h"
++#include "../op_kernel/notify_dispatch_tiling.h"
++#include "tiling/platform/platform_ascendc.h"
++#include "tiling/hccl/hccl_tiling.h"
++#include "experiment/platform/platform/platform_infos_def.h"
++
++using namespace ge;
++namespace {
++class Mc2TilingUtils {
++public:
++#define HCCL_BUFFSIZE "HCCL_BUFFSIZE"
++    static uint64_t GetMaxWindowSize()
++    {
++        uint16_t defaultWindowSize = 200;
++        if (getenv(HCCL_BUFFSIZE) == nullptr) {
++            OP_LOGD("", "Env HCCL_BUFFSIZE don't set");
++        } else {
++            try {
++                std::string envStr(getenv(HCCL_BUFFSIZE));
++                defaultWindowSize = std::stoi(envStr);
++            } catch (const std::invalid_argument &ia) {
++                OP_LOGE("", "Invalid argument when parsing HCCL_BUFFSIZE: %s", ia.what());
++            } catch (const std::out_of_range &oor) {
++                OP_LOGE("", "Out of range when parsing HCCL_BUFFSIZE: %s", oor.what());
++            }
++        }
++        const uint64_t maxWindowSize = static_cast<uint64_t>(defaultWindowSize) * 1024UL * 1024UL;
++        OP_LOGI("", "Get maxWindowSize is %lu", maxWindowSize);
++        return maxWindowSize;
++    }
++};
++constexpr uint32_t OP_TYPE_ALL_TO_ALL = 8U;  // numeric representation of AlltoAll
++
++constexpr uint32_t INPUT_SEND_DATA_INDEX = 0;
++
++constexpr uint32_t ATTR_SEND_COUNT_INDEX = 0;
++constexpr uint32_t ATTR_COMM_GROUP_INDEX = 1;
++constexpr uint32_t ATTR_RANK_SIZE_INDEX = 2;
++constexpr uint32_t ATTR_RANK_ID_INDEX = 3;
++constexpr uint32_t ATTR_LOCAL_RANK_SIZE_INDEX = 4;
++constexpr uint32_t ATTR_LOCAL_RANK_ID_INDEX = 5;
++
++const size_t MAX_GROUP_NAME_LENGTH = 128UL;
++const int64_t MAX_COMM_WORLD_SIZE = 384;
++
++constexpr uint32_t SYSTEM_NEED_WORKSPACE = 16 * 1024 * 1024;
++constexpr uint32_t KERNEL_USE_WORKSPACE = 1 * 1024 * 1024;
++constexpr uint32_t KERNEL_A2_ARG_SIZE = 1 * 1024 * 1024;
++constexpr int32_t HCCL_BUFFER_SIZE_DEFAULT = 200 * 1024 * 1024;  // Bytes
++constexpr uint64_t MB_SIZE = 1024UL * 1024UL;
++
++constexpr static int TILING_KEY_FLOAT16 = 20;
++constexpr static int TILING_KEY_BFLOAT16 = 21;
++constexpr static int TILING_KEY_FLOAT = 22;
++constexpr static int TILING_KEY_INT = 23;
++constexpr static int TILING_KEY_A2_TYPE = 100;
++
++constexpr static int ALL_TO_ALL_CORE_NUM = 32;
++}  // namespace
++
++namespace optiling {
++static void PrintTilingDataInfo(const char *nodeName, NotifyDispatchTilingData &tilingData)
++{
++    OP_LOGD(nodeName, "rankSize is %u.", tilingData.notifyDispatchInfo.rankSize);
++    OP_LOGD(nodeName, "rankId is %u.", tilingData.notifyDispatchInfo.rankId);
++    OP_LOGD(nodeName, "localRankSize is %u.", tilingData.notifyDispatchInfo.localRankSize);
++    OP_LOGD(nodeName, "localRankId is %u.", tilingData.notifyDispatchInfo.localRankId);
++    OP_LOGD(nodeName, "sendCount is %u.", tilingData.notifyDispatchInfo.sendCount);
++    OP_LOGD(nodeName, "aivNum is %u.", tilingData.notifyDispatchInfo.aivNum);
++    OP_LOGD(nodeName, "totalUbSize is %lu.", tilingData.notifyDispatchInfo.totalUbSize);
++}
++
++static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, const char *nodeName,
++    NotifyDispatchTilingData &tilingData, std::string &commGroup)
++{
++    auto attrs = context->GetAttrs();
++    OP_TILING_CHECK(attrs == nullptr, OP_LOGE(nodeName, "attrs is nullptr."), return ge::GRAPH_FAILED);
++
++    auto sendCountPtr = attrs->GetAttrPointer<int64_t>(ATTR_SEND_COUNT_INDEX);
++    auto commGroupPtr = attrs->GetAttrPointer<char>(static_cast<int>(ATTR_COMM_GROUP_INDEX));
++    auto rankSizePtr = attrs->GetAttrPointer<int64_t>(ATTR_RANK_SIZE_INDEX);
++    auto rankIdPtr = attrs->GetAttrPointer<int64_t>(ATTR_RANK_ID_INDEX);
++    auto localRankSizePtr = attrs->GetAttrPointer<int64_t>(ATTR_LOCAL_RANK_SIZE_INDEX);
++    auto localRankIdPtr = attrs->GetAttrPointer<int64_t>(ATTR_LOCAL_RANK_ID_INDEX);
++
++    OP_TILING_CHECK((commGroupPtr == nullptr) || (strnlen(commGroupPtr, MAX_GROUP_NAME_LENGTH) == 0) ||
++                        (strnlen(commGroupPtr, MAX_GROUP_NAME_LENGTH) == MAX_GROUP_NAME_LENGTH),
++        OP_LOGE(nodeName, "commGroupPtr is null."),
++        return ge::GRAPH_FAILED);
++    OP_TILING_CHECK(sendCountPtr == nullptr, OP_LOGE(nodeName, "sendCountPtr is null."), return ge::GRAPH_FAILED);
++    OP_TILING_CHECK(rankSizePtr == nullptr, OP_LOGE(nodeName, "rankSizePtr is null."), return ge::GRAPH_FAILED);
++    OP_TILING_CHECK(rankIdPtr == nullptr, OP_LOGE(nodeName, "rankIdPtr is null."), return ge::GRAPH_FAILED);
++    OP_TILING_CHECK(
++        localRankSizePtr == nullptr, OP_LOGE(nodeName, "localRankSizePtr is null."), return ge::GRAPH_FAILED);
++    OP_TILING_CHECK(localRankIdPtr == nullptr, OP_LOGE(nodeName, "localRankIdPtr is null."), return ge::GRAPH_FAILED);
++
++    OP_TILING_CHECK((*rankSizePtr <= 0) || (*rankSizePtr > MAX_COMM_WORLD_SIZE),
++        OP_LOGE(nodeName,
++            "rankSize is invalid, only support (0, %ld], but got rankSize=%ld.",
++            MAX_COMM_WORLD_SIZE,
++            *rankSizePtr),
++        return ge::GRAPH_FAILED);
++    OP_TILING_CHECK((*rankIdPtr < 0) || (*rankIdPtr >= *rankSizePtr),
++        OP_LOGE(nodeName, "rankId is invalid, only support [0, %ld), but got rankId=%ld.", *rankSizePtr, *rankIdPtr),
++        return ge::GRAPH_FAILED);
++    OP_TILING_CHECK((*sendCountPtr <= 0),
++        OP_LOGE(nodeName, "sendCount is invalid, only support > 0, but got sendCount=%ld.", *sendCountPtr),
++        return ge::GRAPH_FAILED);
++
++    commGroup = std::string(commGroupPtr);
++    tilingData.notifyDispatchInfo.rankSize = static_cast<uint32_t>(*rankSizePtr);
++    tilingData.notifyDispatchInfo.rankId = static_cast<uint32_t>(*rankIdPtr);
++    tilingData.notifyDispatchInfo.localRankSize = static_cast<uint32_t>(*localRankSizePtr);
++    tilingData.notifyDispatchInfo.localRankId = static_cast<uint32_t>(*localRankIdPtr);
++    tilingData.notifyDispatchInfo.sendCount = static_cast<uint32_t>(*sendCountPtr);
++
++    return ge::GRAPH_SUCCESS;
++}
++
++static void SetHcommCfg(const gert::TilingContext *context,
++    NotifyDispatchTilingData *tiling, const std::string commGroup)
++{
++    const char *nodeName = context->GetNodeName();
++    OP_LOGD(nodeName, "NotifyDispatch commGroup = %s", commGroup.c_str());
++    uint32_t opType1 = OP_TYPE_ALL_TO_ALL;
++    std::string algConfigAllToAllStr = "AlltoAll=level0:fullmesh;level1:pairwise";
++
++    AscendC::Mc2CcTilingConfig mc2CcTilingConfig(commGroup, opType1, algConfigAllToAllStr);
++    mc2CcTilingConfig.GetTiling(tiling->mc2InitTiling);
++    mc2CcTilingConfig.GetTiling(tiling->mc2CcTiling1);
++}
++
++static ge::graphStatus SetWorkSpace(gert::TilingContext *context, const char *nodeName)
++{
++    size_t *workSpaces = context->GetWorkspaceSizes(1);
++    OP_TILING_CHECK(workSpaces == nullptr, OP_LOGE(nodeName, "workSpaces is nullptr."), return ge::GRAPH_FAILED);
++    workSpaces[0] = SYSTEM_NEED_WORKSPACE + KERNEL_USE_WORKSPACE + KERNEL_A2_ARG_SIZE;
++    return ge::GRAPH_SUCCESS;
++}
++
++static bool CheckTensorDataType(
++    gert::TilingContext *context, const char *nodeName)
++{
++    auto inputData = context->GetInputDesc(INPUT_SEND_DATA_INDEX);
++    OP_TILING_CHECK(inputData == nullptr, OP_LOGE(nodeName, "sendData is null."), return false);
++    OP_TILING_CHECK((inputData->GetDataType() != ge::DT_BF16) && (inputData->GetDataType() != ge::DT_FLOAT16) &&
++                        (inputData->GetDataType() != ge::DT_FLOAT) && (inputData->GetDataType() != ge::DT_INT32),
++        OP_LOGE(nodeName,
++            "x datatype is invalid, datatype should be bf16 or float16 or float or int, but is %d.",
++            static_cast<ge::DataType>(inputData->GetDataType())),
++        return false);
++    uint64_t dataSize;
++    if ((inputData->GetDataType() == ge::DT_BF16) || (inputData->GetDataType() == ge::DT_FLOAT16)) {
++        dataSize = 2;
++    } else {
++        dataSize = 4;
++    }
++    // Verify the size of the win area
++    NotifyDispatchTilingData *tilingData = context->GetTilingData<NotifyDispatchTilingData>();
++    uint64_t maxWindowSize = Mc2TilingUtils::GetMaxWindowSize();
++    uint64_t actualSize = dataSize * tilingData->notifyDispatchInfo.sendCount;
++    if (actualSize > maxWindowSize) {
++        OP_LOGE(nodeName, "HCCL_BUFFSIZE is too SMALL, should larger than %lu", actualSize);
++        return false;
++    }
++    return true;
++}
++
++static ge::graphStatus TilingCheckTensor(
++    gert::TilingContext *context, const char *nodeName)
++{
++    OP_TILING_CHECK(!CheckTensorDataType(context, nodeName),
++        OP_LOGE(nodeName, "params dataType is invalid."),
++        return ge::GRAPH_FAILED);
++
++    return ge::GRAPH_SUCCESS;
++}
++
++static ge::graphStatus NotifyDispatchTilingFuncImpl(gert::TilingContext *context)
++{
++    const char *nodeName = context->GetNodeName();
++    NotifyDispatchTilingData *tilingData = context->GetTilingData<NotifyDispatchTilingData>();
++    OP_TILING_CHECK(tilingData == nullptr, OP_LOGE(nodeName, "tilingData is nullptr."), return ge::GRAPH_FAILED);
++    std::string commGroup = "";
++    OP_LOGI(nodeName, "Enter NotifyDispatch tiling check func.");
++
++    OP_TILING_CHECK(GetAttrAndSetTilingData(context, nodeName, *tilingData, commGroup) != ge::GRAPH_SUCCESS,
++        OP_LOGE(nodeName, "Get attr and set tiling data failed."),
++        return ge::GRAPH_FAILED);
++
++    OP_TILING_CHECK(TilingCheckTensor(context, nodeName) != ge::GRAPH_SUCCESS,
++        OP_LOGE(nodeName, "Tiling check param failed."),
++        return ge::GRAPH_FAILED);
++
++    OP_TILING_CHECK(SetWorkSpace(context, nodeName) != ge::GRAPH_SUCCESS,
++        OP_LOGE(nodeName, "Tiling set workspace failed."),
++        return ge::GRAPH_FAILED);
++    SetHcommCfg(context, tilingData, commGroup);
++
++    int tilingKey = TILING_KEY_INT;
++    auto sendDtype = context->GetInputDesc(0)->GetDataType();
++    if (sendDtype == ge::DT_FLOAT16) {
++        tilingKey = TILING_KEY_FLOAT16;
++    } else if (sendDtype == ge::DT_BF16) {
++        tilingKey = TILING_KEY_BFLOAT16;
++    } else if (sendDtype == ge::DT_FLOAT) {
++        tilingKey = TILING_KEY_FLOAT;
++    }
++
++    fe::PlatFormInfos *platformInfoPtr = context->GetPlatformInfo();
++    fe::PlatFormInfos &platformInfo = *platformInfoPtr;
++
++    std::string socVersion;
++    (void)platformInfo.GetPlatformResWithLock("version", "Short_SoC_version", socVersion);
++
++    if (socVersion == "Ascend910B") {
++        tilingKey = tilingKey + TILING_KEY_A2_TYPE;
++    }
++    context->SetTilingKey(tilingKey);
++
++    auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
++    uint32_t blockDim;
++    uint32_t aivNum = ascendcPlatform.GetCoreNumAiv();
++    uint64_t ubSize = 0UL;
++    ascendcPlatform.GetCoreMemSize(platform_ascendc::CoreMemType::UB, ubSize);
++
++    blockDim = aivNum;
++    context->SetBlockDim(blockDim);
++    tilingData->notifyDispatchInfo.totalUbSize = ubSize;
++    tilingData->notifyDispatchInfo.aivNum = aivNum;
++    OP_LOGD(nodeName, "blockDim=%u, aivNum=%u, ubSize=%lu", blockDim, aivNum, ubSize);
++    PrintTilingDataInfo(nodeName, *tilingData);
++    return ge::GRAPH_SUCCESS;
++}
++
++static ge::graphStatus NotifyDispatchTilingFunc(gert::TilingContext *context)
++{
++    ge::graphStatus ret = NotifyDispatchTilingFuncImpl(context);
++    return ret;
++}
++
++struct NotifyDispatchCompileInfo {};
++ge::graphStatus TilingParseForNotifyDispatch(gert::TilingParseContext *context)
++{
++    (void)context;
++    return ge::GRAPH_SUCCESS;
++}
++
++IMPL_OP_OPTILING(NotifyDispatch)
++    .Tiling(NotifyDispatchTilingFunc)
++    .TilingParse<NotifyDispatchCompileInfo>(TilingParseForNotifyDispatch);
++}  // namespace optiling
+\ No newline at end of file
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.cpp b/csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.cpp
+new file mode 100644
+index 000000000..1f87108ef
+--- /dev/null
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.cpp
+@@ -0,0 +1,58 @@
++#include <string.h>
++#include "graph/types.h"
++#include "aclnn_notify_dispatch.h"
++#include "aclnnInner_notify_dispatch.h"
++
++extern void NnopbaseOpLogE(const aclnnStatus code, const char *const expr);
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++enum NnopbaseHcclServerType {
++    NNOPBASE_HCCL_SERVER_TYPE_AICPU = 0,
++    NNOPBASE_HCCL_SERVER_TYPE_MTE,
++    NNOPBASE_HCCL_SERVER_TYPE_END
++};
++extern "C" void __attribute__((weak)) NnopbaseSetHcclServerType(void *executor, NnopbaseHcclServerType sType);
++
++aclnnStatus aclnnNotifyDispatchGetWorkspaceSize(
++    const aclTensor *sendData,
++    int64_t sendCount,
++    char *commGroup,
++    int64_t rankSize,
++    int64_t rankId,
++    int64_t localRankSize,
++    int64_t localRankId,
++    const aclTensor *out,
++    uint64_t *workspaceSize,
++    aclOpExecutor **executor)
++{
++    return aclnnInnerNotifyDispatchGetWorkspaceSize(
++        sendData,
++        sendCount,
++        commGroup,
++        rankSize,
++        rankId,
++        localRankSize,
++        localRankId,
++        out,
++        workspaceSize,
++        executor);
++}
++
++aclnnStatus aclnnNotifyDispatch(
++    void *workspace,
++    uint64_t workspaceSize,
++    aclOpExecutor *executor,
++    aclrtStream stream)
++{
++    if (NnopbaseSetHcclServerType) {
++        NnopbaseSetHcclServerType(executor, NNOPBASE_HCCL_SERVER_TYPE_MTE);
++    }
++    return aclnnInnerNotifyDispatch(workspace, workspaceSize, executor, stream);
++}
++
++#ifdef __cplusplus
++}
++#endif
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.h b/csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.h
+new file mode 100644
+index 000000000..2d276b2a7
+--- /dev/null
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_notify_dispatch.h
+@@ -0,0 +1,55 @@
++
++#ifndef ACLNN_NOTIFY_DISPATCH_H_
++#define ACLNN_NOTIFY_DISPATCH_H_
++
++#include "aclnn/acl_meta.h"
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* funtion: aclnnNotifyDispatchGetWorkspaceSize
++ * parameters :
++ * sendData : required
++ * sendCount : required
++ * commGroup : required
++ * rankSize : required
++ * rankId : required
++ * localRankSize : required
++ * localRankId : required
++ * out : required
++ * workspaceSize : size of workspace(output).
++ * executor : executor context(output).
++ */
++__attribute__((visibility("default")))
++aclnnStatus aclnnNotifyDispatchGetWorkspaceSize(
++    const aclTensor *sendData,
++    int64_t sendCount,
++    char *commGroup,
++    int64_t rankSize,
++    int64_t rankId,
++    int64_t localRankSize,
++    int64_t localRankId,
++    const aclTensor *out,
++    uint64_t *workspaceSize,
++    aclOpExecutor **executor);
++
++/* funtion: aclnnNotifyDispatch
++ * parameters :
++ * workspace : workspace memory addr(input).
++ * workspaceSize : size of workspace(input).
++ * executor : executor context(input).
++ * stream : acl stream.
++ */
++__attribute__((visibility("default")))
++aclnnStatus aclnnNotifyDispatch(
++    void *workspace,
++    uint64_t workspaceSize,
++    aclOpExecutor *executor,
++    aclrtStream stream);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/csrc/deepep/ops/op_kernel/comm_args.h b/csrc/deepep/ops/op_kernel/comm_args.h
+new file mode 100644
+index 000000000..3aadb840e
+--- /dev/null
++++ b/csrc/deepep/ops/op_kernel/comm_args.h
+@@ -0,0 +1,72 @@
++#ifndef COMM_ARGS_H
++#define COMM_ARGS_H
++#include <cstdint>
++
++#define FORCE_INLINE_AICORE __attribute__((always_inline)) inline __aicore__
++#include "kernel_operator.h"
++
++namespace Moe {
++constexpr int CAM_MAX_RANK_SIZE = 384; // Maximum number of NPU cards supported by the communication library
++
++constexpr int64_t IPC_BUFF_MAX_SIZE = 100 * 1024 * 1024;
++constexpr int64_t IPC_DATA_OFFSET = 2 * 1024 * 1024; // First 2MB as flag, then 100MB as data storage
++constexpr int64_t PING_PONG_SIZE = 2;
++constexpr int64_t UB_SINGLE_DMA_SIZE_MAX = 190 * 1024;
++constexpr int64_t SMALL_DATA_SIZE = 1 * 1024 * 1024;
++constexpr int64_t UB_SINGLE_PING_PONG_ADD_SIZE_MAX = UB_SINGLE_DMA_SIZE_MAX / 2;
++constexpr int UB_ALIGN_SIZE = 32;
++constexpr int64_t MAGIC_ALIGN_COUNT = UB_ALIGN_SIZE / sizeof(int32_t);
++
++constexpr uint8_t COMM_NUM = 2;  // Size of communication domain
++constexpr uint8_t COMM_EP_IDX = 0;
++constexpr uint8_t COMM_TP_IDX = 1;
++
++constexpr int DFX_COUNT = 50;
++constexpr int64_t WAIT_SUCCESS = 112233445566;
++constexpr int64_t IPC_CHUNK_FLAG = 0; // Start offset for send recv, chunk flag region
++constexpr int64_t MAX_WAIT_ROUND_UNIT = 10 * 1000 * 1000; // Threshold for waiting to get Flag under normal conditions within the same SIO
++
++constexpr static int32_t UB_HEAD_OFFSET = 96;
++constexpr static int32_t UB_MID_OFFSET = UB_HEAD_OFFSET + UB_SINGLE_PING_PONG_ADD_SIZE_MAX + UB_ALIGN_SIZE;
++constexpr static int64_t UB_FLAG_SIZE = 2 * 1024;
++constexpr static int64_t MAX_CORE_NUM = 48;
++constexpr static uint64_t STATE_WIN_OFFSET = 900 * 1024;
++constexpr static int64_t COMPARE_ALIGN_SIZE = 256;
++
++constexpr static int64_t UB_SINGLE_TOTAL_SIZE_MAX = 192 * 1024;
++constexpr static int64_t START_OFFSET_FOR_SHARE = 512;
++
++enum Op : int {
++    COPYONLY = -1,
++    ADD = 0,
++    MUL = 1,
++    MAX = 2,
++    MIN = 3
++};
++
++struct CommArgs {
++    int rank = 0;           // attr rank_id, global rank
++    int localRank = -1;
++    int rankSize = 0; // global rank size
++    int localRankSize = -1;  // This parameter refers to the number of cards interconnected in fullmesh
++    uint32_t extraFlag = 0; // 32 bit map, the specific meaning of each bit is above in this file
++    int testFlag = 0;
++    GM_ADDR peerMems[CAM_MAX_RANK_SIZE] = {}; // Buffer obtained from initialization, all allreduce is the same parameter
++    /**
++     * @param sendCountMatrix One-dimensional array with a size of rankSize*rankSize
++     * eg: The value of sendCountMatrix[1] corresponds to the [0][1] of the two-dimensional array, indicating the number of data that card 0 needs to send to card 1
++     */
++    int64_t sendCountMatrix[CAM_MAX_RANK_SIZE * CAM_MAX_RANK_SIZE] = {};  // for all2allvc
++    int64_t sendCounts[CAM_MAX_RANK_SIZE] = {}; // for all2allv
++    int64_t sdispls[CAM_MAX_RANK_SIZE] = {};    // for all2allv
++    int64_t recvCounts[CAM_MAX_RANK_SIZE] = {};  // for all2allv
++    int64_t rdispls[CAM_MAX_RANK_SIZE] = {};     // for all2allv
++    int64_t batchSize;
++    int64_t hiddenSize;
++    int64_t topk;
++    int64_t sharedExpertRankNum;
++    int64_t expertNumPerRank;
++    int64_t dfx[DFX_COUNT] = {};
++};
++}
++#endif // COMM_ARGS_H
+diff --git a/csrc/deepep/ops/op_kernel/data_copy.h b/csrc/deepep/ops/op_kernel/data_copy.h
+new file mode 100644
+index 000000000..d9490e1ca
+--- /dev/null
++++ b/csrc/deepep/ops/op_kernel/data_copy.h
+@@ -0,0 +1,68 @@
++#ifndef CAM_DATACOPY_GM2GM_H
++#define CAM_DATACOPY_GM2GM_H
++#include <type_traits>
++#include "comm_args.h"
++
++using namespace AscendC;
++using namespace Moe;
++
++template <typename T>
++FORCE_INLINE_AICORE void SetAtomicOpType(int op)
++{
++    switch (op) {
++        case ADD:
++            AscendC::SetAtomicAdd<T>();
++            break;
++        case MUL:
++            // Ignore setting the atomic register when performing mul
++            break;
++        case MAX:
++            AscendC::SetAtomicMax<T>();
++            break;
++        case MIN:
++            AscendC::SetAtomicMin<T>();
++            break;
++        default:
++            AscendC::SetAtomicNone();
++    }
++}
++
++template <typename T>
++FORCE_INLINE_AICORE void CpUB2GM(__gm__ T *gmAddr, __ubuf__ T *ubAddr, uint32_t size)
++{
++    LocalTensor<uint8_t> ubTensor;
++    GlobalTensor<uint8_t> gmTensor;
++    DataCopyExtParams dataCopyParams(1, size, 0, 0, 0);
++    ubTensor.address_.logicPos = static_cast<uint8_t>(TPosition::VECIN);
++    ubTensor.address_.bufferAddr = reinterpret_cast<uint64_t>(ubAddr);
++    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t *>(gmAddr));
++    DataCopyPad(gmTensor, ubTensor, dataCopyParams);
++}
++
++template <typename T>
++FORCE_INLINE_AICORE void CpGM2UB(__ubuf__ T *ubAddr, __gm__ T *gmAddr, uint32_t size)
++{
++    LocalTensor<uint8_t> ubTensor;
++    GlobalTensor<uint8_t> gmTensor;
++    DataCopyExtParams dataCopyParams(1, size, 0, 0, 0);
++    ubTensor.address_.logicPos = static_cast<uint8_t>(TPosition::VECIN);
++    ubTensor.address_.bufferAddr = reinterpret_cast<uint64_t>(ubAddr);
++    gmTensor.SetGlobalBuffer(reinterpret_cast<__gm__ uint8_t *>(gmAddr));
++    DataCopyPadExtParams<uint8_t> padParams;
++    DataCopyPad(ubTensor, gmTensor, dataCopyParams, padParams);
++}
++
++template<typename T>
++FORCE_INLINE_AICORE void CopyUB2UB(__ubuf__ T *dst, __ubuf__ T *src, const uint32_t calCount)
++{
++    LocalTensor<T> srcTensor;
++    LocalTensor<T> dstTensor;
++    TBuffAddr srcAddr, dstAddr;
++    srcAddr.bufferAddr = reinterpret_cast<uint64_t>(src);
++    dstAddr.bufferAddr = reinterpret_cast<uint64_t>(dst);
++    srcTensor.SetAddr(srcAddr);
++    dstTensor.SetAddr(dstAddr);
++    DataCopy(dstTensor, srcTensor, calCount);
++}
++
++#endif // CAM_DATACOPY_GM2GM_H
+\ No newline at end of file
+diff --git a/csrc/deepep/ops/op_kernel/notify_dispatch.cpp b/csrc/deepep/ops/op_kernel/notify_dispatch.cpp
+new file mode 100644
+index 000000000..063539942
+--- /dev/null
++++ b/csrc/deepep/ops/op_kernel/notify_dispatch.cpp
+@@ -0,0 +1,60 @@
++#include "kernel_operator.h"
++#include "notify_dispatch.h"
++#include "notify_dispatch_tiling.h"
++
++#define TILING_KEY_FLOAT16 20
++#define TILING_KEY_BFLOAT16 21
++#define TILING_KEY_FLOAT 22
++#define TILING_KEY_INT 23
++
++#define KERNEL_USE_WORKSPACE (1 * 1024 * 1024)
++
++extern "C" __global__ __aicore__ void notify_dispatch(
++    GM_ADDR sendData, GM_ADDR recvData, GM_ADDR workspace, GM_ADDR tiling)
++{
++    REGISTER_TILING_DEFAULT(NotifyDispatchTilingData);
++    GET_TILING_DATA_WITH_STRUCT(NotifyDispatchTilingData, tilingData, tiling);
++
++    // for op init
++    uint32_t isCamComm = 0;
++    // hcomm will set magic later in init
++    uint32_t magic = 1;
++    GM_ADDR commArgs = nullptr;
++
++    int localRank = tilingData.notifyDispatchInfo.localRankId;
++    int localRankSize = tilingData.notifyDispatchInfo.localRankSize;
++    int rank = tilingData.notifyDispatchInfo.rankId;
++    int rankSize = tilingData.notifyDispatchInfo.rankSize;
++    int64_t len = tilingData.notifyDispatchInfo.sendCount;
++
++    GM_ADDR input = sendData;
++    GM_ADDR output = recvData;
++
++    // fill in unused args
++    uint32_t extraFlag = 0;
++    GM_ADDR scale = nullptr;
++    int root = 0;
++    int op = 0;
++    int cycleCount = 0;
++    int64_t scaleCount = 0;
++    GM_ADDR offset = nullptr;
++    int blockNum = GetBlockNum();
++
++    if (TILING_KEY_IS(TILING_KEY_FLOAT16)) {
++        NotifyDispatch<float16_t> opKernel(rank, rankSize, extraFlag);
++        opKernel.Init(KERNELS_ARGS_CALL_ALL2ALL());
++        opKernel.Process();
++    } else if (TILING_KEY_IS(TILING_KEY_BFLOAT16)) {
++        NotifyDispatch<bfloat16_t> opKernel(rank, rankSize, extraFlag);
++        opKernel.Init(KERNELS_ARGS_CALL_ALL2ALL());
++        opKernel.Process();
++    } else if (TILING_KEY_IS(TILING_KEY_FLOAT)) {
++        NotifyDispatch<float> opKernel(rank, rankSize, extraFlag);
++        opKernel.Init(KERNELS_ARGS_CALL_ALL2ALL());
++        opKernel.Process();
++    } else if (TILING_KEY_IS(TILING_KEY_INT)) {
++        NotifyDispatch<int> opKernel(rank, rankSize, extraFlag);
++        opKernel.Init(KERNELS_ARGS_CALL_ALL2ALL());
++        opKernel.Process();
++    }
++}
+\ No newline at end of file
+diff --git a/csrc/deepep/ops/op_kernel/notify_dispatch.h b/csrc/deepep/ops/op_kernel/notify_dispatch.h
+new file mode 100644
+index 000000000..cd95a55a2
+--- /dev/null
++++ b/csrc/deepep/ops/op_kernel/notify_dispatch.h
+@@ -0,0 +1,456 @@
++#ifndef NOTIFY_DISPATCH_H
++#define NOTIFY_DISPATCH_H
++
++#include <climits>
++#include "kernel_operator.h"
++
++#include "comm_args.h"
++#include "data_copy.h"
++#include "sync_collectives.h"
++#include "moe_distribute_base.h"
++
++using namespace AscendC;
++using namespace Moe;
++
++#define KERNELS_ARGS_FUN_ALL2ALL()                                                                        \
++    GM_ADDR input, GM_ADDR output, int64_t len, int op, int root, \
++        int cycleCount, GM_ADDR scale, int64_t scaleCount, GM_ADDR offset, int localRank, int localRankSize, \
++        GM_ADDR commArgs, int isCamComm, int magic
++
++#define KERNELS_ARGS_CALL_ALL2ALL()                                                                         \
++    input, output, len, op, root, cycleCount, scale, scaleCount, offset, localRank, \
++        localRankSize, commArgs, isCamComm, magic
++
++template <typename T>
++class NotifyDispatch {
++    constexpr static int INVALID_RANK_NUM = 0xFFFFFFFF;   // Invalid rank
++    constexpr static int64_t CORE_NUMS_PER_STAGE_X = 24;  // Maximum number of cores provided by the producer stage
++    constexpr static int64_t CORE_NUMS_PER_STAGE_Y = 16;  // Maximum number of cores provided by the consumer stage
++    constexpr static int64_t CORE_NUMS_PER_STAGE_Z = 16;  // Maximum number of cores provided by the consumer stage 2
++    constexpr static int64_t SHARE_QUE_DEPTH = 1;         // Depth of a single shared queue
++    constexpr static int64_t RANK_NUM_PER_NODE = 16;
++    constexpr static int64_t SIO_NUM = 2;  // Depth of a single shared queue
++    constexpr static int64_t MAX_CORE_NUM = 48;
++    constexpr static int64_t MAX_RANK_PER_CORE = 8;
++    constexpr static int64_t MULTI_RANK_SIZE = 48;
++    constexpr static int64_t MAX_BUFFER_NUMBER = 10;
++
++    constexpr static int64_t IDLER_CORE = 0;  // Idle core
++    constexpr static int64_t PRODUCER_CORE = 1;  // Producer group, responsible for writing data to shared memory, input->share, or share->share
++    constexpr static int64_t CONSUMER_CORE = 2;  // Consumer group, responsible for reading data from shared memory, share->output
++    constexpr static int64_t CONSUMER_CORE2 = 3;
++
++public:
++    __aicore__ inline NotifyDispatch(int rank, int rankSize, uint32_t extraFlag)
++        : rank(rank), rankSize(rankSize), extraFlag(extraFlag)
++    {}
++
++    __aicore__ inline void Init(KERNELS_ARGS_FUN_ALL2ALL())
++    {
++        InitSmallFullMesh(KERNELS_ARGS_CALL_ALL2ALL());
++        nodeNum = rankSize / localRankSize;
++        localRankId = rank % localRankSize;
++        localNodeId = rank / localRankSize;
++        perNodeDataNum = GetDataCount(len, nodeNum);   // 128K/4 = 32K
++        perRankDataNum = GetDataCount(len, rankSize);  // 128K/64 = 2K
++        // Initialize core grouping
++        InitCoreGroup();
++        // Initialize data slicing
++        InitDataSlice();
++
++        this->input = (__gm__ T *)input;
++        this->output = (__gm__ T *)output;
++        inputGt.SetGlobalBuffer((__gm__ T *)input);
++        outputGt.SetGlobalBuffer((__gm__ T *)output);
++    }
++
++    __aicore__ inline void Process()
++    {
++        if (blockIdx < coreNumPerStageX) {
++            InputToShareSlice();
++        }
++        if (blockIdx < coreNumPerStageY) {
++            ShareToShareSlice();
++        }
++    }
++
++private:
++    __aicore__ inline void InitCoreGroup()
++    {
++        coreNumPerStageY = MAX_CORE_NUM;
++        coreNumPerStageX = MAX_CORE_NUM;
++        rankNumPerCore = (rankSize + MAX_CORE_NUM - 1) / MAX_CORE_NUM;
++    }
++
++    __aicore__ inline void InitDataSlice()
++    {
++        // The producer is responsible for moving the input data of this rank to shared memory, input-->share
++        if (blockIdx < coreNumPerStageX) {
++            ProducerDataSlice();
++        }
++    }
++
++    __aicore__ inline void ProducerDataSlice()
++    {
++        // The ipcQue responsible for the current core
++        writeGt.SetGlobalBuffer((__gm__ T *)(shareAddrs[rank] + IPC_DATA_OFFSET));
++    }
++
++    // copy input to other rank share
++    __aicore__ inline void InputToShareSlice()
++    {
++        __ubuf__ int64_t *inputUB = (__ubuf__ int64_t *)get_imm(0);
++        int64_t copyOffset = blockIdx * rankNumPerCore;
++        copyLen = rankSize - copyOffset < rankNumPerCore ? rankSize - copyOffset : rankNumPerCore;
++        if (copyLen > 0) {
++            readGt = inputGt[copyOffset * perRankDataNum];
++            CpGM2GMPingPong<T>(
++                copyLen * perRankDataNum * sizeof(T), readGt, writeGt[copyOffset * perRankDataNum], COPYONLY);
++            int64_t v = MergeMagicWithValue(magic, 1);
++            *inputUB = v;
++            AscendC::SetFlag<HardEvent::S_MTE3>(EVENT_ID0);
++            AscendC::WaitFlag<HardEvent::S_MTE3>(EVENT_ID0);
++            for (int i = copyOffset; i < copyOffset + copyLen; ++i) {
++                CpUB2GM((__gm__ int64_t *)(shareAddrs[i]) + rank * FLAG_UNIT_INT_NUM, inputUB, sizeof(int64_t));
++            }
++            pipe_barrier(PIPE_ALL);
++        }
++    }
++
++    __aicore__ inline int64_t MergeMagicWithValue(int32_t magic, int32_t value)
++    {
++        // magic as the high part, eventID as the low part, combined into a value for comparison
++        return (static_cast<int64_t>(static_cast<uint32_t>(magic)) << MAGIC_OFFSET) | static_cast<int64_t>(value);
++    }
++
++    __aicore__ inline void ShareToShareSlice()
++    {
++        __ubuf__ T *inputUB = (__ubuf__ T *)get_imm(96);
++        int64_t copyOffset = blockIdx * rankNumPerCore;
++        copyLen = rankSize - copyOffset < rankNumPerCore ? rankSize - copyOffset : rankNumPerCore;
++        if (copyLen > 0) {
++            int checkRank[MAX_RANK_PER_CORE];
++            for (int i = copyOffset; i < copyOffset + copyLen; ++i) {
++                checkRank[i - copyOffset] = i + rank % copyLen;
++                if (checkRank[i - copyOffset] >= copyOffset + copyLen) {
++                    checkRank[i - copyOffset] -= copyLen;
++                }
++            }
++            for (int i = 0; i < copyLen; i++) {
++                readGt1[i].SetGlobalBuffer((__gm__ T *)(shareAddrs[checkRank[i]] + IPC_DATA_OFFSET));
++            }
++            sync.WaitSyncFlag(magic, 1, copyOffset, rank, copyLen);
++            for (int i = 0; i < copyLen; i++) {
++                CpGM2GMPingPong<T>(perRankDataNum * sizeof(T),
++                    readGt1[i][rank * perRankDataNum],
++                    outputGt[checkRank[i] * perRankDataNum],
++                    COPYONLY);
++            }
++        }
++    }
++
++    FORCE_INLINE_AICORE int64_t GetDataCount(const int64_t dataLen, const int64_t useBlockNum);
++    __aicore__ inline GM_ADDR GetShareAddr(uint32_t isCamComm, const int32_t rankId, uint8_t ctxIdx);
++    __aicore__ inline GM_ADDR GetWindAddrByRankId(uint8_t ctxIdx, const int32_t rankId);
++    __aicore__ inline int32_t GetMagicValue(void);
++    FORCE_INLINE_AICORE void InitSmallFullMesh(KERNELS_ARGS_FUN_ALL2ALL());
++    template <typename F>
++    FORCE_INLINE_AICORE void SetAtomic(int op);
++    FORCE_INLINE_AICORE void UnsetAtomic(int op);
++    template<HardEvent eventType>
++    FORCE_INLINE_AICORE void SetWaitEvent(event_t eventId);
++    template <typename K, typename U = K>
++    FORCE_INLINE_AICORE void CpGM2GMPingPong(int64_t dataSizeRemain, const GlobalTensor<U>& inputGT,
++                                            const GlobalTensor<K>& outputGT, int op);
++
++    GlobalTensor<T> inputGt;
++    GlobalTensor<T> outputGt;
++    GlobalTensor<T> readGt;
++    GlobalTensor<T> writeGt;
++    GlobalTensor<T> readGt1[MAX_BUFFER_NUMBER];
++    GlobalTensor<T> ipcGT;
++    GlobalTensor<int64_t> sendCountMatrixGm;
++    __gm__ T *input;
++    __gm__ T *output;
++    int64_t isPad = 0;
++    int64_t maxSliceNum;
++    int64_t revLen = 0;
++    int64_t sendLen = 0;
++    int64_t sliceLen;
++    int64_t perNodeDataNum;
++    int64_t perRankDataNum;
++    int64_t curRankDataNum;
++    int64_t sendOffset[MULTI_RANK_SIZE];
++    int64_t revOffset[MULTI_RANK_SIZE];
++    int64_t inputDataLen[MULTI_RANK_SIZE];
++
++    int64_t nodeNum;
++    int64_t localRankId;
++    int64_t localNodeId;
++    int64_t targetNode;
++    int64_t targetLocalRankIds[2];
++    int64_t queLen;
++    int64_t queSize;
++    int64_t coreNumPerStageX;             // Number of cores used per stage
++    int64_t coreNumPerStageY;             // Number of cores used per stage
++    int64_t coreNumPerStageZ;             // Number of cores used per stage
++    int64_t flagNumPerStage;              // Number of synchronization flags used per stage
++    int64_t coreNumPerNode;               // Number of cores allocated per node
++    int64_t coreNumPerRank;               // Number of cores allocated per rank
++    int64_t rankNumPerCore;               // Number of ranks responsible per core
++    int64_t coreGroup;                    // Functional group of the current core
++    int64_t targetRank[MULTI_RANK_SIZE];  // Ranks responsible by the current core
++    int64_t targetRankX;
++    int64_t targetRankY;
++
++    int64_t queElemLen;  // Size of each element in the shared memory queue (in terms of T)
++
++    int64_t copyLen;  // Length of the current data slice being copied (in terms of T)
++
++    // for coll
++    int rank;
++    int rankSize;
++    int localRank = 0;
++    int localRankSize = 0;
++    int xRankSize = 0;
++    int yRankSize = 0;
++    int xRankIdx = 0;
++    int yRankIdx = 0;
++    uint32_t extraFlag;
++    int root;
++    int64_t len;
++    int64_t magic;
++    int64_t blockIdx;  // Index of the current aicore
++    int64_t blockNum;  // Total number of aicores for the current rank
++    int32_t numRanks;
++    int64_t timeout;
++    uint16_t *rootRanks;
++    GM_ADDR scale;
++    GM_ADDR shareAddrs[CAM_MAX_RANK_SIZE];  // List of shared memory addresses
++    __gm__ HcclOpResParam *winContext_[COMM_NUM]{nullptr, nullptr};
++    Hccl<HCCL_SERVER_TYPE_AICPU> hccl_;
++    GlobalTensor<GM_ADDR> peerMemsAddrGm_;
++    GlobalTensor<int64_t> dfx;
++    TPipe pipe;
++    TBuf<QuePosition::VECCALC> tBuf;
++    SyncCollectives sync;
++};
++
++template <typename T>
++FORCE_INLINE_AICORE int64_t NotifyDispatch<T>::GetDataCount(const int64_t dataLen, const int64_t useBlockNum)
++{
++    return dataLen / useBlockNum;
++}
++
++template <typename T>
++__aicore__ inline GM_ADDR NotifyDispatch<T>::GetShareAddr(uint32_t isCamComm, const int32_t rankId, uint8_t ctxIdx)
++{
++    if (isCamComm) {
++#ifdef OPT_RANK_OFFSET
++#pragma message("use rank offset")
++            return (GM_ADDR)peerMemsAddrGm_.GetValue(rankId)  + rankId * OPT_RANK_OFFSET;
++#else
++            return (GM_ADDR)peerMemsAddrGm_.GetValue(rankId) ;
++#endif
++    } else {
++        return GetWindAddrByRankId(ctxIdx, rankId);
++    }
++}
++
++template <typename T>
++__aicore__ inline GM_ADDR NotifyDispatch<T>::GetWindAddrByRankId(uint8_t ctxIdx, const int32_t rankId)
++{
++    uint32_t curRankId = rank;
++#ifdef OPT_RANK_OFFSET
++#pragma message("use rank offset")
++    if (curRankId == rankId) {
++        return (GM_ADDR)(winContext_[ctxIdx]->localWindowsIn) + rankId * OPT_RANK_OFFSET;
++    }
++    return (GM_ADDR)(((HcclRankRelationResV2 *)(winContext_[ctxIdx]->remoteRes[rankId].nextDevicePtr))->windowsIn) +
++            rankId * OPT_RANK_OFFSET;
++#else
++    if (curRankId == rankId) {
++        return (GM_ADDR)(winContext_[ctxIdx]->localWindowsIn);
++    }
++    return (GM_ADDR)(((HcclRankRelationResV2 *)(winContext_[ctxIdx]->remoteRes[rankId].nextDevicePtr))->windowsIn);
++#endif
++}
++
++// Assign values to winContext_[COMM_EP_IDX] and blockIdx before calling
++template <typename T>
++__aicore__ inline int32_t NotifyDispatch<T>::GetMagicValue(void)
++{
++    int32_t magic = 0;
++    GlobalTensor<int32_t> selfDataStatusTensor;
++    GM_ADDR statusDataSpaceGm = (GM_ADDR)(winContext_[COMM_EP_IDX]->localWindowsExp);
++    selfDataStatusTensor.SetGlobalBuffer((__gm__ int32_t *)(statusDataSpaceGm + STATE_WIN_OFFSET));
++    DataCacheCleanAndInvalid<int32_t, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
++        selfDataStatusTensor[blockIdx * UB_ALIGN_SIZE]);
++    magic = selfDataStatusTensor(blockIdx * UB_ALIGN_SIZE);
++    if (magic <= 0) {
++        magic = 1;
++    }
++    selfDataStatusTensor(blockIdx * UB_ALIGN_SIZE) = magic + 1;
++    return magic;
++}
++
++template <typename T>
++FORCE_INLINE_AICORE void NotifyDispatch<T>::InitSmallFullMesh(KERNELS_ARGS_FUN_ALL2ALL())
++{
++    this->root = root;
++    this->len = len;
++    this->scale = scale;
++    this->localRank = localRank;
++    this->localRankSize = localRankSize;
++    this->xRankSize = localRankSize;
++    this->yRankSize = rankSize / localRankSize;
++    this->xRankIdx = rank % localRankSize;
++    this->yRankIdx = rank / localRankSize;
++    blockIdx = GetBlockIdx();
++    blockNum = GetBlockNum();
++    uint8_t ctxIdx;
++    if (isCamComm) {
++        this->magic = magic;
++        this->localRank = reinterpret_cast<__gm__ CommArgs *>(commArgs)->localRank;
++        this->localRankSize = reinterpret_cast<__gm__ CommArgs *>(commArgs)->localRankSize;
++        peerMemsAddrGm_.SetGlobalBuffer(&(reinterpret_cast<__gm__ CommArgs *>(commArgs))->peerMems[0],
++                                        CAM_MAX_RANK_SIZE);
++        ctxIdx = 0;
++    } else {
++        winContext_[COMM_EP_IDX] = (__gm__ HcclOpResParam *)AscendC::GetHcclContext<HCCL_GROUP_ID_0>();
++        this->magic = GetMagicValue();
++        ctxIdx = COMM_EP_IDX;
++    }
++
++    shareAddrs[rank] = GetShareAddr(isCamComm, rank, ctxIdx) +
++                        (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);
++
++    int64_t rankNumPerCore = (rankSize + MAX_CORE_NUM - 1) / MAX_CORE_NUM;
++    int64_t copyOffset = blockIdx * rankNumPerCore;
++    int64_t copyLen = rankSize - copyOffset < rankNumPerCore ? rankSize - copyOffset : rankNumPerCore;
++    if (copyLen > 0) {
++        for (int i = copyOffset; i < copyOffset + copyLen; ++i) {
++            shareAddrs[i] = GetShareAddr(isCamComm, i, ctxIdx) +
++                            (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);
++        }
++    }
++
++    // When the number of cores is more than the number of ranks, each core is responsible for fetching data from a specified rank
++    int coreNumPerRank = blockNum / rankSize;  // Calculate the number of cores assigned to read for each rank, e.g., 48 cores 4 ranks, each rank is assigned 12 cores
++    int maxCore = coreNumPerRank * rankSize;  // Calculate the maximum number of cores that can be used for reading, cores exceeding this number will not take action
++    if (blockIdx < maxCore) {
++        int readRank = blockIdx / coreNumPerRank;  // Calculate the rank to be read based on the block, 48 cores divided into 4 groups
++        shareAddrs[readRank] = GetShareAddr(isCamComm, readRank, ctxIdx) +
++                                (this->magic % PING_PONG_SIZE) * (IPC_BUFF_MAX_SIZE + IPC_DATA_OFFSET);
++    }
++
++    pipe.InitBuffer(tBuf, UB_SINGLE_TOTAL_SIZE_MAX);
++
++    sync.Init(rank, rankSize, shareAddrs, tBuf);
++}
++
++/**
++ * @brief Copy data from GM to GM with ping-pong method.
++ * @tparam dataSizeRemain The remaining size of data to be copied.
++ * @tparam K The type of output data.
++ * @tparam U The type of input data.
++ * @param inputGT The global tensor of input data.
++ * @param outputGT The global tensor of output data.
++ * @param op The operation to be performed during the copy.
++ * @details This function copies data from global memory to global memory using a ping-pong method.
++ * It first checks if the input and output types are the same. If they are, it uses a single buffer.
++ * If they are not, it divides the buffer according to the size ratio of the types and aligns it to 32 bytes.
++ * Then, it sets the atomic operation, waits for the flags, and performs the copy operation.
++ */
++template <typename T>
++template <typename K, typename U>
++FORCE_INLINE_AICORE void NotifyDispatch<T>::CpGM2GMPingPong(int64_t dataSizeRemain, const GlobalTensor<U>& inputGT,
++                                                                const GlobalTensor<K>& outputGT, int op)
++{
++    // General case (U = K), input/output are the same, share one UB
++    // Only when conversion is needed (U->K), UB will be divided into two parts according to the ratio of sizeof(U):sizeof(K) and aligned to 32 bytes
++    constexpr int32_t ubBlockSize = UB_SINGLE_PING_PONG_ADD_SIZE_MAX;
++    constexpr int32_t ubAlignNum = ubBlockSize / (sizeof(K) + sizeof(U)) / UB_ALIGN_SIZE * UB_ALIGN_SIZE;
++    constexpr int32_t inputUbBlockSize = std::is_same_v<K, U> ? ubBlockSize : ubAlignNum * sizeof(U);
++    constexpr int32_t outputUbBlockSize = std::is_same_v<K, U> ? ubBlockSize : ubAlignNum * sizeof(K);
++
++    __gm__ U *input = const_cast<__gm__ U *>(inputGT.GetPhyAddr());
++    __gm__ K *output = const_cast<__gm__ K *>(outputGT.GetPhyAddr());
++    __ubuf__ U* inputUB[2] = {(__ubuf__ U*)(UB_HEAD_OFFSET), (__ubuf__ U*)(UB_MID_OFFSET)};
++    __ubuf__ K* outputUB[2] = {(__ubuf__ K*)inputUB[0], (__ubuf__ K*)inputUB[1]};
++    if constexpr (!std::is_same_v<K, U>) {
++        outputUB[0] = (__ubuf__ K*)(inputUB[0] + inputUbBlockSize / sizeof(U));
++        outputUB[1] = (__ubuf__ K*)(inputUB[1] + inputUbBlockSize / sizeof(U));
++    }
++    int inputOffsetNum = 0;
++    int outputOffsetNum = 0;
++    if (dataSizeRemain <= 0) {
++        return;
++    }
++
++    SetAtomic<K>(op);
++
++    AscendC::SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID0); // MTE2 waits for MTE3
++    AscendC::SetFlag<HardEvent::MTE3_MTE2>(EVENT_ID1); // MTE2 waits for MTE3
++    for (int64_t i = 0; dataSizeRemain > 0; i++) {
++        // size and dataSizeRemain both refer to the output size
++        uint32_t size = dataSizeRemain > outputUbBlockSize ? outputUbBlockSize : dataSizeRemain;
++        event_t eventId = (i & 1) ? EVENT_ID0 : EVENT_ID1;
++        AscendC::WaitFlag<HardEvent::MTE3_MTE2>(eventId);
++        CpGM2UB((i & 1) ? inputUB[0] : inputUB[1], input + inputOffsetNum, size / sizeof(K) * sizeof(U));
++        if constexpr (!std::is_same_v<K, U>) {
++            SetWaitEvent<HardEvent::MTE2_V>(eventId);
++            CastImpl((i & 1) ? outputUB[0] : outputUB[1], (i & 1) ? inputUB[0] : inputUB[1], RoundMode::CAST_NONE,
++                size / sizeof(K));
++            SetWaitEvent<HardEvent::V_MTE3>(eventId);
++        }
++        AscendC::SetFlag<HardEvent::MTE2_MTE3>(eventId);
++        AscendC::WaitFlag<HardEvent::MTE2_MTE3>(eventId);
++        CpUB2GM(output + outputOffsetNum, (i & 1) ? outputUB[0] : outputUB[1], size);
++        AscendC::SetFlag<HardEvent::MTE3_MTE2>(eventId);
++
++        dataSizeRemain -= size;
++        inputOffsetNum += (size / sizeof(K));
++        outputOffsetNum += (size / sizeof(K));
++    }
++    AscendC::WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID0); // MTE2 waits for MTE3
++    AscendC::WaitFlag<HardEvent::MTE3_MTE2>(EVENT_ID1); // MTE2 waits for MTE3
++
++    AscendC::SetFlag<HardEvent::MTE3_S>(EVENT_ID3); // Scalar waits for MTE3
++    AscendC::WaitFlag<HardEvent::MTE3_S>(EVENT_ID3);
++
++    UnsetAtomic(op);
++    return;
++}
++
++template <typename T>
++template <typename F>
++FORCE_INLINE_AICORE void NotifyDispatch<T>::SetAtomic(int op)
++{
++    PipeBarrier<PIPE_ALL>();
++    if (op != -1) {
++#ifdef __DAV_C220_VEC__
++        SetAtomicOpType<F>(op);
++#endif
++    }
++    PipeBarrier<PIPE_ALL>();
++}
++
++template <typename T>
++FORCE_INLINE_AICORE void NotifyDispatch<T>::UnsetAtomic(int op)
++{
++    if (op != -1) {
++        AscendC::SetAtomicNone();
++    }
++    PipeBarrier<PIPE_ALL>();
++}
++
++template <typename T>
++template<HardEvent eventType>
++FORCE_INLINE_AICORE void NotifyDispatch<T>::SetWaitEvent(event_t eventId)
++{
++    AscendC::SetFlag<eventType>(eventId);
++    AscendC::WaitFlag<eventType>(eventId);
++}
++
++#endif  // NOTIFY_DISPATCH_H
+diff --git a/csrc/deepep/ops/op_kernel/notify_dispatch_tiling.h b/csrc/deepep/ops/op_kernel/notify_dispatch_tiling.h
+new file mode 100644
+index 000000000..ca568f0bd
+--- /dev/null
++++ b/csrc/deepep/ops/op_kernel/notify_dispatch_tiling.h
+@@ -0,0 +1,22 @@
++#ifndef NOTIFY_DISPATCH_TILING_H
++#define NOTIFY_DISPATCH_TILING_H
++
++#include "kernel_tiling/kernel_tiling.h"
++
++struct NotifyDispatchInfo {
++    uint32_t rankSize;
++    uint32_t rankId;
++    uint32_t localRankSize;
++    uint32_t localRankId;
++    uint32_t sendCount;
++    uint32_t aivNum;
++    uint64_t totalUbSize;
++};
++
++struct NotifyDispatchTilingData {
++    Mc2InitTiling mc2InitTiling;
++    Mc2CcTiling mc2CcTiling1;
++    NotifyDispatchInfo notifyDispatchInfo;
++};
++
++#endif
+\ No newline at end of file
+diff --git a/csrc/deepep/ops/op_kernel/sync_collectives.h b/csrc/deepep/ops/op_kernel/sync_collectives.h
+new file mode 100644
+index 000000000..9653e21a8
+--- /dev/null
++++ b/csrc/deepep/ops/op_kernel/sync_collectives.h
+@@ -0,0 +1,426 @@
++#ifndef SYNC_COLLECTIVES_H
++#define SYNC_COLLECTIVES_H
++
++#include "comm_args.h"
++
++using namespace AscendC;
++using namespace Moe;
++
++// Synchronization flag occupies length
++constexpr int64_t FLAG_UNIT_INT_NUM = 4;
++// Memory size occupied by each synchronization unit (Bytes)
++constexpr int64_t SYNC_UNIT_SIZE = FLAG_UNIT_INT_NUM * sizeof(int64_t);
++// High-order offset when using magic as a comparison value
++constexpr int64_t MAGIC_OFFSET = 32;
++constexpr int64_t MAGIC_MASK = ~((1LL << MAGIC_OFFSET) - 1);
++
++class SyncCollectives {
++public:
++    __aicore__ inline SyncCollectives() {}
++
++    __aicore__ inline void Init(int rank, int rankSize, GM_ADDR *shareAddrs, TBuf<QuePosition::VECCALC> &tBuf)
++    {
++        this->rank = rank;
++        this->rankSize = rankSize;
++        this->shareAddrs = shareAddrs;
++        this->blockIdx = GetBlockIdx();
++        this->blockNum = GetBlockNum();
++        // Length of a single indicator segment
++        segmentCount = GetBlockNum() * FLAG_UNIT_INT_NUM;
++        // Initialize the intra-card/inter-card synchronization address corresponding to the current core.
++        localSyncAddr = (__gm__ int64_t*)(shareAddrs[rank]);
++        basicSyncAddr = (__gm__ int64_t*)(shareAddrs[rank]) + GetBlockIdx() * FLAG_UNIT_INT_NUM;
++        blockOuterSyncAddr = (__gm__ int64_t*)(shareAddrs[rank]) + segmentCount + GetBlockIdx() * FLAG_UNIT_INT_NUM;
++        this->tBuf = tBuf;
++    }
++
++    __aicore__ inline void SetSyncFlag(int32_t magic, int32_t value, int32_t eventID)
++    {
++        int64_t v = MergeMagicWithValue(magic, value);
++        SetFlag(localSyncAddr + eventID * FLAG_UNIT_INT_NUM, v);
++    }
++
++    /**
++     * @brief Set the flag for the specified eventID of the designated card, with the value being a combination of magic and value.
++     * @param magic The operator batch, which will be combined into the high 32 bits of the flag value to be set.
++     * @param value The specific value to be set, which will be the low 32 bits of the flag value to be set.
++     * @param eventID Physically, it is an offset from the shared memory base address (requires scaling, not an absolute value).
++     * @param rank This rank is the rankId corresponding to the peerMems array in the CommArgs structure, not a global or local id.
++     *              (Local is not applicable in the 91093 scenario, and global is not applicable in the 910B multi-machine scenario.)
++     */
++    __aicore__ inline void SetSyncFlag(int32_t magic, int32_t value, int32_t eventID, int32_t rank)
++    {
++        int64_t v = MergeMagicWithValue(magic, value);
++        SetFlag((__gm__ int64_t*)(shareAddrs[rank]) + eventID * FLAG_UNIT_INT_NUM, v);
++    }
++
++    __aicore__ inline int32_t CalEventIdByMulBlockNum(int32_t blockMultiplier, int32_t targetCoreId)
++    {
++        return (blockMultiplier * blockNum) + targetCoreId;
++    }
++
++    /**
++     * @brief Wait for the flag of the specified eventID on the specified card to become a value
++     *        composed of the combination of magic and value.
++     * @param magic The operator batch, which will be combined into the high 32 bits of the flag
++     *              value to be wait.
++     * @param value The specific value to be wait, which will be the low 32 bits of the flag
++     *              value to be wait.
++     * @param eventID Physically, it is an offset from the shared memory base address (requires
++     *                scaling, not an absolute value).
++     * @param rank This rank is the rankId corresponding to the peerMems array in the CommArgs
++     *              structure, not a global or local id. (Local is not applicable in the 91093
++     *              scenario, and global is not applicable in the 910B multi-machine scenario.)
++     */
++    __aicore__ inline void WaitSyncFlag(int32_t magic, int32_t value, int32_t eventID, int32_t rank)
++    {
++        int64_t v = MergeMagicWithValue(magic, value);
++        WaitOneRankPartFlag((__gm__ int64_t*)(shareAddrs[rank]) + eventID * FLAG_UNIT_INT_NUM, 1, v);
++    }
++
++    __aicore__ inline void WaitSyncFlag(int32_t magic, int32_t value, int32_t eventID)
++    {
++        int64_t v = MergeMagicWithValue(magic, value);
++        WaitOneRankPartFlag((__gm__ int64_t*)(shareAddrs[this->rank]) + eventID * FLAG_UNIT_INT_NUM, 1, v);
++    }
++
++    /**
++     * @brief Wait for the flags starting from the specified eventID on the specified card to become
++     *        a value composed of the combination of magic and value.<br>
++     *        Note: [eventID, eventID + flagNum)
++     */
++    __aicore__ inline void WaitSyncFlag(int32_t magic, int32_t value, int32_t eventID, int32_t rank, int64_t flagNum)
++    {
++        int64_t v = MergeMagicWithValue(magic, value);
++        WaitOneRankPartFlag((__gm__ int64_t*)(shareAddrs[rank]) + eventID * FLAG_UNIT_INT_NUM, flagNum, v);
++    }
++
++    // Set inner-card synchronization flag (memory A)
++    __aicore__ inline void SetInnerFlag(int32_t magic, int32_t eventID)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        SetFlag(basicSyncAddr, value);
++    }
++
++    __aicore__ inline void SetInnerFlag(int32_t magic, int32_t eventID, int64_t setRank, int64_t setBlock)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        SetFlag((__gm__ int64_t*)(shareAddrs[setRank]) + setBlock * FLAG_UNIT_INT_NUM, value);
++    }
++
++    // Wait for a single inner-card synchronization flag (memory A)
++    __aicore__ inline void WaitInnerFlag(int32_t magic, int32_t eventID, int64_t waitRank, int64_t waitBlock)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        WaitOneRankPartFlag((__gm__ int64_t*)(shareAddrs[waitRank]) + waitBlock * FLAG_UNIT_INT_NUM, 1, value);
++    }
++
++    // Wait for all inner-card synchronization flags within the entire rank (memory A)
++    __aicore__ inline void WaitRankInnerFlag(int32_t magic, int32_t eventID, int64_t waitRank)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        WaitOneRankAllFlag((__gm__ int64_t*)(shareAddrs[waitRank]), value);
++    }
++
++    // Check all inner-card synchronization flags within the entire rank (memory A)
++    __aicore__ inline bool CheckRankInnerFlag(int32_t magic, int32_t eventID, int64_t waitRank)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        return CheckOneRankAllFlag((__gm__ int64_t*)(shareAddrs[waitRank]), value);
++    }
++
++    // Set inter-card synchronization flag (memory B)
++    __aicore__ inline void SetOuterFlag(int32_t magic, int32_t eventID)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        SetFlag(blockOuterSyncAddr, value);
++    }
++
++    __aicore__ inline void SetOuterFlag(int32_t magic, int32_t eventID, int64_t setRank, int64_t setBlock)
++    {
++        __gm__ int64_t* flagAddr = GetOuterFlagAddr(setRank, setBlock);
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        SetFlag(flagAddr, value);
++    }
++
++    // Wait for a single inter-card synchronization flag (memory B)
++    __aicore__ inline void WaitOuterFlag(int32_t magic, int32_t eventID, int64_t waitRank, int64_t waitBlock)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        __gm__ int64_t* flagAddr = GetOuterFlagAddr(waitRank, waitBlock);
++        WaitOneRankPartFlag(flagAddr, 1, value);
++    }
++
++    // Wait for all inter-card synchronization flags within the entire rank (memory B)
++    __aicore__ inline void WaitOneRankOuterFlag(int32_t magic, int32_t eventID, int64_t rank)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        __gm__ int64_t* flagAddr;
++        flagAddr = GetOuterFlagAddr(rank, 0);
++        WaitOneRankPartFlag(flagAddr, blockNum, value);
++    }
++
++    // Wait for flagNum inter-card synchronization flags starting from startBlock for all ranks (memory B)
++    __aicore__ inline void WaitAllRankPartOuterFlag(int32_t magic, int32_t eventID, int64_t startBlock, int64_t flagNum)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        __gm__ int64_t* flagAddr;
++        int waitRank;
++        for (auto r = 0; r < rankSize; ++r) {
++            waitRank = (rank + r) % rankSize;  // Offset reading of rank flags to prevent performance impact from concurrent copying by multiple cores
++            flagAddr = GetOuterFlagAddr(waitRank, startBlock);
++            WaitOneRankPartFlag(flagAddr, flagNum, value);
++        }
++    }
++
++    // Check flagNum inter-card synchronization flags starting from startBlock for all ranks (memory B)
++    __aicore__ inline bool CheckAllRankPartOuterFlag(int32_t magic, int32_t eventID, int64_t startBlock,
++        int64_t flagNum)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        __gm__ int64_t* flagAddr;
++        int waitRank;
++        for (auto r = 0; r < rankSize; ++r) {
++            waitRank = (rank + r) % rankSize;  // Offset reading of rank flags to prevent performance impact from concurrent copying by multiple cores
++            flagAddr = GetOuterFlagAddr(waitRank, startBlock);
++            if (!CheckOneRankPartFlag(flagAddr, flagNum, value)) {
++                return false;
++            }
++        }
++        return true;
++    }
++
++    // Wait for all inter-card synchronization flags for all ranks, full rank synchronization (memory B)
++    __aicore__ inline void WaitAllRankOuterFlag(int32_t magic, int32_t eventID)
++    {
++        WaitAllRankPartOuterFlag(magic, eventID, 0, blockNum);
++    }
++
++    // Check all inter-card synchronization flags for all ranks, full rank synchronization (memory B)
++    __aicore__ inline bool CheckAllRankOuterFlag(int32_t magic, int32_t eventID)
++    {
++        return CheckAllRankPartOuterFlag(magic, eventID, 0, blockNum);
++    }
++
++    // Low-level interface, set synchronization flag
++    __aicore__ inline void SetFlag(__gm__ int64_t* setAddr, int64_t setValue)
++    {
++        AscendC::SetFlag<HardEvent::MTE3_S>(EVENT_ID0);
++        AscendC::WaitFlag<HardEvent::MTE3_S>(EVENT_ID0);
++        AscendC::SetFlag<HardEvent::MTE2_S>(EVENT_ID0);
++        AscendC::WaitFlag<HardEvent::MTE2_S>(EVENT_ID0);
++        GlobalTensor<int64_t> globalSet;
++        globalSet.SetGlobalBuffer(setAddr, FLAG_UNIT_INT_NUM);
++        LocalTensor<int64_t> localSet = tBuf.GetWithOffset<int64_t>(1, 0);
++        localSet.SetValue(0, setValue);
++
++        // Copy global synchronization flag to local
++        AscendC::SetFlag<HardEvent::S_MTE3>(EVENT_ID0);
++        AscendC::WaitFlag<HardEvent::S_MTE3>(EVENT_ID0);  // Wait for SetValue to complete
++        DataCopy(globalSet, localSet, FLAG_UNIT_INT_NUM);
++        AscendC::SetFlag<HardEvent::MTE3_S>(EVENT_ID0);
++        AscendC::WaitFlag<HardEvent::MTE3_S>(EVENT_ID0);  // Wait for UB->GM to complete
++    }
++
++    // Low-level interface, wait for synchronization flag
++    __aicore__ inline void WaitFlag(__gm__ int64_t* waitAddr, int64_t waitValue)
++    {
++        WaitOneRankPartFlag(waitAddr, 1, waitValue);
++    }
++
++    // Read a flag, return an immediate number
++    __aicore__ inline int64_t GetFlag(__gm__ int64_t* waitAddr)
++    {
++        GlobalTensor<int64_t> globalWait;
++        globalWait.SetGlobalBuffer(waitAddr, FLAG_UNIT_INT_NUM);
++        LocalTensor<int64_t> localWait = tBuf.GetWithOffset<int64_t>(1, 0);
++        // Copy global to local
++        DataCopy(localWait, globalWait, FLAG_UNIT_INT_NUM);
++        AscendC::SetFlag<HardEvent::MTE2_S>(EVENT_ID0);
++        AscendC::WaitFlag<HardEvent::MTE2_S>(EVENT_ID0);  // Wait for GM->UB
++
++        int64_t res = localWait.GetValue(0);
++        return res;
++    }
++
++    // Get multiple consecutive synchronization flags within a single card
++    __aicore__ inline void WaitOneRankPartOuterFlag(int32_t magic, int32_t eventID, int64_t waitRank,
++                                                    int64_t startBlock, int64_t flagNum)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventID);
++        __gm__ int64_t* flagAddr;
++        flagAddr = GetOuterFlagAddr(waitRank, startBlock);
++        WaitOneRankPartFlag(flagAddr, flagNum, value);
++    }
++
++    // Get synchronization flag within a single card (memory A)
++    __aicore__ inline int64_t GetInnerFlag(int64_t waitRank, int64_t waitBlock)
++    {
++        return GetFlag((__gm__ int64_t*)(shareAddrs[waitRank]) + waitBlock * FLAG_UNIT_INT_NUM);
++    }
++
++    __aicore__ inline int64_t GetOuterFlag(int64_t waitRank, int64_t waitBlock)
++    {
++        return GetFlag((__gm__ int64_t*)(shareAddrs[waitRank]) + segmentCount + waitBlock * FLAG_UNIT_INT_NUM);
++    }
++
++    // In the rank Chunk Flag area, return success if the destRank chunk Flag value is 0, otherwise fail
++    __aicore__ inline int64_t GetChunkFlag(int64_t rank, int64_t destRank, int64_t magic, int64_t timeout)
++    {
++        int64_t value = MergeMagicWithValue(magic, 0);
++        int64_t status = GetChunkFlagValue((__gm__ int64_t*)(shareAddrs[rank]) +
++                                            IPC_CHUNK_FLAG + destRank * FLAG_UNIT_INT_NUM, value, timeout);
++        return status;
++    }
++
++    // Set the destRank chunk Flag value in the rank Chunk Flag area to value
++    __aicore__ inline void SetChunkFlag(int64_t rank, int64_t destRank, int64_t magic, int64_t eventId)
++    {
++        int64_t value = MergeMagicWithValue(magic, eventId);
++        SetFlag((__gm__ int64_t*)(shareAddrs[rank]) + IPC_CHUNK_FLAG + destRank * FLAG_UNIT_INT_NUM, value);
++    }
++
++    __aicore__ inline int64_t GetChunkRecvLen(int64_t rank, int64_t destRank, int64_t magic, int64_t timeout)
++    {
++        int64_t len = GetChunkFlagValue((__gm__ int64_t*)(shareAddrs[rank]) + IPC_CHUNK_FLAG +
++                                        destRank * FLAG_UNIT_INT_NUM, 0, timeout, true, magic);
++        return len;
++    }
++
++private:
++    __aicore__ inline int64_t MergeMagicWithValue(int32_t magic, int32_t value)
++    {
++        // Merge magic as the high bits and eventID as the low bits into a value for comparison
++        return (static_cast<int64_t>(static_cast<uint32_t>(magic)) << MAGIC_OFFSET) | static_cast<int64_t>(value);
++    }
++
++    __aicore__ inline __gm__ int64_t* GetInnerFlagAddr(int64_t flagRank, int64_t flagBlock)
++    {
++        return (__gm__ int64_t*)(shareAddrs[flagRank]) + flagBlock * FLAG_UNIT_INT_NUM;
++    }
++
++    __aicore__ inline __gm__ int64_t* GetOuterFlagAddr(int64_t flagRank, int64_t flagBlock)
++    {
++        return (__gm__ int64_t*)(shareAddrs[flagRank]) + segmentCount + flagBlock * FLAG_UNIT_INT_NUM;
++    }
++
++    // Wait for a part of synchronization flags within a rank
++    __aicore__ inline void WaitOneRankPartFlag(__gm__ int64_t* waitAddr, int64_t flagNum, int64_t checkValue)
++    {
++        GlobalTensor<int64_t> globalWait;
++        globalWait.SetGlobalBuffer(waitAddr, flagNum * FLAG_UNIT_INT_NUM);
++        LocalTensor<int64_t> localWait = tBuf.GetWithOffset<int64_t>(flagNum * FLAG_UNIT_INT_NUM, 0);
++        bool isSync = true;
++        int64_t checkedFlagNum = 0;
++        do {
++            // Copy global synchronization flags to local
++            DataCopy(localWait, globalWait[checkedFlagNum * FLAG_UNIT_INT_NUM],
++                     (flagNum - checkedFlagNum) * FLAG_UNIT_INT_NUM);
++            AscendC::SetFlag<HardEvent::MTE2_S>(EVENT_ID0);
++            AscendC::WaitFlag<HardEvent::MTE2_S>(EVENT_ID0);  // Wait for GM->UB
++
++            // Check if the synchronization flags are equal to checkValue
++            isSync = true;
++            int64_t remainToCheck = flagNum - checkedFlagNum;
++            for (auto i = 0; i < remainToCheck; ++i) {
++                // Continue waiting if any core has not reached the checkValue phase
++                int64_t v = localWait.GetValue(i * FLAG_UNIT_INT_NUM);
++                if ((v & MAGIC_MASK) != (checkValue & MAGIC_MASK) || v < checkValue) {
++                    isSync = false;
++                    checkedFlagNum += i;
++                    break;
++                }
++            }
++        } while (!isSync);
++    }
++
++    // Wait for all synchronization flags within a rank
++    __aicore__ inline void WaitOneRankAllFlag(__gm__ int64_t* waitAddr, int64_t checkValue)
++    {
++        WaitOneRankPartFlag(waitAddr, blockNum, checkValue);
++    }
++
++    // Check partial synchronization flags within a rank, copy only once
++    __aicore__ inline bool CheckOneRankPartFlag(__gm__ int64_t* waitAddr, int64_t flagNum, int64_t checkValue)
++    {
++        GlobalTensor<int64_t> globalWait;
++        globalWait.SetGlobalBuffer(waitAddr, flagNum * FLAG_UNIT_INT_NUM);
++        LocalTensor<int64_t> localWait = tBuf.GetWithOffset<int64_t>(flagNum * FLAG_UNIT_INT_NUM, 0);
++        // Copy global synchronization flags to local
++        DataCopy(localWait, globalWait, flagNum * FLAG_UNIT_INT_NUM);
++        AscendC::SetFlag<HardEvent::MTE2_S>(EVENT_ID0);
++        AscendC::WaitFlag<HardEvent::MTE2_S>(EVENT_ID0);  // Wait for GM->UB
++        // Check if the synchronization flags are equal to checkValue
++        bool isSync = true;
++        for (auto i = 0; i < flagNum; ++i) {
++            // Continue waiting if any core has not reached the checkValue phase
++            int64_t v = localWait.GetValue(i * FLAG_UNIT_INT_NUM);
++            if ((v & MAGIC_MASK) != (checkValue & MAGIC_MASK) || v < checkValue) {
++                isSync = false;
++                break;
++            }
++        }
++        return isSync;
++    }
++
++    __aicore__ inline int64_t GetChunkFlagValue(__gm__ int64_t* waitAddr, int64_t checkValue, int64_t timeout,
++                                                bool checkNonZero = false, int64_t magic = 0)
++    {
++        GlobalTensor<int64_t> globalWait;
++        globalWait.SetGlobalBuffer(waitAddr, FLAG_UNIT_INT_NUM);
++        LocalTensor<int64_t> localWait = tBuf.GetWithOffset<int64_t>(FLAG_UNIT_INT_NUM, 0);
++        bool isSync = true;
++
++        int64_t waitTimes = 0;
++        int64_t v = 0;
++
++        do {
++            // Copy global sync flag to local
++            DataCopy(localWait, globalWait[0], FLAG_UNIT_INT_NUM);
++            AscendC::SetFlag<HardEvent::MTE2_S>(EVENT_ID0);
++            AscendC::WaitFlag<HardEvent::MTE2_S>(EVENT_ID0);  // Wait for GM->UB
++
++            isSync = true;
++            v = localWait.GetValue(0);
++            if (checkNonZero) {
++                // Non-zero check mode
++                if (((v & MAGIC_MASK) == (static_cast<int64_t>(magic) << MAGIC_OFFSET)) && (v & 0xFFFFFFFF)) {
++                    return v & 0xFFFFFFFF;  // Return lower 32 bits when non-zero
++                }
++            } else {
++                // Exact value check mode
++                if (v == checkValue) {
++                    return WAIT_SUCCESS;
++                }
++            }
++
++            isSync = false;
++            waitTimes++;
++
++            if (timeout > INT64_MAX / MAX_WAIT_ROUND_UNIT || waitTimes >= (timeout * MAX_WAIT_ROUND_UNIT)) {
++                isSync = true;
++                return v; // Return the read flag value
++            }
++        } while (!isSync);
++
++        return checkNonZero ? 0 : v;
++    }
++
++    // Check all sync flags within a rank, copy only once
++    __aicore__ inline bool CheckOneRankAllFlag(__gm__ int64_t* waitAddr, int64_t checkValue)
++    {
++        return CheckOneRankPartFlag(waitAddr, blockNum, checkValue);
++    }
++    int rank;
++    int rankSize;
++    int blockIdx;
++    int blockNum;
++    GM_ADDR *shareAddrs;
++    int64_t segmentCount;  // Length of a single sync flag segment (count in int64_t)
++    __gm__ int64_t* localSyncAddr;
++    __gm__ int64_t* basicSyncAddr;  // Intra-card sync flag address for the current block
++    __gm__ int64_t* blockOuterSyncAddr;  // Inter-card sync flag address for the current block
++    TBuf<QuePosition::VECCALC> tBuf;
++};
++
++#endif // SYNC_COLLECTIVES_H
+\ No newline at end of file

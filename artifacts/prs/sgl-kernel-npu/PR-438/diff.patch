@@ -1,0 +1,52 @@
+diff --git a/csrc/assign_cache_op/op_host/assign_cache.cpp b/csrc/assign_cache_op/op_host/assign_cache.cpp
+index 60a5c3b72..3ff1f3484 100644
+--- a/csrc/assign_cache_op/op_host/assign_cache.cpp
++++ b/csrc/assign_cache_op/op_host/assign_cache.cpp
+@@ -36,6 +36,12 @@ HOST_API size_t GetElementByteSize(const at::Tensor &tensor)
+ HOST_API bool assign_cache_op(at::Tensor &dstTensor, const at::Tensor &srcTensor, const at::Tensor &dstStartIdx,
+                               const at::Tensor &dstEndIdx, const at::Tensor &srcStartIdx, const at::Tensor &srcEndIdx)
+ {
++    OP_CHECK(dstTensor.defined() && dstTensor.dim() >= 1, "dstTensor is invalid or 0-dimensional", return false);
++    OP_CHECK(srcTensor.defined() && srcTensor.dim() >= 1, "srcTensor is invalid or 0-dimensional", return false);
++    OP_CHECK(dstStartIdx.defined() && dstStartIdx.dim() >= 1, "dstStartIdx is invalid or 0-dimensional", return false);
++    OP_CHECK(dstEndIdx.defined() && dstEndIdx.dim() >= 1, "dstEndIdx is invalid or 0-dimensional", return false);
++    OP_CHECK(srcStartIdx.defined() && srcStartIdx.dim() >= 1, "srcStartIdx is invalid or 0-dimensional", return false);
++    OP_CHECK(srcEndIdx.defined() && srcEndIdx.dim() >= 1, "srcEndIdx is invalid or 0-dimensional", return false);
+     auto dstShape = dstTensor.sizes(), dstStartShape = dstStartIdx.sizes(), dstEndShape = dstEndIdx.sizes();
+     auto srcShape = srcTensor.sizes(), srcStartShape = srcStartIdx.sizes(), srcEndShape = srcEndIdx.sizes();
+     OP_CHECK(dstShape[0] == srcShape[0] && dstStartShape[0] == srcStartShape[0] && dstEndShape[0] == srcEndShape[0],
+diff --git a/csrc/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp b/csrc/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp
+index 33feb3adb..379b8c22a 100644
+--- a/csrc/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp
++++ b/csrc/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp
+@@ -69,7 +69,7 @@ ge::graphStatus LIInfoParser::GetNpuInfo()
+     auto ascendcPlatform = *platform_ascendc::PlatformAscendCManager::GetInstance();
+     uint32_t aivNum = ascendcPlatform.GetCoreNumAiv();
+     uint32_t aicNum = ascendcPlatform.GetCoreNumAic();
+-    TORCH_CHECK(aivNum != 0 && aivNum != 0, OPS_LOG_E(opName_, "num of core obtained is 0"));
++    TORCH_CHECK(aivNum != 0 && aicNum != 0, OPS_LOG_E(opName_, "num of core obtained is 0"));
+ 
+     socVersion_ = ascendcPlatform.GetSocVersion();
+     TORCH_CHECK(socVersion_ == platform_ascendc::SocVersion::ASCEND910B ||
+@@ -409,6 +409,8 @@ ge::graphStatus LIInfoParser::ValidateInputShapesMatch()
+     if (qLayout_ == DataLayout::TND) {
+         // -----------------------check BatchSize-------------------
+         // bSize_ 来源于act_seq_q
++        TORCH_CHECK(opParamInfo_.actualSeqLengths.tensor != nullptr, opName_, ": actualSeqLengths tensor is null");
++
+         TORCH_CHECK((opParamInfo_.actualSeqLengths.tensor->GetShapeSize() == bSize_) &&
+                         (opParamInfo_.blockTable.tensor == nullptr ||
+                          opParamInfo_.blockTable.tensor->GetStorageShape().GetDim(0) == bSize_),
+diff --git a/csrc/lightning_indexer/op_kernel/lightning_indexer_vector.h b/csrc/lightning_indexer/op_kernel/lightning_indexer_vector.h
+index f558048ef..f1090e031 100644
+--- a/csrc/lightning_indexer/op_kernel/lightning_indexer_vector.h
++++ b/csrc/lightning_indexer/op_kernel/lightning_indexer_vector.h
+@@ -119,7 +119,7 @@ __aicore__ inline uint64_t FindNearestPower2(uint64_t value)
+         return value;
+     } else {
+         const uint64_t pow = 63 - clz(value);  // clz返回前导0的个数，对于64位整数，最大有效位位置 = 63 - 前导0个数
+-        return (1 << pow);
++        return (1ULL << pow);
+     }
+ }
+ 

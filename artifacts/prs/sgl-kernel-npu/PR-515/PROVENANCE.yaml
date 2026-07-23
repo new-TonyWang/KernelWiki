@@ -1,0 +1,44 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/515
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: '20803699'
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-515
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 22102fec53513ae7a80118373a8fa3ab004a331e3da9a00fa41ac4635657a908
+- local_path: key-files/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  sha256: 87b1d36f3a12f82055d4b4b7566bb40a30899b51b497160bab52b932b971d266
+- local_path: key-files/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  sha256: de88867f297033e81acf2f96ba324da004edb482afe73916c1655572a54509b6
+- local_path: key-files/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+  sha256: d15744cf71b50cc2efdc8cf19df224d7c0ce5e10419e293cabcfa6da41834b8b
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+  sha256: b8c61c3330ba8bbc733cb7a0dcf32c829b83e6daa5110b70aa9a8418b08910c0
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+  sha256: 27768698550fe98a75d8d36052f93404d59b500daadb5745f9c0530418348f20
+- local_path: key-files/csrc/deepep/ops/op_kernel/notify_dispatch.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/notify_dispatch.h
+  sha256: b6be4257fc80b38f29539c0505d31d71b92fdae56f2cf82c9c30bb6313e55beb

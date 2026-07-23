@@ -1,0 +1,12 @@
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py b/python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py
+index ed84f1cec..9f12f54ea 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/fla/layernorm_gated.py
+@@ -248,6 +248,7 @@ def layer_norm_fwd_npu(
+     group_size=None,
+     norm_before_gate=True,
+     is_rms_norm=False,
++    activation=None,
+ ):
+     M, N = x.shape
+     if group_size is None:

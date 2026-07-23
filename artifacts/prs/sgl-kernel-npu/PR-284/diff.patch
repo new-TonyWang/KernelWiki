@@ -1,0 +1,1354 @@
+diff --git a/csrc/CMakeLists.txt b/csrc/CMakeLists.txt
+index f439441dc..ac964718b 100644
+--- a/csrc/CMakeLists.txt
++++ b/csrc/CMakeLists.txt
+@@ -17,6 +17,8 @@ FILE(GLOB OP_SRCS
+     ${PROJECT_OP_SRC_BASE}/lora/op_host/bgmv_shrink.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_host/sgmv_expand.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_host/sgmv_shrink.cpp
++    ${PROJECT_OP_SRC_BASE}/lora/op_host/sgemmv_expand.cpp
++    ${PROJECT_OP_SRC_BASE}/lora/op_host/sgemmv_shrink.cpp
+     ${PROJECT_OP_SRC_BASE}/lightning_indexer/op_host/lightning_indexer.cpp
+     ${PROJECT_OP_SRC_BASE}/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp
+     )
+@@ -39,6 +41,8 @@ ascendc_library(no_workspace_kernel STATIC
+     ${PROJECT_OP_SRC_BASE}/lora/op_kernel/bgmv_shrink_kernel.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_kernel/sgmv_expand_kernel.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_kernel/sgmv_shrink_kernel.cpp
++    ${PROJECT_OP_SRC_BASE}/lora/op_kernel/sgemmv_expand_kernel.cpp
++    ${PROJECT_OP_SRC_BASE}/lora/op_kernel/sgemmv_shrink_kernel.cpp
+ )
+ 
+ # kernel side files with workspace
+diff --git a/csrc/lora/op_host/bgmv_expand.cpp b/csrc/lora/op_host/bgmv_expand.cpp
+index 5adf1fe4d..d69888f71 100644
+--- a/csrc/lora/op_host/bgmv_expand.cpp
++++ b/csrc/lora/op_host/bgmv_expand.cpp
+@@ -20,9 +20,7 @@
+ #include "torch_helper.h"
+ 
+ #include "aclrtlaunch_bgmv_expand_half.h"
+-#if (__CCE_AICORE__ >= 220)
+ #include "aclrtlaunch_bgmv_expand_bfloat16_t.h"
+-#endif
+ 
+ namespace sglang {
+ namespace npu_kernel {
+@@ -36,11 +34,9 @@ extern void bgmv_expand_impl(at::ScalarType type, void *stream, void *x, void *w
+     if (type == at::ScalarType::Float) {
+         return;
+     } else if (type == at::ScalarType::BFloat16) {
+-#if (__CCE_AICORE__ >= 220)
+         ACLRT_LAUNCH_KERNEL(bgmv_expand_bfloat16_t)
+         (blockDim, stream, x, weight, indices, indicesSize, yIn, yOut, batchSize, numTokensPerCore, maxLoRARank,
+          outputHiddenDim, sliceOffset, outputFullDim);
+-#endif
+     } else {
+         ACLRT_LAUNCH_KERNEL(bgmv_expand_half)
+         (blockDim, stream, x, weight, indices, indicesSize, yIn, yOut, batchSize, numTokensPerCore, maxLoRARank,
+diff --git a/csrc/lora/op_host/bgmv_shrink.cpp b/csrc/lora/op_host/bgmv_shrink.cpp
+index de27a8e3d..b844def94 100644
+--- a/csrc/lora/op_host/bgmv_shrink.cpp
++++ b/csrc/lora/op_host/bgmv_shrink.cpp
+@@ -20,9 +20,7 @@
+ #include "torch_helper.h"
+ 
+ #include "aclrtlaunch_bgmv_shrink_half.h"
+-#if (__CCE_AICORE__ >= 220)
+ #include "aclrtlaunch_bgmv_shrink_bfloat16_t.h"
+-#endif
+ 
+ namespace sglang {
+ namespace npu_kernel {
+@@ -35,11 +33,9 @@ extern void bgmv_shrink_impl(at::ScalarType type, void *stream, void *x, void *w
+     if (type == at::ScalarType::Float) {
+         return;
+     } else if (type == at::ScalarType::BFloat16) {
+-#if (__CCE_AICORE__ >= 220)
+         ACLRT_LAUNCH_KERNEL(bgmv_shrink_bfloat16_t)
+         (blockDim, stream, x, weight, indices, indicesSize, y, batchSize, numTokensPerCore, inputHiddenDim, maxLoRARank,
+          scale);
+-#endif
+     } else {
+         ACLRT_LAUNCH_KERNEL(bgmv_shrink_half)
+         (blockDim, stream, x, weight, indices, indicesSize, y, batchSize, numTokensPerCore, inputHiddenDim, maxLoRARank,
+diff --git a/csrc/lora/op_host/sgemmv_expand.cpp b/csrc/lora/op_host/sgemmv_expand.cpp
+new file mode 100644
+index 000000000..ddfd1717f
+--- /dev/null
++++ b/csrc/lora/op_host/sgemmv_expand.cpp
+@@ -0,0 +1,98 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ * Adapted from https://github.com/vllm-project/vllm-ascend/blob/main/csrc/kernels/sgmv_expand.cpp
++ */
++
++#include "defines.h"
++#include "torch_helper.h"
++
++#include "aclrtlaunch_sgemmv_expand_half.h"
++#include "aclrtlaunch_sgemmv_expand_bfloat16_t.h"
++
++namespace sglang {
++namespace npu_kernel {
++
++extern void sgemmv_expand_impl(at::ScalarType type, void *stream, void *x, void *weight, void *loraIndices,
++                               uint32_t loraIndicesSize, void *seqLen, uint32_t seqLenSize, void *loraRanks,
++                               uint32_t loraRanksSize, void *sliceOffsets, uint32_t sliceOffsetsSize, void *yIn,
++                               void *yOut, uint32_t batchSize, uint32_t numTokensPerCore, uint32_t maxLoRARank,
++                               uint32_t outputFullDim)
++{
++    uint32_t slice_count = sliceOffsetsSize - 1;
++    uint32_t blockDim = (batchSize * slice_count + numTokensPerCore - 1) / numTokensPerCore;
++    if (type == at::ScalarType::Float) {
++        return;
++    } else if (type == at::ScalarType::BFloat16) {
++        ACLRT_LAUNCH_KERNEL(sgemmv_expand_bfloat16_t)
++        (blockDim, stream, x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, loraRanks, loraRanksSize,
++         sliceOffsets, sliceOffsetsSize, yIn, yOut, batchSize, numTokensPerCore, maxLoRARank, outputFullDim);
++    } else {
++        ACLRT_LAUNCH_KERNEL(sgemmv_expand_half)
++        (blockDim, stream, x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, loraRanks, loraRanksSize,
++         sliceOffsets, sliceOffsetsSize, yIn, yOut, batchSize, numTokensPerCore, maxLoRARank, outputFullDim);
++    }
++}
++
++HOST_API at::Tensor sgemmv_expand(at::Tensor &x, at::Tensor &weight, at::Tensor &lora_indices, at::Tensor &seq_len,
++                                  at::Tensor &lora_ranks, at::Tensor &slice_offsets, at::Tensor &y)
++{
++    at::ScalarType scalar_type = y.scalar_type();
++    TORCH_CHECK(scalar_type == at::kHalf || scalar_type == at::kBFloat16, "only support half and bf16");
++    TORCH_CHECK(x.dim() == 2, "x should be [batch_size, hidden_in]");
++    TORCH_CHECK(weight.dim() == 3 || weight.dim() == 4,
++                "weight should be [num_loras, hidden_out, hidden_in] or [num_loras, 1, hidden_out, hidden_in]");
++    TORCH_CHECK(y.dim() == 2, "y should be [batch_size, hidden_out]");
++
++    at::Tensor y_out = y;
++    void *x_ptr = x.data_ptr();
++    void *weight_ptr = weight.data_ptr();
++    void *y_ptr = y.data_ptr();
++    void *y_out_ptr = y_out.data_ptr();
++
++    void *lora_indices_ptr = lora_indices.data_ptr();
++    int lora_indices_size = lora_indices.size(0);
++    void *seq_len_ptr = seq_len.data_ptr();
++    int seq_len_size = seq_len.size(0);
++    void *lora_ranks_ptr = lora_ranks.data_ptr();
++    int lora_ranks_size = lora_ranks.size(0);
++    void *slice_offsets_ptr = slice_offsets.data_ptr();
++    int slice_offsets_size = slice_offsets.size(0);
++    int slice_count = slice_offsets_size - 1;
++    int batch_size = x.size(0);
++    int max_lora_rank = x.size(1) / slice_count;
++    int output_full_dim = y.size(1);
++    aclrtStream stream = c10_npu::getCurrentNPUStream().stream();
++    at_npu::native::OpCommand cmd;
++    cmd.Name("sgemmv_expand");
++    cmd.SetCustomHandler([scalar_type, stream, x_ptr, weight_ptr, lora_indices_ptr, lora_indices_size, seq_len_ptr,
++                          seq_len_size, lora_ranks_ptr, lora_ranks_size, slice_offsets_ptr, slice_offsets_size, y_ptr,
++                          y_out_ptr, batch_size, max_lora_rank, output_full_dim]() -> int {
++        int device_id = 0;
++        int64_t aiv_num = 0;
++        TORCH_CHECK(aclGetDeviceCapability(device_id, ACL_DEVICE_INFO_VECTOR_CORE_NUM, &aiv_num) == ACL_SUCCESS);
++        int num_tokens_per_core = (batch_size + aiv_num - 1) / aiv_num;
++        TORCH_CHECK(num_tokens_per_core != 0, "num_tokens_per_core should not be 0");
++        sgemmv_expand_impl(scalar_type, stream, x_ptr, weight_ptr, lora_indices_ptr, lora_indices_size, seq_len_ptr,
++                           seq_len_size, lora_ranks_ptr, lora_ranks_size, slice_offsets_ptr, slice_offsets_size, y_ptr,
++                           y_out_ptr, batch_size, num_tokens_per_core, max_lora_rank, output_full_dim);
++        return 0;
++    });
++    cmd.Run();
++    return y_out;
++}
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/lora/op_host/sgemmv_shrink.cpp b/csrc/lora/op_host/sgemmv_shrink.cpp
+new file mode 100644
+index 000000000..9048953a0
+--- /dev/null
++++ b/csrc/lora/op_host/sgemmv_shrink.cpp
+@@ -0,0 +1,95 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ * Adapted from https://github.com/vllm-project/vllm-ascend/blob/main/csrc/kernels/sgmv_shrink.cpp
++ */
++
++#include "defines.h"
++#include "torch_helper.h"
++
++#include "aclrtlaunch_sgemmv_shrink_half.h"
++#include "aclrtlaunch_sgemmv_shrink_bfloat16_t.h"
++
++namespace sglang {
++namespace npu_kernel {
++
++extern void sgemmv_shrink_impl(at::ScalarType type, void *stream, void *x, void *weight, void *loraIndices,
++                               uint32_t loraIndicesSize, void *seqLen, uint32_t seqLenSize, void *loraRanks,
++                               uint32_t loraRanksSize, void *loraScales, uint32_t loraScalesSize, void *y,
++                               uint32_t batchSize, uint32_t numTokensPerCore, uint32_t inputHiddenDim,
++                               uint32_t maxLoRARank)
++{
++    uint32_t blockDim = (batchSize + numTokensPerCore - 1) / numTokensPerCore;
++    if (type == at::ScalarType::Float) {
++        return;
++    } else if (type == at::ScalarType::BFloat16) {
++        ACLRT_LAUNCH_KERNEL(sgemmv_shrink_bfloat16_t)
++        (blockDim, stream, x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, loraRanks, loraRanksSize,
++         loraScales, loraScalesSize, y, batchSize, numTokensPerCore, inputHiddenDim, maxLoRARank);
++    } else {
++        ACLRT_LAUNCH_KERNEL(sgemmv_shrink_half)
++        (blockDim, stream, x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, loraRanks, loraRanksSize,
++         loraScales, loraScalesSize, y, batchSize, numTokensPerCore, inputHiddenDim, maxLoRARank);
++    }
++}
++
++HOST_API void sgemmv_shrink(at::Tensor &x, at::Tensor &weight, at::Tensor &lora_indices, at::Tensor &seq_len,
++                            at::Tensor &lora_ranks, at::Tensor &lora_scales, at::Tensor &y)
++{
++    at::ScalarType scalar_type = x.scalar_type();
++    TORCH_CHECK(scalar_type == at::kHalf || scalar_type == at::kBFloat16, "only support half and bf16");
++    TORCH_CHECK(x.dim() == 2, "x should be [batch_size, hidden_in]");
++    TORCH_CHECK(weight.dim() == 3 || weight.dim() == 4,
++                "weight should be [num_loras, hidden_out, hidden_in] or [num_loras, 1, hidden_out, hidden_in]");
++    TORCH_CHECK(y.dim() == 2, "y should be [batch_size, hidden_out]");
++    TORCH_CHECK(x.size(1) > y.size(1), "hidden in should be greater than hidden out");
++    void *x_ptr = x.data_ptr();
++    void *weight_ptr = weight.data_ptr();
++
++    void *lora_indices_ptr = lora_indices.data_ptr();
++    int lora_indices_size = lora_indices.size(0);
++    void *seq_len_ptr = seq_len.data_ptr();
++    int seq_len_size = seq_len.size(0);
++    void *lora_ranks_ptr = lora_ranks.data_ptr();
++    int lora_ranks_size = lora_ranks.size(0);
++    void *lora_scales_ptr = lora_scales.data_ptr();
++    int lora_scales_size = lora_scales.size(0);
++
++    void *y_ptr = y.data_ptr();
++    int batch_size = x.size(0);
++    int input_hidden_token = x.size(1);
++    uint32_t max_lora_rank = y.size(1);
++    aclrtStream stream = c10_npu::getCurrentNPUStream().stream();
++    at_npu::native::OpCommand cmd;
++    cmd.Name("sgemmv_shrink");
++    cmd.SetCustomHandler([scalar_type, stream, x_ptr, weight_ptr, lora_indices_ptr, lora_indices_size, seq_len_ptr,
++                          seq_len_size, lora_ranks_ptr, lora_ranks_size, lora_scales_ptr, lora_scales_size, y_ptr,
++                          batch_size, input_hidden_token, max_lora_rank]() -> int {
++        int device_id = 0;
++        int64_t aiv_num = 0;
++        TORCH_CHECK(aclGetDeviceCapability(device_id, ACL_DEVICE_INFO_VECTOR_CORE_NUM, &aiv_num) == ACL_SUCCESS);
++        int num_tokens_per_core = (batch_size + aiv_num - 1) / aiv_num;
++        TORCH_CHECK(num_tokens_per_core != 0, "num_tokens_per_core should not be 0");
++        sgemmv_shrink_impl(scalar_type, stream, x_ptr, weight_ptr, lora_indices_ptr, lora_indices_size, seq_len_ptr,
++                           seq_len_size, lora_ranks_ptr, lora_ranks_size, lora_scales_ptr, lora_scales_size, y_ptr,
++                           batch_size, num_tokens_per_core, input_hidden_token, max_lora_rank);
++        return 0;
++    });
++    cmd.Run();
++    return;
++}
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/lora/op_host/sgmv_expand.cpp b/csrc/lora/op_host/sgmv_expand.cpp
+index a0a8c0f11..bb6f5ee88 100644
+--- a/csrc/lora/op_host/sgmv_expand.cpp
++++ b/csrc/lora/op_host/sgmv_expand.cpp
+@@ -20,9 +20,7 @@
+ #include "torch_helper.h"
+ 
+ #include "aclrtlaunch_sgmv_expand_half.h"
+-#if (__CCE_AICORE__ >= 220)
+ #include "aclrtlaunch_sgmv_expand_bfloat16_t.h"
+-#endif
+ 
+ namespace sglang {
+ namespace npu_kernel {
+@@ -36,11 +34,9 @@ extern void sgmv_expand_impl(at::ScalarType type, void *stream, void *x, void *w
+     if (type == at::ScalarType::Float) {
+         return;
+     } else if (type == at::ScalarType::BFloat16) {
+-#if (__CCE_AICORE__ >= 220)
+         ACLRT_LAUNCH_KERNEL(sgmv_expand_bfloat16_t)
+         (blockDim, stream, x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, yIn, yOut, batchSize,
+          numTokensPerCore, maxLoRARank, outputHiddenDim, sliceOffset, outputFullDim);
+-#endif
+     } else {
+         ACLRT_LAUNCH_KERNEL(sgmv_expand_half)
+         (blockDim, stream, x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, yIn, yOut, batchSize,
+diff --git a/csrc/lora/op_host/sgmv_shrink.cpp b/csrc/lora/op_host/sgmv_shrink.cpp
+index 7405be225..00824c864 100644
+--- a/csrc/lora/op_host/sgmv_shrink.cpp
++++ b/csrc/lora/op_host/sgmv_shrink.cpp
+@@ -20,9 +20,7 @@
+ #include "torch_helper.h"
+ 
+ #include "aclrtlaunch_sgmv_shrink_half.h"
+-#if (__CCE_AICORE__ >= 220)
+ #include "aclrtlaunch_sgmv_shrink_bfloat16_t.h"
+-#endif
+ 
+ namespace sglang {
+ namespace npu_kernel {
+@@ -35,11 +33,9 @@ extern void sgmv_shrink_impl(at::ScalarType type, void *stream, void *x, void *w
+     if (type == at::ScalarType::Float) {
+         return;
+     } else if (type == at::ScalarType::BFloat16) {
+-#if (__CCE_AICORE__ >= 220)
+         ACLRT_LAUNCH_KERNEL(sgmv_shrink_bfloat16_t)
+         (blockDim, stream, x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, y, batchSize, numTokensPerCore,
+          inputHiddenDim, maxLoRARank, scale);
+-#endif
+     } else {
+         ACLRT_LAUNCH_KERNEL(sgmv_shrink_half)
+         (blockDim, stream, x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, y, batchSize, numTokensPerCore,
+diff --git a/csrc/lora/op_kernel/sgemmv_expand_kernel.cpp b/csrc/lora/op_kernel/sgemmv_expand_kernel.cpp
+new file mode 100644
+index 000000000..284b75ccf
+--- /dev/null
++++ b/csrc/lora/op_kernel/sgemmv_expand_kernel.cpp
+@@ -0,0 +1,387 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2024. All rights reserved.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ * Adapted from https://github.com/vllm-project/vllm-ascend/blob/main/csrc/kernels/sgmv_expand.cpp
++ */
++
++#ifndef SGL_KERNEL_NPU_KERNEL_SGEMMV_EXPAND_H
++#define SGL_KERNEL_NPU_KERNEL_SGEMMV_EXPAND_H
++
++#include "kernel_operator.h"
++
++template <typename scalar_t>
++class SGEMMVExpand
++{
++public:
++    using X_T = float;
++    using W_T = scalar_t;
++    using Y_T = scalar_t;
++
++    static constexpr uint64_t LORA_RANK_8 = 8;
++    static constexpr uint64_t LORA_RANK_16 = 16;
++    static constexpr uint64_t LORA_RANK_32 = 32;
++    static constexpr uint64_t LORA_RANK_64 = 64;
++    static constexpr uint64_t SUPPORTED_RANKS[] = {LORA_RANK_8, LORA_RANK_16, LORA_RANK_32, LORA_RANK_64};
++    static constexpr int32_t BUFFER_NUM = 2;
++    static constexpr int32_t DATA_VECTOR_BLOCK = 32;
++
++    // The vector unit reads 8 blocks (32 bytes each and 256 bytes in total) of contiguous data each time.
++    static constexpr int32_t NUM_BYTES_PER_REPEAT = 256;
++    static constexpr int32_t NUM_BLOCKS_PER_REPEAT = 8;
++    // The maximum number of elements in a single iteration is 256 / sizeof(intermediate data type).
++    static constexpr int32_t NUM_ELEMENTS_PER_REPEAT = NUM_BYTES_PER_REPEAT / sizeof(float);
++    // Mask is used to control the elements that participate in computation in each iteration.
++    static constexpr int32_t MASK_COUNT = NUM_BYTES_PER_REPEAT / sizeof(float);
++    // Refer to numOutputElementsPerInputTile_ initialization for the constraints on the following constants.
++    static constexpr int32_t W_IN_TILE_NUM_ELEMENTS = 8192;
++    static constexpr int32_t Y_OUT_TILE_NUM_ELEMENTS = 4096;
++    static constexpr int32_t BLOCK_REDUCE_NUM_REPEATS = W_IN_TILE_NUM_ELEMENTS / NUM_ELEMENTS_PER_REPEAT;
++    // BlockReduceSum would generate(BLOCK_REDUCE_NUM_REPEATS * NUM_BLOCKS_PER_REPEAT)floats.
++    // So need to read them all and apply PairReduceSum
++    static constexpr int32_t PAIR_REDUCE_NUM_REPEATS_16 =
++        (BLOCK_REDUCE_NUM_REPEATS * NUM_BLOCKS_PER_REPEAT + NUM_ELEMENTS_PER_REPEAT - 1) / NUM_ELEMENTS_PER_REPEAT;
++    // The second PairReduceSum for rank=32, needs half of the repetition that happened for rank=16.
++    // Same for rank=64, we do not support ranks greater than 64.
++    static constexpr int32_t PAIR_REDUCE_NUM_REPEATS_32 = (PAIR_REDUCE_NUM_REPEATS_16 + 1) / 2;
++
++public:
++    __aicore__ inline SGEMMVExpand(AscendC::TPipe *pipe) : pipe_(pipe) {}
++
++    __aicore__ inline void Init(GM_ADDR x, GM_ADDR weight, GM_ADDR loraIndices, uint32_t loraIndicesSize,
++                                GM_ADDR seqLen, uint32_t seqLenSize, GM_ADDR loraRanks, uint32_t loraRanksSize,
++                                GM_ADDR sliceOffsets, uint32_t sliceOffsetsSize, GM_ADDR yIn, GM_ADDR yOut,
++                                uint32_t batchSize, uint32_t numTokensPerCore, uint32_t maxLoRARank,
++                                uint32_t outputFullDim)
++    {
++        batchSize_ = batchSize;
++        numTokensPerCore_ = numTokensPerCore;
++        maxLoRARank_ = maxLoRARank;
++        sliceCount_ = sliceOffsetsSize - 1;
++        outputFullDim_ = outputFullDim;
++        singleLoRAWeightLen_ = maxLoRARank_ * outputFullDim_;
++
++        xGm_.SetGlobalBuffer(reinterpret_cast<__gm__ X_T *>(x));
++        wGm_.SetGlobalBuffer(reinterpret_cast<__gm__ W_T *>(weight));
++        yInGm_.SetGlobalBuffer(reinterpret_cast<__gm__ Y_T *>(yIn));
++        yOutGm_.SetGlobalBuffer(reinterpret_cast<__gm__ Y_T *>(yOut));
++        loraIndicesGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(loraIndices), loraIndicesSize);
++        seqLenGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(seqLen), seqLenSize);
++        loraRanksGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(loraRanks), loraRanksSize);
++        sliceOffsetsGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(sliceOffsets), sliceOffsetsSize);
++
++        pipe_->InitBuffer(inQueueX_, 1, NUM_ELEMENTS_PER_REPEAT * sizeof(X_T));
++        pipe_->InitBuffer(inQueueW_, BUFFER_NUM, W_IN_TILE_NUM_ELEMENTS * sizeof(W_T));
++        pipe_->InitBuffer(inQueueY_, BUFFER_NUM, Y_OUT_TILE_NUM_ELEMENTS * sizeof(Y_T));
++        pipe_->InitBuffer(outQueueY_, BUFFER_NUM, Y_OUT_TILE_NUM_ELEMENTS * sizeof(Y_T));
++
++        pipe_->InitBuffer(dupBufferX_, NUM_ELEMENTS_PER_REPEAT * sizeof(float));
++        pipe_->InitBuffer(tmpBufferW_, W_IN_TILE_NUM_ELEMENTS * sizeof(float));
++        pipe_->InitBuffer(inBufferY_, Y_OUT_TILE_NUM_ELEMENTS * sizeof(float));
++        pipe_->InitBuffer(tmpBufferY_, Y_OUT_TILE_NUM_ELEMENTS * sizeof(float));
++    }
++
++    __aicore__ inline void Process()
++    {
++        int64_t blockIdx_Slice = AscendC::GetBlockIdx();
++        int64_t blockIdx = blockIdx_Slice / sliceCount_;
++        int64_t startIdx = blockIdx * numTokensPerCore_;
++        int64_t endIdx = startIdx + numTokensPerCore_;
++        reqSlice_ = blockIdx_Slice % sliceCount_;
++
++        sliceOffset_ = sliceOffsetsGm_.GetValue(reqSlice_);
++        outputHiddenDim_ = sliceOffsetsGm_.GetValue(reqSlice_ + 1) - sliceOffset_;
++
++        if (endIdx > batchSize_) {
++            endIdx = batchSize_;
++        }
++        for (int64_t idx = startIdx; idx < endIdx; idx++) {
++            yOffset_ = outputFullDim_ * idx + sliceOffset_;
++
++            // Set up LoRA index
++            CopyInIndex(idx);
++            if (reqLoRAIndex_ < 0) {
++                continue;
++            }
++
++            reqLoRARank_ = loraRanksGm_.GetValue(reqLoRAIndex_);
++            if (reqLoRARank_ == 0) {
++                continue;
++            }
++
++            reqLoRAWeightOffset_ = reqLoRAIndex_ * singleLoRAWeightLen_ + sliceOffset_ * maxLoRARank_;
++
++            // Each compute iteration would generate not one, but several output elements.
++            // Therefore, the following variable would determine how many output elements are calculated in each
++            // iteration.
++            numOutputElementsPerInputTile_ = BLOCK_REDUCE_NUM_REPEATS * (NUM_ELEMENTS_PER_REPEAT / reqLoRARank_);
++            numStreamInPerOutputTile_ = Y_OUT_TILE_NUM_ELEMENTS / numOutputElementsPerInputTile_;
++
++            CopyInX(idx);
++            int32_t numStreamOut = outputHiddenDim_ / Y_OUT_TILE_NUM_ELEMENTS;
++            for (int32_t i = 0; i < numStreamOut; i++) {
++                CopyInY(i);
++                for (int32_t j = 0; j < numStreamInPerOutputTile_; j++) {
++                    CopyInW(i * numStreamInPerOutputTile_ + j);
++                    Compute(j * numOutputElementsPerInputTile_);
++                }
++                ScaleOutput();
++                CopyOut(i);
++            }
++            ComputeLastIteration();
++        }
++    }
++
++private:
++    __aicore__ inline void CopyInIndex(const int64_t idx)
++    {
++        // Look up the LoRA index
++        int64_t weightIdx = idx;
++        uint64_t i = 0;
++        for (; i < seqLenGm_.GetSize(); i++) {
++            int64_t repeatValue = seqLenGm_.GetValue(i);
++            if (weightIdx >= repeatValue) {
++                weightIdx -= repeatValue;
++                continue;
++            }
++            break;
++        }
++        reqLoRAIndex_ = (i < seqLenGm_.GetSize()) ? loraIndicesGm_.GetValue(i) : -1;
++    }
++
++    __aicore__ inline void ComputeLastIteration()
++    {
++        int32_t remainingY = outputHiddenDim_ % Y_OUT_TILE_NUM_ELEMENTS;
++        if (remainingY == 0) {
++            return;
++        }
++        int32_t numStreamOut = outputHiddenDim_ / Y_OUT_TILE_NUM_ELEMENTS;
++        int32_t remainingW = remainingY * reqLoRARank_;
++        int32_t numCompleteWTileInForLastIteration = remainingW / W_IN_TILE_NUM_ELEMENTS;
++        int32_t remainingWForLastRepeat = remainingW % W_IN_TILE_NUM_ELEMENTS;
++
++        CopyInY(numStreamOut, remainingY);
++
++        int32_t outputIdx = 0;
++        for (outputIdx = 0; outputIdx < numCompleteWTileInForLastIteration; outputIdx++) {
++            CopyInW(numStreamOut * numStreamInPerOutputTile_ + outputIdx);
++            Compute(outputIdx * numOutputElementsPerInputTile_);
++        }
++
++        if (remainingWForLastRepeat != 0) {
++            CopyInW(numStreamOut * numStreamInPerOutputTile_ + numCompleteWTileInForLastIteration,
++                    remainingWForLastRepeat);
++            int32_t lastRepeatCount = remainingWForLastRepeat / NUM_ELEMENTS_PER_REPEAT;
++            int32_t pairReduceRepeat16 =
++                (lastRepeatCount * NUM_BLOCKS_PER_REPEAT + NUM_ELEMENTS_PER_REPEAT - 1) / NUM_ELEMENTS_PER_REPEAT;
++            int32_t pairReduceRepeat32 = (pairReduceRepeat16 + 1) / 2;
++            int32_t lastComputeOutputElement = outputIdx * numOutputElementsPerInputTile_;
++            Compute(lastComputeOutputElement, lastRepeatCount, pairReduceRepeat16, pairReduceRepeat32);
++        }
++
++        ScaleOutput(remainingY);
++        CopyOut(numStreamOut, remainingY);
++    }
++
++    __aicore__ inline void CopyInX(const int64_t idx)
++    {
++        AscendC::LocalTensor<X_T> xLocal = inQueueX_.AllocTensor<X_T>();
++        if constexpr (std::is_same_v<X_T, float>) {
++            DataCopy(xLocal, xGm_[sliceCount_ * maxLoRARank_ * idx + reqLoRARank_ * reqSlice_], reqLoRARank_);
++        } else {
++            uint16_t blockLen = static_cast<uint16_t>(reqLoRARank_ * sizeof(X_T));
++            DataCopyPad(xLocal, xGm_[sliceCount_ * maxLoRARank_ * idx + reqLoRARank_ * reqSlice_], {1, blockLen, 0, 0},
++                        {});
++        }
++        inQueueX_.EnQue(xLocal);
++        xLocal = inQueueX_.DeQue<X_T>();
++        AscendC::LocalTensor<float> xDup = dupBufferX_.Get<float>();
++
++        // As we are generating multiple output elements with one API invocation,
++        // we need to duplicate the X vector multiple times to fill one NUM_BYTES_PER_REPEAT
++        if constexpr (std::is_same_v<X_T, float>) {
++            for (int32_t i = 0; i < NUM_ELEMENTS_PER_REPEAT; i += reqLoRARank_) {
++                for (int32_t j = 0; j < reqLoRARank_; j++) {
++                    float entry = xLocal.GetValue(j);
++                    xDup.SetValue(i + j, entry);
++                }
++            }
++        } else {
++            Cast(xDup, xLocal, AscendC::RoundMode::CAST_NONE, reqLoRARank_);
++            pipe_barrier(PIPE_V);
++
++            for (int32_t i = reqLoRARank_; i < NUM_ELEMENTS_PER_REPEAT; i += reqLoRARank_) {
++                for (int32_t j = 0; j < reqLoRARank_; j++) {
++                    float entry = xDup.GetValue(j);
++                    xDup.SetValue(i + j, entry);
++                }
++            }
++        }
++        inQueueX_.FreeTensor(xLocal);
++    }
++
++    __aicore__ inline void CopyInY(int32_t progress, int32_t numElements = Y_OUT_TILE_NUM_ELEMENTS)
++    {
++        AscendC::LocalTensor<Y_T> yInLocal = inQueueY_.AllocTensor<Y_T>();
++        DataCopy(yInLocal, yInGm_[yOffset_ + progress * Y_OUT_TILE_NUM_ELEMENTS], numElements);
++        inQueueY_.EnQue(yInLocal);
++    }
++
++    __aicore__ inline void CopyInW(int32_t progress, int32_t numElements = W_IN_TILE_NUM_ELEMENTS)
++    {
++        AscendC::LocalTensor<W_T> wLocal = inQueueW_.AllocTensor<W_T>();
++        DataCopy(wLocal, wGm_[reqLoRAWeightOffset_ + progress * (W_IN_TILE_NUM_ELEMENTS / reqLoRARank_) * maxLoRARank_],
++                 {static_cast<uint16_t>(numElements / reqLoRARank_),
++                  static_cast<uint16_t>((reqLoRARank_ * sizeof(W_T) + DATA_VECTOR_BLOCK - 1) / DATA_VECTOR_BLOCK),
++                  static_cast<uint16_t>((maxLoRARank_ - reqLoRARank_) * sizeof(W_T) / DATA_VECTOR_BLOCK), 0});
++        inQueueW_.EnQue(wLocal);
++    }
++
++    __aicore__ inline void ScaleOutput(int32_t numElements = Y_OUT_TILE_NUM_ELEMENTS)
++    {
++        AscendC::LocalTensor<float> yLocal = tmpBufferY_.Get<float>();
++        AscendC::LocalTensor<Y_T> yInLocal = inQueueY_.DeQue<Y_T>();
++        AscendC::LocalTensor<float> yInLocalFP32 = inBufferY_.Get<float>();
++        Cast(yInLocalFP32, yInLocal, AscendC::RoundMode::CAST_NONE, numElements);
++        pipe_barrier(PIPE_V);
++        inQueueY_.FreeTensor(yInLocal);
++
++        Add(yLocal, yLocal, yInLocalFP32, numElements);
++        pipe_barrier(PIPE_V);
++
++        AscendC::LocalTensor<Y_T> yOutLocal = outQueueY_.AllocTensor<Y_T>();
++        Cast(yOutLocal, yLocal, AscendC::RoundMode::CAST_RINT, numElements);
++        pipe_barrier(PIPE_V);
++
++        outQueueY_.EnQue<Y_T>(yOutLocal);
++    }
++
++    __aicore__ inline void Compute(int32_t progress, int32_t blockReduceRepeatCount = BLOCK_REDUCE_NUM_REPEATS,
++                                   int32_t pairReduceRepeat16 = PAIR_REDUCE_NUM_REPEATS_16,
++                                   int32_t pairReduceRepeat32 = PAIR_REDUCE_NUM_REPEATS_32)
++    {
++        AscendC::LocalTensor<float> yLocal = tmpBufferY_.Get<float>();
++        AscendC::LocalTensor<float> xDup = dupBufferX_.Get<float>();
++        AscendC::LocalTensor<W_T> wLocal = inQueueW_.DeQue<W_T>();
++        AscendC::LocalTensor<float> wTmpTensor = tmpBufferW_.Get<float>();
++
++        Cast(wTmpTensor, wLocal, AscendC::RoundMode::CAST_NONE, MASK_COUNT, blockReduceRepeatCount, castParams_);
++        pipe_barrier(PIPE_V);
++        inQueueW_.FreeTensor(wLocal);
++
++        Mul(wTmpTensor, xDup, wTmpTensor, MASK_COUNT, blockReduceRepeatCount, dotProductParams_);
++        pipe_barrier(PIPE_V);
++
++        if (reqLoRARank_ == LORA_RANK_8) {
++            BlockReduceSum(yLocal[progress], wTmpTensor, blockReduceRepeatCount, MASK_COUNT,
++                           reduceSumParams_.dstRepStride, reduceSumParams_.srcBlkStride, reduceSumParams_.srcRepStride);
++            pipe_barrier(PIPE_V);
++        } else if (reqLoRARank_ == LORA_RANK_16) {
++            BlockReduceSum(wTmpTensor, wTmpTensor, blockReduceRepeatCount, MASK_COUNT, reduceSumParams_.dstRepStride,
++                           reduceSumParams_.srcBlkStride, reduceSumParams_.srcRepStride);
++            pipe_barrier(PIPE_V);
++            PairReduceSum(yLocal[progress], wTmpTensor, pairReduceRepeat16, MASK_COUNT, reduceSumParams_.dstRepStride,
++                          reduceSumParams_.srcBlkStride, reduceSumParams_.srcRepStride);
++            pipe_barrier(PIPE_V);
++        } else if (reqLoRARank_ == LORA_RANK_32) {
++            BlockReduceSum(wTmpTensor, wTmpTensor, blockReduceRepeatCount, MASK_COUNT, reduceSumParams_.dstRepStride,
++                           reduceSumParams_.srcBlkStride, reduceSumParams_.srcRepStride);
++            pipe_barrier(PIPE_V);
++            PairReduceSum(wTmpTensor, wTmpTensor, pairReduceRepeat16, MASK_COUNT, reduceSumParams_.dstRepStride,
++                          reduceSumParams_.srcBlkStride, reduceSumParams_.srcRepStride);
++            pipe_barrier(PIPE_V);
++            PairReduceSum(yLocal[progress], wTmpTensor, pairReduceRepeat32, MASK_COUNT, reduceSumParams_.dstRepStride,
++                          reduceSumParams_.srcBlkStride, reduceSumParams_.srcRepStride);
++            pipe_barrier(PIPE_V);
++        } else if (reqLoRARank_ == LORA_RANK_64) {
++            BlockReduceSum(wTmpTensor, wTmpTensor, blockReduceRepeatCount, MASK_COUNT, reduceSumParams_.dstRepStride,
++                           reduceSumParams_.srcBlkStride, reduceSumParams_.srcRepStride);
++            pipe_barrier(PIPE_V);
++            BlockReduceSum(yLocal[progress], wTmpTensor, pairReduceRepeat16, MASK_COUNT, reduceSumParams_.dstRepStride,
++                           reduceSumParams_.srcBlkStride, reduceSumParams_.srcRepStride);
++            pipe_barrier(PIPE_V);
++        }
++    }
++
++    __aicore__ inline void CopyOut(int32_t progress, int32_t numElements = Y_OUT_TILE_NUM_ELEMENTS)
++    {
++        AscendC::LocalTensor<Y_T> yOutLocal = outQueueY_.DeQue<Y_T>();
++        DataCopy(yOutGm_[yOffset_ + progress * Y_OUT_TILE_NUM_ELEMENTS], yOutLocal, numElements);
++        outQueueY_.FreeTensor(yOutLocal);
++    }
++
++private:
++    AscendC::TPipe *pipe_;
++    AscendC::TQue<AscendC::QuePosition::VECIN, BUFFER_NUM> inQueueY_, inQueueW_;
++    AscendC::TQue<AscendC::QuePosition::VECIN, 1> inQueueX_;
++    AscendC::TQue<AscendC::QuePosition::VECOUT, BUFFER_NUM> outQueueY_;
++    AscendC::TBuf<AscendC::QuePosition::VECCALC> tmpBufferW_, dupBufferX_, inBufferY_, tmpBufferY_;
++    AscendC::GlobalTensor<X_T> xGm_;
++    AscendC::GlobalTensor<W_T> wGm_;
++    AscendC::GlobalTensor<Y_T> yInGm_;
++    AscendC::GlobalTensor<Y_T> yOutGm_;
++    AscendC::GlobalTensor<int32_t> loraIndicesGm_;
++    AscendC::GlobalTensor<int32_t> seqLenGm_;
++    AscendC::GlobalTensor<int32_t> loraRanksGm_;
++    AscendC::GlobalTensor<int32_t> sliceOffsetsGm_;
++    uint32_t batchSize_;
++    uint32_t sliceCount_;
++    uint32_t numTokensPerCore_;
++    uint32_t maxLoRARank_;
++    uint32_t outputHiddenDim_;
++    uint32_t sliceOffset_;
++    uint32_t outputFullDim_;
++    uint32_t singleLoRAWeightLen_;
++    int64_t reqLoRAIndex_;
++    int32_t reqLoRARank_;
++    uint64_t reqLoRAWeightOffset_;
++    int32_t reqSlice_;
++    uint32_t numOutputElementsPerInputTile_;
++    uint32_t numStreamInPerOutputTile_;
++    uint64_t yOffset_;
++
++    // The block stride is set to 1, and 8 blocks in the same repeat are processed continuously.
++    // The repeat stride is 8, so the vector unit reads 8 consecutive blocks in the first repeat,
++    // reads next 8 consecutive blocks in the second repeat.
++    AscendC::UnaryRepeatParams castParams_ = {1, 1, 8, 4};
++
++    // For each repeat in BlockReduceSum and PairReduceSum we should move forward only one block,
++    // so we set dstRepStride = 1
++    AscendC::UnaryRepeatParams reduceSumParams_ = {1, 1, 1, 8};
++
++    // When the repeat stride is 0, the vector unit repeatedly reads and computes the first 8 consecutive blocks.
++    // For xDup we repeatedly use it, so we set src0RepStride = 0
++    AscendC::BinaryRepeatParams dotProductParams_ = {1, 1, 1, 8, 0, 8};
++};
++
++#define SGEMMV_EXPAND_TYPE_DECLARE(TYPE)                                                                               \
++    extern "C" __global__ __aicore__ void sgemmv_expand_##TYPE(                                                        \
++        GM_ADDR x, GM_ADDR weight, GM_ADDR loraIndices, uint32_t loraIndicesSize, GM_ADDR seqLen, uint32_t seqLenSize, \
++        GM_ADDR loraRanks, uint32_t loraRanksSize, GM_ADDR sliceOffsets, uint32_t sliceOffsetsSize, GM_ADDR yIn,       \
++        GM_ADDR yOut, uint32_t batchSize, uint32_t numTokensPerCore, uint32_t maxLoRARank, uint32_t outputFullDim)     \
++    {                                                                                                                  \
++        AscendC::TPipe pipe;                                                                                           \
++        SGEMMVExpand<TYPE> op(&pipe);                                                                                  \
++        op.Init(x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, loraRanks, loraRanksSize, sliceOffsets,   \
++                sliceOffsetsSize, yIn, yOut, batchSize, numTokensPerCore, maxLoRARank, outputFullDim);                 \
++        op.Process();                                                                                                  \
++    }
++
++// declare all dtype kernel
++SGEMMV_EXPAND_TYPE_DECLARE(half)
++#if (__CCE_AICORE__ >= 220)
++SGEMMV_EXPAND_TYPE_DECLARE(bfloat16_t)
++#endif
++
++#endif  // SGL_KERNEL_NPU_KERNEL_SGEMMV_EXPAND_H
+diff --git a/csrc/lora/op_kernel/sgemmv_shrink_kernel.cpp b/csrc/lora/op_kernel/sgemmv_shrink_kernel.cpp
+new file mode 100644
+index 000000000..a01fa4df7
+--- /dev/null
++++ b/csrc/lora/op_kernel/sgemmv_shrink_kernel.cpp
+@@ -0,0 +1,266 @@
++/*
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025. All rights reserved.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ * http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ *
++ * Adapted from https://github.com/vllm-project/vllm-ascend/blob/main/csrc/kernels/sgmv_shrink.cpp
++ */
++
++#ifndef SGL_KERNEL_NPU_KERNEL_SGEMMV_SHRINK_H
++#define SGL_KERNEL_NPU_KERNEL_SGEMMV_SHRINK_H
++
++#include "kernel_operator.h"
++
++template <typename scalar_t>
++class SGEMMVShrink
++{
++public:
++    using X_T = scalar_t;
++    using W_T = scalar_t;
++    using Y_T = float;
++
++    static constexpr uint64_t BUFFER_NUM = 1;
++    static constexpr uint64_t TILE_LENGTH = 11776;  // optimal performance tile length
++
++public:
++    __aicore__ inline SGEMMVShrink(AscendC::TPipe *pipe) : pipe_(pipe) {}
++    __aicore__ inline void Init(GM_ADDR x, GM_ADDR weight, GM_ADDR loraIndices, uint32_t loraIndicesSize,
++                                GM_ADDR seqLen, uint32_t seqLenSize, GM_ADDR loraRanks, uint32_t loraRanksSize,
++                                GM_ADDR loraScales, uint32_t loraScalesSize, GM_ADDR y, uint32_t batchSize,
++                                uint32_t numTokensPerCore, uint32_t inputHiddenDim, uint32_t maxLoRARank)
++    {
++        batchSize_ = batchSize;
++        numTokensPerCore_ = numTokensPerCore;
++        inputHiddenDim_ = inputHiddenDim;
++        maxLoRARank_ = maxLoRARank;
++        singleLoRAWeightLen_ = inputHiddenDim_ * maxLoRARank_;
++        incremental_ = inputHiddenDim_ > TILE_LENGTH;
++
++        xGm_.SetGlobalBuffer(reinterpret_cast<__gm__ X_T *>(x));
++        yOutGm_.SetGlobalBuffer(reinterpret_cast<__gm__ Y_T *>(y));
++        wGm_.SetGlobalBuffer(reinterpret_cast<__gm__ W_T *>(weight));
++        loraIndicesGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(loraIndices), loraIndicesSize);
++        seqLenGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(seqLen), seqLenSize);
++        loraRanksGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t *>(loraRanks), loraRanksSize);
++        loraScalesGm_.SetGlobalBuffer(reinterpret_cast<__gm__ half *>(loraScales), loraScalesSize);
++
++        pipe_->InitBuffer(inQueueX_, BUFFER_NUM, TILE_LENGTH * sizeof(X_T));
++        pipe_->InitBuffer(inQueueW_, BUFFER_NUM, TILE_LENGTH * sizeof(W_T));
++        pipe_->InitBuffer(tmpBufferX_, TILE_LENGTH * sizeof(float));
++        pipe_->InitBuffer(tmpBufferW_, TILE_LENGTH * sizeof(float));
++
++        pipe_->InitBuffer(outQueueY_, 1, maxLoRARank_ * sizeof(Y_T));
++        pipe_->InitBuffer(outBufferY_, maxLoRARank_ * sizeof(float));
++    }
++
++    __aicore__ inline void Process()
++    {
++        int64_t blockIdx = AscendC::GetBlockIdx();
++        int64_t startIdx = blockIdx * numTokensPerCore_;
++        int64_t endIdx = startIdx + numTokensPerCore_;
++        if (endIdx > batchSize_) {
++            endIdx = batchSize_;
++        }
++        for (int64_t idx = startIdx; idx < endIdx; idx++) {
++            // set up LoRA index
++            CopyInIndex(idx);
++            if (reqLoRAIndex_ < 0) {
++                continue;
++            }
++
++            reqLoRAWeightOffset_ = reqLoRAIndex_ * singleLoRAWeightLen_;
++            reqLoRARank_ = loraRanksGm_.GetValue(reqLoRAIndex_);
++
++            if (reqLoRARank_ == 0) {
++                continue;
++            }
++
++            reqLoRAScale_ = loraScalesGm_.GetValue(reqLoRAIndex_);
++
++            if (incremental_) {
++                ProcessImpl<true>(idx);
++            } else {
++                ProcessImpl<false>(idx);
++            }
++
++            ScaleOutput();
++            CopyOut(idx);
++        }
++    }
++
++private:
++    template <bool INCREMENTAL_MODE>
++    __aicore__ inline void ProcessImpl(const int64_t idx)
++    {
++        AscendC::LocalTensor<float> yOutLocal = outBufferY_.Get<float>();
++        if constexpr (!INCREMENTAL_MODE) {
++            CopyInX(idx, 0, inputHiddenDim_);
++            AscendC::LocalTensor<float> xTmpTensor = tmpBufferX_.Get<float>();
++            AscendC::LocalTensor<X_T> xLocal = inQueueX_.DeQue<X_T>();
++            Cast(xTmpTensor, xLocal, AscendC::RoundMode::CAST_NONE, inputHiddenDim_);
++            pipe_barrier(PIPE_V);
++            inQueueX_.FreeTensor(xLocal);
++        }
++
++        for (int i = 0; i < reqLoRARank_; i++) {
++            float acc(0);
++            for (int32_t j = 0; j < inputHiddenDim_ / TILE_LENGTH; j++) {
++                if constexpr (INCREMENTAL_MODE) {
++                    CopyInX(idx, j);
++                }
++                CopyInW(i, j);
++                Compute<INCREMENTAL_MODE>(acc);
++            }
++            CopyAndComputeLastIteration<INCREMENTAL_MODE>(idx, i, acc);
++            yOutLocal.SetValue(i, acc);
++        }
++    }
++
++    __aicore__ inline void CopyInIndex(const int64_t idx)
++    {
++        // look up the LoRA index
++        int64_t weightIdx = idx;
++        uint64_t i = 0;
++        for (; i < seqLenGm_.GetSize(); i++) {
++            int64_t repeatValue = seqLenGm_.GetValue(i);
++            if (weightIdx >= repeatValue) {
++                weightIdx -= repeatValue;
++                continue;
++            }
++            break;
++        }
++        reqLoRAIndex_ = (i < seqLenGm_.GetSize()) ? loraIndicesGm_.GetValue(i) : -1;
++    }
++
++    __aicore__ inline void CopyInX(const int64_t idx, int32_t colIdx, int32_t numElements = TILE_LENGTH)
++    {
++        AscendC::LocalTensor<X_T> xLocal = inQueueX_.AllocTensor<X_T>();
++        DataCopy(xLocal, xGm_[inputHiddenDim_ * idx + colIdx * TILE_LENGTH], numElements);
++        inQueueX_.EnQue(xLocal);
++    }
++
++    __aicore__ inline void CopyInW(int32_t rowIdx, int32_t colIdx, int32_t numElements = TILE_LENGTH)
++    {
++        AscendC::LocalTensor<W_T> wLocal = inQueueW_.AllocTensor<W_T>();
++        DataCopy(wLocal, wGm_[reqLoRAWeightOffset_ + rowIdx * inputHiddenDim_ + colIdx * TILE_LENGTH], numElements);
++        inQueueW_.EnQue(wLocal);
++    }
++
++    template <bool INCREMENTAL_MODE>
++    __aicore__ inline void Compute(float &acc, int32_t numElements = TILE_LENGTH)
++    {
++        AscendC::LocalTensor<W_T> wLocal = inQueueW_.DeQue<W_T>();
++        AscendC::LocalTensor<float> xTmpTensor = tmpBufferX_.Get<float>();
++        AscendC::LocalTensor<float> wTmpTensor = tmpBufferW_.Get<float>();
++
++        if constexpr (INCREMENTAL_MODE) {
++            AscendC::LocalTensor<X_T> xLocal = inQueueX_.DeQue<X_T>();
++            Cast(xTmpTensor, xLocal, AscendC::RoundMode::CAST_NONE, numElements);
++            Cast(wTmpTensor, wLocal, AscendC::RoundMode::CAST_NONE, numElements);
++            pipe_barrier(PIPE_V);
++            inQueueX_.FreeTensor(xLocal);
++            inQueueW_.FreeTensor(wLocal);
++        } else {
++            Cast(wTmpTensor, wLocal, AscendC::RoundMode::CAST_NONE, numElements);
++            pipe_barrier(PIPE_V);
++            inQueueW_.FreeTensor(wLocal);
++        }
++        // dot product of the one tile of X and W
++        Mul(wTmpTensor, xTmpTensor, wTmpTensor, numElements);
++        pipe_barrier(PIPE_V);
++        // reduce sum generate one number, which is the summation of all the dot product
++        ReduceSum<float>(wTmpTensor, wTmpTensor, wTmpTensor, numElements);
++        pipe_barrier(PIPE_V);
++
++        acc += wTmpTensor.GetValue(0);
++    }
++
++    template <bool INCREMENTAL_MODE>
++    __aicore__ inline void CopyAndComputeLastIteration(const int64_t idx, int32_t rowIdx, float &acc)
++    {
++        int32_t colIdx = inputHiddenDim_ / TILE_LENGTH;
++        int32_t remaining = inputHiddenDim_ % TILE_LENGTH;
++        if (remaining == 0) {
++            return;
++        }
++        if constexpr (INCREMENTAL_MODE) {
++            CopyInX(idx, colIdx, remaining);
++        }
++        CopyInW(rowIdx, colIdx, remaining);
++        Compute<INCREMENTAL_MODE>(acc, remaining);
++    }
++
++    __aicore__ inline void ScaleOutput()
++    {
++        AscendC::LocalTensor<float> yLocal = outBufferY_.Get<float>();
++        AscendC::LocalTensor<Y_T> yOutLocal = outQueueY_.AllocTensor<Y_T>();
++
++        Muls(yOutLocal, yLocal, reqLoRAScale_, reqLoRARank_);
++        pipe_barrier(PIPE_V);
++
++        outQueueY_.EnQue<Y_T>(yOutLocal);
++    }
++
++    __aicore__ inline void CopyOut(const int64_t idx)
++    {
++        AscendC::LocalTensor<Y_T> yOutLocal = outQueueY_.DeQue<Y_T>();
++        DataCopy(yOutGm_[maxLoRARank_ * idx], yOutLocal, reqLoRARank_);
++        outQueueY_.FreeTensor(yOutLocal);
++    }
++
++private:
++    AscendC::TPipe *pipe_;
++    AscendC::TQue<AscendC::QuePosition::VECIN, BUFFER_NUM> inQueueX_, inQueueW_;
++    AscendC::TQue<AscendC::QuePosition::VECOUT, 1> outQueueY_;
++    AscendC::TBuf<AscendC::QuePosition::VECCALC> tmpBufferX_, tmpBufferW_, outBufferY_;
++    AscendC::GlobalTensor<X_T> xGm_;
++    AscendC::GlobalTensor<W_T> wGm_;
++    AscendC::GlobalTensor<int32_t> loraIndicesGm_;
++    AscendC::GlobalTensor<int32_t> seqLenGm_;
++    AscendC::GlobalTensor<int32_t> loraRanksGm_;
++    AscendC::GlobalTensor<half> loraScalesGm_;
++    AscendC::GlobalTensor<Y_T> yOutGm_;
++    uint32_t batchSize_;
++    uint32_t numTokensPerCore_;
++    uint32_t inputHiddenDim_;
++    uint32_t maxLoRARank_;
++    uint32_t singleLoRAWeightLen_;
++
++    uint64_t reqLoRAWeightOffset_;
++    int32_t reqLoRAIndex_;
++    int32_t reqLoRARank_;
++    float reqLoRAScale_;
++
++    bool incremental_;
++};
++
++#define SGEMMV_SHRINK_TYPE_DECLARE(TYPE)                                                                               \
++    extern "C" __global__ __aicore__ void sgemmv_shrink_##TYPE(                                                        \
++        GM_ADDR x, GM_ADDR weight, GM_ADDR loraIndices, uint32_t loraIndicesSize, GM_ADDR seqLen, uint32_t seqLenSize, \
++        GM_ADDR loraRanks, uint32_t loraRanksSize, GM_ADDR loraScales, uint32_t loraScalesSize, GM_ADDR y,             \
++        uint32_t batchSize, uint32_t numTokensPerCore, uint32_t inputHiddenDim, uint32_t maxLoRARank)                  \
++    {                                                                                                                  \
++        AscendC::TPipe pipe;                                                                                           \
++        SGEMMVShrink<TYPE> op(&pipe);                                                                                  \
++        op.Init(x, weight, loraIndices, loraIndicesSize, seqLen, seqLenSize, loraRanks, loraRanksSize, loraScales,     \
++                loraScalesSize, y, batchSize, numTokensPerCore, inputHiddenDim, maxLoRARank);                          \
++        op.Process();                                                                                                  \
++    }
++
++// declare all dtype kernel
++SGEMMV_SHRINK_TYPE_DECLARE(half)
++#if (__CCE_AICORE__ >= 220)
++SGEMMV_SHRINK_TYPE_DECLARE(bfloat16_t)
++#endif
++
++#endif  // SGL_KERNEL_NPU_KERNEL_SGEMMV_SHRINK_H
+diff --git a/csrc/pytorch_extensions.cpp b/csrc/pytorch_extensions.cpp
+index 436d67847..8036bac66 100644
+--- a/csrc/pytorch_extensions.cpp
++++ b/csrc/pytorch_extensions.cpp
+@@ -79,6 +79,14 @@ TORCH_LIBRARY_FRAGMENT(npu, m)
+     m.def(
+         "sgmv_shrink(Tensor! x, Tensor! weight, Tensor! lora_indices, Tensor! seq_len, Tensor! y, float scale) -> ()");
+ 
++    m.def(
++        "sgemmv_expand(Tensor! x, Tensor! weight, Tensor! lora_indices, Tensor! seq_len, Tensor! lora_ranks,"
++        "              Tensor! sliceOffsets, Tensor! y) -> Tensor");
++
++    m.def(
++        "sgemmv_shrink(Tensor! x, Tensor! weight, Tensor! lora_indices, Tensor! seq_len, Tensor! lora_ranks,"
++        "              Tensor! lora_scales, Tensor! y) -> ()");
++
+ #ifdef BUILD_CATLASS_MODULE
+     m.def("catlass_matmul_basic(Tensor tensor_a, Tensor tensor_b, Tensor(a!) tensor_c, str? format_mode=None) -> ()");
+ #endif
+@@ -120,6 +128,10 @@ TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)
+ 
+     m.impl("sgmv_shrink", TORCH_FN(sglang::npu_kernel::sgmv_shrink));
+ 
++    m.impl("sgemmv_expand", TORCH_FN(sglang::npu_kernel::sgemmv_expand));
++
++    m.impl("sgemmv_shrink", TORCH_FN(sglang::npu_kernel::sgemmv_shrink));
++
+ #ifdef BUILD_CATLASS_MODULE
+     m.impl("catlass_matmul_basic", TORCH_FN(sglang::npu_kernel::catlass_matmul_basic));
+ #endif
+diff --git a/include/sgl_kenel_npu_ops.h b/include/sgl_kenel_npu_ops.h
+index b9106f2f6..c6a7fe881 100644
+--- a/include/sgl_kenel_npu_ops.h
++++ b/include/sgl_kenel_npu_ops.h
+@@ -89,6 +89,15 @@ at::Tensor sgmv_expand(at::Tensor &x, at::Tensor &weight,
+ void sgmv_shrink(at::Tensor &x, at::Tensor &weight, at::Tensor &lora_indices,
+                  at::Tensor &seq_len, at::Tensor &y, double scale);
+ 
++at::Tensor sgemmv_expand(at::Tensor &x, at::Tensor &weight,
++                         at::Tensor &lora_indices, at::Tensor &seq_len,
++                         at::Tensor &lora_ranks, at::Tensor &slice_offsets,
++                         at::Tensor &y);
++
++void sgemmv_shrink(at::Tensor &x, at::Tensor &weight, at::Tensor &lora_indices,
++                   at::Tensor &seq_len, at::Tensor &lora_ranks,
++                   at::Tensor &lora_scales, at::Tensor &y);
++
+ #ifdef BUILD_CATLASS_MODULE
+ void catlass_matmul_basic(const at::Tensor &tensor_a,
+                           const at::Tensor &tensor_b, at::Tensor &tensor_c,
+diff --git a/tests/python/sgl_kernel_npu/test_lora_kernels.py b/tests/python/sgl_kernel_npu/test_lora_kernels.py
+new file mode 100644
+index 000000000..9213a55ce
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_lora_kernels.py
+@@ -0,0 +1,148 @@
++import random
++import unittest
++
++import sgl_kernel_npu
++import torch
++import torch_npu
++from utils import reference_sgmv_expand, reference_sgmv_shrink
++
++torch.set_printoptions(threshold=float("inf"))
++
++
++class TestLoraKernels(unittest.TestCase):
++    def test_sgemmv_shrink(self):
++        batch_size = 2
++        input_dim = 1024
++        num_loras = 3
++        dtype = torch.float16
++        device_dtype = torch.float16
++
++        possible_lora_ranks = [16, 32, 64]
++        lora_ranks = random.sample(
++            possible_lora_ranks,
++            counts=[num_loras] * len(possible_lora_ranks),
++            k=num_loras,
++        )
++
++        max_lora_rank = max(lora_ranks)
++
++        possible_lora_scaling = [0.25, 0.5, 1.0, 2.0, 4.0]
++        lora_scaling = random.sample(
++            possible_lora_scaling,
++            counts=[num_loras] * len(possible_lora_scaling),
++            k=num_loras,
++        )
++
++        inputs = torch.randn(batch_size, input_dim, dtype=dtype)
++        lora_a_weights = torch.randn(num_loras, max_lora_rank, input_dim, dtype=dtype)
++        lora_indices_tensor = torch.randint(
++            num_loras, (batch_size,), dtype=torch.int32, device="cpu"
++        )
++        seq_len_tensor = torch.ones(batch_size, dtype=torch.int32, device="cpu")
++        lora_ranks_tensor = torch.tensor(lora_ranks, dtype=torch.int32, device="cpu")
++        lora_scaling_tensor = torch.tensor(
++            lora_scaling, dtype=torch.float16, device="cpu"
++        )
++
++        expect_output = reference_sgmv_shrink(
++            inputs,
++            lora_a_weights,
++            lora_indices_tensor,
++            seq_len_tensor,
++            lora_ranks_tensor,
++            lora_scaling_tensor,
++        )
++
++        inputs_npu = inputs.to(dtype=device_dtype, device="npu")
++        lora_a_weights_npu = lora_a_weights.to(dtype=device_dtype, device="npu")
++        lora_indices_tensor_npu = lora_indices_tensor.to(device="npu")
++        seq_len_tensor_npu = seq_len_tensor.to(device="npu")
++        lora_ranks_tensor_npu = lora_ranks_tensor.to(device="npu")
++        lora_scaling_tensor_npu = lora_scaling_tensor.to(
++            dtype=torch.float16, device="npu"
++        )
++
++        actual_output = torch.zeros(
++            (batch_size, max_lora_rank), dtype=torch.float, device=inputs_npu.device
++        )
++
++        torch.ops.npu.sgemmv_shrink(
++            inputs_npu,
++            lora_a_weights_npu,
++            lora_indices_tensor_npu,
++            seq_len_tensor_npu,
++            lora_ranks_tensor_npu,
++            lora_scaling_tensor_npu,
++            actual_output,
++        )
++
++        actual_output_cpu = actual_output.to(dtype=dtype, device="cpu")
++
++        self.assertTrue(
++            torch.allclose(actual_output_cpu, expect_output, atol=1e-3, rtol=1e-3)
++        )
++
++    def test_sgemmv_expand(self):
++        batch_size = 4
++        output_dim = 1024
++        num_loras = 8
++        dtype = torch.float16
++        device_dtype = torch.float16
++
++        possible_lora_ranks = [16, 32, 64]
++        lora_ranks = random.sample(
++            possible_lora_ranks,
++            counts=[num_loras] * len(possible_lora_ranks),
++            k=num_loras,
++        )
++
++        max_lora_rank = max(lora_ranks)
++
++        inputs = torch.randn(batch_size, max_lora_rank, dtype=dtype)
++        lora_b_weights = torch.randn(num_loras, output_dim, max_lora_rank, dtype=dtype)
++        lora_ranks_tensor = torch.tensor(lora_ranks, dtype=torch.int32, device="cpu")
++        seq_len_tensor = torch.ones(batch_size, dtype=torch.int32, device="cpu")
++        lora_indices_tensor = torch.randint(
++            num_loras, (batch_size,), dtype=torch.int32, device="cpu"
++        )
++        slice_offsets = torch.tensor([0, output_dim], dtype=torch.int32, device="cpu")
++
++        expect_output = reference_sgmv_expand(
++            inputs,
++            lora_b_weights,
++            lora_indices_tensor,
++            seq_len_tensor,
++            lora_ranks_tensor,
++            slice_offsets,
++        )
++
++        inputs_npu = inputs.to(dtype=torch.float, device="npu")
++        lora_b_weights_npu = lora_b_weights.to(dtype=device_dtype, device="npu")
++        lora_indices_tensor_npu = lora_indices_tensor.to(device="npu")
++        seq_len_tensor_npu = seq_len_tensor.to(device="npu")
++        lora_ranks_tensor_npu = lora_ranks_tensor.to(device="npu")
++        slice_offsets_npu = slice_offsets.to(device="npu")
++
++        actual_output = torch.zeros(
++            (batch_size, output_dim), dtype=device_dtype, device=inputs_npu.device
++        )
++
++        torch.ops.npu.sgemmv_expand(
++            inputs_npu,
++            lora_b_weights_npu,
++            lora_indices_tensor_npu,
++            seq_len_tensor_npu,
++            lora_ranks_tensor_npu,
++            slice_offsets_npu,
++            actual_output,
++        )
++
++        actual_output_cpu = actual_output.to(device="cpu")
++
++        self.assertTrue(
++            torch.allclose(actual_output_cpu, expect_output, atol=1e-3, rtol=1e-3)
++        )
++
++
++if __name__ == "__main__":
++    unittest.main(verbosity=2)
+diff --git a/tests/python/sgl_kernel_npu/utils.py b/tests/python/sgl_kernel_npu/utils.py
+new file mode 100644
+index 000000000..c17a470d6
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/utils.py
+@@ -0,0 +1,148 @@
++from typing import Optional
++
++import torch
++
++
++def safe_matmul(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
++    """Matrix multiplication with mixed precision handling for float16"""
++    result = torch.matmul(a.float(), b.float())
++    return result.to(a.dtype)
++
++
++def reference_sgmv_shrink(
++    x: torch.Tensor,
++    weights: torch.Tensor,
++    weight_indices: torch.Tensor,
++    seq_lengths: torch.Tensor,
++    lora_ranks: torch.Tensor,
++    lora_scalings: torch.Tensor,
++    num_slices: int = 1,
++) -> torch.Tensor:
++    """
++    Simple sequence-level reference implementation of SGMV shrink operation.
++
++    Args:
++        x: (total_seq_len, input_dim) - Input activations
++        weights: (num_loras, num_slices * max_rank, input_dim) - LoRA A weights
++        weight_indices: LoRA idx for each sequence
++        seq_lengths: Length of each sequence
++        lora_ranks: LoRA rank for each LoRA adapters
++        lora_scalings: LoRA scaling for each LoRA adapters
++        num_slices: Number of slices (3 for QKV, 2 for gate_up, 1 for others)
++
++    Returns:
++        output: (total_seq_len, num_slices * max_rank) - Intermediate activations
++    """
++    if weights.numel() == 0:
++        total_seq_len = x.shape[0]
++        return torch.zeros(total_seq_len, 0, dtype=x.dtype, device=x.device)
++
++    total_seq_len, _ = x.shape
++    _, weight_out_dim, _ = weights.shape
++    max_rank = weight_out_dim // num_slices
++
++    output = torch.zeros(
++        total_seq_len, num_slices * max_rank, dtype=x.dtype, device=x.device
++    )
++
++    token_offset = 0
++    for lora_idx, seq_len, rank, scaling in zip(
++        weight_indices,
++        seq_lengths,
++        lora_ranks[weight_indices],
++        lora_scalings[weight_indices],
++    ):
++        if seq_len == 0:
++            continue
++
++        if rank > 0:
++            x_seq = x[token_offset : token_offset + seq_len, :]
++            w_seq = weights[lora_idx, : num_slices * rank, :]
++
++            result = safe_matmul(x_seq, w_seq.t())
++            output[token_offset : token_offset + seq_len, : num_slices * rank] = (
++                scaling * result
++            )
++
++        token_offset += seq_len
++
++    return output
++
++
++def reference_sgmv_expand(
++    x: torch.Tensor,
++    weights: torch.Tensor,
++    weight_indices: torch.Tensor,
++    seq_lengths: torch.Tensor,
++    lora_ranks: torch.Tensor,
++    slice_offsets: torch.Tensor,
++    base_output: Optional[torch.Tensor] = None,
++) -> torch.Tensor:
++    """
++    Simple sequence-level reference implementation of SGMV expand operation.
++
++    Args:
++        x: (total_seq_len, num_slices * max_rank) - Intermediate activations
++        weights: (num_loras, output_dim, max_rank) - LoRA B weights
++        weight_indices: LoRA idx for each sequence
++        seq_lengths: Length of each sequence
++        lora_ranks: LoRA rank for each LoRA adapters
++        slice_offsets: Tensor defining slice boundaries
++        base_output: Optional base output to accumulate into
++
++    Returns:
++        output: (total_seq_len, total_output_dim) - Final output
++    """
++    if weights.numel() == 0:
++        total_seq_len = x.shape[0]
++        total_output_dim = slice_offsets[-1].item() if len(slice_offsets) > 0 else 0
++        return torch.zeros(
++            total_seq_len, total_output_dim, dtype=x.dtype, device=x.device
++        )
++
++    total_seq_len, _ = x.shape
++
++    num_slices = len(slice_offsets) - 1
++
++    if base_output is not None:
++        output = base_output.clone()
++    else:
++        total_output_dim = slice_offsets[-1].item()
++        output = torch.zeros(
++            total_seq_len, total_output_dim, dtype=x.dtype, device=x.device
++        )
++
++    token_offset = 0
++    for lora_idx, seq_len, rank in zip(
++        weight_indices, seq_lengths, lora_ranks[weight_indices]
++    ):
++        if seq_len == 0:
++            continue
++
++        if rank > 0:
++            # Extract sequence intermediate activations
++            x_seq = x[
++                token_offset : token_offset + seq_len, : num_slices * rank
++            ]  # (seq_len, num_slices * rank)
++
++            for slice_idx in range(num_slices):
++                slice_start_input = slice_idx * rank
++                slice_end_input = (slice_idx + 1) * rank
++
++                slice_start_output = slice_offsets[slice_idx].item()
++                slice_end_output = slice_offsets[slice_idx + 1].item()
++
++                x_slice = x_seq[:, slice_start_input:slice_end_input]  # (seq_len, rank)
++                w_slice = weights[
++                    lora_idx, slice_start_output:slice_end_output, :rank
++                ]  # (slice_dim, rank)
++
++                result = safe_matmul(x_slice, w_slice.t())  # (seq_len, slice_dim)
++                output[
++                    token_offset : token_offset + seq_len,
++                    slice_start_output:slice_end_output,
++                ] += result
++
++        token_offset += seq_len
++
++    return output

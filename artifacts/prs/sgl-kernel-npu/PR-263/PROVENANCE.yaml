@@ -1,0 +1,174 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/263
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: e6f3933c
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-263
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 96b748f7704c07045641efc7045be1f14730243a10074a664d550e8ec5bbef29
+- local_path: key-files/csrc/deepep/deep_ep.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/deep_ep.cpp
+  sha256: b5a6c1da396b207d88e965562b81ad2b5a78aa3c5e49476bdba466b5bbaa5a10
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine.cpp
+  sha256: 2087b02d09c311d48dc639f143e1986d81e86a4b4f2ee2a86f57cec7499d33e5
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine_v2.cpp
+  sha256: dc3477b5f56c00f4fa94b0b6f260f444cfdf10aca4482adbb3c331753c158af0
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine_v2.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_combine_v2.h
+  sha256: 9e76fb19e56bd0edb45f07d65af05250d880c96b1c43134a0caf91605e0bee14
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch.cpp
+  sha256: 9e8ef63cd2fe3f754259fb113e711c3b87a26baf2e34874f7b1fd2f8323ad145
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch_v2.cpp
+  sha256: be8d02c4fa8f1637ad25ae574c2414fb25fed6c2cbe5a58cd17c940dcd487909
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch_v2.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_shmem_moe_distribute_dispatch_v2.h
+  sha256: 5f2118aff473aabaaf8e0b58eb8212594f20cde3a037fc96614714bcfd249588
+- local_path: key-files/csrc/deepep/ops/op_host/shmem_moe_distribute_combine_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/shmem_moe_distribute_combine_tiling.cpp
+  sha256: 75251e8dfd9a00b11ef03e4be27aa89c0a131c153f1700e75275ad9ab0a039eb
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_host/shmem_moe_distribute_combine_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/shmem_moe_distribute_combine_v2.cpp
+  sha256: 1ac0b490971fd738d8c5f6b8547a5e0593301cd629e5288d78dccb6678caf91e
+- local_path: key-files/csrc/deepep/ops/op_host/shmem_moe_distribute_combine_v2_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/shmem_moe_distribute_combine_v2_tiling.cpp
+  sha256: cd37be5da271d383b2ce7c2324d7757dd05d339f7a5f49ba2670064f93d479e5
+- local_path: key-files/csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch.cpp
+  sha256: 8254a29638c2602d44f5d68e842d742db216259b46f7f740f0d4dfaed065ba1c
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_tiling.cpp
+  sha256: 016d03ec37b873b1e750f6c7777167382812d7e4677cffb5accd9fe211af855d
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_v2.cpp
+  sha256: 2104f341bb987c708278f0bfb60cd32a9331b44e57609201b22d9632261a31f1
+- local_path: key-files/csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_v2_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/shmem_moe_distribute_dispatch_v2_tiling.cpp
+  sha256: 43382cbfb1dea01e1dee37f5a7079e4a001f4dc8754049a649d83730868d0cbc
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine.cpp
+  sha256: 119bf98537c219f864c36c6740a6165e87811de306fc605497d504d9964f0d04
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine.h
+  sha256: 379716ed27dbeac29411c6a63b7c424f9b7ae79021ac65968dcc3b8377779aad
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_tiling.h
+  sha256: b707c9a2d2e827526dfe438d86a582b6155ef4677b29f8c4275c387e076f768c
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_v2.cpp
+  sha256: 138ac274235a492821b025e48093d9eb2e08380e0ee79bb851f2f80ba7e61d9c
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_v2.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_v2.h
+  sha256: ebad6cd677f47e7b5c06d70491b3f771286c9948321f74dd5d387f21316ef41f
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_v2_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_combine_v2_tiling.h
+  sha256: 8d6fac419053d196731461fb6a356257bb9d9acd016c7d4d7737bbf80cf1df2b
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch.cpp
+  sha256: d635b4b49f48e62a7caf52c40b44f0aabd23cd8d5d50f5bd81d969ee08c23397
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch.h
+  sha256: e8dc776a64524372bbafc6307bf2b416aef83bc6f41575ccda6e464c83157123
+  upstream_sha: ba25808beedf44250b8152ec6cf069c9c8091ab9
+  captured_at_base_sha_note: 'PR #263 deletes this file. Captured verbatim at the
+    PR''s base SHA (pre-merge) so users can inspect the pre-deletion state.'
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_v2.cpp
+  sha256: d73cff817ad9d245d92ba89f072908175e59c6ad49c8633f0e9474d37b429638
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_v2.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_v2.h
+  sha256: 353cbec95b88e8641176025b27944f9e4d749d3c361a38a697cea41de25b3327
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_v2_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_dispatch_v2_tiling.h
+  sha256: 5769d5bca0a239cbe023647fe56d92af6535248d316e8d781552081c5a572f26
+- local_path: key-files/csrc/deepep/ops/op_kernel/shmem_moe_distribute_v2_base.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/shmem_moe_distribute_v2_base.h
+  sha256: 3dd2d93e289cab9f6a4aecde396cc59d24e6a6b519e6e61ad427b2edb904f473

@@ -1,0 +1,39 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/200
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: a1b06c39
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-200
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 826306c6b4de725f142d7ffa939b15135078e024caeaa80530410f70fc797258
+- local_path: key-files/csrc/catlass/op_host/catlass_matmul_basic.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/op_host/catlass_matmul_basic.cpp
+  sha256: 1b84419a35f310fabb1e70db9b9e6f387d3f4a5af1b617b10060b6a56675f64c
+- local_path: key-files/csrc/catlass/op_host/catlass_matmul_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/op_host/catlass_matmul_tiling.h
+  sha256: 891b7f2dbf41ae02ab2d561958891e2915fb0a3428d54b6befde66eaa7cffacf
+- local_path: key-files/csrc/catlass/op_kernel/catlass_matmul_basic_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/catlass/op_kernel/catlass_matmul_basic_kernel.cpp
+  sha256: 3a025b3154e971864e4275dda89960072272d49483f8e48ff18417b2a308681d
+- local_path: key-files/csrc/pytorch_extensions.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extensions.cpp
+  sha256: 8bf26e4f689b4707afaf125b6234383cf4c9a4f61d78794bf5f57bf330108bdb
+- local_path: key-files/include/sgl_kenel_npu_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/sgl_kenel_npu_ops.h
+  sha256: 9a84498b585949ed663426ace7a2eb4be030a2cb1fdd6291de5c4dba7cfb58ca

@@ -1,0 +1,127 @@
+diff --git a/csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.h b/csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.h
+index b31e25462..33e39d8cb 100644
+--- a/csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.h
++++ b/csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.h
+@@ -698,6 +698,9 @@ __aicore__ inline void MoeDistributeCombineV2<TemplateMC2TypeFunc>::AlltoAllBuff
+         scaleDupLocalTensor_ = mulBuf_.Get<float>();
+         scaleDivFloatTensor_ = xAbsBuf_.Get<float>();
+     }
++    if (axisBS_ == 0) {
++        return;
++    }
+     if (isInputTokenMaskFlag_) {
+         axisBsAlignSize_ = Ceil(axisBS_ * sizeof(bool), UB_ALIGN) * UB_ALIGN;
+         tpipe_->InitBuffer(xActMaskTBuf_, axisBsAlignSize_);
+diff --git a/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.h b/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.h
+index 8e1a2dfb4..937fdc30c 100644
+--- a/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.h
++++ b/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.h
+@@ -881,10 +881,10 @@ __aicore__ inline void MoeDistributeDispatchV2<TemplateMC2TypeFunc>::AlltoAllDis
+ {
+     activeMaskBsCnt_ = axisBS_;
+     sendToMoeExpTokenCnt_ = axisBS_ * axisK_;
+-    if (isTokenMaskFlag_) {
++    if (axisBS_ != 0 && isTokenMaskFlag_) {
+         TokenActiveMaskCal();
+     }
+-    if (isExpertMaskFlag_) {
++    if (axisBS_ != 0 && isExpertMaskFlag_) {
+         ExpertActiveMaskCal();
+     }
+ 
+diff --git a/csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc b/csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+index 6e5b880cf..eeeedb4d0 100644
+--- a/csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
++++ b/csrc/deepep/ops2/op_host/moe_distribute_combine_v2_tiling.cc
+@@ -655,12 +655,6 @@ static bool CheckAttrs(const gert::TilingContext *context, MoeDistributeCombineV
+                 "bs=%ld, epWorldSize=%u.",
+                 *globalBsPtr, expertIdsDim0, epWorldSize),
+         return false);
+-    OP_TILING_CHECK(((*globalBsPtr > (expertIdsDim0 * static_cast<int64_t>(epWorldSize))) && isActiveMask),
+-                    OP_LOGE(nodeName,
+-                            "Different bs on different rank cannot work when isActiveMask=true, globalBS=%ld, "
+-                            "bs=%ld, epWorldSize=%u.",
+-                            *globalBsPtr, expertIdsDim0, epWorldSize),
+-                    return false);
+ 
+     tilingData.moeDistributeCombineV2Info.globalBs = static_cast<uint32_t>(*globalBsPtr);
+     if (*globalBsPtr == 0) {
+diff --git a/csrc/deepep/ops2/op_host/moe_distribute_dispatch_v2_tiling.cc b/csrc/deepep/ops2/op_host/moe_distribute_dispatch_v2_tiling.cc
+index 02791c09e..5b9f087d9 100644
+--- a/csrc/deepep/ops2/op_host/moe_distribute_dispatch_v2_tiling.cc
++++ b/csrc/deepep/ops2/op_host/moe_distribute_dispatch_v2_tiling.cc
+@@ -660,12 +660,6 @@ static ge::graphStatus CheckAttrs(gert::TilingContext *context, const char *node
+                 "bs=%ld, epWorldSize=%u.",
+                 *globalBsPtr, xDim0, epWorldSize),
+         return ge::GRAPH_FAILED);
+-    OP_TILING_CHECK(((*globalBsPtr > (xDim0 * static_cast<int64_t>(epWorldSize))) && isActiveMask),
+-                    OP_LOGE(nodeName,
+-                            "Different bs on different rank cannot work when isActiveMask=true, globalBS=%ld, "
+-                            "bs=%ld, epWorldSize=%u.",
+-                            *globalBsPtr, xDim0, epWorldSize),
+-                    return ge::GRAPH_FAILED);
+     if (*globalBsPtr == 0) {
+         tilingData.moeDistributeDispatchV2Info.globalBs = static_cast<uint32_t>(xDim0) * epWorldSize;
+     } else {
+diff --git a/csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2.h b/csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2.h
+index 2e8583afc..39d40e9fc 100644
+--- a/csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2.h
++++ b/csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2.h
+@@ -279,10 +279,10 @@ __aicore__ inline void MoeDistributeCombineV2<TemplateMC2TypeA2Func>::Init(
+ 
+     BuffInit();
+ 
+-    if (isInputTokenMaskFlag_) {
++    if (axisBS_ != 0 && isInputTokenMaskFlag_) {
+         TokenActiveMaskCal();  // 计算一维mask
+     }
+-    if (isInputExpertMaskFlag_) {
++    if (axisBS_ != 0 && isInputExpertMaskFlag_) {
+         tpipe_->InitBuffer(expertMaskBuf_, Ceil(axisBS_ * axisK_ * sizeof(bool), UB_ALIGN) * UB_ALIGN);
+         expertMaskTensor_ = expertMaskBuf_.Get<bool>();
+         DataCopyPadExtParams<bool> maskCopyPadParams{false, 0U, 0U, 0U};
+diff --git a/csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_single.h b/csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_single.h
+index 4464a5403..80fa6e50e 100644
+--- a/csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_single.h
++++ b/csrc/deepep/ops2/op_kernel/moe_distribute_combine_v2_single.h
+@@ -496,6 +496,9 @@ __aicore__ inline void MoeDistributeCombineV2Single<TemplateMC2TypeA2SingleFunc>
+         scaleDupLocalTensor_ = mulBuf_.Get<float>();
+         scaleDivFloatTensor_ = xAbsBuf_.Get<float>();
+     }
++    if (axisBS_ == 0) {
++        return;
++    }
+     if (isInputTokenMaskFlag_) {
+         axisBsAlignSize_ = Ceil(axisBS_ * sizeof(bool), UB_ALIGN) * UB_ALIGN;
+         tpipe_->InitBuffer(xActMaskTBuf_, axisBsAlignSize_);
+diff --git a/csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2.h b/csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2.h
+index 0693f440a..437b0619c 100644
+--- a/csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2.h
++++ b/csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2.h
+@@ -314,7 +314,7 @@ __aicore__ inline void MoeDistributeDispatchV2<TemplateMC2TypeA2Func>::Init(
+     baseBuffOffset_ += xActiveMaskSize_;
+     gatherMaskTensor_ = gatherMaskTensorInt8.template ReinterpretCast<uint32_t>();
+ 
+-    if (isExpertMaskFlag_) {
++    if (axisBS_ != 0 && isExpertMaskFlag_) {
+         ExpertActiveMaskCal();
+     }
+ 
+diff --git a/csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_single.h b/csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_single.h
+index 8c117b148..ca16ac2c7 100644
+--- a/csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_single.h
++++ b/csrc/deepep/ops2/op_kernel/moe_distribute_dispatch_v2_single.h
+@@ -795,11 +795,11 @@ __aicore__ inline void MoeDistributeDispatchV2Single<TemplateMC2TypeA2SingleFunc
+     CAM_PRINT("[AlltoAllDispatch1] rank:%d, aivId:%d ...\n", epRankId_, aivId_);
+     activeMaskBsCnt_ = axisBS_;
+     sendToMoeExpTokenCnt_ = axisBS_ * axisK_;
+-    if (isTokenMaskFlag_) {
++    if (axisBS_ != 0 && isTokenMaskFlag_) {
+         TokenActiveMaskCal();
+     }
+     CAM_PRINT("[AlltoAllDispatch2] rank:%d, aivId:%d, isTokenMaskFlag_:%d ...\n", epRankId_, aivId_, isTokenMaskFlag_);
+-    if (isExpertMaskFlag_) {
++    if (axisBS_ != 0 && isExpertMaskFlag_) {
+         ExpertActiveMaskCal();
+     }
+     CAM_PRINT("[AlltoAllDispatch3] rank:%d, aivId:%d, isExpertMaskFlag_:%d ...\n", epRankId_, aivId_,

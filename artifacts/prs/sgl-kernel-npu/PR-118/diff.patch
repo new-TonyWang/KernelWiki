@@ -1,0 +1,595 @@
+diff --git a/.github/workflows/pr-test-npu.yml b/.github/workflows/pr-test-npu.yml
+index 7f9b19641..fa106bcaf 100644
+--- a/.github/workflows/pr-test-npu.yml
++++ b/.github/workflows/pr-test-npu.yml
+@@ -65,6 +65,13 @@ jobs:
+         run: |
+           python3 $GITHUB_WORKSPACE/tests/python/deepep/test_low_latency.py
+ 
++      - name: Run test deepep eplb
++        timeout-minutes: 10
++        env:
++          HCCL_BUFFSIZE: 2000
++        run: |
++          python3 $GITHUB_WORKSPACE/tests/python/deepep/test_fused_deep_moe.py
++
+   test-build-deepep:
+     if: (github.repository == 'sgl-project/sgl-kernel-npu' || github.event_name == 'pull_request') &&
+         github.event.pull_request.draft == false
+@@ -113,6 +120,13 @@ jobs:
+         run: |
+           python3 $GITHUB_WORKSPACE/tests/python/deepep/test_low_latency.py
+ 
++      - name: Run test deepep eplb
++        timeout-minutes: 10
++        env:
++          HCCL_BUFFSIZE: 2000
++        run: |
++          python3 $GITHUB_WORKSPACE/tests/python/deepep/test_fused_deep_moe.py
++
+   finish:
+     if: always()
+     needs:
+diff --git a/csrc/deepep/deep_ep.cpp b/csrc/deepep/deep_ep.cpp
+index d9344ea20..02966361e 100644
+--- a/csrc/deepep/deep_ep.cpp
++++ b/csrc/deepep/deep_ep.cpp
+@@ -65,7 +65,7 @@ Buffer::get_dispatch_layout(const torch::Tensor &topk_idx, int num_experts, std:
+         }
+         int topk = static_cast<int>(topk_idx.size(1));
+         for (int i = 0; i < this->padding_cnt; i++) {
+-            at::Tensor tmp_topk = torch::arange(0, topk, topk_idx.options()).reshape({1, topk});
++            at::Tensor tmp_topk = torch::randperm(num_experts, topk_idx.options()).slice(0, 0, topk).reshape({1, topk});
+             topk_blocks.emplace_back(tmp_topk);
+         }
+         this->new_topk_idx = torch::cat(topk_blocks, 0);
+@@ -346,8 +346,12 @@ Buffer::intranode_combine(const torch::Tensor &x, const torch::Tensor &topk_idx,
+                 weight_blocks.emplace_back(topk_weights.value());
+             }
+             for (int i = 0; i < this->padding_cnt; i++) {
+-                at::Tensor tmp_weight = torch::arange(0, num_topk, topk_weights->options()).reshape({1, num_topk});
+-                weight_blocks.emplace_back(tmp_weight);
++                if (topk_weights.has_value()) {
++                    at::Tensor tmp_weight = torch::randperm(send_head.size(0), topk_weights->options())
++                                                .slice(0, 0, num_topk)
++                                                .reshape({1, num_topk});
++                    weight_blocks.emplace_back(tmp_weight);
++                }
+             }
+             expert_scales = torch::cat(weight_blocks, 0);
+         }
+@@ -424,7 +428,7 @@ Buffer::low_latency_dispatch(const at::Tensor &x, const at::Tensor &topk_idx,
+         int topk = static_cast<int>(new_topk_idx.size(1));
+         for (int i = 0; i < this->padding_cnt; i++) {
+             at::Tensor tmp_x = torch::ones({1, x.size(1)}, x.options());
+-            at::Tensor tmp_topk = torch::arange(0, topk, topk_idx.options()).reshape({1, topk});
++            at::Tensor tmp_topk = torch::randperm(num_experts, topk_idx.options()).slice(0, 0, topk).reshape({1, topk});
+             x_blocks.emplace_back(tmp_x);
+             topk_blocks.emplace_back(tmp_topk);
+         }
+@@ -592,54 +596,56 @@ std::tuple<at::Tensor, std::optional<EventHandle>, std::optional<std::function<v
+     return {combined_x, event, std::function<void()>([] {})};
+ }
+ 
+-std::tuple<at::Tensor, std::optional<EventHandle>, std::optional<std::function<void()>>> Buffer::fused_deep_moe(
+-    const at::Tensor &x, const at::Tensor &expertIds, const at::Tensor &gmm1PermutedWeight,
+-    const at::Tensor &gmm1PermutedWeightScale, const at::Tensor &gmm2Weight, const at::Tensor &gmm2WeightScale,
+-    const at::Tensor &expertScalesOptional, int64_t num_max_dispatch_tokens_per_rank, int64_t num_experts, bool use_fp8)
++std::vector<at::Tensor> Buffer::fused_deep_moe(const at::Tensor &x, const at::Tensor &expert_ids,
++                                               const at::Tensor &gmm1_permuted_weight,
++                                               const at::Tensor &gmm1_permuted_weight_scale,
++                                               const at::Tensor &gmm2_weight, const at::Tensor &gmm2_weight_scale,
++                                               const at::Tensor &expert_scales_optional,
++                                               int64_t num_max_dispatch_tokens_per_rank, int64_t num_experts,
++                                               int quant_mode)
+ {
+-    EP_HOST_ASSERT(expertIds.dim() == 2);
+-    EP_HOST_ASSERT(expertScalesOptional.dim() == 2);
++    EP_HOST_ASSERT(expert_ids.dim() == 2);
++    EP_HOST_ASSERT(expert_scales_optional.dim() == 2);
+ 
+     this->is_padding = false;
+     at::Tensor new_x = x;
+-    this->new_topk_idx = expertIds;
+-    at::Tensor new_scales = expertScalesOptional;
++    this->new_topk_idx = expert_ids;
++    at::Tensor new_scales = expert_scales_optional;
+ 
+-    if (expertIds.size(0) < PADDING_SIZE) {
++    if (expert_ids.size(0) < PADDING_SIZE) {
+         this->is_padding = true;
+-        this->padding_cnt = PADDING_SIZE - expertIds.size(0);
++        this->padding_cnt = PADDING_SIZE - expert_ids.size(0);
+ 
+         std::vector<at::Tensor> x_blocks;
+         std::vector<at::Tensor> idx_blocks;
+ 
+-        if (expertIds.size(0) != 0) {
++        if (expert_ids.size(0) != 0) {
+             x_blocks.emplace_back(x);
+-            idx_blocks.emplace_back(expertIds);
++            idx_blocks.emplace_back(expert_ids);
+         } else {
+-            this->ori_x = x.clone();  //  Store the original input when the batch is completely empty.
++            this->ori_x = x.clone();  // store the original input when the batch is completely empty
+         }
+ 
+-        int topk = static_cast<int>(expertIds.size(1));
++        int topk = static_cast<int>(expert_ids.size(1));
+         for (int i = 0; i < this->padding_cnt; i++) {
+             at::Tensor tmp_x = torch::ones({1, x.size(1)}, x.options());
+-            at::Tensor tmp_idx = torch::arange(0, topk, expertIds.options()).reshape({1, topk});
++            at::Tensor tmp_idx =
++                torch::randperm(num_experts, expert_ids.options()).slice(0, 0, topk).reshape({1, topk});
+             x_blocks.emplace_back(tmp_x);
+             idx_blocks.emplace_back(tmp_idx);
+         }
+-
+         new_x = torch::cat(x_blocks, 0);
+         this->new_topk_idx = torch::cat(idx_blocks, 0);
+ 
+-        // padding expertScalesOptional
++        // padding expert_scales_optional
+         std::vector<at::Tensor> scales_blocks;
+         if (this->padding_cnt != PADDING_SIZE) {
+-            scales_blocks.emplace_back(expertScalesOptional);
++            scales_blocks.emplace_back(expert_scales_optional);
+         }
+         for (int i = 0; i < this->padding_cnt; i++) {
+-            at::Tensor tmp_scales = torch::zeros({1, expertScalesOptional.size(1)}, expertScalesOptional.options());
++            at::Tensor tmp_scales = torch::zeros({1, expert_scales_optional.size(1)}, expert_scales_optional.options());
+             scales_blocks.emplace_back(tmp_scales);
+         }
+-
+         new_scales = torch::cat(scales_blocks, 0);
+     }
+ 
+@@ -650,28 +656,31 @@ std::tuple<at::Tensor, std::optional<EventHandle>, std::optional<std::function<v
+         HCCL_CHECK(HcclGetCommName(ep_comm, hcom_ep_name));
+     }
+ 
+-    int64_t quantMode = use_fp8 ? 2 : 0;
+-    int64_t globalBs = std::max(new_topk_idx.size(0), num_max_dispatch_tokens_per_rank) * num_ranks;
++    int64_t global_bs = std::max(new_topk_idx.size(0), num_max_dispatch_tokens_per_rank) * num_ranks;
+ 
+-    auto xShape = x.sizes();
+-    auto expertIdsShape = expertIds.sizes();
+-    int h = xShape[1];
++    auto x_shape = x.sizes();
++    int h = x_shape[1];
+     int bs = this->new_topk_idx.size(0);
++
+     at::Tensor output = at::empty({bs, h}, x.options());
+ 
++    bool is_shared_expert = (rank < shared_expert_rank_num);
++    int64_t num_local_experts = is_shared_expert ? 1 : num_experts / (num_ranks - shared_expert_rank_num);
++    at::Tensor ep_recv_count = at::empty({num_local_experts * num_ranks}, expert_ids.options());
++
+     EXEC_NPU_CMD(aclnnFusedDeepMoe,
+                  // input
+-                 x, expertIds, gmm1PermutedWeight, gmm1PermutedWeightScale, gmm2Weight, gmm2WeightScale,
+-                 static_cast<const std::nullptr_t &>(nullptr), new_scales,
++                 new_x, this->new_topk_idx, gmm1_permuted_weight, gmm1_permuted_weight_scale, gmm2_weight,
++                 gmm2_weight_scale, static_cast<const std::nullptr_t &>(nullptr), new_scales,
+                  // attr
+-                 hcom_ep_name, num_ranks, rank, num_experts, shared_expert_num, shared_expert_rank_num, quantMode,
+-                 globalBs,
++                 hcom_ep_name, num_ranks, rank, num_experts, shared_expert_num, shared_expert_rank_num, quant_mode,
++                 global_bs,
+                  // output
+-                 output);
++                 output, ep_recv_count);
+ 
+-    // ---------- Unpadding ----------
++    // ---------- unpadding ----------
+     if (this->is_padding) {
+-        if (expertIds.size(0) == 0) {
++        if (expert_ids.size(0) == 0) {
+             output = this->ori_x;
+         } else {
+             output = output.slice(0, 0, PADDING_SIZE - this->padding_cnt);
+@@ -679,7 +688,6 @@ std::tuple<at::Tensor, std::optional<EventHandle>, std::optional<std::function<v
+         this->is_padding = false;
+     }
+ 
+-    std::optional<EventHandle> event;
+-    return {output, event, std::function<void()>([] {})};
++    return {output, ep_recv_count};
+ }
+ }  // namespace deep_ep
+diff --git a/csrc/deepep/deep_ep.hpp b/csrc/deepep/deep_ep.hpp
+index e4a760a19..a613f5ddd 100644
+--- a/csrc/deepep/deep_ep.hpp
++++ b/csrc/deepep/deep_ep.hpp
+@@ -85,10 +85,11 @@ struct Buffer {
+         const at::Tensor &packed_recv_count, bool zero_copy, bool async, bool return_recv_hook,
+         const std::optional<at::Tensor> &out);
+ 
+-    std::tuple<at::Tensor, std::optional<EventHandle>, std::optional<std::function<void()>>>
+-    fused_deep_moe(const at::Tensor &x, const at::Tensor &expertIds, const at::Tensor &gmm1PermutedWeight,
+-                   const at::Tensor &gmm1PermutedWeightScale, const at::Tensor &gmm2Weight,
+-                   const at::Tensor &gmm2WeightScale, const at::Tensor &expertScalesOptional,
+-                   int64_t num_max_dispatch_tokens_per_rank, int64_t num_experts, bool use_fp8);
++    std::vector<at::Tensor> fused_deep_moe(const at::Tensor &x, const at::Tensor &expertIds,
++                                           const at::Tensor &gmm1PermutedWeight,
++                                           const at::Tensor &gmm1PermutedWeightScale, const at::Tensor &gmm2Weight,
++                                           const at::Tensor &gmm2WeightScale, const at::Tensor &expertScalesOptional,
++                                           int64_t num_max_dispatch_tokens_per_rank, int64_t num_experts,
++                                           int quant_mode);
+ };
+ }  // namespace deep_ep
+diff --git a/python/deep_ep/FUSED_DEEP_MOE_CN.md b/python/deep_ep/FUSED_DEEP_MOE_CN.md
+index 0364edc6f..4c1906ede 100644
+--- a/python/deep_ep/FUSED_DEEP_MOE_CN.md
++++ b/python/deep_ep/FUSED_DEEP_MOE_CN.md
+@@ -4,7 +4,11 @@ DeepEP-DeepFusedMoE
+ 
+ 
+ ## 介绍
+-DeepFusedMoE基于Dispatch+Combine+2*GMM超融合算子，通信时长(BS=32/155us，Dispatch=80us, Combine=75us)降低到85us以内，单层通信时长降低70us，推理端到端时延降低4ms。
++在 MoE（Mixture of Experts）模型中，fused_deep_moe 算子实现 Dispatch + Experts FFN (2×GMM) + Combine 的超融合功能。
++
++该算子在一次调用中完成 token 分发、专家计算（矩阵乘、激活、量化/反量化）以及结果合并操作，相比传统多算子实现显著降低通信开销和端到端时延。
++
++通信时长(Bs=32/155us，Dispatch=80us, Combine=75us)降低到85us以内，单层通信时长降低70us，推理端到端时延降低4ms。
+ 
+ * 在MoE类大模型中，每个token（一个向量，所有token长度是一致）需要交给多个专家处理，并将处理后的结果收回并累加到一起。不同专家分布在不同的NPU卡上，每张卡支持部署多个专家。
+ 
+@@ -27,34 +31,27 @@ def fused_deep_moe(
+     gmm2_weight_scale: torch.Tensor,
+     num_max_dispatch_tokens_per_rank: int,
+     num_experts: int,
+-    use_fp8: bool = True,
++    quant_mode: int = 0,
+ ) -> Tuple[torch.Tensor, EventOverlap, Callable]
+ ```
+ 
+ ### 参数说明
++| 参数 | 类型 | 形状                   | 说明                                                                                                                                                                                                                        |
++|------|------|----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
++| **x** | `torch.Tensor` | `[bs, hidden]`       | 输入 token 表示，每行一个 token 的隐藏向量（常用 `bfloat16`）。<br><br>• <b>bs</b>（batch size）取值范围为 **[1,256]**。<br>• <b>hidden</b> 表示隐藏维度大小，通常取决于模型隐层宽度（如 2048、4096、6144、7168 等）。<br> 取值范围 **[512, 7168]**，且必须能被 **32** 整除，以满足底层矩阵乘与通信对齐要求。 |
++| **topk_idx** | `torch.Tensor` | `[bs, num_topk]`     | 每个 token 的专家索引，`int64` 类型。若值为 `-1` 表示该 token 不分发。                                                                                                                                                                         |
++| **topk_weights** | `torch.Tensor` | `[bs, num_topk]`     | 合并专家输出的加权系数（`float32`）。                                                                                                                                                                                                   |
++| **gmm1_permuted_weight** | `torch.Tensor` | 例如 `[G, 7168, 4096]` | 第一阶段（上投）专家权重，已做 permute 以适配 Grouped MatMul。                                                                                                                                                                               |
++| **gmm1_permuted_weight_scale** | `torch.Tensor` | 例如 `[G, 4096]`       | 第一阶段权重量化 scale，量化模式下必需（`float32`）。                                                                                                                                                                                        |
++| **gmm2_weight** | `torch.Tensor` | 例如 `[G, 7168, 2048]` | 第二阶段（下投）专家权重。                                                                                                                                                                                                             |
++| **gmm2_weight_scale** | `torch.Tensor` | 例如 `[G, 7168]`       | 第二阶段权重量化 scale。                                                                                                                                                                                                           |
++| **num_max_dispatch_tokens_per_rank** | `int` | 标量                   | 每个 rank 最多分发的 token 数，用于 buffer/内存分配。                                                                                                                                                                                     |
++| **num_experts** | `int` | 标量                   | 全局专家总数。                                                                                                                                                                                                                   |
++| **quant_mode** | `int` | 标量，默认 `1`            | 表示量化模式：`1`： 表示int8；后续A5支持fp8。                                                                                                                                                                                             |
+ 
+-- **x**: `torch.Tensor`，shape `[bs, hidden]`（例如 `[32,1024]`），输入的 token 表示（通常为 `torch.bfloat16`），每行一个 token 的隐藏向量。
+-
+-- **topk_idx**: `torch.Tensor`，shape `[bs, num_topk]`，每个 token 对应的专家索引（`int64`），支持 `-1` 表示该 token 不路由到任何专家。
+-
+-- **topk_weights**: `torch.Tensor`，shape `[bs, num_topk]` 合并专家输出时用的权重（`float32`），用于加权合并专家的输出。
+-
+-- **gmm1_permuted_weight**: `torch.Tensor`，形状依实现而定（示例 `[G, 7168, 4096]`），第一阶段（上投/分组 matmul）使用的专家权重，已按 grouped-matmul 要求做过重排/permute，dtype/device 应与内核要求一致（如 `bfloat16`/`npu`）。
+-
+-- **gmm1_permuted_weight_scale**: `torch.Tensor`，形状与 `gmm1_permuted_weight` 对应（示例 `[G, 4096]`），第一阶段权重的量化 scale（通常 `float32`），用于 FP8/量化路径；若不量化可传入 `None` 或单位 scale (全1张量)。
+-
+-- **gmm2_weight**: `torch.Tensor`，形状依实现而定（示例 `[G, 7168, 2048]`），第二阶段（下投/FFN 输出）使用的专家权重，可能已重排以适配内核。
+-
+-- **gmm2_weight_scale**: `torch.Tensor`，形状与 `gmm2_weight` 对应（示例 `[G, 7168]`），第二阶段权重的量化 scale（通常 `float32`），用于量化/反量化操作。
+-
+-- **num_max_dispatch_tokens_per_rank**: `int`，标量，每个 rank 上允许分发（dispatch）的最大 token 数，用于 buffer/内存分配。
+-
+-- **num_experts**: `int`，标量，全局专家总数（logical experts），用于内核属性与路由计算。
+-
+-- **use_fp8**: `bool`，标量（默认 `True`），是否启用 FP8 路径；开启后内核会走 FP8 量化/伸缩相关分支，需同时提供对应的 scale 张量。
+ 
+ ### 返回值
+-
+-- **output**: `[bs, hidden]`, 融合专家输出，通常为 `torch.bfloat16`。
+-- **event**: `EventOverlap`，内核执行后的事件句柄。
+-- **hook**: `Callable`，异步回调函数。
++| 参数                              | 类型             | 形状                         | 说明                     |
++|---------------------------------| -------------- | -------------------------- |------------------------|
++| **output**                      | `torch.Tensor` | `[bs, hidden]`             | 融合专家输出（常用 `bfloat16`）。 |
++| **ep_recv_count**               | `torch.Tensor` | `[num_local_experts]`           | 表示EP通信域各卡收到的token数量。   |
+diff --git a/python/deep_ep/deep_ep/buffer.py b/python/deep_ep/deep_ep/buffer.py
+index 369ecd36f..36477b8d9 100644
+--- a/python/deep_ep/deep_ep/buffer.py
++++ b/python/deep_ep/deep_ep/buffer.py
+@@ -601,8 +601,8 @@ def fused_deep_moe(
+         gmm2_weight_scale: torch.Tensor,
+         num_max_dispatch_tokens_per_rank: int,
+         num_experts: int,
+-        use_fp8: bool = True,
+-    ) -> Tuple[torch.Tensor, EventOverlap, Callable]:
++        quant_mode: int = 1,
++    ) -> Tuple[torch.Tensor, torch.Tensor]:
+         """
+         A fused low-latency implementation for MoE expert forward and combination.
+ 
+@@ -623,7 +623,7 @@ def fused_deep_moe(
+ 
+             num_max_dispatch_tokens_per_rank: the maximum number of tokens to dispatch, all the ranks must hold the same value.
+             num_experts: the number of experts.
+-            use_fp8: whether to enable FP8 casting, with this, the received data will be a tuple of FP8 tensor and scaling factors.
++            quant_mode: int type, optional number, displays the quantization model. Supported values: 1 means int8 (default)
+ 
+         Notes:
+             - The first dimension of `topk_idx` defines the batch size `bs`.
+@@ -634,14 +634,14 @@ def fused_deep_moe(
+         Returns:
+             output: `torch.Tensor`, shape `[bs, hidden]` and usually `torch.bfloat16`,
+                 the fused expert output.
+-            event: `EventOverlap`, the event handle after kernel execution.
+-            hook: `Callable`, the completion/receiving hook for delayed or staged execution.
++            ep_recv_count: `torch.Tensor`, a 1D tensor of type `torch.int32`
++                indicating the number of tokens received by each expert across all ranks.
+         """
+         gmm1_permuted_weight_scale = gmm1_permuted_weight_scale.float()
+         gmm2_weight_scale = gmm2_weight_scale.float()
+         topk_ids = topk_idx.int()
+ 
+-        output, event, hook = self.runtime.fused_deep_moe(
++        output, ep_recv_count = self.runtime.fused_deep_moe(
+             x,
+             topk_ids,
+             gmm1_permuted_weight,
+@@ -651,7 +651,7 @@ def fused_deep_moe(
+             topk_weights,
+             num_max_dispatch_tokens_per_rank,
+             num_experts,
+-            use_fp8,
++            quant_mode,
+         )
+ 
+-        return output, EventOverlap(event), hook
++        return output, ep_recv_count
+diff --git a/tests/python/deepep/test_fused_deep_moe.py b/tests/python/deepep/test_fused_deep_moe.py
+index 6593998e3..926a98556 100644
+--- a/tests/python/deepep/test_fused_deep_moe.py
++++ b/tests/python/deepep/test_fused_deep_moe.py
+@@ -13,6 +13,7 @@
+ torch_npu.npu.config.allow_internal_format = True
+ 
+ 
++# ======================== Weight Initialization ========================
+ def init_base_weights():
+     w13_weight = torch.randint(-16, 16, [16, 4096, 7168]).to(torch.int8)
+     w2_weight = torch.randint(-16, 16, [16, 7168, 2048]).to(torch.int8)
+@@ -28,13 +29,14 @@ def init_baseline_weights(w13_weight, w13_weight_scale, w2_weight, w2_weight_sca
+     w2_weight = w2_weight.data.transpose(1, 2).contiguous()
+     w13_weight_scale = w13_weight_scale.data.squeeze(-1).contiguous()
+     w2_weight_scale = w2_weight_scale.data.squeeze(-1).contiguous()
+-
++    # baseline store as nz
+     w13_weight = torch_npu.npu_format_cast(w13_weight, 29)
+     w2_weight = torch_npu.npu_format_cast(w2_weight, 29)
+ 
+     return w13_weight, w13_weight_scale, w2_weight, w2_weight_scale
+ 
+ 
++# ======================== Weight Permutation & Fusion ========================
+ def permute_weight(w: torch.Tensor, tile_n):
+ 
+     *dims, n = w.shape
+@@ -59,7 +61,6 @@ def reshape_fusion_gmm_weight(weight, dim):
+     return weight.contiguous()
+ 
+ 
+-# ---------- wrapper to init fused int8 weights ----------
+ def init_fused_weights_int8(
+     w13_weight,
+     w13_weight_scale,
+@@ -70,19 +71,19 @@ def init_fused_weights_int8(
+     block_n: int = 16,
+ ):
+ 
++    # -------- w13_weight --------
+     w13 = w13_weight.transpose(1, 2).contiguous()
+     torch_npu.npu_format_cast_(w13, 2)
+     cpu_w13 = w13.cpu()
+     w13 = reshape_fusion_gmm_weight(cpu_w13, -1).npu()
+     torch_npu.npu_format_cast_(w13, 29)
+-
+     w13_int8_nz = torch.nn.Parameter(w13, requires_grad=False)
+ 
+     # -------- w2_weight --------
+     w2 = torch_npu.npu_format_cast(w2_weight, 29)
+     w2_int8_nz = torch.nn.Parameter(w2, requires_grad=False)
+-    # -------- w13_weight_scale --------
+ 
++    # -------- w13_weight_scale --------
+     w13_scale = permute_weight(w13_weight_scale.squeeze(-1).contiguous(), 128)
+     w13_scale_o = torch.nn.Parameter(w13_scale, requires_grad=False)
+ 
+@@ -93,6 +94,7 @@ def init_fused_weights_int8(
+     return w13_int8_nz, w13_scale_o, w2_int8_nz, w2_scale_o
+ 
+ 
++# ======================== Utility Functions ========================
+ def make_uniform_topk_idx(
+     num_tokens: int, num_experts: int, num_ranks: int, num_topk: int, device="npu"
+ ):
+@@ -103,16 +105,28 @@ def make_uniform_topk_idx(
+ 
+     for t in range(num_tokens):
+         for k in range(num_topk):
+-            # Ranks are evenly distributed in rotation.
+             rank_id = (t * num_topk + k) % num_ranks
+-            # Select an expert within the range of that rank (here, simply take the first one or rotate).
+             expert_base = rank_id * experts_per_rank
+             expert_id = expert_base + ((t + k) % experts_per_rank)
+             topk_idx[t, k] = expert_id
+-
+     return topk_idx
+ 
+ 
++def from_inclusive_prefix_sum(pref):
++    if isinstance(pref, torch.Tensor):
++        if pref.numel() == 0:
++            return pref
++        return torch.cat([pref[:1], pref[1:] - pref[:-1]])
++
++    if not pref:
++        return []
++    out = [pref[0]]
++    for i in range(1, len(pref)):
++        out.append(pref[i] - pref[i - 1])
++    return out
++
++
++# ======================== Baseline Reference ========================
+ def baseline_test(
+     buffer,
+     x,
+@@ -127,7 +141,7 @@ def baseline_test(
+     w2_scale,
+     topk_weights,
+ ):
+-    hidden_states, group_list, handle, _, _ = buffer.low_latency_dispatch(
++    hidden_states, packed_recv_count, handle, _, _ = buffer.low_latency_dispatch(
+         x,
+         topk_idx,
+         num_tokens,
+@@ -143,7 +157,7 @@ def baseline_test(
+     per_token_scale = hidden_states[1]
+     hidden_states = hidden_states[0]
+ 
+-    group_list = group_list.to(torch.int64)
++    group_list = packed_recv_count.to(torch.int64)
+ 
+     # gmm1: gate_up_proj
+     hidden_states = torch_npu.npu_grouped_matmul(
+@@ -190,10 +204,11 @@ def baseline_test(
+         async_finish=not return_recv_hook,
+         return_recv_hook=return_recv_hook,
+     )
+-
+-    return hidden_states
++    # handle[1] -> ep_recv_count
++    return hidden_states, handle[1]
+ 
+ 
++# ======================== Main Test ========================
+ def test(
+     num_tokens: int,
+     hidden: int,
+@@ -220,7 +235,7 @@ def test(
+     ), "Too many ranks (exceeding test precision limit)"
+ 
+     x = torch.rand((num_tokens, hidden), dtype=torch.bfloat16, device="npu") * 10 - 5
+-    # Generate routing (topk_idx)
++    # ----- Routing(topk_idx) -----
+     if args.active_ranks:
+         try:
+             active_ranks = [
+@@ -270,6 +285,7 @@ def test(
+         )
+         topk_idx = torch.topk(scores, num_topk, dim=-1, largest=True, sorted=True)[1]
+ 
++    # ----- Weights -----
+     w13_weight, w13_weight_scale, w2_weight, w2_weight_scale = init_base_weights()
+     w13, w13_scale, w2, w2_scale = init_baseline_weights(
+         w13_weight.clone().detach(),
+@@ -291,21 +307,18 @@ def test(
+         print("w2_f:", w2_f.shape, w2_f.dtype, w2_f.device)
+         print("w2s_f:", w2s_f.shape, w2s_f.dtype, w2s_f.device)
+ 
++    # ----- Tokens per rank -----
+     tokens_per_rank = torch.zeros(num_ranks, dtype=torch.int64, device="npu")
++    experts_per_rank = num_experts // num_ranks
+     for r in range(num_ranks):
+-        expert_start, expert_end = r * (num_experts // num_ranks), (r + 1) * (
+-            num_experts // num_ranks
+-        )
+-        tokens_per_rank[r] = (
+-            (topk_idx >= expert_start) & (topk_idx < expert_end)
+-        ).sum()
+-
+-    print("Tokens per rank:", tokens_per_rank)
++        start, end = r * experts_per_rank, (r + 1) * experts_per_rank
++        tokens_per_rank[r] = ((topk_idx >= start) & (topk_idx < end)).sum()
++    print(f"Tokens per rank: {tokens_per_rank}")
+ 
++    # ----- Random drop -----
+     if args.drop_prob > 0:
+         drop_mask = torch.rand_like(topk_idx, dtype=torch.float32) < args.drop_prob
+         topk_idx = topk_idx.masked_fill(drop_mask, -1)
+-
+         for i in range(num_tokens):
+             if (topk_idx[i] == -1).all():
+                 topk_idx[i, 0] = torch.topk(scores[i], 1, largest=True)[1].item()
+@@ -313,19 +326,14 @@ def test(
+     topk_weights = torch.randn(
+         (num_tokens, num_topk), dtype=torch.float32, device="npu"
+     ).abs()
+-
+-    # Check dispatch correctness
+-    do_check = True
+-    return_recv_hook = False
+-    hash_value, num_times = 0, 0
+-
+     cumulative_local_expert_recv_stats = torch.zeros(
+         (num_local_experts,), dtype=torch.int, device="npu"
+     )
++    return_recv_hook = False
+ 
+-    # hidden_states = x.to(dtype=torch.float16)
++    # ----- Baseline -----
+     hidden_states = x
+-    baseline_output = baseline_test(
++    baseline_output, base_ep_recv_count = baseline_test(
+         buffer2,
+         x,
+         topk_idx,
+@@ -340,7 +348,8 @@ def test(
+         topk_weights,
+     )
+ 
+-    hidden_states, event, hook = buffer.fused_deep_moe(
++    # ----- Fused -----
++    fused_output, fused_ep_recv_count = buffer.fused_deep_moe(
+         x,
+         topk_idx,
+         topk_weights,
+@@ -350,24 +359,36 @@ def test(
+         w2s_f,
+         num_tokens,
+         num_experts,
+-        use_fp8=True,
++        0,
+     )
+-    # fused_output = hidden_states.to(dtype=torch.bfloat16)
+-    fused_output = hidden_states
+-    print(f"[Rank {rank}] fused finish.")
+ 
+-    diff = torch.max(torch.abs(fused_output - baseline_output)).item()
+-    diff_avg = torch.mean(torch.abs(fused_output - baseline_output)).item()
++    # ----- Compare Outputs -----
++    max_diff = torch.max(torch.abs(fused_output - baseline_output)).item()
++    avg_diff = torch.mean(torch.abs(fused_output - baseline_output)).item()
+     baseline_output_avg = torch.mean(torch.abs(baseline_output)).item()
+     fused_output_avg = torch.mean(torch.abs(fused_output)).item()
+ 
+-    # if rank == 0:
+     print(
+-        f"[Rank {rank}] {x.dtype=} fused_output:{fused_output} {fused_output.dtype=}, baseline_output:{baseline_output} {baseline_output.dtype=}, fused_output_avg:{fused_output_avg}, baseline_output_avg:{baseline_output_avg}, Max diff between fused and baseline: {diff}, avg_diss: {diff_avg}"
++        f"[Rank {rank}] baseline_avg={baseline_output_avg:.6e}, fused_avg={fused_output_avg:.6e}, "
++        f"max_diff={max_diff:.6e}, avg_diff={avg_diff:.6e}"
+     )
+-    assert diff < 1e-4, f"[Rank {rank}] Mismatch detected! diff={diff}"
++    assert avg_diff < 1e-4, f"[Rank {rank}] Mismatch detected! diff={avg_diff}"
++
++    # ----- Compare RecvCount -----
++    recv_count_diff = (
++        from_inclusive_prefix_sum(base_ep_recv_count) - fused_ep_recv_count
++    ).abs()
++    max_recv_count_diff = recv_count_diff.max().item()
++    mean_recv_count_diff = recv_count_diff.mean().item()
++    print(
++        f"[Rank {rank}] Difference between base and fused recv_count -> max: {max_recv_count_diff}, mean: {mean_recv_count_diff}"
++    )
++    assert (
++        max_recv_count_diff < 1e-4
++    ), f"[Rank {rank}] Mismatch detected! diff={max_recv_count_diff}"
+ 
+ 
++# ======================== Distributed Entry ========================
+ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+     rank, num_ranks, group = init_dist(local_rank, num_local_ranks)
+     group2 = dist.new_group(list(range(16)))

@@ -1,0 +1,952 @@
+diff --git a/csrc/deepep/deep_ep.cpp b/csrc/deepep/deep_ep.cpp
+index 3718efbe6..470cde417 100644
+--- a/csrc/deepep/deep_ep.cpp
++++ b/csrc/deepep/deep_ep.cpp
+@@ -12,6 +12,9 @@ constexpr int PADDING_SIZE = 3;
+ constexpr size_t HCOMM_NAME_LEN = 128;
+ constexpr uint32_t NO_SCALES = 0;
+ constexpr uint32_t DYNAMIC_SCALES = 2;
++constexpr int LOCAL_RANK_SIZE = 8;
++constexpr int MAX_BATCH_SIZE = 4096;
++constexpr int EXPERT_DATA_SIZE = 1 + MAX_BATCH_SIZE;  // 4097
+ 
+ Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode,
+                std::string moe_all_to_all_group_name)
+@@ -73,14 +76,45 @@ Buffer::get_dispatch_layout(const torch::Tensor &topk_idx, int num_experts, std:
+ 
+     const int num_tokens = new_topk_idx.size(0);
+     const int num_topk = new_topk_idx.size(1);
++    const int local_ranksize = LOCAL_RANK_SIZE;
++    auto server_num = num_ranks / local_ranksize;
+ 
+     auto device = new_topk_idx.device();
+     auto num_tokens_per_expert = at::zeros({num_experts}, at::dtype(at::kInt).device(device));
+     auto num_tokens_per_rank = at::zeros({num_ranks}, at::dtype(at::kInt).device(device));
+-    auto is_token_in_rank = torch::empty({num_tokens, num_ranks}, at::dtype(at::kInt).device(device));
++    auto is_token_in_rank = at::zeros({num_tokens, num_ranks}, at::dtype(at::kInt).device(device));
++    const int notify_send_data_size =
++        num_experts * EXPERT_DATA_SIZE + server_num + MAX_BATCH_SIZE * (1 + 2 * server_num + num_experts);
++    /*
++    The notify send data is constructed by 7 parameters and the 7 parameters are ordered as follows:
++    1. the number of the tokens that every expert received from this NPU.
++       size:[numExpert]
++    2. The number of tokens received by each server from this NPU (deduplicated).
++       size:[serverNum]
++    3. The number of tokens sent from this NPU to each server (without deduplication).
++       size:[MAX_BS, serverNum]
++    4. The number of servers each token is sent to by this NPU.
++       size:[MAX_BS]
++    5. The order in which each token of this NPU is sent to various servers.
++       size:[MAX_BS, serverNum]
++    6. The order in which each token is sent to the expert.
++       size:[MAX_BS, numTopk]
++    7. The server offset of tokens received by each expert from this NPU.
++       size:[numExpert, MAX_BS]
++    */
++    auto notify_send_data = at::zeros({notify_send_data_size}, at::dtype(at::kInt).device(device));
++    if (num_tokens < MAX_BATCH_SIZE) {
++        notify_send_data
++            .index(
++                {at::indexing::Slice(num_experts + server_num + MAX_BATCH_SIZE * (server_num + 1),
++                                     num_experts + server_num + MAX_BATCH_SIZE * (server_num * 2 + num_experts + 1))})
++            .fill_(-1);
++    }
++    // The order of each token sent to the server is set to -1.
++    EXEC_NPU_CMD(aclnnDispatchLayout, new_topk_idx, num_tokens, num_ranks, num_experts, num_topk, local_ranksize,
++                 num_tokens_per_rank, num_tokens_per_expert, is_token_in_rank, notify_send_data);
+ 
+-    EXEC_NPU_CMD(aclnnDispatchLayout, new_topk_idx, num_tokens, num_ranks, num_experts, num_topk, num_tokens_per_rank,
+-                 num_tokens_per_expert, is_token_in_rank);
++    this->notify_send_data = notify_send_data;
+ 
+     std::optional<torch::Tensor> num_tokens_per_rdma_rank = std::nullopt;
+     std::optional<EventHandle> output_event = std::nullopt;
+@@ -90,6 +124,11 @@ Buffer::get_dispatch_layout(const torch::Tensor &topk_idx, int num_experts, std:
+                            output_event);
+ }
+ 
++torch::Tensor Buffer::get_notify_send_data()
++{
++    return this->notify_send_data;
++}
++
+ std::tuple<at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>, std::optional<at::Tensor>,
+            std::vector<int>, at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor, std::optional<EventHandle>>
+ Buffer::intranode_dispatch(const at::Tensor &x, const std::optional<at::Tensor> &x_scales,
+diff --git a/csrc/deepep/deep_ep.hpp b/csrc/deepep/deep_ep.hpp
+index a613f5ddd..b01375df4 100644
+--- a/csrc/deepep/deep_ep.hpp
++++ b/csrc/deepep/deep_ep.hpp
+@@ -26,6 +26,7 @@ struct Buffer {
+     at::Tensor ori_x;
+     at::Tensor new_topk_idx;
+     at::Tensor new_scales;
++    at::Tensor notify_send_data;
+ 
+     int64_t shared_expert_rank_num;
+     int64_t shared_expert_num = 1;
+@@ -51,6 +52,8 @@ struct Buffer {
+     get_dispatch_layout(const torch::Tensor &topk_idx, int num_experts, std::optional<EventHandle> &previous_event,
+                         bool async, bool allocate_on_comm_stream);
+ 
++    torch::Tensor get_notify_send_data();
++
+     std::tuple<at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>, std::optional<at::Tensor>,
+                std::vector<int>, at::Tensor, at::Tensor, at::Tensor, at::Tensor, at::Tensor, std::optional<EventHandle>>
+     intranode_dispatch(const at::Tensor &x, const std::optional<at::Tensor> &x_scales,
+diff --git a/csrc/deepep/ops/op_host/dispatch_layout.cpp b/csrc/deepep/ops/op_host/dispatch_layout.cpp
+index 3091521c2..9f2de4c63 100644
+--- a/csrc/deepep/ops/op_host/dispatch_layout.cpp
++++ b/csrc/deepep/ops/op_host/dispatch_layout.cpp
+@@ -16,6 +16,7 @@ class DispatchLayout : public OpDef
+         this->Attr("num_ranks").Int();
+         this->Attr("num_experts").Int();
+         this->Attr("num_topk").Int();
++        this->Attr("local_ranksize").Int();
+ 
+         this->Output("numTokensPerRank")
+             .ParamType(REQUIRED)
+@@ -32,9 +33,14 @@ class DispatchLayout : public OpDef
+             .DataType({ge::DT_INT32})
+             .Format({ge::FORMAT_ND})
+             .UnknownShapeFormat({ge::FORMAT_ND});
++        this->Output("notifySendData")
++            .ParamType(REQUIRED)
++            .DataType({ge::DT_INT32})
++            .Format({ge::FORMAT_ND})
++            .UnknownShapeFormat({ge::FORMAT_ND});
+ 
+-        OpAICoreConfig aicore_config;
+-        aicore_config.DynamicCompileStaticFlag(true)
++        OpAICoreConfig a3_config;
++        a3_config.DynamicCompileStaticFlag(true)
+             .DynamicFormatFlag(true)
+             .DynamicRankSupportFlag(true)
+             .DynamicShapeSupportFlag(true)
+@@ -44,7 +50,19 @@ class DispatchLayout : public OpDef
+             .ExtendCfgInfo("jitCompile.flag", "static_true")
+             .ExtendCfgInfo("multiKernelSupportDynamicGraph.value", "multi_kernel");
+ 
+-        this->AICore().AddConfig("ascend910_93", aicore_config);
++        OpAICoreConfig a2_config;
++        a2_config.DynamicCompileStaticFlag(true)
++            .DynamicFormatFlag(true)
++            .DynamicRankSupportFlag(true)
++            .DynamicShapeSupportFlag(true)
++            .NeedCheckSupportFlag(false)
++            .PrecisionReduceFlag(true)
++            .ExtendCfgInfo("aclnnSupport.value", "support_aclnn")
++            .ExtendCfgInfo("jitCompile.flag", "static_false")
++            .ExtendCfgInfo("multiKernelSupportDynamicGraph.value", "multi_kernel");
++
++        this->AICore().AddConfig("ascend910_93", a3_config);
++        this->AICore().AddConfig("ascend910b", a2_config);
+     }
+ };
+ 
+diff --git a/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc b/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+index efbd0227c..6adaa2118 100644
+--- a/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
++++ b/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+@@ -26,17 +26,24 @@ constexpr uint32_t INPUT_TOPK_IDX_INDEX = 0;
+ constexpr uint32_t OUTPUT_NUM_TOKEN_PER_RANK_INDEX = 0;
+ constexpr uint32_t OUTPUT_NUM_TOKEN_PER_EXPERT_INDEX = 1;
+ constexpr uint32_t OUTPUT_IS_TOKEN_IN_RANK_INDEX = 2;
++constexpr uint32_t OUTPUT_NOTIFY_SEND_DATA_INDEX = 3;
+ 
+ constexpr uint32_t ATTR_NUM_TOKENS_INDEX = 0;
+ constexpr uint32_t ATTR_NUM_RANKS_INDEX = 1;
+ constexpr uint32_t ATTR_NUM_EXPERTS_INDEX = 2;
+ constexpr uint32_t ATTR_NUM_TOPK_INDEX = 3;
++constexpr uint32_t ATTR_LOCAL_RANKSIZE_INDEX = 4;
+ const int64_t MAX_COMM_WORLD_SIZE = 384;
+ const int64_t MAX_MOE_EXPERTS_NUM = 512;
++const int64_t MAX_LOCAL_RANKSIZE = 8;
++
+ constexpr uint32_t SYSTEM_NEED_WORKSPACE = 16 * 1024 * 1024;
+ constexpr uint32_t KERNEL_USE_WORKSPACE = 1 * 1024 * 1024;
+ constexpr uint32_t KERNEL_A2_ARG_SIZE = 1 * 1024 * 1024;
+ 
++constexpr static int TILING_KEY_INT = 23;
++constexpr static int TILING_KEY_A2_TYPE = 100;
++
+ constexpr uint32_t TWO_DIMS = 2;
+ constexpr uint32_t K_MAX = 16;
+ }  // namespace
+@@ -48,9 +55,24 @@ static void PrintTilingDataInfo(const char *nodeName, DispatchLayoutTilingData &
+     OP_LOGD(nodeName, "numRanks is %u.", tilingData.dispatchLayoutInfo.numRanks);
+     OP_LOGD(nodeName, "numExperts is %u.", tilingData.dispatchLayoutInfo.numExperts);
+     OP_LOGD(nodeName, "numTopk is %u.", tilingData.dispatchLayoutInfo.numTopk);
++    OP_LOGD(nodeName, "localRankSize is %u.", tilingData.dispatchLayoutInfo.localRankSize);
+     OP_LOGD(nodeName, "totalUbSize is %lu.", tilingData.dispatchLayoutInfo.totalUbSize);
+ }
+ 
++static bool CheckIfA2Machine(gert::TilingContext *context)
++{
++    fe::PlatFormInfos *platformInfoPtr = context->GetPlatformInfo();
++    fe::PlatFormInfos &platformInfo = *platformInfoPtr;
++
++    std::string socVersion;
++    (void)platformInfo.GetPlatformResWithLock("version", "Short_SoC_version", socVersion);
++
++    if (socVersion == "Ascend910B") {
++        return true;
++    }
++    return false;
++}
++
+ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, const char *nodeName,
+                                                DispatchLayoutTilingData &tilingData)
+ {
+@@ -61,11 +83,14 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+     auto numRanksPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_NUM_RANKS_INDEX));
+     auto numExpertsPtr = attrs->GetAttrPointer<int64_t>(ATTR_NUM_EXPERTS_INDEX);
+     auto numTopkPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_NUM_TOPK_INDEX));
++    auto localRankSizePtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_LOCAL_RANKSIZE_INDEX));
+ 
+     OP_TILING_CHECK(numTokensPtr == nullptr, OP_LOGE(nodeName, "numTokensPtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(numRanksPtr == nullptr, OP_LOGE(nodeName, "numRanksPtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(numExpertsPtr == nullptr, OP_LOGE(nodeName, "numExpertsPtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(numTopkPtr == nullptr, OP_LOGE(nodeName, "numTopkPtr is null."), return ge::GRAPH_FAILED);
++    OP_TILING_CHECK(localRankSizePtr == nullptr, OP_LOGE(nodeName, "localRankSizePtr is null."),
++                    return ge::GRAPH_FAILED);
+ 
+     OP_TILING_CHECK((*numRanksPtr <= 0) || (*numRanksPtr > MAX_COMM_WORLD_SIZE),
+                     OP_LOGE(nodeName, "rankSize is invalid, only support (0, %ld], but got rankSize=%ld.",
+@@ -80,10 +105,19 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+         OP_LOGE(nodeName, "numTopkPtr is invalid, only support (0, %u], but got numTopk=%ld.", K_MAX, *numTopkPtr),
+         return ge::GRAPH_FAILED);
+ 
++    if (CheckIfA2Machine(context)) {
++        OP_TILING_CHECK(
++            (*localRankSizePtr <= 0) || (*localRankSizePtr > MAX_LOCAL_RANKSIZE),
++            OP_LOGE(nodeName, "localRankSizePtr is invalid, only support (0, %ld], but got localRankSize=%ld.",
++                    MAX_LOCAL_RANKSIZE, *localRankSizePtr),
++            return ge::GRAPH_FAILED);
++    }
++
+     tilingData.dispatchLayoutInfo.numTokens = static_cast<uint32_t>(*numTokensPtr);
+     tilingData.dispatchLayoutInfo.numRanks = static_cast<uint32_t>(*numRanksPtr);
+     tilingData.dispatchLayoutInfo.numExperts = static_cast<uint32_t>(*numExpertsPtr);
+     tilingData.dispatchLayoutInfo.numTopk = static_cast<uint32_t>(*numTopkPtr);
++    tilingData.dispatchLayoutInfo.localRankSize = static_cast<uint32_t>(*localRankSizePtr);
+ 
+     return ge::GRAPH_SUCCESS;
+ }
+@@ -102,11 +136,13 @@ static bool CheckTensorDataType(gert::TilingContext *context, const char *nodeNa
+     auto numTokensPerRank = context->GetOutputDesc(OUTPUT_NUM_TOKEN_PER_RANK_INDEX);
+     auto numTokensPerExpert = context->GetOutputDesc(OUTPUT_NUM_TOKEN_PER_EXPERT_INDEX);
+     auto isTokenInRank = context->GetOutputDesc(OUTPUT_IS_TOKEN_IN_RANK_INDEX);
++    auto notifySendData = context->GetOutputDesc(OUTPUT_NOTIFY_SEND_DATA_INDEX);
+ 
+     OP_TILING_CHECK(topkIdx == nullptr, OP_LOGE(nodeName, "topkIdx is null."), return false);
+     OP_TILING_CHECK(numTokensPerRank == nullptr, OP_LOGE(nodeName, "numTokensPerRank is null."), return false);
+     OP_TILING_CHECK(numTokensPerExpert == nullptr, OP_LOGE(nodeName, "numTokensPerExpert is null."), return false);
+     OP_TILING_CHECK(isTokenInRank == nullptr, OP_LOGE(nodeName, "isTokenInRank is null."), return false);
++    OP_TILING_CHECK(notifySendData == nullptr, OP_LOGE(nodeName, "notifySendData is null."), return false);
+ 
+     OP_TILING_CHECK((topkIdx->GetDataType() != ge::DT_INT64),
+                     OP_LOGE(nodeName, "topkIdx datatype is invalid, datatype should be int, but is %d.",
+@@ -124,6 +160,10 @@ static bool CheckTensorDataType(gert::TilingContext *context, const char *nodeNa
+                     OP_LOGE(nodeName, "isTokenInRank datatype is invalid, datatype should be int, but is %d.",
+                             static_cast<ge::DataType>(isTokenInRank->GetDataType())),
+                     return false);
++    OP_TILING_CHECK((notifySendData->GetDataType() != ge::DT_INT32),
++                    OP_LOGE(nodeName, "notifySendData datatype is invalid, datatype should be int, but is %d.",
++                            static_cast<ge::DataType>(notifySendData->GetDataType())),
++                    return false);
+ 
+     return true;
+ }
+@@ -169,11 +209,11 @@ static ge::graphStatus DispatchLayoutTilingFuncImpl(gert::TilingContext *context
+     OP_TILING_CHECK(SetWorkSpace(context, nodeName) != ge::GRAPH_SUCCESS,
+                     OP_LOGE(nodeName, "Tiling set workspace failed."), return ge::GRAPH_FAILED);
+ 
+-    fe::PlatFormInfos *platformInfoPtr = context->GetPlatformInfo();
+-    fe::PlatFormInfos &platformInfo = *platformInfoPtr;
+-
+-    std::string socVersion;
+-    (void)platformInfo.GetPlatformResWithLock("version", "Short_SoC_version", socVersion);
++    int tilingKey = TILING_KEY_INT;
++    if (CheckIfA2Machine(context)) {
++        tilingKey = tilingKey + TILING_KEY_A2_TYPE;
++    }
++    context->SetTilingKey(tilingKey);
+ 
+     auto ascendcPlatform = platform_ascendc::PlatformAscendC(context->GetPlatformInfo());
+     uint32_t blockDim;
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp b/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp
+index 780ab72e2..1afc1e380 100644
+--- a/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp
+@@ -15,12 +15,14 @@ extern "C" {
+ #endif
+ 
+ aclnnStatus aclnnDispatchLayoutGetWorkspaceSize(const aclTensor *topkIdx, int64_t numTokens, int64_t numRanks,
+-                                                int64_t numExperts, int64_t numTopk, const aclTensor *numTokensPerRank,
+-                                                const aclTensor *numTokensPerExpert, const aclTensor *isTokenInRank,
++                                                int64_t numExperts, int64_t numTopk, int64_t localRankSize,
++                                                const aclTensor *numTokensPerRank, const aclTensor *numTokensPerExpert,
++                                                const aclTensor *isTokenInRank, const aclTensor *notifySendData,
+                                                 uint64_t *workspaceSize, aclOpExecutor **executor)
+ {
+-    return aclnnInnerDispatchLayoutGetWorkspaceSize(topkIdx, numTokens, numRanks, numExperts, numTopk, numTokensPerRank,
+-                                                    numTokensPerExpert, isTokenInRank, workspaceSize, executor);
++    return aclnnInnerDispatchLayoutGetWorkspaceSize(topkIdx, numTokens, numRanks, numExperts, numTopk, localRankSize,
++                                                    numTokensPerRank, numTokensPerExpert, isTokenInRank, notifySendData,
++                                                    workspaceSize, executor);
+ }
+ 
+ aclnnStatus aclnnDispatchLayout(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h b/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h
+index 3483c4f90..2560fa57b 100644
+--- a/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h
+@@ -13,16 +13,18 @@ extern "C" {
+  * numRanks : required
+  * numExperts : required
+  * numTopk : required
++ * localRankSize : required
+  * numTokensPerRank : required
+  * numTokensPerExpert : required
+  * isTokenInRank : required
++ * notifySendData : required
+  * workspaceSize : size of workspace(output).
+  * executor : executor context(output).
+  */
+ __attribute__((visibility("default"))) aclnnStatus aclnnDispatchLayoutGetWorkspaceSize(
+     const aclTensor *topkIdx, int64_t numTokens, int64_t numRanks, int64_t numExperts, int64_t numTopk,
+-    const aclTensor *numTokensPerRank, const aclTensor *numTokensPerExpert, const aclTensor *isTokenInRank,
+-    uint64_t *workspaceSize, aclOpExecutor **executor);
++    int64_t localRankSize, const aclTensor *numTokensPerRank, const aclTensor *numTokensPerExpert,
++    const aclTensor *isTokenInRank, const aclTensor *notifySendData, uint64_t *workspaceSize, aclOpExecutor **executor);
+ 
+ /* function: aclnnDispatchLayout
+  * workspace : workspace memory addr(input).
+diff --git a/csrc/deepep/ops/op_kernel/dispatch_layout.cpp b/csrc/deepep/ops/op_kernel/dispatch_layout.cpp
+index b0bbc2cff..ec6318e77 100644
+--- a/csrc/deepep/ops/op_kernel/dispatch_layout.cpp
++++ b/csrc/deepep/ops/op_kernel/dispatch_layout.cpp
+@@ -1,17 +1,29 @@
+ #include "kernel_operator.h"
+ #include "dispatch_layout.h"
++#include "dispatch_layout_a2.h"
+ #include "dispatch_layout_tiling.h"
+ 
++#define TILING_KEY_INT 23
++#define TILING_KEY_A2_INT 123
++
+ extern "C" __global__ __aicore__ void dispatch_layout(GM_ADDR topkIdx, GM_ADDR numTokensPerRank,
+                                                       GM_ADDR numTokensPerExpert, GM_ADDR isTokenInRank,
+-                                                      GM_ADDR workspace, GM_ADDR tiling)
++                                                      GM_ADDR notifySendData, GM_ADDR workspace, GM_ADDR tiling)
+ {
+     REGISTER_TILING_DEFAULT(DispatchLayoutTilingData);
+     GET_TILING_DATA_WITH_STRUCT(DispatchLayoutTilingData, tilingData, tiling);
+ 
+     TPipe pipe;
+ 
+-    DispatchLayout<int32_t> op;
+-    op.Init(topkIdx, numTokensPerRank, numTokensPerExpert, isTokenInRank, workspace, &pipe, &tilingData);
+-    op.Process();
++    if (TILING_KEY_IS(TILING_KEY_INT)) {
++        MoeDispatchLayout::DispatchLayout<int32_t> op;
++        op.Init(topkIdx, numTokensPerRank, numTokensPerExpert, isTokenInRank, notifySendData, workspace, &pipe,
++                &tilingData);
++        op.Process();
++    } else if (TILING_KEY_IS(TILING_KEY_A2_INT)) {
++        MoeDispatchLayoutA2::DispatchLayoutA2<int32_t> op;
++        op.Init(topkIdx, numTokensPerRank, numTokensPerExpert, isTokenInRank, notifySendData, workspace, &pipe,
++                &tilingData);
++        op.Process();
++    }
+ }
+diff --git a/csrc/deepep/ops/op_kernel/dispatch_layout.h b/csrc/deepep/ops/op_kernel/dispatch_layout.h
+index 597bf7e8f..55b07502d 100644
+--- a/csrc/deepep/ops/op_kernel/dispatch_layout.h
++++ b/csrc/deepep/ops/op_kernel/dispatch_layout.h
+@@ -9,9 +9,7 @@
+ #include "sync_collectives.h"
+ #include "moe_distribute_base.h"
+ #include "dispatch_layout_tiling.h"
+-
+-using namespace AscendC;
+-using namespace Moe;
++namespace MoeDispatchLayout {
+ 
+ constexpr uint32_t UB_32_ALIGN = 32U;
+ 
+@@ -23,6 +21,8 @@ __aicore__ inline void SyncFunc()
+     AscendC::WaitFlag<event>(eventID);
+ }
+ 
++using namespace AscendC;
++using namespace Moe;
+ template <typename T>
+ class DispatchLayout
+ {
+@@ -30,7 +30,7 @@ class DispatchLayout
+     __aicore__ inline DispatchLayout(){};
+ 
+     __aicore__ inline void Init(GM_ADDR topkIdx, GM_ADDR numTokensPerRank, GM_ADDR numTokensPerExpert,
+-                                GM_ADDR isTokenInRank, GM_ADDR workspace, TPipe *pipe,
++                                GM_ADDR isTokenInRank, GM_ADDR notifySendData, GM_ADDR workspace, TPipe *pipe,
+                                 const DispatchLayoutTilingData *tilingData)
+     {
+         numTokens_ = tilingData->dispatchLayoutInfo.numTokens;
+@@ -157,5 +157,6 @@ class DispatchLayout
+     uint32_t numTokensPerExpert32AlignIntLen_{0};
+     uint32_t isTokenInRank32AlignIntLen_{0};
+ };
++}  // namespace MoeDispatchLayout
+ 
+ #endif  // DISPATCH_LAYOUT_H
+diff --git a/csrc/deepep/ops/op_kernel/dispatch_layout_a2.h b/csrc/deepep/ops/op_kernel/dispatch_layout_a2.h
+new file mode 100644
+index 000000000..74fc51f71
+--- /dev/null
++++ b/csrc/deepep/ops/op_kernel/dispatch_layout_a2.h
+@@ -0,0 +1,326 @@
++#ifndef DISPATCH_LAYOUT_A2_H
++#define DISPATCH_LAYOUT_A2_H
++
++#include <climits>
++#include "kernel_operator.h"
++
++#include "comm_args.h"
++#include "data_copy.h"
++#include "sync_collectives.h"
++#include "moe_distribute_base.h"
++#include "dispatch_layout_tiling.h"
++
++namespace MoeDispatchLayoutA2 {
++
++constexpr uint32_t UB_32_ALIGN = 32U;
++constexpr uint32_t MAX_BATCH_SIZE = 4096U;
++constexpr uint32_t TEMP_BATCH_SIZE = 64U;
++
++template <AscendC::HardEvent event>
++__aicore__ inline void SyncFunc()
++{
++    int32_t eventID = static_cast<int32_t>(GetTPipePtr()->FetchEventID(event));
++    AscendC::SetFlag<event>(eventID);
++    AscendC::WaitFlag<event>(eventID);
++}
++
++using namespace AscendC;
++using namespace Moe;
++template <typename T>
++class DispatchLayoutA2
++{
++public:
++    __aicore__ inline DispatchLayoutA2(){};
++
++    __aicore__ inline void Init(GM_ADDR topkIdx, GM_ADDR numTokensPerRank, GM_ADDR numTokensPerExpert,
++                                GM_ADDR isTokenInRank, GM_ADDR notifySendData, GM_ADDR workspace, TPipe *pipe,
++                                const DispatchLayoutTilingData *tilingData)
++    {
++        numTokens_ = tilingData->dispatchLayoutInfo.numTokens;
++        numRanks_ = tilingData->dispatchLayoutInfo.numRanks;
++        numExperts_ = tilingData->dispatchLayoutInfo.numExperts;
++        numTopk_ = tilingData->dispatchLayoutInfo.numTopk;
++        localRankSize_ = tilingData->dispatchLayoutInfo.localRankSize;
++        serverNum_ = (numRanks_ + localRankSize_ - 1) / localRankSize_;
++        tpipe_ = pipe;
++
++        coreIdx_ = GetBlockIdx();
++        uint32_t maxAivNum = GetBlockNum() - 1;
++        aivNum_ = numTokens_ <= maxAivNum ? numTokens_ : maxAivNum;
++        uint32_t temp = numTokens_ / aivNum_;
++        uint32_t restNum = numTokens_ % aivNum_;
++        int64_t topkIdxOffset;
++        int64_t isTokenOffset;
++        int64_t serverOffsetOffset;
++        int64_t serverNumOffset;
++        tempTokens_ = temp;
++
++        if (coreIdx_ < aivNum_) {
++            if (coreIdx_ < restNum) {
++                tempTokens_++;
++            }
++            topkIdx32AlignIntLen_ = Ceil(tempTokens_ * numTopk_ * sizeof(int64_t), UB_32_ALIGN) * UB_32_ALIGN;
++            numTokensPerRank32AlignIntLen_ = Ceil(numRanks_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++            numTokensPerExpert32AlignIntLen_ = Ceil(numExperts_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++            isTokenInRank32AlignIntLen_ = Ceil(tempTokens_ * numRanks_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++            localTokenServerUniqCount32AlignIntLen_ = Ceil(serverNum_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++            localTokenServerTotalCount32AlignIntLen_ =
++                Ceil(tempTokens_ * serverNum_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++            localTokenServerNum32AlignIntLen_ = Ceil(tempTokens_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++
++            if (coreIdx_ < restNum) {
++                topkIdxOffset = coreIdx_ * tempTokens_ * numTopk_ * sizeof(int64_t);
++                isTokenOffset = coreIdx_ * tempTokens_ * numRanks_ * sizeof(T);
++                serverOffsetOffset = coreIdx_ * tempTokens_ * serverNum_ * sizeof(T);
++                serverNumOffset = coreIdx_ * tempTokens_ * sizeof(T);
++            } else {
++                topkIdxOffset = (restNum + coreIdx_ * tempTokens_) * numTopk_ * sizeof(int64_t);
++                isTokenOffset = (restNum + coreIdx_ * tempTokens_) * numRanks_ * sizeof(T);
++                serverOffsetOffset = (restNum + coreIdx_ * tempTokens_) * serverNum_ * sizeof(T);
++                serverNumOffset = (restNum + coreIdx_ * tempTokens_) * sizeof(T);
++            }
++
++            topkIdxGM_.SetGlobalBuffer((__gm__ int64_t *)(topkIdx + topkIdxOffset));
++            numTokensPerRankGM_.SetGlobalBuffer((__gm__ T *)numTokensPerRank);
++            numTokensPerExpertSrcGM_.SetGlobalBuffer((__gm__ T *)numTokensPerExpert);
++            numTokensPerExpertGM_.SetGlobalBuffer((__gm__ T *)notifySendData);
++            isTokenInRankGM_.SetGlobalBuffer((__gm__ T *)(isTokenInRank + isTokenOffset));
++            localTokenServerUniqCountGM_.SetGlobalBuffer((__gm__ T *)(notifySendData) + numExperts_);
++            localTokenServerTotalCountGM_.SetGlobalBuffer((__gm__ T *)(notifySendData + serverOffsetOffset) +
++                                                          numExperts_ + serverNum_);
++            localTokenServerNumGM_.SetGlobalBuffer((__gm__ T *)(notifySendData + serverNumOffset) + numExperts_ +
++                                                   serverNum_ * (MAX_BATCH_SIZE + 1));
++        }
++        if (coreIdx_ == aivNum_) {
++            expertRankTokenIdx32AlignIntLen_ =
++                Ceil(numExperts_ * TEMP_BATCH_SIZE * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++            sendTokenIdx32AlignIntLen_ = Ceil(numExperts_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++            localTokenServerOffset32AlignIntLen_ = Ceil(numTokens_ * serverNum_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++            topkIdxGM_.SetGlobalBuffer((__gm__ int64_t *)topkIdx);
++            localTokenServerOffsetGM_.SetGlobalBuffer((__gm__ T *)notifySendData + numExperts_ + serverNum_ +
++                                                      MAX_BATCH_SIZE * (serverNum_ + 1));
++            sendTokenIdxGM_.SetGlobalBuffer((__gm__ T *)notifySendData + numExperts_ + serverNum_ +
++                                            MAX_BATCH_SIZE * (1 + 2 * serverNum_));
++            expertRankTokenIdxGM_.SetGlobalBuffer((__gm__ T *)notifySendData + numExperts_ + serverNum_ +
++                                                  MAX_BATCH_SIZE * (1 + 2 * serverNum_ + numExperts_));
++        }
++    }
++
++    __aicore__ inline void Process()
++    {
++        if (coreIdx_ < aivNum_) {
++            MultiCoreCompute();
++        }
++        if (coreIdx_ == aivNum_) {
++            ComputeServerOffset();
++        }
++    }
++
++private:
++    __aicore__ inline void MultiCoreCompute()
++    {
++        tpipe_->Reset();
++        tpipe_->InitBuffer(topkIdxBuf_, topkIdx32AlignIntLen_);
++        tpipe_->InitBuffer(numTokensPerRankBuf_, numTokensPerRank32AlignIntLen_);
++        tpipe_->InitBuffer(numTokensPerExpertBuf_, numTokensPerExpert32AlignIntLen_);
++        tpipe_->InitBuffer(isTokenInRankBuf_, isTokenInRank32AlignIntLen_);
++        tpipe_->InitBuffer(localTokenServerUniqCountBuf_, localTokenServerUniqCount32AlignIntLen_);
++        tpipe_->InitBuffer(localTokenServerTotalCountBuf_, localTokenServerTotalCount32AlignIntLen_);
++        tpipe_->InitBuffer(localTokenServerNumBuf_, localTokenServerNum32AlignIntLen_);
++        tpipe_->InitBuffer(seenRankBuf_, numRanks_ * sizeof(T));
++        tpipe_->InitBuffer(seenServerBuf_, serverNum_ * sizeof(T));
++        LocalTensor<int64_t> topkIdxTensor = topkIdxBuf_.AllocTensor<int64_t>();
++        const DataCopyExtParams dataCopyParams{1U, topkIdx32AlignIntLen_, 0U, 0U, 0U};
++        const DataCopyPadExtParams<int64_t> padParams{false, 0U, 0U, 0U};
++        DataCopyPad(topkIdxTensor, topkIdxGM_, dataCopyParams, padParams);
++        SyncFunc<AscendC::HardEvent::MTE2_S>();
++        LocalTensor<T> numTokensPerRankTensor = numTokensPerRankBuf_.AllocTensor<T>();
++        LocalTensor<T> numTokensPerExpertTensor = numTokensPerExpertBuf_.AllocTensor<T>();
++        LocalTensor<T> isTokenInRankTensor = isTokenInRankBuf_.AllocTensor<T>();
++        LocalTensor<T> localTokenServerUniqCountTensor = localTokenServerUniqCountBuf_.AllocTensor<T>();
++        LocalTensor<T> localTokenServerTotalCountTensor = localTokenServerTotalCountBuf_.AllocTensor<T>();
++        LocalTensor<T> localTokenServerNumTensor = localTokenServerNumBuf_.AllocTensor<T>();
++        LocalTensor<T> seenRankTensor = seenRankBuf_.AllocTensor<T>();
++        LocalTensor<T> seenServerTensor = seenServerBuf_.AllocTensor<T>();
++        Duplicate<T>(numTokensPerRankTensor, 0, numRanks_);
++        Duplicate<T>(numTokensPerExpertTensor, 0, numExperts_);
++        Duplicate<T>(isTokenInRankTensor, 0, tempTokens_ * numRanks_);
++        Duplicate<T>(localTokenServerUniqCountTensor, 0, serverNum_);
++        Duplicate<T>(localTokenServerTotalCountTensor, 0, tempTokens_ * serverNum_);
++        Duplicate<T>(localTokenServerNumTensor, 0, tempTokens_);
++        SyncFunc<AscendC::HardEvent::V_S>();
++        int experts_per_rank = numExperts_ / numRanks_;
++        for (int i = 0; i < tempTokens_; ++i) {
++            SyncFunc<AscendC::HardEvent::S_V>();
++            Duplicate<T>(seenRankTensor, 0, numRanks_);
++            Duplicate<T>(seenServerTensor, 0, serverNum_);
++            SyncFunc<AscendC::HardEvent::V_S>();
++            for (int j = 0; j < numTopk_; ++j) {
++                int64_t expert_idx = topkIdxTensor.GetValue(i * numTopk_ + j);
++                uint32_t per_expert_num = numTokensPerExpertTensor.GetValue(expert_idx) + 1;
++                numTokensPerExpertTensor.SetValue(expert_idx, per_expert_num);
++                int rank_id = expert_idx / experts_per_rank;
++                int server_id = rank_id / localRankSize_;
++                if (!seenServerTensor.GetValue(server_id)) {
++                    uint32_t uniqCount = localTokenServerUniqCountTensor.GetValue(server_id);
++                    localTokenServerUniqCountTensor.SetValue(server_id, uniqCount + 1);
++                    seenServerTensor.SetValue(server_id, 1);
++                    uint32_t sendServerNum = localTokenServerNumTensor.GetValue(i);
++                    localTokenServerNumTensor.SetValue(i, sendServerNum + 1);
++                }
++                uint32_t totalCount = localTokenServerTotalCountTensor.GetValue(i * serverNum_ + server_id) + 1;
++                localTokenServerTotalCountTensor.SetValue(i * serverNum_ + server_id, totalCount);
++                if (!seenRankTensor.GetValue(rank_id)) {
++                    uint32_t per_rank_num = numTokensPerRankTensor.GetValue(rank_id) + 1;
++                    isTokenInRankTensor.SetValue(i * numRanks_ + rank_id, 1);
++                    seenRankTensor.SetValue(rank_id, 1);
++                    numTokensPerRankTensor.SetValue(rank_id, per_rank_num);
++                }
++            }
++        }
++        uint32_t sendSize = tempTokens_ * numRanks_ * sizeof(T);
++        const DataCopyExtParams isTokenInRankDataCopyParams{1U, sendSize, 0U, 0U, 0U};
++        sendSize = tempTokens_ * sizeof(T);
++        DataCopyPad(isTokenInRankGM_, isTokenInRankTensor, isTokenInRankDataCopyParams);
++        const DataCopyExtParams localTokenServerNumParams{1U, sendSize, 0U, 0U, 0U};
++        DataCopyPad(localTokenServerNumGM_, localTokenServerNumTensor, localTokenServerNumParams);
++        sendSize = tempTokens_ * serverNum_ * sizeof(T);
++        const DataCopyExtParams localTokenServerTotalCountParams{1U, sendSize, 0U, 0U, 0U};
++        DataCopyPad(localTokenServerTotalCountGM_, localTokenServerTotalCountTensor, localTokenServerTotalCountParams);
++        sendSize = serverNum_ * sizeof(T);
++        AscendC::SetAtomicAdd<T>();
++        const DataCopyExtParams localTokenServerUniqCountParams{1U, sendSize, 0U, 0U, 0U};
++        DataCopyPad(localTokenServerUniqCountGM_, localTokenServerUniqCountTensor, localTokenServerUniqCountParams);
++        const DataCopyExtParams numTokensPerRankDataCopyParams{1U, numTokensPerRank32AlignIntLen_, 0U, 0U, 0U};
++        DataCopyPad(numTokensPerRankGM_, numTokensPerRankTensor, numTokensPerRankDataCopyParams);
++        const DataCopyExtParams numTokensPerExpertDataCopyParams{1U, numTokensPerExpert32AlignIntLen_, 0U, 0U, 0U};
++        DataCopyPad(numTokensPerExpertGM_, numTokensPerExpertTensor, numTokensPerExpertDataCopyParams);
++        DataCopyPad(numTokensPerExpertSrcGM_, numTokensPerExpertTensor, numTokensPerExpertDataCopyParams);
++        AscendC::SetAtomicNone();
++    }
++
++    __aicore__ inline void ComputeServerOffset()
++    {
++        tpipe_->Reset();
++        tpipe_->InitBuffer(localTokenServerOffsetBuf_, localTokenServerOffset32AlignIntLen_);
++        tpipe_->InitBuffer(seenServerBuf_, serverNum_ * sizeof(T));
++        tpipe_->InitBuffer(sendTokenIdxBuf_, sendTokenIdx32AlignIntLen_);
++        tpipe_->InitBuffer(expertRankTokenIdxBuf_, expertRankTokenIdx32AlignIntLen_);
++        tpipe_->InitBuffer(countExpertBuf_, numExperts_ * sizeof(T));
++        tpipe_->InitBuffer(countServerBuf_, serverNum_ * sizeof(T));
++        LocalTensor<T> localTokenServerOffsetTensor = localTokenServerOffsetBuf_.AllocTensor<T>();
++        LocalTensor<T> seenServerTensor = seenServerBuf_.AllocTensor<T>();
++        LocalTensor<T> countExpertTensor = countExpertBuf_.AllocTensor<T>();
++        LocalTensor<T> countServerTensor = countServerBuf_.AllocTensor<T>();
++        LocalTensor<T> expertRankTokenIdxTensor = expertRankTokenIdxBuf_.AllocTensor<T>();
++        LocalTensor<T> sendTokenIdxTensor = sendTokenIdxBuf_.AllocTensor<T>();
++        SyncFunc<AscendC::HardEvent::S_V>();
++        Duplicate<T>(countExpertTensor, 0, numExperts_);
++        Duplicate<T>(countServerTensor, 0, serverNum_);
++        Duplicate<T>(localTokenServerOffsetTensor, -1, localTokenServerOffset32AlignIntLen_ / sizeof(T));
++        SyncFunc<AscendC::HardEvent::V_S>();
++        SyncFunc<AscendC::HardEvent::V_S>();
++        int32_t experts_per_rank = numExperts_ / numRanks_;
++        int32_t offset;
++        for (int i = 0; i < numTokens_; i++) {
++            Duplicate<T>(sendTokenIdxTensor, -1, sendTokenIdx32AlignIntLen_ / sizeof(T));
++            Duplicate<T>(seenServerTensor, 0, serverNum_);
++            for (int j = 0; j < numTopk_; j++) {
++                SyncFunc<AscendC::HardEvent::V_S>();
++                int32_t expert_id = topkIdxGM_.GetValue(i * numTopk_ + j);
++                int32_t server_id = (expert_id / experts_per_rank) / localRankSize_;
++                if (!seenServerTensor.GetValue(server_id)) {
++                    offset = countServerTensor.GetValue(server_id);
++                    localTokenServerOffsetTensor.SetValue(i * serverNum_ + server_id, offset);
++                    countServerTensor.SetValue(server_id, offset + 1);
++                    seenServerTensor.SetValue(server_id, 1);
++                }
++                offset = localTokenServerOffsetTensor.GetValue(i * serverNum_ + server_id);
++                int32_t count = countExpertTensor.GetValue(expert_id);
++                expertRankTokenIdxTensor.SetValue(expert_id * TEMP_BATCH_SIZE + count % TEMP_BATCH_SIZE, offset);
++                sendTokenIdxTensor.SetValue(expert_id, count);
++                count++;
++                countExpertTensor.SetValue(expert_id, count);
++                if (count % TEMP_BATCH_SIZE == 0) {
++                    SyncFunc<AscendC::HardEvent::S_MTE3>();
++                    const DataCopyExtParams expertRankTokendataCopyParams{1U, TEMP_BATCH_SIZE * sizeof(T), 0U, 0U, 0U};
++                    DataCopyPad(expertRankTokenIdxGM_[expert_id * MAX_BATCH_SIZE + count - TEMP_BATCH_SIZE],
++                                expertRankTokenIdxTensor[expert_id * TEMP_BATCH_SIZE], expertRankTokendataCopyParams);
++                    SyncFunc<AscendC::HardEvent::MTE3_V>();
++                    Duplicate(expertRankTokenIdxTensor[expert_id * TEMP_BATCH_SIZE], 0, TEMP_BATCH_SIZE);
++                    SyncFunc<AscendC::HardEvent::V_S>();
++                }
++            }
++            const DataCopyExtParams sendTokenIdxdataCopyParams{1U, sendTokenIdx32AlignIntLen_, 0U, 0U, 0U};
++            DataCopyPad(sendTokenIdxGM_[i * numExperts_], sendTokenIdxTensor, sendTokenIdxdataCopyParams);
++            SyncFunc<AscendC::HardEvent::MTE3_V>();
++        }
++        uint32_t sendSize = numTokens_ * serverNum_ * sizeof(T);
++        const DataCopyExtParams localTokenServerOffsetParams{1U, sendSize, 0U, 0U, 0U};
++        DataCopyPad(localTokenServerOffsetGM_, localTokenServerOffsetTensor, localTokenServerOffsetParams);
++        SyncFunc<AscendC::HardEvent::MTE3_S>();
++        for (int i = 0; i < numExperts_; i++) {
++            int32_t count = countExpertTensor.GetValue(i);
++            uint32_t rest = count % TEMP_BATCH_SIZE;
++            if (rest) {
++                SyncFunc<AscendC::HardEvent::S_MTE3>();
++                const DataCopyExtParams expertRankTokendataCopyParams{1U, uint32_t(rest * sizeof(T)), 0U, 0U, 0U};
++                DataCopyPad(expertRankTokenIdxGM_[i * MAX_BATCH_SIZE + count - rest],
++                            expertRankTokenIdxTensor[i * TEMP_BATCH_SIZE], expertRankTokendataCopyParams);
++                SyncFunc<AscendC::HardEvent::MTE3_V>();
++            }
++        }
++    }
++
++    GlobalTensor<int64_t> topkIdxGM_;
++    GlobalTensor<T> numTokensPerRankGM_;
++    GlobalTensor<T> numTokensPerExpertGM_;
++    GlobalTensor<T> numTokensPerExpertSrcGM_;
++    GlobalTensor<T> isTokenInRankGM_;
++    GlobalTensor<T> localTokenServerOffsetGM_;
++    GlobalTensor<T> localTokenServerUniqCountGM_;
++    GlobalTensor<T> localTokenServerTotalCountGM_;
++    GlobalTensor<T> localTokenServerNumGM_;
++    GlobalTensor<T> expertRankTokenIdxGM_;
++    GlobalTensor<T> sendTokenIdxGM_;
++
++    TBuf<> topkIdxBuf_;
++    TBuf<> numTokensPerRankBuf_;
++    TBuf<> numTokensPerExpertBuf_;
++    TBuf<> isTokenInRankBuf_;
++    TBuf<> localTokenServerOffsetBuf_;
++    TBuf<> localTokenServerUniqCountBuf_;
++    TBuf<> localTokenServerTotalCountBuf_;
++    TBuf<> localTokenServerNumBuf_;
++    TBuf<> seenRankBuf_;
++    TBuf<> seenServerBuf_;
++    TBuf<> countExpertBuf_;
++    TBuf<> countServerBuf_;
++    TBuf<> sendTokenIdxBuf_;
++    TBuf<> expertRankTokenIdxBuf_;
++
++    TPipe *tpipe_{nullptr};
++    uint32_t numTokens_{0};
++    uint32_t numRanks_{0};
++    uint32_t numExperts_{0};
++    uint32_t numTopk_{0};
++    uint32_t localRankSize_{0};
++    uint32_t serverNum_{0};
++    uint32_t coreIdx_{0};
++    uint32_t aivNum_{0};
++    uint32_t tempTokens_{0};
++
++    uint32_t topkIdx32AlignIntLen_{0};
++    uint32_t numTokensPerRank32AlignIntLen_{0};
++    uint32_t numTokensPerExpert32AlignIntLen_{0};
++    uint32_t isTokenInRank32AlignIntLen_{0};
++    uint32_t localTokenServerOffset32AlignIntLen_{0};
++    uint32_t localTokenServerUniqCount32AlignIntLen_{0};
++    uint32_t localTokenServerTotalCount32AlignIntLen_{0};
++    uint32_t localTokenServerNum32AlignIntLen_{0};
++    uint32_t sendTokenIdx32AlignIntLen_{0};
++    uint32_t expertRankTokenIdx32AlignIntLen_{0};
++};
++}  // namespace MoeDispatchLayoutA2
++
++#endif  // DISPATCH_LAYOUT_A2_H
+diff --git a/csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h b/csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h
+index bf56f45ad..af1d0eae0 100644
+--- a/csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h
++++ b/csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h
+@@ -8,6 +8,7 @@ struct DispatchLayoutInfo {
+     uint32_t numRanks;
+     uint32_t numExperts;
+     uint32_t numTopk;
++    uint32_t localRankSize;
+     uint64_t totalUbSize;
+ };
+ 
+diff --git a/csrc/deepep/pybind_extension.cpp b/csrc/deepep/pybind_extension.cpp
+index 9b587840a..b3da19a6a 100644
+--- a/csrc/deepep/pybind_extension.cpp
++++ b/csrc/deepep/pybind_extension.cpp
+@@ -32,6 +32,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
+         .def("is_available", &deep_ep::Buffer::is_available)
+         .def("get_rdma_rank", &deep_ep::Buffer::get_rdma_rank)
+         .def("get_dispatch_layout", &deep_ep::Buffer::get_dispatch_layout)
++        .def("get_notify_send_data", &deep_ep::Buffer::get_notify_send_data)
+         .def("clean_low_latency_buffer", &deep_ep::Buffer::clean_low_latency_buffer)
+         .def("intranode_dispatch", &deep_ep::Buffer::intranode_dispatch)
+         .def("intranode_combine", &deep_ep::Buffer::intranode_combine)
+diff --git a/python/deep_ep/deep_ep/buffer.py b/python/deep_ep/deep_ep/buffer.py
+index 36477b8d9..59813b5a4 100644
+--- a/python/deep_ep/deep_ep/buffer.py
++++ b/python/deep_ep/deep_ep/buffer.py
+@@ -199,6 +199,17 @@ def get_dispatch_layout(
+             EventOverlap(event),
+         )
+ 
++    # internal interface, Only use in test
++    def get_notify_send_data(self) -> torch.Tensor:
++        """
++        Internal interface, we only use it to check the output of get_dispatch_layout.
++
++        Returns:
++            notify_send_data: the member variable of buffer, which usually contains the output of get_dispatch_layout.
++        """
++        notify_send_data = self.runtime.get_notify_send_data()
++        return notify_send_data
++
+     def clean_low_latency_buffer(
+         self, num_max_dispatch_tokens_per_rank: int, hidden: int, num_experts: int
+     ) -> None:
+diff --git a/tests/python/deepep/test_intranode.py b/tests/python/deepep/test_intranode.py
+index 0ad070630..da8346eba 100644
+--- a/tests/python/deepep/test_intranode.py
++++ b/tests/python/deepep/test_intranode.py
+@@ -17,10 +17,14 @@
+     per_token_cast_back,
+ )
+ 
++MAX_BATCH_SIZE = 4096
++enable_a2_test = False
++
+ 
+ # noinspection PyShadowingNames
+ def test_main(
+     args: argparse.Namespace,
++    num_local_ranks: int,
+     local_rank: int,
+     num_ranks: int,
+     rank: int,
+@@ -31,6 +35,7 @@ def test_main(
+     num_tokens, hidden = args.num_tokens, args.hidden
+     num_topk, num_experts = args.num_topk, args.num_experts
+     enable_diagnose = args.enable_diagnose
++    num_servers = num_ranks // num_local_ranks
+ 
+     assert num_experts % num_ranks == 0
+     if local_rank == 0:
+@@ -98,6 +103,58 @@ def test_main(
+     gbl_num_tokens_per_expert = num_tokens_per_expert.clone()
+     dist.all_reduce(gbl_num_tokens_per_expert, group=group)
+ 
++    # Server meta
++    if enable_a2_test:
++        count_num_expert = [0] * num_experts
++        num_tokens_per_server_uniq = torch.zeros(
++            (num_servers,), dtype=torch.int, device="npu"
++        )
++        num_each_token_to_server = torch.zeros(
++            (num_tokens * num_servers,), dtype=torch.int, device="npu"
++        )
++        each_token_to_num_server = torch.zeros(
++            (num_tokens,), dtype=torch.int, device="npu"
++        )
++        each_token_offset_to_server = torch.full(
++            (num_tokens * num_servers,), -1, dtype=torch.int, device="npu"
++        )
++        send_token_idx = torch.full(
++            (num_tokens * num_experts,), -1, dtype=torch.int, device="npu"
++        )
++        expert_rank_token_idx = torch.zeros(
++            (num_experts * MAX_BATCH_SIZE,), dtype=torch.int, device="npu"
++        )
++
++        for i in range(num_tokens):
++            seen_server = [0] * num_servers
++            for j in range(num_topk):
++                expert_id = topk_idx[i][j]
++                rank_id = expert_id // experts_per_rank
++                server_id = rank_id // num_local_ranks
++                if seen_server[server_id] == 0:
++                    each_token_offset_to_server[i * num_servers + server_id] = (
++                        num_tokens_per_server_uniq[server_id]
++                    )
++                    num_tokens_per_server_uniq[server_id] += 1
++                    each_token_to_num_server[i] += 1
++                    seen_server[server_id] += 1
++                num_each_token_to_server[i * num_servers + server_id] += 1
++                send_token_idx[i * num_experts + expert_id] = count_num_expert[
++                    expert_id
++                ]
++                count_num_expert[expert_id] += 1
++
++        count_num_expert = [0] * num_experts
++        for i in range(num_tokens):
++            for j in range(num_topk):
++                expert_id = topk_idx[i][j]
++                rank_id = expert_id // experts_per_rank
++                server_id = rank_id // num_local_ranks
++                expert_rank_token_idx[
++                    expert_id * MAX_BATCH_SIZE + count_num_expert[expert_id]
++                ] = each_token_offset_to_server[i * num_servers + server_id]
++                count_num_expert[expert_id] += 1
++
+     # Rank layout meta
+     num_tokens_per_rank = torch.empty((num_ranks,), dtype=torch.int, device="npu")
+     token_idx_in_rank = torch.full(
+@@ -119,6 +176,46 @@ def test_main(
+     try:
+         try:
+             return_values = buffer.get_dispatch_layout(topk_idx, num_experts)
++            if enable_a2_test:
++                notify_send_data = buffer.get_notify_send_data()
++                ref_num_tokens_per_server_uniq = notify_send_data[
++                    num_experts : num_experts + num_servers
++                ]
++                ref_num_each_token_to_server = notify_send_data[
++                    num_experts
++                    + num_servers : num_experts
++                    + num_servers * (1 + num_tokens)
++                ]
++                ref_each_token_to_num_server = notify_send_data[
++                    num_experts
++                    + num_servers * (1 + MAX_BATCH_SIZE) : num_experts
++                    + num_servers
++                    + MAX_BATCH_SIZE * num_servers
++                    + num_tokens
++                ]
++                ref_each_token_offset_to_server = notify_send_data[
++                    num_experts
++                    + num_servers
++                    + MAX_BATCH_SIZE * (num_servers + 1) : num_experts
++                    + num_servers
++                    + MAX_BATCH_SIZE * (num_servers + 1)
++                    + num_servers * num_tokens
++                ]
++                ref_send_token_idx = notify_send_data[
++                    num_experts
++                    + num_servers
++                    + MAX_BATCH_SIZE * (num_servers * 2 + 1) : num_experts
++                    + num_servers
++                    + MAX_BATCH_SIZE * (num_servers * 2 + 1)
++                    + num_tokens * num_experts
++                ]
++                ref_expert_rank_token_idx = notify_send_data[
++                    num_experts
++                    + num_servers
++                    + MAX_BATCH_SIZE * (num_servers * 2 + num_experts + 1) : num_experts
++                    + num_servers
++                    + MAX_BATCH_SIZE * (num_servers * 2 + num_experts + num_experts + 1)
++                ]
+         except Exception as e:
+             print(f"Error occurred while calling get_dispatch_layout: {e}")
+             raise
+@@ -140,6 +237,28 @@ def test_main(
+             assert torch.allclose(
+                 ref_is_token_in_rank, is_token_in_rank
+             ), f"Assertion is_token_in_rank failed on rank {rank}: Expected {is_token_in_rank}, Actual {ref_is_token_in_rank}"
++            if enable_a2_test:
++                assert torch.allclose(
++                    num_tokens_per_expert, notify_send_data[:num_experts]
++                ), f"Assertion num_tokens_per_rank failed on rank {rank}: Expected {ref_num_tokens_per_expert}, Actual {notify_send_data[:num_experts]}"
++                assert torch.allclose(
++                    num_tokens_per_server_uniq, ref_num_tokens_per_server_uniq
++                ), f"Assertion num_tokens_per_server_uniq failed on rank {rank}: Expected {num_tokens_per_server_uniq}, Actual {ref_num_tokens_per_server_uniq}"
++                assert torch.allclose(
++                    num_each_token_to_server, ref_num_each_token_to_server
++                ), f"Assertion num_each_token_to_server failed on rank {rank}: Expected {num_each_token_to_server}, Actual {ref_num_each_token_to_server}"
++                assert torch.allclose(
++                    each_token_to_num_server, ref_each_token_to_num_server
++                ), f"Assertion each_token_to_num_server failed on rank {rank}: Expected {each_token_to_num_server}, Actual {ref_each_token_to_num_server}"
++                assert torch.allclose(
++                    each_token_offset_to_server, ref_each_token_offset_to_server
++                ), f"Assertion each_token_offset_to_server failed on rank {rank}: Expected {each_token_offset_to_server}, Actual {ref_each_token_offset_to_server}"
++                assert torch.allclose(
++                    send_token_idx, ref_send_token_idx
++                ), f"Assertion send_token_idx failed on rank {rank}: Expected {send_token_idx}, Actual {ref_send_token_idx}"
++                assert torch.allclose(
++                    expert_rank_token_idx, ref_expert_rank_token_idx
++                ), f"Assertion expert_rank_token_idx failed on rank {rank}: Expected {expert_rank_token_idx}, Actual {ref_expert_rank_token_idx}"
+         except AssertionError as e:
+             print(e)
+             raise
+@@ -388,7 +507,7 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+     print(f"[Rank {rank}] Buffer created OK.", flush=True)
+     torch.manual_seed(rank)
+ 
+-    test_main(args, local_rank, num_ranks, rank, buffer, group)
++    test_main(args, num_local_ranks, local_rank, num_ranks, rank, buffer, group)
+     if local_rank == 0:
+         print("", flush=True)
+ 
