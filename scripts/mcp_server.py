@@ -124,7 +124,7 @@ PROTOCOL_VERSION = "2024-11-05"
 TOOLS = [
     {
         "name": "wiki_query",
-        "description": "Search the KernelWiki knowledge base by keywords and filters. Returns ranked pages with titles, types, and key metadata. Covers 4000+ pages: PR references (CUTLASS/sglang/vLLM/FlashInfer/PyTorch/DeepGEMM), wiki synthesis (hardware, techniques, kernels, foundations, API definitions, operator routing, code walkthroughs), experience records, blogs, docs, and contests. Supports NVIDIA GPU (SM90/SM100) and Huawei Ascend NPU (910B/910C). All filters are optional and combinable.",
+        "description": "Search the KernelWiki operator-optimization knowledge base by keywords and filters. Use this when an AI agent is optimizing kernels/operators, doing CUDA/PTX/Triton/CuTe/AscendC performance tuning, analyzing GPU/NPU implementation strategies, finding PR references, or looking for code artifacts and optimization patterns. Returns ranked pages with titles, types, and key metadata. Covers 4000+ pages: PR references (CUTLASS/sglang/vLLM/FlashInfer/PyTorch/DeepGEMM), wiki synthesis (hardware, techniques, kernels, foundations, API definitions, operator routing, code walkthroughs), experience records, blogs, docs, and contests. Supports NVIDIA GPU (SM90/SM100) and Huawei Ascend NPU (910B/910C), including performance symptoms such as memory-bound kernels, register pressure, low SM utilization, pipeline stalls, and migration between architectures. All filters are optional and combinable.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -150,7 +150,7 @@ TOOLS = [
     },
     {
         "name": "wiki_get_page",
-        "description": "Retrieve a wiki page by its id or relative path. Returns full content with YAML frontmatter and markdown body. Optionally includes artifact code files (diffs, kernel sources) and excerpts from cited source pages. Supports page ids (e.g. kernel-flash-attention-4, pr-cutlass-2472, hw-tcgen05) and relative paths (e.g. wiki/nvidia/kernels/flash-attention-4.md).",
+        "description": "Retrieve a KernelWiki page by id or relative path after wiki_query finds a candidate. Use this to inspect operator optimization notes, kernel implementation details, PR diffs, benchmark-related code, migration notes, hardware-specific tuning guidance, and cited source excerpts. Returns full content with YAML frontmatter and markdown body. Optionally includes artifact code files such as diffs, CUDA/C++/Triton/AscendC sources, and kernel snippets. Supports page ids (e.g. kernel-flash-attention-4, pr-cutlass-2472, hw-tcgen05) and relative paths (e.g. wiki/nvidia/kernels/flash-attention-4.md).",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -165,7 +165,7 @@ TOOLS = [
     },
     {
         "name": "wiki_grep",
-        "description": "Regex text search across wiki markdown files and optionally source code artifacts. Returns matching lines with file paths and surrounding context. Useful for finding specific API names, code patterns, or technical terms across the knowledge base.",
+        "description": "Regex text search across KernelWiki pages, source references, and code artifacts. Use this for operator/kernel optimization work when you need to find specific kernel APIs, CUDA/PTX/Triton/CuTe/AscendC patterns, PR implementation details, operator names, benchmark symbols, performance symptoms, hardware-specific instructions, or optimization code across wiki, sources, and artifacts. Returns matching lines with file paths and surrounding context.",
         "inputSchema": {
             "type": "object",
             "properties": {

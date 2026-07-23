@@ -2,6 +2,8 @@
 
 ## Overview
 
+完整功能和算子优化使用方式见 [`docs/mcp-usage.md`](mcp-usage.md)。
+
 The KernelWiki MCP server exposes 3 tools (`wiki_query`, `wiki_get_page`, `wiki_grep`) through two transports:
 
 - **stdio JSON-RPC 2.0** via `scripts/mcp_server.py` for local agent integrations.

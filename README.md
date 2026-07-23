@@ -165,6 +165,9 @@ python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 rotate 2
 python3 scripts/mcp_token_admin.py --db data/mcp_tokens.sqlite3 delete 1 -y
 ```
 
+Full MCP capability and usage guide is documented in
+[`docs/mcp-usage.md`](docs/mcp-usage.md).
+
 Full token CRUD usage is documented in
 [`docs/mcp-token-management.md`](docs/mcp-token-management.md).
 
