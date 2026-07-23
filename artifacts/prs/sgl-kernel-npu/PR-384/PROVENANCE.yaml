@@ -1,0 +1,104 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/384
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: 7b93364b
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-384
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 5946ae816848cff785d2f10345b3201c9923abc0d170b2eba873e4ec5a5122fe
+- local_path: key-files/csrc/lora/op_host/sgemmc_expand.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_host/sgemmc_expand.cpp
+  sha256: 8edef6e3e003f8e5caca5377a76e82c47da6b1c647e956670f896c81836d40f4
+- local_path: key-files/csrc/lora/op_host/sgemmc_shrink.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_host/sgemmc_shrink.cpp
+  sha256: 6c7747d451a2e0f918339a45c2c4fe02805daf8045162456a96ec87d3eaedb83
+- local_path: key-files/csrc/lora/op_host/tiling/sgemmc_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_host/tiling/sgemmc_tiling.cpp
+  sha256: d34edc54cf16ec89c8bcdd110d565253b3870bdf0c3d96f3d38eb3376f3dfe6e
+- local_path: key-files/csrc/lora/op_host/tiling/sgemmc_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_host/tiling/sgemmc_tiling.h
+  sha256: b568d1f9b3d520bd956f899e6638d57f39c65ef8f0a509845ce53aa721f1caa0
+- local_path: key-files/csrc/lora/op_host/tiling/sgemmc_tiling_data.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_host/tiling/sgemmc_tiling_data.h
+  sha256: ef0c2229531ff503949e7dd3ce403aa11ac85ae40b035180d536b59f26fca1d5
+- local_path: key-files/csrc/lora/op_kernel/lora_common_kernel.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_kernel/lora_common_kernel.h
+  sha256: 2ef7f67d3f6d5a1b65d23ff7af1a4f491d9d22bfa13f9980da4699b439f9405f
+- local_path: key-files/csrc/lora/op_kernel/sgemmc_expand_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_kernel/sgemmc_expand_kernel.cpp
+  sha256: b007144140b8853131c32962da2b82d44460d06647c6ad8731ff238632169069
+- local_path: key-files/csrc/lora/op_kernel/sgemmc_shrink_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_kernel/sgemmc_shrink_kernel.cpp
+  sha256: 57731db3d0ad584744f77483b09a6b3d64fcc6b795be95e26a4e58df292f4777
+- local_path: key-files/csrc/lora/op_kernel/sgemmv_expand_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_kernel/sgemmv_expand_kernel.cpp
+  sha256: b42d1de89c15bc8b46a34876f8265716bc7182f2ccc11c92025ea2872dc1e8a3
+- local_path: key-files/csrc/lora/op_kernel/sgemmv_shrink_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_kernel/sgemmv_shrink_kernel.cpp
+  sha256: 49477c64b821b92c9fafa8ced75a6ba0d5b7fae06590808a2366c62c4e8d70b5
+- local_path: key-files/csrc/lora/op_kernel/sgmv_expand_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_kernel/sgmv_expand_kernel.cpp
+  sha256: 4d6b3adff8387e300e9161298781aec6d86c7daeb0080680888631bb8eadbb26
+- local_path: key-files/csrc/lora/op_kernel/sgmv_shrink_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/lora/op_kernel/sgmv_shrink_kernel.cpp
+  sha256: 03d2a92a498a1445872e610306b4f891a914700c31836acf33cfbb2ee92e4334
+- local_path: key-files/csrc/pytorch_extensions.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extensions.cpp
+  sha256: 717dcdaa86b6ba70bce20f898a57e55df4d125b56584ee48fa95ae06db79b5ca
+- local_path: key-files/csrc/utils/common_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/utils/common_tiling.h
+  sha256: 6dbf3531c20a33dbbc539d1a61d5c179885bf52713715670c0984eb22d49a5a2
+- local_path: key-files/csrc/utils/kernel/common_tiling_kernel.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/utils/kernel/common_tiling_kernel.h
+  sha256: bbc54f8862df55201721668a97bb7064ad55dc8d177553ca9a8945378b3fc7bc
+- local_path: key-files/csrc/utils/torch_helper.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/utils/torch_helper.h
+  sha256: 083d1f3220d4e8d4c37d7a7246625fd0141743b30b77dfef3c02e897936bd94b
+- local_path: key-files/include/sgl_kenel_npu_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/sgl_kenel_npu_ops.h
+  sha256: 5a577da558e6a3d2059ceeb6576928fea3e44a060206fd8d1851c7f8ac99fa71
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+  sha256: 5f610459e5bdd48ad1359aa0ec6a35c69cdf00690981ddd92ae4fcebc2f36684

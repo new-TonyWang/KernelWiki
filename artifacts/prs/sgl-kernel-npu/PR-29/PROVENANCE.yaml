@@ -1,0 +1,39 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/29
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: ea15f2b7
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-29
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 8696cb97fb7b6063d6734162674d78d665c1742020b8f485dd03e853f7fdb557
+- local_path: key-files/csrc/assign_cache_op/op_host/assign_cache.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/assign_cache_op/op_host/assign_cache.cpp
+  sha256: 812e1372a930029faa6ff2ad577c85ff552aa06aa7069d99ee962226da8b52c0
+- local_path: key-files/csrc/assign_cache_op/op_host/tiling_data.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/assign_cache_op/op_host/tiling_data.h
+  sha256: 14a52e7b6e5c0a6eba30fa90e7589e40526c98cedde8b27b53c74a00479064b0
+- local_path: key-files/csrc/assign_cache_op/op_kernel/assign_cache_op.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/assign_cache_op/op_kernel/assign_cache_op.cpp
+  sha256: 980555273a4fe73825f726109d1172dcf9c526ffec78ab065f94eb9154155cd8
+- local_path: key-files/csrc/pytorch_extensions.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extensions.cpp
+  sha256: 66641164e68491980d8a9d532234cfd4e4a3a66aa4d76fd17d3cd776731480ae
+- local_path: key-files/include/sgl_kenel_npu_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/sgl_kenel_npu_ops.h
+  sha256: 54c5ad4e3cc6bc18949bf8beb1e5e569ddaa965505d95d46415a50da7fa675b3

@@ -1,0 +1,787 @@
+diff --git a/csrc/CMakeLists.txt b/csrc/CMakeLists.txt
+index ac964718b..6b3236f8b 100644
+--- a/csrc/CMakeLists.txt
++++ b/csrc/CMakeLists.txt
+@@ -21,6 +21,7 @@ FILE(GLOB OP_SRCS
+     ${PROJECT_OP_SRC_BASE}/lora/op_host/sgemmv_shrink.cpp
+     ${PROJECT_OP_SRC_BASE}/lightning_indexer/op_host/lightning_indexer.cpp
+     ${PROJECT_OP_SRC_BASE}/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp
++    ${PROJECT_OP_SRC_BASE}/tri_inv/op_host/tri_inv.cpp
+     )
+ if(BUILD_CATLASS_MODULE)
+     list(APPEND OP_SRCS
+@@ -43,6 +44,7 @@ ascendc_library(no_workspace_kernel STATIC
+     ${PROJECT_OP_SRC_BASE}/lora/op_kernel/sgmv_shrink_kernel.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_kernel/sgemmv_expand_kernel.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_kernel/sgemmv_shrink_kernel.cpp
++    ${PROJECT_OP_SRC_BASE}/tri_inv/op_kernel/tri_inv_kernel.cpp
+ )
+ 
+ # kernel side files with workspace
+diff --git a/csrc/pytorch_extensions.cpp b/csrc/pytorch_extensions.cpp
+index 8036bac66..a7d093730 100644
+--- a/csrc/pytorch_extensions.cpp
++++ b/csrc/pytorch_extensions.cpp
+@@ -96,6 +96,8 @@ TORCH_LIBRARY_FRAGMENT(npu, m)
+         "Tensor? actual_seq_lengths_key=None, Tensor? block_table=None, "
+         "str? layout_query=None, str? layout_key=None, "
+         "int? sparse_count=None, int? sparse_mode=None) -> Tensor");
++
++    m.def("triangular_inverse(Tensor x) -> Tensor");
+ }
+ }  // namespace
+ 
+@@ -137,5 +139,7 @@ TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)
+ #endif
+ 
+     m.impl("lightning_indexer", TORCH_FN(sglang::npu_kernel::lightning_indexer));
++
++    m.impl("triangular_inverse", TORCH_FN(sglang::npu_kernel::tri_inv_col_sweep));
+ }
+ }  // namespace
+diff --git a/csrc/tri_inv/README.md b/csrc/tri_inv/README.md
+new file mode 100644
+index 000000000..67a4dc2fc
+--- /dev/null
++++ b/csrc/tri_inv/README.md
+@@ -0,0 +1,5 @@
++##### Description of tri_inv
++
++This is a vector-only AscendC triangular inversion kernel on Ascend NPU.
++
++The kernel supports matrix sizes `16, 32, 64, 128` and data types `fp16` and `fp32`.
+diff --git a/csrc/tri_inv/op_host/tiling_tri_inv.h b/csrc/tri_inv/op_host/tiling_tri_inv.h
+new file mode 100644
+index 000000000..425ad9492
+--- /dev/null
++++ b/csrc/tri_inv/op_host/tiling_tri_inv.h
+@@ -0,0 +1,22 @@
++#pragma once
++
++#include <cstdint>
++
++namespace sglang {
++
++namespace npu_kernel {
++
++/**
++ * @brief `tri_inv_col_sweep` kernel tiling parameter structure.
++ */
++struct TriInvColumnSweepTiling {
++    /// @brief Number of blocks.
++    uint32_t num_blocks;
++    /// @brief Total number of input elements.
++    uint32_t num_elems;
++    /// @brief Input matrix size.
++    uint32_t matrix_size;
++};
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/tri_inv/op_host/tri_inv.cpp b/csrc/tri_inv/op_host/tri_inv.cpp
+new file mode 100644
+index 000000000..c3b1067a1
+--- /dev/null
++++ b/csrc/tri_inv/op_host/tri_inv.cpp
+@@ -0,0 +1,71 @@
++// Licensed under the BSD 3-Clause License  (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include "defines.h"
++#include "torch_helper.h"
++
++#include "tiling_tri_inv.h"
++#include "aclrtlaunch_tri_inv_col_sweep_fp16.h"
++#include "aclrtlaunch_tri_inv_col_sweep_fp32.h"
++
++namespace sglang {
++
++namespace npu_kernel {
++
++at::Tensor calc_tiling(const TriInvColumnSweepTiling &tiling)
++{
++    constexpr uint32_t PADDING_BYTE = 32U;
++
++    // align to 32 bytes
++    int32_t tiling_size = (sizeof(TriInvColumnSweepTiling) + PADDING_BYTE - 1) / PADDING_BYTE * PADDING_BYTE;
++    auto tiling_buffer = at::empty({tiling_size}, at::TensorOptions().dtype(at::kByte).device(at::kCPU));
++
++    TriInvColumnSweepTiling *tiling_data = reinterpret_cast<TriInvColumnSweepTiling *>(tiling_buffer.data_ptr());
++    tiling_data->num_blocks = tiling.num_blocks;
++    tiling_data->num_elems = tiling.num_elems;
++    tiling_data->matrix_size = tiling.matrix_size;
++
++    auto tiling_tensor = TorchNpuHelper::CopyTensorHostToDevice(tiling_buffer);
++    return tiling_tensor;
++}
++
++HOST_API at::Tensor tri_inv_col_sweep(const at::Tensor &tensor)
++{
++    const auto dtype = tensor.options().dtype();
++    if (tensor.dim() < 2) {
++        throw std::runtime_error("Input tensor must have at least 2 dimensions.\n");
++    }
++
++    const uint32_t matrix_size = static_cast<uint32_t>(tensor.size(-1));
++    if (matrix_size != tensor.size(-2)) {
++        throw std::runtime_error("Only square matrices are supported.\n");
++    }
++
++    const uint32_t num_elems = static_cast<uint32_t>(tensor.numel());
++    const uint32_t block_dim = static_cast<uint32_t>(num_elems / (matrix_size * matrix_size));
++
++    const at::Tensor tensor_out = at::empty_like(tensor);
++
++    const TriInvColumnSweepTiling tiling{block_dim, num_elems, matrix_size};
++    const at::Tensor tiling_device = calc_tiling(tiling);
++
++    if (dtype == at::kHalf) {
++        EXEC_KERNEL_CMD(tri_inv_col_sweep_fp16, block_dim, tensor, tensor_out, tiling_device);
++    } else if (dtype == at::kFloat) {
++        EXEC_KERNEL_CMD(tri_inv_col_sweep_fp32, block_dim, tensor, tensor_out, tiling_device);
++    } else {
++        throw std::runtime_error("Unsupported data type for tri_inv_col_sweep. fp16 and fp32 are currently supported.");
++    }
++
++    return tensor_out;
++}
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/tri_inv/op_kernel/kernel_tri_inv.h b/csrc/tri_inv/op_kernel/kernel_tri_inv.h
+new file mode 100644
+index 000000000..de3ea4618
+--- /dev/null
++++ b/csrc/tri_inv/op_kernel/kernel_tri_inv.h
+@@ -0,0 +1,184 @@
++// Licensed under the BSD 3-Clause License  (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++/**
++ * Copyright (c) Huawei Technologies Co., Ltd. 2025-2026. All rights reserved.
++ *
++ * @file kernel_tri_inv.h
++ * @brief Kernel implementing a Vector matrix inverse kernel operation.
++ */
++
++#pragma once
++
++#include "kernel_operator.h"
++
++namespace sglang {
++
++namespace npu_kernel {
++/**
++ * @brief Returns the matrix inverse of an upper triangular square matrix of
++ * size `matrix_size`. The matrix has ones on the main diagonal.
++ *
++ * The column sweep algorithm is used for the linear system Ax=e_j where e_j is
++ * the standard vector.
++ *
++ * @tparam T Input data type. Supports only `half` and `float32`.
++ *
++ */
++template <typename T>
++class KernelTriInvColumnSweep
++{
++    constexpr static uint32_t BUFFER_NUM = 1;
++
++public:
++    /**
++     * @brief Class constructor.
++     *
++     * @param [in] vec_len Total length of input tensor.
++     * @param [in] matrix_size Input square matrix size.
++     */
++    __aicore__ inline KernelTriInvColumnSweep(uint32_t vec_len, uint32_t matrix_size)
++        : vec_len_(vec_len), matrix_size_(matrix_size), tile_len_(matrix_size * matrix_size)
++    {}
++
++    /**
++     * @brief Initialize global and local memory structures.
++     *
++     * @param [in] vec_in Pointer to the input vector in global memory.
++     * @param [in] vec_out Pointer to the output vector in global memory.
++     */
++    __aicore__ inline void Init(GM_ADDR vec_in, GM_ADDR vec_out)
++    {
++        global_in_.SetGlobalBuffer((__gm__ T *)vec_in, vec_len_);
++        global_out_.SetGlobalBuffer((__gm__ T *)vec_out, vec_len_);
++
++        pipe_.InitBuffer(in_q_, BUFFER_NUM, tile_len_ * sizeof(T));
++        pipe_.InitBuffer(out_q_, BUFFER_NUM, tile_len_ * sizeof(T));
++        pipe_.InitBuffer(b_buf_, matrix_size_ * sizeof(T));
++    }
++
++    /**
++     * @brief Run the kernel.
++     */
++    __aicore__ inline void Process()
++    {
++        using namespace AscendC;
++        const uint32_t global_offset = AscendC::GetBlockIdx() * tile_len_;
++
++        const AscendC::LocalTensor<T> tile_in_lt = in_q_.AllocTensor<T>();
++        AscendC::DataCopy(tile_in_lt, global_in_[global_offset], tile_len_);
++        in_q_.EnQue(tile_in_lt);
++
++        InvertMatrix();
++
++        AscendC::LocalTensor<T> tile_out_lt = out_q_.DeQue<T>();
++        AscendC::DataCopy(global_out_[global_offset], tile_out_lt, tile_len_);
++        out_q_.FreeTensor(tile_out_lt);
++    }
++
++private:
++    __aicore__ inline void InvertMatrix()
++    {
++        using namespace AscendC;
++
++        const int32_t n_rows = matrix_size_;
++        const int32_t n_cols = matrix_size_;
++
++        LocalTensor<T> vec_in_lt = in_q_.DeQue<T>();
++        const LocalTensor<T> vec_out_lt = out_q_.AllocTensor<T>();
++
++        // Left-hand side Ax=b.
++        LocalTensor<T> b = b_buf_.Get<T>();
++
++        Duplicate(vec_out_lt, static_cast<T>(0), tile_len_);
++
++        // For every output column j-th
++        for (int32_t j = 0; j < n_cols; j++) {
++            // Column sweep on each column.
++
++            // `b` vector is e_j standard vector.
++            Duplicate(b, static_cast<T>(0), matrix_size_);
++            b.SetValue(j, static_cast<T>(1));
++
++            // Ax=b
++            LocalTensor<T> x = vec_out_lt[j * n_rows];
++            for (int32_t k = n_rows - 1; k >= 0; k--) {
++                const LocalTensor<T> A_k = vec_in_lt[k * n_rows];
++
++                // x[k] = b[k] / A[k, k]
++                x.SetValue(k, b.GetValue(k));
++
++                if (k > 0) {
++                    // b[:k] -= A[:k, k] * x[k]
++                    const float x_k = -static_cast<float>(x.GetValue(k));
++                    AscendC::Axpy<T>(b, A_k, static_cast<T>(x_k), k);
++                }
++            }
++        }
++
++        out_q_.EnQue<T>(vec_out_lt);
++        in_q_.FreeTensor<T>(vec_in_lt);
++    }
++
++    AscendC::TPipe pipe_;
++
++    AscendC::TQue<AscendC::QuePosition::VECIN, BUFFER_NUM> in_q_;
++    AscendC::TQue<AscendC::QuePosition::VECOUT, BUFFER_NUM> out_q_;
++
++    AscendC::TBuf<AscendC::QuePosition::VECCALC> b_buf_;
++
++    AscendC::GlobalTensor<T> global_in_;
++    AscendC::GlobalTensor<T> global_out_;
++
++    const uint32_t vec_len_;
++    const uint32_t matrix_size_;
++    const uint32_t tile_len_;
++};
++
++/**
++ * @brief Run the `tri_inv_col_sweep` kernel.
++ *
++ * @tparam T Input data type. Supports fp16/half.
++ *
++ * @param [in] vec_in Pointer to the input vector.
++ * @param [in] vec_out Pointer ot the output vector.
++ * @param [in] vec_len Dimension of the input vector.
++ * @param [in] matrix_size Matrix size to invert.
++ */
++template <typename T>
++__aicore__ inline void run_tri_inv_col_sweep(GM_ADDR vec_in, GM_ADDR vec_out, uint32_t vec_len, uint32_t matrix_size)
++{
++    if ASCEND_IS_AIV {
++        KernelTriInvColumnSweep<T> op(vec_len, matrix_size);
++        op.Init(vec_in, vec_out);
++        op.Process();
++    }
++}
++
++/**
++ * @brief Copies tiling structure from global memory to registers.
++ *
++ * @tparam TilingT Structure representing kernel tiling parameters.
++ * @param [in] tiling Pointer to the structure allocated in registers.
++ * @param [in] tiling_global Pointer to the structure in global memory.
++ */
++template <typename TilingT>
++__aicore__ inline void GetTilingData(TilingT *const tiling, GM_ADDR tiling_global)
++{
++    uint32_t *const tiling_32b = reinterpret_cast<uint32_t *>(tiling);
++    const __gm__ uint32_t *const tiling_global_32b = reinterpret_cast<__gm__ uint32_t *>(tiling_global);
++
++    for (uint32_t i = 0; i < sizeof(TilingT) / sizeof(uint32_t); i++) {
++        tiling_32b[i] = tiling_global_32b[i];
++    }
++}
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/tri_inv/op_kernel/tri_inv_kernel.cpp b/csrc/tri_inv/op_kernel/tri_inv_kernel.cpp
+new file mode 100644
+index 000000000..5ffc68806
+--- /dev/null
++++ b/csrc/tri_inv/op_kernel/tri_inv_kernel.cpp
+@@ -0,0 +1,41 @@
++// Licensed under the BSD 3-Clause License  (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include "kernel_tri_inv.h"
++
++#include "../op_host/tiling_tri_inv.h"
++
++/**
++ * @brief Run the `tri_inv_col_sweep` kernel on dtype fp16/half.
++ *
++ * @param [in] vec_in Pointer to input vector.
++ * @param [in] vec_out Pointer to output vector.
++ * @param [in] tiling_gm Pointer to tiling vector.
++ */
++extern "C" __global__ __aicore__ void tri_inv_col_sweep_fp16(GM_ADDR vec_in, GM_ADDR vec_out, GM_ADDR tiling_gm)
++{
++    sglang::npu_kernel::TriInvColumnSweepTiling tiling;
++    sglang::npu_kernel::GetTilingData(&tiling, tiling_gm);
++    sglang::npu_kernel::run_tri_inv_col_sweep<half>(vec_in, vec_out, tiling.num_elems, tiling.matrix_size);
++}
++
++/**
++ * @brief Run the `tri_inv_col_sweep` kernel on dtype float32.
++ *
++ * @param [in] vec_in Pointer to input vector.
++ * @param [in] vec_out Pointer to output vector.
++ * @param [in] tiling_gm Pointer to tiling vector.
++ */
++extern "C" __global__ __aicore__ void tri_inv_col_sweep_fp32(GM_ADDR vec_in, GM_ADDR vec_out, GM_ADDR tiling_gm)
++{
++    sglang::npu_kernel::TriInvColumnSweepTiling tiling;
++    sglang::npu_kernel::GetTilingData(&tiling, tiling_gm);
++    sglang::npu_kernel::run_tri_inv_col_sweep<float>(vec_in, vec_out, tiling.num_elems, tiling.matrix_size);
++}
+diff --git a/include/sgl_kenel_npu_ops.h b/include/sgl_kenel_npu_ops.h
+index c6a7fe881..e2f5a6804 100644
+--- a/include/sgl_kenel_npu_ops.h
++++ b/include/sgl_kenel_npu_ops.h
+@@ -113,6 +113,16 @@ at::Tensor lightning_indexer(
+     c10::optional<c10::string_view> layout_key,
+     c10::optional<int64_t> sparse_count, c10::optional<int64_t> sparse_mode);
+ 
++/**
++ * @brief Triangular inverse of input tensor where last two dimensions represent
++ * a matrix.
++ *
++ * @param [in] tensor_in Tensor of dimensions (..., n, n) where `n` is
++ * the matrix size.
++ * @return at::Tensor Returns tensor of same shape where each matrix of size n
++ * is inversed.
++ */
++at::Tensor tri_inv_col_sweep(const at::Tensor &tensor_in);
+ } // namespace npu_kernel
+ 
+ } // namespace sglang
+diff --git a/python/sgl_kernel_npu/setup.py b/python/sgl_kernel_npu/setup.py
+index 1cedc8491..341931781 100755
+--- a/python/sgl_kernel_npu/setup.py
++++ b/python/sgl_kernel_npu/setup.py
+@@ -13,8 +13,6 @@
+ from setuptools.dist import Distribution
+ from torch_npu.utils.cpp_extension import NpuExtension
+ 
+-os.environ["SOURCE_DATE_EPOCH"] = "0"
+-
+ 
+ class BinaryDistribution(Distribution):
+     """Distribution which always forces a binary package with platform name"""
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py b/python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+index b7d50b673..00063345a 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/fla/chunk.py
+@@ -1,6 +1,7 @@
+ # Adapted from https://github.com/fla-org/flash-linear-attention/blob/main/fla/ops/gated_delta_rule/chunk.py
+ # -*- coding: utf-8 -*-
+ # Copyright (c) 2023-2025, Songlin Yang, Yu Zhang
++import typing
+ from typing import Optional
+ 
+ import torch
+@@ -20,6 +21,29 @@
+ from sgl_kernel_npu.fla.wy_fast import recompute_w_u_fwd_npu as recompute_w_u_fwd
+ 
+ 
++def fast_inv_tril(A: torch.Tensor):
++    dtype = A.dtype
++    assert A.shape[-2] == A.shape[-1]
++    chunk_size = A.shape[-1]
++    identity = torch.eye(chunk_size, dtype=torch.float32, device=A.device)
++    A_inv = torch.ops.npu.triangular_inverse(identity - A.to(torch.float32))
++    return A_inv.to(dtype)
++
++
++def inv_tril_inplace(A: torch.Tensor):
++    """
++    Returns the "matrix inverse" of the last two dimensions of A that must be a strict lower-triangular matrix.
++    The algorithm is somewhat "in-place", in the sense that it does not explicitly form a full matrix for the inverse.
++    """
++    assert A.shape[-2] == A.shape[-1]
++    chunk_size = A.shape[-1]
++    for i in range(1, chunk_size):
++        row = A[..., i, :i].clone()
++        sub = A[..., :i, :i].clone()
++        A[..., i, :i] = row + (row.unsqueeze(-1) * sub).sum(-2)
++    return A + torch.eye(chunk_size, dtype=A.dtype, device=A.device)
++
++
+ def chunk_gated_delta_rule_native(
+     query,
+     key,
+@@ -30,6 +54,7 @@ def chunk_gated_delta_rule_native(
+     initial_state=None,
+     output_final_state=False,
+     use_qk_l2norm_in_kernel=False,
++    tri_inv_fn: typing.Callable = inv_tril_inplace,
+ ):
+     initial_dtype = query.dtype
+     if use_qk_l2norm_in_kernel:
+@@ -69,11 +94,7 @@ def chunk_gated_delta_rule_native(
+     g = g.cumsum(dim=-1)
+     decay_mask = ((g.unsqueeze(-1) - g.unsqueeze(-2)).tril().exp().float()).tril()
+     attn = -((k_beta @ key.transpose(-1, -2)) * decay_mask).masked_fill(mask, 0)
+-    for i in range(1, chunk_size):
+-        row = attn[..., i, :i].clone()
+-        sub = attn[..., :i, :i].clone()
+-        attn[..., i, :i] = row + (row.unsqueeze(-1) * sub).sum(-2)
+-    attn = attn + torch.eye(chunk_size, dtype=attn.dtype, device=attn.device)
++    attn = tri_inv_fn(attn)
+     value = attn @ v_beta
+     k_cumdecay = attn @ (k_beta * g.exp().unsqueeze(-1))
+     last_recurrent_state = (
+diff --git a/tests/python/sgl_kernel_npu/test_gated_delta_ascendc_tri_inv.py b/tests/python/sgl_kernel_npu/test_gated_delta_ascendc_tri_inv.py
+new file mode 100644
+index 000000000..624c49f00
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_gated_delta_ascendc_tri_inv.py
+@@ -0,0 +1,158 @@
++import os
++
++import pytest
++import torch
++import torch.nn.functional as F
++from sgl_kernel_npu.fla.chunk import chunk_gated_delta_rule_native, fast_inv_tril
++
++device = "npu"
++
++
++def get_abs_err(x, y):
++    return (x.detach() - y.detach()).flatten().abs().max().item()
++
++
++def get_err_ratio(x, y):
++    err = (x.detach() - y.detach()).flatten().square().mean().sqrt().item()
++    base = (x.detach()).flatten().square().mean().sqrt().item()
++    return err / (base + 1e-8)
++
++
++def assert_close(prefix, ref, tri, ratio, warning=False, err_atol=1e-4):
++    abs_atol = get_abs_err(ref, tri)
++    msg = f"{prefix:>16} diff: {abs_atol:.6f} ratio: {get_err_ratio(ref, tri):.6f}"
++    error_rate = get_err_ratio(ref, tri)
++    if abs_atol <= err_atol:
++        return
++    else:
++        assert error_rate < ratio, msg
++
++
++def print_diff(name, ref, tri, atol=0.005):
++    abs_diff = torch.abs(ref - tri)
++    max_abs_diff = abs_diff.max().item()
++    print(f"[{name}] Max absolute difference: {max_abs_diff:.6f}")
++    if max_abs_diff > atol:
++        print(f"Exceeds tolerance ({atol})!")
++
++
++@pytest.mark.parametrize(
++    ("H", "D", "mask_p", "cu_seqlens", "dtype"),
++    [
++        pytest.param(*test, id="H{}-D{}-mask_p{}-cu_seqlens{}-{}".format(*test))
++        for test in [
++            (8, 128, 0, [0, 6], torch.float16),
++            (8, 128, 0, [0, 31], torch.float16),
++            (8, 128, 0, [0, 64], torch.float16),
++            (8, 128, 0, [0, 100], torch.float16),
++            (8, 128, 0, [0, 127], torch.float16),
++            (8, 128, 0, [0, 3584, 7168], torch.float16),
++            (8, 128, 0.5, [0, 3584, 7168], torch.float16),
++            (8, 128, 0, [0, 256, 500, 1000], torch.float16),
++            (8, 128, 0.5, [0, 256, 500, 1000], torch.float16),
++            (8, 128, 0, [0, 15, 100, 300, 1200, 2000], torch.float16),
++            (8, 128, 0, [0, 64, 100, 300, 1200, 2000], torch.float16),
++            (8, 128, 0, [0, 64, 300, 1200, 2000], torch.float16),
++            (8, 128, 0, [0, 100, 300, 1200, 2000], torch.float16),
++            (8, 128, 0, [0, 128, 300, 1200, 2000], torch.float16),
++            (8, 128, 0, [0, 256, 300, 1200, 2000], torch.float16),
++            (4, 128, 0, [0, 6], torch.float16),
++            (4, 128, 0, [0, 31], torch.float16),
++            (4, 128, 0, [0, 64], torch.float16),
++            (4, 128, 0, [0, 100], torch.float16),
++            (4, 128, 0, [0, 127], torch.float16),
++            (4, 128, 0, [0, 3584, 7168], torch.float16),
++            (4, 128, 0.5, [0, 3584, 7168], torch.float16),
++            (4, 128, 0, [0, 256, 500, 1000], torch.float16),
++            (4, 128, 0.5, [0, 256, 500, 1000], torch.float16),
++            (4, 128, 0, [0, 15, 100, 300, 1200, 2000], torch.float16),
++            (4, 128, 0, [0, 64, 100, 300, 1200, 2000], torch.float16),
++            (4, 128, 0, [0, 64, 300, 1200, 2000], torch.float16),
++            (4, 128, 0, [0, 100, 300, 1200, 2000], torch.float16),
++            (4, 128, 0, [0, 128, 300, 1200, 2000], torch.float16),
++            (4, 128, 0, [0, 256, 300, 1200, 2000], torch.float16),
++        ]
++    ],
++)
++@pytest.mark.skipif(
++    os.getenv("SKIP_TEST_CHUNK_VARLEN") == "1",
++    reason="Skipping test_chunk_varlen because SKIP_TEST_CHUNK_VARLEN is set",
++)
++def test_chunk_varlen(
++    H: int,
++    D: int,
++    mask_p: float,
++    cu_seqlens: list[int],
++    dtype: torch.dtype,
++):
++    if D != 128:
++        pytest.skip(
++            reason="chunk_gated_delta_rule is not supported on alchemist for D!=128"
++        )
++    torch.manual_seed(42)
++    # randomly split the sequence into N segments
++    cu_seqlens = torch.LongTensor(cu_seqlens).to(device)
++    T = cu_seqlens[-1]
++    N = len(cu_seqlens) - 1
++
++    # seq-first required for inputs with variable lengths
++    q = torch.randn((1, T, H, D), dtype=dtype)
++    k = F.normalize(torch.randn(1, T, H, D, dtype=torch.float32), p=2, dim=-1).to(dtype)
++    v = torch.randn((1, T, H, D), dtype=dtype)
++    g = F.logsigmoid(torch.rand(1, T, H, dtype=torch.float32))
++    g = g * (torch.rand_like(g) > mask_p)
++    beta = torch.rand(1, T, H, dtype=dtype).sigmoid()
++    h0 = torch.randn((N, H, D, D), dtype=dtype)
++
++    q, k, v, beta, g, h0 = map(
++        lambda x: x.to(device).requires_grad_(), (q, k, v, beta, g, h0)
++    )
++
++    ref = []
++    ref_ht = []
++    for i in range(N):
++        idx = slice(cu_seqlens[i], cu_seqlens[i + 1])
++        ref_i, ref_ht_i = chunk_gated_delta_rule_native(
++            query=q[:, idx],
++            key=k[:, idx],
++            value=v[:, idx],
++            beta=beta[:, idx],
++            g=g[:, idx],
++            initial_state=h0[i],
++            output_final_state=True,
++            use_qk_l2norm_in_kernel=False,
++        )
++        ref.append(ref_i)
++        ref_ht.append(ref_ht_i)
++    ref = torch.cat(ref, 1)
++    ref_ht = torch.cat(ref_ht, 0)
++
++    torch.npu.synchronize()
++
++    actual = []
++    actual_ht = []
++    for i in range(N):
++        idx = slice(cu_seqlens[i], cu_seqlens[i + 1])
++        actual_i, actual_ht_i = chunk_gated_delta_rule_native(
++            query=q[:, idx],
++            key=k[:, idx],
++            value=v[:, idx],
++            beta=beta[:, idx],
++            g=g[:, idx],
++            initial_state=h0[i],
++            output_final_state=True,
++            use_qk_l2norm_in_kernel=False,
++            tri_inv_fn=fast_inv_tril,
++        )
++        actual.append(actual_i)
++        actual_ht.append(actual_ht_i)
++    actual = torch.cat(actual, 1)
++    actual_ht = torch.cat(actual_ht, 0)
++
++    torch.npu.synchronize()
++
++    print_diff("o", ref, actual, 0.01)
++    print_diff("ht", ref_ht, actual_ht, 0.01)
++
++    assert_close("o", ref, actual, 0.01)
++    assert_close("ht", ref_ht, actual_ht, 0.01)
+diff --git a/tests/python/sgl_kernel_npu/test_triangular_inverse.py b/tests/python/sgl_kernel_npu/test_triangular_inverse.py
+new file mode 100644
+index 000000000..22aed8daa
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_triangular_inverse.py
+@@ -0,0 +1,126 @@
++import os
++import random
++
++import numpy as np
++import pytest
++import sgl_kernel_npu
++import torch
++import torch_npu
++
++random.seed(42)
++np.random.seed(42)
++
++
++def np_triu_inv_cs(input_x, dtype: np.dtype = np.float16):
++    """Return the matrix inverse of a 3d tensor where first dimension is batch dimension.
++    Each batch dimension returns U_inv_n of input U_n, i.e., U_n U_inv_n = I_n.
++
++    The algorithm is the column sweep's algorithm (vectorized) applied on each column of I, i.e.,
++    Ax=e_j for j=0,1,...,(n-1).
++    """
++    output = np.zeros_like(input_x)
++    batch_dim = input_x.shape[0]
++    for reps in range(batch_dim):
++        U_n = input_x[reps, :, :].copy()
++        n = U_n.shape[1]
++        U_inv_n = np.zeros_like(U_n)
++
++        for j in range(n):
++
++            b = np.zeros(n, dtype=dtype)
++            b[j] = 1  # b = e_j
++
++            x = np.zeros(n, dtype=dtype)
++            for k in range(n - 1, -1, -1):
++                x[k] = b[k]  # must be b[k] / U_n[k,k]
++
++                if k > 0:
++                    b[:k] -= U_n[:k, k] * x[k]
++            U_inv_n[:, j] = x
++
++        output[reps, :, :] = U_inv_n
++
++    return output.astype(dtype)
++
++
++def rand_np_tril(batch_size: int, n: int, dtype: np.dtype):
++    "Returns a random unit lower triangular matrix of size n."
++    A = np.random.rand(batch_size, n, n).astype(dtype)
++    A = np.tril(A)
++    for k in range(batch_size):
++        np.fill_diagonal(A[k, :, :], 1.0)
++    return A.astype(dtype)
++
++
++def ones_np_tril(batch_size: int, n: int, dtype: np.dtype):
++    "Returns an all-ones lower triangular matrix of size n."
++    A = np.ones((batch_size, n, n)).astype(dtype)
++    A = np.tril(A)
++    return A.astype(dtype)
++
++
++@pytest.mark.parametrize("batch_size", [2, 4, 40, 256])
++@pytest.mark.parametrize("matrix_size", [16, 32, 64, 128])
++@pytest.mark.parametrize("data_type", [np.float16, np.float32], ids=str)
++@pytest.mark.parametrize(
++    "mat_gen",
++    (rand_np_tril, ones_np_tril),
++)
++def test_tri_inv_col_sweep(
++    batch_size: int,
++    matrix_size: int,
++    data_type: np.dtype,
++    mat_gen: callable,
++):
++
++    input_x_cpu = mat_gen(batch_size, matrix_size, data_type)
++    expected_cpu = np_triu_inv_cs(input_x_cpu.transpose(0, 2, 1), data_type)
++
++    # Convert input matrices from row-major order to column-major order
++    input_x_cpu = input_x_cpu.transpose(0, 2, 1)
++    input_x = torch.from_numpy(input_x_cpu).npu()
++    expected = torch.from_numpy(expected_cpu).npu()
++
++    torch.npu.synchronize()
++    actual = torch.ops.npu.triangular_inverse(input_x)
++    torch.npu.synchronize()
++    # Transpose matrices back to row-major order
++    actual = actual.transpose(2, 1)
++    torch.npu.synchronize()
++
++    assert actual.shape == expected.shape, "Output shape does not match expected shape."
++    assert torch.equal(actual, expected)
++
++
++@pytest.mark.parametrize("batch_size", [1, 2, 4, 40, 256])
++@pytest.mark.parametrize("matrix_size", [16, 32, 64, 128])
++@pytest.mark.parametrize("data_type", [np.float32], ids=str)
++@pytest.mark.parametrize(
++    "mat_gen,atol,rtol",
++    [(rand_np_tril, 1e-5, 1e-5), (ones_np_tril, 0, 0)],
++)
++def test_tri_inv_col_sweep_np_linalg_inv(
++    batch_size: int,
++    matrix_size: int,
++    data_type: np.dtype,
++    mat_gen: callable,
++    atol: float,
++    rtol: float,
++):
++
++    input_x_cpu = mat_gen(batch_size, matrix_size, data_type)
++    golden_numpy_cpu = np.linalg.inv(input_x_cpu)
++
++    # Convert input matrices from row-major order to column-major order
++    input_x_cpu = input_x_cpu.transpose(0, 2, 1)
++    input_x = torch.from_numpy(input_x_cpu).npu()
++    golden_numpy_as_torch = torch.from_numpy(golden_numpy_cpu).npu()
++
++    torch.npu.synchronize()
++    actual = torch.ops.npu.triangular_inverse(input_x)
++    torch.npu.synchronize()
++
++    # rtol must be scaled w.r.t to the input size, see Higham's paper, Eq. (2.3)
++    # https://nhigham.com/wp-content/uploads/2023/08/high89t.pdf
++    scaled_rtol = min([0.05, 10 * (matrix_size + batch_size) * rtol])
++    assert torch.allclose(actual, golden_numpy_as_torch, atol=atol, rtol=scaled_rtol)

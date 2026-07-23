@@ -1,0 +1,326 @@
+diff --git a/csrc/CMakeLists.txt b/csrc/CMakeLists.txt
+index 64bd029df..3f69f6915 100644
+--- a/csrc/CMakeLists.txt
++++ b/csrc/CMakeLists.txt
+@@ -11,6 +11,7 @@ FILE(GLOB OP_SRCS
+     ${PROJECT_OP_SRC_BASE}/mla_preprocess/op_host/mla_preprocess.cpp
+     ${PROJECT_OP_SRC_BASE}/batch_matmul_transpose/op_host/batch_matmul_transpose.cpp
+     ${PROJECT_OP_SRC_BASE}/batch_matmul_transpose/op_host/tiling/tiling_data.cpp
++    ${PROJECT_OP_SRC_BASE}/transfer_kv_dim_exchange/op_host/transfer_kv_dim_exchange.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_host/bgmv_expand.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_host/bgmv_shrink.cpp
+     ${PROJECT_OP_SRC_BASE}/lora/op_host/sgmv_expand.cpp
+diff --git a/csrc/pytorch_extensions.cpp b/csrc/pytorch_extensions.cpp
+index 4eff68db9..816a5faaf 100644
+--- a/csrc/pytorch_extensions.cpp
++++ b/csrc/pytorch_extensions.cpp
+@@ -56,6 +56,11 @@ TORCH_LIBRARY_FRAGMENT(npu, m)
+         "batch_matmul_transpose(Tensor tensor_a, Tensor tensor_b, Tensor(a!) tensor_c, "
+         "str? format_mode=None, str? quant_mode=None) -> ()");
+ 
++    m.def(
++        "transfer_kv_dim_exchange(Tensor device_k, Tensor host_k, "
++        "Tensor device_v, Tensor host_v, "
++        "Tensor device_indices, Tensor host_indices, int page_size, int direct, int flags) -> ()");
++
+     m.def(
+         "bgmv_expand(Tensor! x, Tensor! weight, Tensor! indices, Tensor! y,"
+         "            int slice_offset, int slice_size) -> Tensor");
+@@ -88,6 +93,8 @@ TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)
+ 
+     m.impl("batch_matmul_transpose", TORCH_FN(sglang::npu_kernel::batch_matmul_transpose));
+ 
++    m.impl("transfer_kv_dim_exchange", TORCH_FN(sglang::npu_kernel::transfer_kv_dim_exchange));
++
+     m.impl("bgmv_expand", TORCH_FN(sglang::npu_kernel::bgmv_expand));
+ 
+     m.impl("bgmv_shrink", TORCH_FN(sglang::npu_kernel::bgmv_shrink));
+diff --git a/csrc/transfer_kv_dim_exchange/op_host/transfer_kv_dim_exchange.cpp b/csrc/transfer_kv_dim_exchange/op_host/transfer_kv_dim_exchange.cpp
+new file mode 100644
+index 000000000..6a907142d
+--- /dev/null
++++ b/csrc/transfer_kv_dim_exchange/op_host/transfer_kv_dim_exchange.cpp
+@@ -0,0 +1,105 @@
++// Licensed under the BSD 3-Clause License  (the "License");
++// you may not use this file except in compliance with the License.
++// You may obtain a copy of the License at
++//
++// Unless required by applicable law or agreed to in writing, software
++// distributed under the License is distributed on an "AS IS" BASIS,
++// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++// See the License for the specific language governing permissions and
++// limitations under the License.
++
++#include "acl/acl.h"
++#include "defines.h"
++#include "torch_helper.h"
++
++namespace sglang {
++namespace npu_kernel {
++
++constexpr int64_t KV_TRANS_FLAG_1D = 1 << 0;
++constexpr int64_t KV_TRANS_FLAG_2D = 1 << 1;
++
++enum TransferDirection : int64_t {
++    H2D = 1,
++    D2H = 2,
++};
++
++// @direction: only support 1 or 2, 1 is H2D, 2 is D2H
++// @flags: only support 2
++HOST_API void transfer_kv_dim_exchange(at::Tensor &device_k, at::Tensor &host_k, at::Tensor &device_v,
++                                       at::Tensor &host_v, const at::Tensor &device_indices,
++                                       const at::Tensor &host_indices, int64_t page_size, int64_t direction,
++                                       int64_t flags)
++{
++    TORCH_CHECK(device_k.numel() != 0, "device_k must not be empty");
++    TORCH_CHECK(host_k.numel() != 0, "host_k must not be empty");
++    TORCH_CHECK(device_k.dim() == host_k.dim(), "the number of dimensions of device_k must be equal to host_k");
++    TORCH_CHECK(device_k.dim() == 5, "the number of dimensions of device_k must be 5");
++    TORCH_CHECK(device_k.sizes()[0] == host_k.sizes()[1], "the layer number of device_k must be equal to host_k");
++    TORCH_CHECK(device_k.sizes()[2] == page_size, "the 3rd dimension of device_k must be equal to page size");
++    TORCH_CHECK(host_k.sizes()[2] == page_size, "the 3rd dimension of host_k must be equal to page size");
++    TORCH_CHECK(page_size > 0, "Page size must be positive");
++    TORCH_CHECK(device_indices.numel() == host_indices.numel(), "device and host indices must have the same length");
++    TORCH_CHECK(device_indices.numel() % page_size == 0, "device indices size must be divisible by page size");
++    TORCH_CHECK(direction == static_cast<int64_t>(TransferDirection::H2D) ||
++                    direction == static_cast<int64_t>(TransferDirection::D2H),
++                "direction must be equal to 1(h2d) or 2(d2h)")
++    TORCH_CHECK((flags & KV_TRANS_FLAG_2D) == KV_TRANS_FLAG_2D, "now only support 2d(flags=2) copy");
++
++    if (device_v.numel() != 0 && host_v.numel() != 0) {
++        TORCH_CHECK(device_v.dim() == host_v.dim(), "the number of dimensions of device_v must be equal to host_v");
++        TORCH_CHECK(device_v.dim() == 5, "the number of dimensions of device_v must be 5");
++        TORCH_CHECK(device_v.sizes()[0] == host_v.sizes()[1], "the layer number of device_v must be equal to host_v");
++        TORCH_CHECK(device_v.sizes()[2] == page_size, "the 3rd dimension of device_v must be equal to page size");
++        TORCH_CHECK(host_v.sizes()[2] == page_size, "the 3rd dimension of host_v must be equal to page size");
++    }
++
++    auto device_indices_cpu = device_indices.cpu();
++    auto host_indices_cpu = host_indices.cpu();
++    const int64_t num_pages = device_indices.size(0) / page_size;
++    const int64_t device_pages_num = device_k.sizes()[1];
++    const int64_t host_pages_num = host_k.sizes()[0];
++    const int64_t total_num_layers = device_k.sizes()[0];
++    const auto heads_num = device_k.sizes()[3];
++    const auto head_dim = device_k.sizes()[4];
++    const auto item_size = device_k.element_size();
++    const auto device_pitch = device_pages_num * page_size * heads_num * head_dim * item_size;
++    const auto host_pitch = page_size * heads_num * head_dim * item_size;
++    const auto width = page_size * heads_num * head_dim * item_size;
++    const auto height = total_num_layers;
++    c10_npu::NPUStream current_stream = c10_npu::getCurrentNPUStream();
++    aclrtStream acl_stream = current_stream.stream();
++
++    for (const auto i : c10::irange(num_pages)) {
++        auto device_page_index = device_indices_cpu[i * page_size].item<int64_t>() / page_size;
++        auto host_page_index = host_indices_cpu[i * page_size].item<int64_t>() / page_size;
++        TORCH_CHECK(device_page_index < device_k.sizes()[1],
++                    "device_page_index must be less than the 2nd dim of device_k");
++        TORCH_CHECK(host_page_index < host_k.sizes()[0], "host_page_index must be less than the 1st dim of host_k");
++
++        void *device_k_ptr = reinterpret_cast<void *>(device_k[0][device_page_index].data_ptr());
++        void *host_k_ptr = reinterpret_cast<void *>(host_k[host_page_index][0].data_ptr());
++        if (direction == static_cast<int64_t>(TransferDirection::D2H)) {
++            aclrtMemcpy2dAsync(host_k_ptr, host_pitch, device_k_ptr, device_pitch, width, height,
++                               aclrtMemcpyKind::ACL_MEMCPY_DEVICE_TO_HOST, acl_stream);
++        } else {
++            aclrtMemcpy2dAsync(device_k_ptr, device_pitch, host_k_ptr, host_pitch, width, height,
++                               aclrtMemcpyKind::ACL_MEMCPY_HOST_TO_DEVICE, acl_stream);
++        }
++
++        if (device_v.numel() != 0 && host_v.numel() != 0) {
++            void *device_v_ptr = reinterpret_cast<void *>(device_v[0][device_page_index].data_ptr());
++            void *host_v_ptr = reinterpret_cast<void *>(host_v[host_page_index][0].data_ptr());
++            if (direction == static_cast<int64_t>(TransferDirection::D2H)) {
++                aclrtMemcpy2dAsync(host_v_ptr, host_pitch, device_v_ptr, device_pitch, width, height,
++                                   aclrtMemcpyKind::ACL_MEMCPY_DEVICE_TO_HOST, acl_stream);
++            } else {
++                aclrtMemcpy2dAsync(device_v_ptr, device_pitch, host_v_ptr, host_pitch, width, height,
++                                   aclrtMemcpyKind::ACL_MEMCPY_HOST_TO_DEVICE, acl_stream);
++            }
++        }
++    }
++    aclrtSynchronizeStream(acl_stream);
++}
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/include/sgl_kenel_npu_ops.h b/include/sgl_kenel_npu_ops.h
+index bd55b10b8..14353c8a0 100644
+--- a/include/sgl_kenel_npu_ops.h
++++ b/include/sgl_kenel_npu_ops.h
+@@ -62,6 +62,12 @@ void batch_matmul_transpose(const at::Tensor &tensor_a,
+                             c10::optional<c10::string_view> format_mode,
+                             c10::optional<c10::string_view> quant_mode);
+ 
++void transfer_kv_dim_exchange(at::Tensor &device_k, at::Tensor &host_k,
++                              at::Tensor &device_v, at::Tensor &host_v,
++                              const at::Tensor &device_indices,
++                              const at::Tensor &host_indices, int64_t page_size,
++                              int64_t direction, int64_t flags);
++
+ at::Tensor bgmv_expand(at::Tensor &x, at::Tensor &weight, at::Tensor &indices,
+                        at::Tensor &y, int64_t slice_offset, int64_t slice_size);
+ 
+diff --git a/tests/python/sgl_kernel_npu/test_transfer_kv_dim_exchange.py b/tests/python/sgl_kernel_npu/test_transfer_kv_dim_exchange.py
+new file mode 100644
+index 000000000..39d6d5149
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_transfer_kv_dim_exchange.py
+@@ -0,0 +1,155 @@
++import time
++import unittest
++
++import sgl_kernel_npu
++import torch
++
++# example comes from Qwen3-32B, TP=2
++TP = 2
++NUM_KV_HEADS = 8
++NUM_LAYERS = 64
++NUM_PAGES = 30
++PAGE_SIZE = 128
++HEAD_NUM_PER_TP = int(NUM_KV_HEADS / TP)
++HEAD_DIM = 128
++
++from enum import Enum
++
++
++class TransferDirection(Enum):
++    H2D = 1
++    D2H = 2
++
++
++class TestTransferKV(unittest.TestCase):
++
++    def _kv_transfer(self, direct, v_empty):
++        torch.npu.set_device(0)
++
++        device_kv_buffer = torch.ones(
++            (2, NUM_LAYERS, NUM_PAGES, PAGE_SIZE, HEAD_NUM_PER_TP, HEAD_DIM),
++            dtype=torch.bfloat16,
++            device="npu",
++        )
++        device_k = device_kv_buffer[0]
++        device_v = torch.empty(0) if v_empty else device_kv_buffer[1]
++
++        host_kv_buffer = torch.zeros(
++            (2, NUM_PAGES, NUM_LAYERS, PAGE_SIZE, HEAD_NUM_PER_TP, HEAD_DIM),
++            dtype=torch.bfloat16,
++            device="cpu",
++        )
++
++        self.assertNotEqual(
++            device_kv_buffer.sum(),
++            host_kv_buffer.sum(),
++            "device value should not be equal to host value",
++        )
++
++        host_k = host_kv_buffer[0]
++        host_v = torch.empty(0) if v_empty else host_kv_buffer[1]
++
++        device_indices = torch.arange(NUM_PAGES * PAGE_SIZE, dtype=torch.int64)
++        host_indices = torch.arange(NUM_PAGES * PAGE_SIZE, dtype=torch.int64)
++
++        stream = torch.npu.Stream()
++        start = time.time()
++        with torch.npu.stream(stream):
++            torch.ops.npu.transfer_kv_dim_exchange(
++                device_k,
++                host_k,
++                device_v,
++                host_v,
++                device_indices,
++                host_indices,
++                PAGE_SIZE,
++                direct.value,
++                2,
++            )
++
++        end = time.time()
++        direct_str = "D2H" if direct.value == 2 else "H2D"
++        copy_times = NUM_PAGES if v_empty else NUM_PAGES * 2
++        print(
++            f"kv transfer {direct_str}, {v_empty=}, "
++            f"tensor copy times is {copy_times}, "
++            f"single copy size is {NUM_LAYERS * PAGE_SIZE * HEAD_NUM_PER_TP * HEAD_DIM * torch.bfloat16.itemsize} bytes, "
++            f"total duration {float((end - start) * 1000):.3f}ms"
++        )
++
++        return device_kv_buffer, host_kv_buffer
++
++    def _k_transfer(self, direct_str):
++        return self._kv_transfer(direct_str, True)
++
++    def test_kv_copy_d2h(self):
++        device_kv, host_kv = self._kv_transfer(TransferDirection.D2H, False)
++
++        self.assertAlmostEqual(
++            host_kv.sum().item(),
++            device_kv.sum().cpu().item(),
++            delta=1e-3,
++            msg="host value should be equal to device value after transfer kv d2h",
++        )
++
++        self.assertAlmostEqual(
++            host_kv.sum().item(),
++            host_kv.numel(),
++            delta=1e-3,
++            msg="host value sum() should be equal to numel() after transfer kv d2h",
++        )
++
++    def test_kv_copy_h2d(self):
++        device_kv, host_kv = self._kv_transfer(TransferDirection.H2D, False)
++
++        self.assertAlmostEqual(
++            device_kv.sum().cpu().item(),
++            host_kv.sum().item(),
++            delta=1e-3,
++            msg="device value should be equal to host value after transfer kv h2d",
++        )
++
++        self.assertAlmostEqual(
++            device_kv.sum().cpu().item(),
++            0,
++            delta=1e-3,
++            msg="device value sum() should be equal to 0 after transfer kv h2d",
++        )
++
++    def test_k_copy_d2h(self):
++        device_kv, host_kv = self._k_transfer(TransferDirection.D2H)
++
++        self.assertAlmostEqual(
++            host_kv.sum().item() * 2,
++            device_kv.sum().cpu().item(),
++            delta=1e-3,
++            msg="host value * 2 should be equal to device value after transfer k d2h",
++        )
++
++        self.assertAlmostEqual(
++            host_kv.sum().item() * 2,
++            host_kv.numel(),
++            delta=1e-3,
++            msg="host value sum() * 2 should be equal to numel() after transfer k d2h",
++        )
++
++    def test_k_copy_h2d(self):
++        device_kv, host_kv = self._k_transfer(TransferDirection.H2D)
++
++        self.assertAlmostEqual(
++            device_kv[0].sum().cpu().item(),
++            0,
++            delta=1e-3,
++            msg="device k sum() should be equal to 0 after transfer k h2d",
++        )
++
++        self.assertAlmostEqual(
++            device_kv[1].sum().cpu().item() * 2,
++            host_kv.numel(),
++            delta=1e-3,
++            msg="device v sum() * 2 should be equal to host value after transfer k h2d",
++        )
++
++
++if __name__ == "__main__":
++    unittest.main()

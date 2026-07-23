@@ -1,0 +1,104 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/478
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: f9dc6b93
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-478
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 6377497f84f05c94197730ffa6ffb5f8b44dd83d25f76b31d8471ac5f10897cd
+- local_path: key-files/csrc/deepep/deep_ep.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/deep_ep.cpp
+  sha256: cff361926d3eab0e94b025cade77139d6e237739b1a47bb02a5cd039152dd215
+- local_path: key-files/csrc/deepep/ops/op_host/mc2_tiling_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/mc2_tiling_utils.h
+  sha256: 9df77ee3e7dc1999e06ac03977a4f3c90750e3b06186cbc32f9ba45679eba4ad
+- local_path: key-files/csrc/deepep/ops/op_host/moe_distribute_combine_tiling_helper.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/moe_distribute_combine_tiling_helper.h
+  sha256: b23f646afda8251b84bc87a183e5f690145a3a5f9eb6d5a8a6d1708070590921
+- local_path: key-files/csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.cpp
+  sha256: 4ccb82335529e729eb7cc1cf69e2e78a2f04e5645f2422f8d1117380be4704ea
+- local_path: key-files/csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/moe_distribute_combine_v2_ccu_tiling.h
+  sha256: e3cc8c87e35e41671ebb936afd3f51d4bccbf2ccb7745d20a01b2705088d9c53
+- local_path: key-files/csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/moe_distribute_combine_v2_tiling.cpp
+  sha256: 9b8f93c5ee277a1a2d21b145b1e8a9afcd7fd8611031549a0ccf3e0aaf38ab28
+- local_path: key-files/csrc/deepep/ops/op_host/moe_distribute_dispatch_tiling_helper.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/moe_distribute_dispatch_tiling_helper.h
+  sha256: 3dd804cba25a3d457fee1791d4a8485bd050cebfbade1793e93022272779539c
+- local_path: key-files/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.cpp
+  sha256: 494095b81dea91d17bc9455634b1a4a373f7cd7b5f14752f942570ee9c8ecff0
+- local_path: key-files/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_ccu_tiling.h
+  sha256: 825b0dcaba4885c2771372575905f19dfeaa8b63c45de5df9a7cbc74527abc3f
+- local_path: key-files/csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/moe_distribute_dispatch_v2_tiling.cpp
+  sha256: 7e629e8e4dae6ce36e6f16359f2736cb321e31ae79eb1b958a86eab7e4977eee
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_combine_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_combine_v2.cpp
+  sha256: ee857595a1301826de30c0e33130725b0d1a13ea250b325ee4a1da0424412450
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_dispatch_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_moe_distribute_dispatch_v2.cpp
+  sha256: f472fb9b376a78bda841f2713dfafe41581f1f3071edc12c1eced964360d9d14
+- local_path: key-files/csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/moe_distribute_combine_v2.cpp
+  sha256: ae3fb5b4276f175122e89a36b98f7c7a5f16059a95791c76eaa29693b6a0ca89
+- local_path: key-files/csrc/deepep/ops/op_kernel/moe_distribute_combine_v2_ccu.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/moe_distribute_combine_v2_ccu.h
+  sha256: 4c1f8adde031938ea4fa91baef76ec87bd34e71da30dfe25697df277a375e3bb
+- local_path: key-files/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2.cpp
+  sha256: 1588c974baa242a8d420dc8b76ff82b8db8e1a5110c26fadae3adfb1a1d172ca
+- local_path: key-files/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_ccu.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_ccu.h
+  sha256: e12d896fa0e466099d832587eb798d649a5539aa99b24d2711062d377ad22f82
+- local_path: key-files/csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/moe_distribute_dispatch_v2_tiling.h
+  sha256: d34b7b3b774730f28229635515b6435379a3cf9ed0264194a9cd4ae40e23009e
+- local_path: key-files/csrc/deepep/ops/op_kernel/quantize_functions.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/quantize_functions.h
+  sha256: c3566395e74142293e7363c570c9d9d8a160524a9d161205a7dcc10eb225ea32

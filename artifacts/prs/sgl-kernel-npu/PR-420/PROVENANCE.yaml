@@ -1,0 +1,104 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/420
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: b07071fb
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-420
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: f7ba8dbad6ed48b35fde992fc530711a90eb5ecced5ed1279679a32f9060686d
+- local_path: key-files/csrc/causal_conv1d/op_host/causal_conv1d.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d/op_host/causal_conv1d.cpp
+  sha256: 12e0f77a25f239db5c302c72c97fd38215d408b033045256e1df1815b6b0604d
+- local_path: key-files/csrc/causal_conv1d/op_host/causal_conv1d.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d/op_host/causal_conv1d.h
+  sha256: 8e64bf9e786cfc63fb508de7f62462dc37380f22da935d5c09b4276447115ab4
+- local_path: key-files/csrc/causal_conv1d/op_host/stub/aclrtlaunch_causal_conv1d_bfloat16_t.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d/op_host/stub/aclrtlaunch_causal_conv1d_bfloat16_t.h
+  sha256: 8b4356bcbabeef1625bd22f88fcf07957467e2f8589509ae5c6e3e9a34798183
+- local_path: key-files/csrc/causal_conv1d/op_host/stub/aclrtlaunch_causal_conv1d_half.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d/op_host/stub/aclrtlaunch_causal_conv1d_half.h
+  sha256: e5e634094d6c930549c4cf40beed90ac03518943b00e61394b8bffdfe30da10a
+- local_path: key-files/csrc/causal_conv1d/op_host/tiling/causal_conv1d_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d/op_host/tiling/causal_conv1d_tiling.h
+  sha256: d4c1c98530fee3a9e5c3f41c79ceeeb5f14efe2f8d1d9404ca0ecea80d5a34c6
+- local_path: key-files/csrc/causal_conv1d/op_kernel/causal_conv1d.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d/op_kernel/causal_conv1d.cpp
+  sha256: 84944b22b33be639a710dd70f829cc60ebb46ba1bdbacc5c25e306a88c74a03d
+- local_path: key-files/csrc/causal_conv1d/op_kernel/causal_conv1d.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d/op_kernel/causal_conv1d.h
+  sha256: 4c905fc9a2269effeac0c1722c3e9d2a1790a30a1e02129bb26f8f42d9c435b2
+- local_path: key-files/csrc/causal_conv1d/op_kernel/causal_conv1d_common.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d/op_kernel/causal_conv1d_common.h
+  sha256: b316064ae704687b74b0de081827d39359bdc0320c6a54e7f48b385a18d6bc11
+- local_path: key-files/csrc/causal_conv1d/op_kernel/causal_conv1d_tiling_data.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d/op_kernel/causal_conv1d_tiling_data.h
+  sha256: ebabeaf306f5cf72de2f9f1215d777fac3d3aef98bb119c4f4822dda76094b78
+- local_path: key-files/csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+  sha256: 69c610891e27e63b51dd4e07ee843ccde705015ae4fe89540f3e275db8d5ff98
+- local_path: key-files/csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+  sha256: 5b93ff950e72c5bae1660e66900afa7e30bc6222467e7189845ca50bc6ab9d1d
+- local_path: key-files/csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+  sha256: 4b90e297d44757f5d36fc66f707655730a17e8fc15a6ac5749661afe48483e49
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+  sha256: cef549b5b3b8cef0f63051bcdcb9e000c92ba6fb949f3aa54a0278e6fe31d2b1
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+  sha256: cc8eb7ac290dcb5af2eab9f4b61dd109226fe3541579f5a2554665fc18441c36
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+  sha256: e846046bacf97879b36b1998e2410e1bfd3e780c43f9ebe9b71c0432148b6609
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+  sha256: ca0b7e656751b5533aaec311ba5dcbde17937407bd9d0f06f72611fb47bfad48
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+  sha256: 42c5f1fde3f71bed6cf1beab392e0892a2416b8d4dd4322f8437d659a62284c9
+- local_path: key-files/csrc/pytorch_extensions.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extensions.cpp
+  sha256: a1cddeeb7e7f8cb9798dee6d988757798ffa964828418a886ed46b01fdcdb9ea

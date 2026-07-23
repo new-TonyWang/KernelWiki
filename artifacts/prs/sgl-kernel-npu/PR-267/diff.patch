@@ -1,0 +1,1287 @@
+diff --git a/.github/workflows/pr-test-npu.yml b/.github/workflows/pr-test-npu.yml
+index ebd73dc39..ad02fcee5 100644
+--- a/.github/workflows/pr-test-npu.yml
++++ b/.github/workflows/pr-test-npu.yml
+@@ -55,7 +55,7 @@ jobs:
+       - name: Run test intranode
+         timeout-minutes: 10
+         env:
+-          HCCL_BUFFSIZE: 2241
++          HCCL_BUFFSIZE: 2300
+         run: |
+           python3 $GITHUB_WORKSPACE/tests/python/deepep/test_intranode.py
+ 
+@@ -158,7 +158,7 @@ jobs:
+       - name: Run test intranode
+         timeout-minutes: 10
+         env:
+-          HCCL_BUFFSIZE: 2241
++          HCCL_BUFFSIZE: 2300
+         run: |
+           python3 $GITHUB_WORKSPACE/tests/python/deepep/test_intranode.py
+ 
+diff --git a/csrc/deepep/deep_ep.cpp b/csrc/deepep/deep_ep.cpp
+index 44d23765d..cbfa88f8d 100644
+--- a/csrc/deepep/deep_ep.cpp
++++ b/csrc/deepep/deep_ep.cpp
+@@ -17,6 +17,10 @@ constexpr int MAX_BATCH_SIZE = 4096;
+ constexpr int EXPERT_DATA_SIZE = 1 + MAX_BATCH_SIZE;  // 4097
+ constexpr int A3_MAX_HCCS_PEERS = 384;
+ constexpr int A2_MAX_HCCS_PEERS = 8;
++constexpr uint32_t MAX_ROUNDS = 256;
++constexpr uint32_t MIN_TOKENS_PER_ROUND = 32;
++constexpr uint32_t MAX_TOKENS_PER_ROUND = 8192;
++constexpr uint32_t MAX_TOTAL_TOKENS = 131072;
+ 
+ Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode,
+                std::string moe_all_to_all_group_name)
+@@ -58,11 +62,11 @@ Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t n
+         // 转换并验证数值
+         char *end;
+         long r = std::strtol(roundEnv, &end, 10);
+-        EP_HOST_ASSERT(*end == '\0' && r >= 1 && r <= 16);
++        EP_HOST_ASSERT(*end == '\0' && r >= 1 && r <= MAX_ROUNDS);
+         long t = std::strtol(tokensEnv, &end, 10);
+-        EP_HOST_ASSERT(*end == '\0' && t >= 32 && t <= 8192);
++        EP_HOST_ASSERT(*end == '\0' && t >= MIN_TOKENS_PER_ROUND && t <= MAX_TOKENS_PER_ROUND);
+         // 验证乘积限制
+-        EP_HOST_ASSERT(r * t <= 16384);
++        EP_HOST_ASSERT(r * t <= 131072);
+         round = static_cast<int>(r);
+         per_round_tokens = static_cast<int>(t);
+     }
+@@ -584,8 +588,6 @@ Buffer::intranode_combine(const torch::Tensor &x, const torch::Tensor &topk_idx,
+     int64_t tp_world_size = 1;
+     int64_t tp_rankId = 0;
+     int64_t moe_expert_number = send_head.size(0);
+-    int64_t global_bs = topk_idx_p.size(0) * num_ranks;
+-    global_bs = real_max_bs * num_ranks;
+ 
+     // get ep & tp name
+     char hcom_ep_name[HCOMM_NAME_LEN];
+@@ -601,8 +603,8 @@ Buffer::intranode_combine(const torch::Tensor &x, const torch::Tensor &topk_idx,
+     std::optional<EventHandle> event;
+ 
+     EXEC_NPU_CMD(aclnnCamMoeCombineNormal, recv_x, token_src_info, ep_send_counts, expert_scales, tp_send_counts,
+-                 hcom_ep_name, num_ranks, rank, hcom_ep_name, tp_world_size, tp_rankId, moe_expert_number, global_bs,
+-                 combined_x, combine_send_cost_stats_out);
++                 hcom_ep_name, num_ranks, rank, hcom_ep_name, tp_world_size, tp_rankId, moe_expert_number, real_max_bs,
++                 round, per_round_tokens, combined_x, combine_send_cost_stats_out);
+ 
+     if (this->is_padding) {
+         if (this->padding_cnt == PADDING_SIZE) {
+diff --git a/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp b/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+index 3ea4e9c99..03974dfe6 100644
+--- a/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
++++ b/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+@@ -56,7 +56,9 @@ class CamMoeCombineNormal : public OpDef
+         this->Attr("tp_world_size").AttrType(OPTIONAL).Int(0);
+         this->Attr("tp_rank_id").AttrType(OPTIONAL).Int(0);
+         this->Attr("moe_expert_num").AttrType(REQUIRED).Int();
+-        this->Attr("global_bs").AttrType(OPTIONAL).Int(0);
++        this->Attr("real_max_bs").AttrType(OPTIONAL).Int(0);
++        this->Attr("round").AttrType(OPTIONAL).Int(4);
++        this->Attr("per_round_tokens").AttrType(OPTIONAL).Int(1024);
+ 
+         OpAICoreConfig aicore_config;
+         aicore_config.DynamicCompileStaticFlag(true)
+diff --git a/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc b/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+index e2c2580b6..34071f44d 100644
+--- a/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
++++ b/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+@@ -42,7 +42,9 @@ constexpr uint32_t ATTR_GROUP_TP_INDEX = 3;
+ constexpr uint32_t ATTR_TP_WORLD_SIZE_INDEX = 4;
+ constexpr uint32_t ATTR_TP_RANK_ID_INDEX = 5;
+ constexpr uint32_t ATTR_MOE_EXPERT_NUM_INDEX = 6;
+-constexpr uint32_t ATTR_GLOBAL_BS_INDEX = 7;
++constexpr uint32_t ATTR_REAL_MAX_BS_INDEX = 7;
++constexpr uint32_t ATTR_MAX_ROUND_INDEX = 8;
++constexpr uint32_t ATTR_PER_ROUND_TOKENS_INDEX = 9;
+ 
+ constexpr uint32_t TWO_DIMS = 2U;
+ constexpr uint32_t ONE_DIM = 1U;
+@@ -86,13 +88,15 @@ static void PrintTilingDataInfo(const char *nodeName, CamMoeCombineNormalTilingD
+     OP_LOGD(nodeName, "expertShardType is %u.", tilingData.camMoeCombineNormalInfo.expertShardType);
+     OP_LOGD(nodeName, "moeExpertNum is %u.", tilingData.camMoeCombineNormalInfo.moeExpertNum);
+     OP_LOGD(nodeName, "moeExpertPerRankNum is %u.", tilingData.camMoeCombineNormalInfo.moeExpertPerRankNum);
+-    OP_LOGD(nodeName, "globalBs is %u.", tilingData.camMoeCombineNormalInfo.globalBs);
++    OP_LOGD(nodeName, "realMaxBs is %u.", tilingData.camMoeCombineNormalInfo.realMaxBs);
+     OP_LOGD(nodeName, "bs is %u.", tilingData.camMoeCombineNormalInfo.bs);
+     OP_LOGD(nodeName, "k is %u.", tilingData.camMoeCombineNormalInfo.k);
+     OP_LOGD(nodeName, "h is %u.", tilingData.camMoeCombineNormalInfo.h);
+     OP_LOGD(nodeName, "aivNum is %u.", tilingData.camMoeCombineNormalInfo.aivNum);
+     OP_LOGD(nodeName, "totalUbSize is %lu.", tilingData.camMoeCombineNormalInfo.totalUbSize);
+     OP_LOGD(nodeName, "totalWinSize is %lu.", tilingData.camMoeCombineNormalInfo.totalWinSize);
++    OP_LOGD(nodeName, "maxRound is %u.", tilingData.camMoeCombineNormalInfo.maxRound);
++    OP_LOGD(nodeName, "perRoundTokens is %u.", tilingData.camMoeCombineNormalInfo.perRoundTokens);
+ }
+ 
+ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, CamMoeCombineNormalTilingData &tilingData,
+@@ -419,26 +423,28 @@ static bool CheckAttrs(gert::TilingContext *context, CamMoeCombineNormalTilingDa
+     // 校验globalBS
+     auto attrs = context->GetAttrs();
+     OP_TILING_CHECK(attrs == nullptr, OP_LOGE(nodeName, "attrs is null."), return false);
+-    auto globalBsPtr = attrs->GetAttrPointer<int64_t>(ATTR_GLOBAL_BS_INDEX);
+-    OP_TILING_CHECK(globalBsPtr == nullptr, OP_LOGE(nodeName, "globalBs is null."), return false);
+-    OP_LOGD(nodeName, "CamMoeCombineNormal *globalBsPtr = %ld, bs = %ld, epWorldSize = %u\n", *globalBsPtr,
+-            topkWeightsDim0, epWorldSize);
++    auto realMaxBsPtr = attrs->GetAttrPointer<int64_t>(ATTR_REAL_MAX_BS_INDEX);
++    OP_TILING_CHECK(realMaxBsPtr == nullptr, OP_LOGE(nodeName, "realMaxBs is null."), return false);
++    OP_LOGD(nodeName, "CamMoeCombineNormal *realMaxBsPtr = %ld, bs = %ld\n", *realMaxBsPtr, topkWeightsDim0);
+ 
+     OP_TILING_CHECK(
+-        (*globalBsPtr != 0) && ((*globalBsPtr < static_cast<int64_t>(epWorldSize) * topkWeightsDim0) ||
+-                                ((*globalBsPtr) % (static_cast<int64_t>(epWorldSize)) != 0)),
++        (*realMaxBsPtr != 0) && (*realMaxBsPtr < topkWeightsDim0),
+         OP_LOGE(nodeName,
+-                "globalBS is invalid, only "
+-                "support 0 or maxBs(maxBs is the largest bs on all ranks) * epWorldSize, but got globalBS=%ld, "
+-                "bs=%ld, epWorldSize=%u.",
+-                *globalBsPtr, topkWeightsDim0, epWorldSize),
++                "realMaxBs is invalid, only support 0 or value greater than or equal to the BS of all ranks."
++                "but got realMaxBs=%ld, bs=%ld",
++                *realMaxBsPtr, topkWeightsDim0),
+         return false);
+ 
+-    tilingData.camMoeCombineNormalInfo.globalBs = static_cast<uint32_t>(*globalBsPtr);
+-    if (*globalBsPtr == 0) {
+-        tilingData.camMoeCombineNormalInfo.globalBs = static_cast<uint32_t>(topkWeightsDim0) * epWorldSize;
++    tilingData.camMoeCombineNormalInfo.realMaxBs = static_cast<uint32_t>(*realMaxBsPtr);
++    if (*realMaxBsPtr == 0) {
++        tilingData.camMoeCombineNormalInfo.realMaxBs = static_cast<uint32_t>(topkWeightsDim0);
+     }
+-
++    auto maxRoundPtr = attrs->GetAttrPointer<int64_t>(ATTR_MAX_ROUND_INDEX);
++    OP_TILING_CHECK(maxRoundPtr == nullptr, OP_LOGE(nodeName, "maxRound is null."), return false);
++    auto perRoundTokensPtr = attrs->GetAttrPointer<int64_t>(ATTR_PER_ROUND_TOKENS_INDEX);
++    OP_TILING_CHECK(perRoundTokensPtr == nullptr, OP_LOGE(nodeName, "perRoundTokens is null."), return false);
++    tilingData.camMoeCombineNormalInfo.maxRound = static_cast<uint32_t>(*maxRoundPtr);
++    tilingData.camMoeCombineNormalInfo.perRoundTokens = static_cast<uint32_t>(*perRoundTokensPtr);
+     return true;
+ }
+ 
+@@ -523,19 +529,20 @@ static ge::graphStatus CamMoeCombineNormalA3TilingFuncImpl(gert::TilingContext *
+     uint64_t h = static_cast<uint64_t>(tilingData->camMoeCombineNormalInfo.h);
+     uint64_t epWorldSize = static_cast<uint64_t>(tilingData->camMoeCombineNormalInfo.epWorldSize);
+     uint64_t k = static_cast<uint64_t>(tilingData->camMoeCombineNormalInfo.k);
+-    uint64_t maxBs = static_cast<uint64_t>(tilingData->camMoeCombineNormalInfo.globalBs) / epWorldSize;
++    uint64_t perRoundTokens = tilingData->camMoeCombineNormalInfo.perRoundTokens;
+     // combine数据区 token首地址对齐512
+     uint64_t tokenNeedSizeCombine = ((h * MAX_OUT_DTYPE_SIZE + WIN_ADDR_ALIGN - 1UL) / WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
+     uint64_t actualSize =
+-        (maxBs * k * tokenNeedSizeCombine + COMBINE_STATE_WIN_OFFSET + NOTIFY_DISPATCH_WIN_OFFSET) * DOUBLE_DATA_BUFFER;
++        (perRoundTokens * k * tokenNeedSizeCombine + COMBINE_STATE_WIN_OFFSET + NOTIFY_DISPATCH_WIN_OFFSET) *
++        DOUBLE_DATA_BUFFER;
+     OP_TILING_CHECK(
+         (actualSize > maxWindowSize),
+         OP_LOGE(nodeName,
+-                "HCCL_BUFFSIZE is too SMALL, maxBs = %lu, h = %lu, epWorldSize = %lu, localMoeExpertNum = %u,"
++                "HCCL_BUFFSIZE is too SMALL, perRoundTokens = %lu, h = %lu, epWorldSize = %lu, localMoeExpertNum = %u,"
+                 " tokenNeedSizeCombine = %lu, k = %lu, NEEDED_HCCL_BUFFSIZE("
+-                "((maxBs * k * tokenNeedSizeCombine)) + 3MB + 204MB) * 2) = %luMB, "
++                "((perRoundTokens * k * tokenNeedSizeCombine)) + 8MB + 102MB) * 2) = %luMB, "
+                 "HCCL_BUFFSIZE=%luMB.",
+-                maxBs, h, epWorldSize, localMoeExpertNum, tokenNeedSizeCombine, k, actualSize / MB_SIZE + 1UL,
++                perRoundTokens, h, epWorldSize, localMoeExpertNum, tokenNeedSizeCombine, k, actualSize / MB_SIZE + 1UL,
+                 maxWindowSize / MB_SIZE),
+         return ge::GRAPH_FAILED);
+     tilingData->camMoeCombineNormalInfo.totalWinSize = maxWindowSize;
+diff --git a/csrc/deepep/ops/op_host/error_log.h b/csrc/deepep/ops/op_host/error_log.h
+index 4ef02cd43..157c82bc4 100644
+--- a/csrc/deepep/ops/op_host/error_log.h
++++ b/csrc/deepep/ops/op_host/error_log.h
+@@ -27,6 +27,7 @@
+     } while (0)
+ 
+ #define OP_LOGD(opname, ...)
++// #define OP_LOGD(opname, ...) printf("[DEBUG]" __VA_ARGS__); printf("\n");
+ 
+ namespace optiling {
+ 
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp b/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+index a25fea35e..d24760480 100644
+--- a/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+@@ -19,14 +19,14 @@ aclnnStatus aclnnCamMoeCombineNormalGetWorkspaceSize(const aclTensor *recvX, con
+                                                      const aclTensor *tpRecvCountsOptional, char *epGroupName,
+                                                      int64_t epWorldSize, int64_t epRankId, char *tpGroupNameOptional,
+                                                      int64_t tpWorldSize, int64_t tpRankId, int64_t moeExpertNum,
+-                                                     int64_t globalBs, const aclTensor *out,
+-                                                     const aclTensor *sendCostStats, uint64_t *workspaceSize,
+-                                                     aclOpExecutor **executor)
++                                                     int64_t realMaxBs, int32_t round, int32_t per_round_tokens,
++                                                     const aclTensor *out, const aclTensor *sendCostStats,
++                                                     uint64_t *workspaceSize, aclOpExecutor **executor)
+ {
+-    return aclnnInnerCamMoeCombineNormalGetWorkspaceSize(recvX, tokenSrcInfo, epRecvCounts, recvTopkWeights,
+-                                                         tpRecvCountsOptional, epGroupName, epWorldSize, epRankId,
+-                                                         tpGroupNameOptional, tpWorldSize, tpRankId, moeExpertNum,
+-                                                         globalBs, out, sendCostStats, workspaceSize, executor);
++    return aclnnInnerCamMoeCombineNormalGetWorkspaceSize(
++        recvX, tokenSrcInfo, epRecvCounts, recvTopkWeights, tpRecvCountsOptional, epGroupName, epWorldSize, epRankId,
++        tpGroupNameOptional, tpWorldSize, tpRankId, moeExpertNum, realMaxBs, round, per_round_tokens, out,
++        sendCostStats, workspaceSize, executor);
+ }
+ 
+ aclnnStatus aclnnCamMoeCombineNormal(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor,
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h b/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
+index 7e3d91e5c..fb248c8a8 100644
+--- a/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
+@@ -29,8 +29,8 @@ __attribute__((visibility("default"))) aclnnStatus aclnnCamMoeCombineNormalGetWo
+     const aclTensor *recvX, const aclTensor *tokenSrcInfo, const aclTensor *epRecvCounts,
+     const aclTensor *recvTopkWeights, const aclTensor *tpRecvCountsOptional, char *epGroupName, int64_t epWorldSize,
+     int64_t epRankId, char *tpGroupNameOptional, int64_t tpWorldSize, int64_t tpRankId, int64_t moeExpertNum,
+-    int64_t globalBs, const aclTensor *out, const aclTensor *sendCostStats, uint64_t *workspaceSize,
+-    aclOpExecutor **executor);
++    int64_t realMaxBs, int32_t round, int32_t per_round_tokens, const aclTensor *out, const aclTensor *sendCostStats,
++    uint64_t *workspaceSize, aclOpExecutor **executor);
+ 
+ /* function: aclnnMoeCombine
+  * workspace : workspace memory addr(input).
+diff --git a/csrc/deepep/ops/op_host/tiling_args.h b/csrc/deepep/ops/op_host/tiling_args.h
+index 21338f69b..4884d1742 100644
+--- a/csrc/deepep/ops/op_host/tiling_args.h
++++ b/csrc/deepep/ops/op_host/tiling_args.h
+@@ -3,7 +3,7 @@
+ #include <cstdint>
+ 
+ namespace Moe {
+-constexpr uint64_t COMBINE_STATE_WIN_OFFSET = 4U * 1024UL * 1024UL;
+-constexpr uint64_t NOTIFY_DISPATCH_WIN_OFFSET = 204U * 1024UL * 1024UL;
++constexpr uint64_t COMBINE_STATE_WIN_OFFSET = 8U * 1024UL * 1024UL;
++constexpr uint64_t NOTIFY_DISPATCH_WIN_OFFSET = 102U * 1024UL * 1024UL;
+ }  // namespace Moe
+ #endif  // TILING_ARGS_H
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+index c175a6f8f..95d8c468a 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
++++ b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+@@ -11,8 +11,9 @@ namespace CamMoeCombineNormalImpl {
+ constexpr uint32_t RANK_ID_OFFSET_IN_SRC_INFO = 0U;
+ constexpr uint32_t TOKEN_IDX_OFFSET_IN_SRC_INFO = 1U;
+ constexpr uint32_t TOPK_IDX_OFFSET_IN_SRC_INFO = 2U;
+-constexpr uint64_t COMBINE_STATE_WIN_OFFSET = 4UL * 1024UL * 1024UL;
++constexpr uint64_t COMBINE_STATE_WIN_OFFSET = 8UL * 1024UL * 1024UL;
+ constexpr uint64_t MAGIC_WIN_OFFSET = 975UL * 1024UL;
++constexpr uint64_t ROUND_STATE_OFFSET = Moe::BASE_ROUND_STATE_OFFSET + Moe::ROUND_STATE_MAX_SIZE * 2UL;  // 458*1024
+ constexpr uint32_t TOKEN_SRC_INFO_LEN = 3U;
+ constexpr uint32_t UB_32_ALIGN = 32U;
+ constexpr uint32_t MUL_256_ALIGN = 256U;
+@@ -20,6 +21,8 @@ constexpr uint64_t WIN_512_ALIGN = 512UL;
+ constexpr uint32_t FLOAT_NUM_PER_ALIGN = 8U;
+ constexpr uint8_t DOUBLE_BUFFER = 2;
+ constexpr int64_t CYCLE_TO_TIME = 50;  // cycle num is converted into a fixed base unit of time, set at 50
++constexpr uint32_t STATE_OFFSET = 32U;
++constexpr uint32_t BATCH_SRC_INFO_CNT = 128U;
+ 
+ template <AscendC::HardEvent event>
+ __aicore__ inline void SyncFunc()
+@@ -33,6 +36,7 @@ __aicore__ inline void SyncFunc()
+ #define TemplateMC2TypeFunc RecvXType, XType, SrcInfoType
+ 
+ using namespace AscendC;
++using namespace Moe;
+ template <TemplateMC2TypeClass>
+ class CamMoeCombineNormal
+ {
+@@ -53,9 +57,13 @@ class CamMoeCombineNormal
+     __aicore__ inline void CopyBufferToShare(uint32_t srcRankId, uint32_t srcTokenId, uint32_t srcTopkId,
+                                              uint32_t tkIndex);
+     __aicore__ inline void ReadBufferFromRemote();
+-    __aicore__ inline void WaitBuffCopy(uint32_t tokenIndex);
++    __aicore__ inline void WaitBuffCopy(uint32_t recvXTokenIdx);
+     __aicore__ inline void SetStatusBySrcInfo(uint32_t srcRankId, uint32_t srcTokenId, uint32_t srcTopkId);
+-    __aicore__ inline void ReadBufferAndWeightedSum(uint32_t tokenIndex, uint32_t startTokenIndex);
++    __aicore__ inline void ReadBufferAndWeightedSum(uint32_t recvXTokenIdx, uint32_t roundRecvStartTokenIdx_);
++    __aicore__ inline void InitRoundSendData();
++    __aicore__ inline void SetRoundStatus();
++    __aicore__ inline void WaitRoundStatus();
++    __aicore__ inline void InitRoundRecvData();
+ 
+     __aicore__ GM_ADDR GetStateAddrByRankId(const int32_t rankId)
+     {
+@@ -73,6 +81,16 @@ class CamMoeCombineNormal
+         return GetStateAddrByRankId(rankId) + COMBINE_STATE_WIN_OFFSET;
+     }
+ 
++    __aicore__ inline GM_ADDR GetRoundStateAddrByRankId(const int32_t rankId)
++    {
++        if (epRankId_ == rankId) {
++            return (GM_ADDR)(epWinContext_->localWindowsExp) + roundMagic_ * Moe::ROUND_STATE_MAX_SIZE +
++                   ROUND_STATE_OFFSET;
++        }
++        return (GM_ADDR)(((HcclRankRelationResV2 *)(epWinContext_->remoteRes[rankId].nextDevicePtr))->windowsExp) +
++               roundMagic_ * Moe::ROUND_STATE_MAX_SIZE + ROUND_STATE_OFFSET;
++    }
++
+     __aicore__ inline void SplitCoreCal(uint32_t totalNum, uint32_t &perCoreNum, uint32_t &startIdx, uint32_t &endIdx)
+     {
+         perCoreNum = totalNum / aivNum_;
+@@ -100,14 +118,34 @@ class CamMoeCombineNormal
+     uint32_t moeExpertNum_{0};
+     uint32_t moeExpertPerRankNum_{0};
+     uint32_t magic_{0};
++    uint32_t roundMagic_{0};
+     uint64_t winDataSizeOffset_{0};
+-    uint32_t selfSendCnt_{0};
+     uint32_t hRecvXTypeLen_{0};
+     uint32_t h32AlignFloatLen_{0};
+     uint32_t h256AlignFloatLen_{0};
+     uint32_t h32AlignRecvXLen_{0};
+     uint32_t h512AlignRecvXLen_{0};
++    uint32_t roundIndex_{0};
++    uint32_t realMaxBs_{0};
++    uint32_t perRoundTokens_{0};
++    uint32_t maxRound_{0};
++    // send用到的数据
+     uint32_t sendCostStatsBufSize_{0};
++    uint32_t needSendTokenCnt_{0};
++    uint32_t RecvTokenNum_{0};
++    uint32_t perCoreBlockNum_{0};  // 每个core需要负责的block数，一个block表示某个expert从某个rank接收的token
++    uint32_t startBlockId_{0};
++    uint32_t endBlockId_{0};
++    uint32_t preRecvCount_{0};
++    // recv用到的数据
++    uint32_t totalNeedRecvTokenCnt_{0};   // 剩余需要接收的token数，初始化为axisBS_
++    uint32_t roundTotalRecvTokenCnt_{0};  // 每一轮所有核需要接收的总token数
++    uint32_t roundRecvTokenCnt_{0};       // 每一轮每个核接收的token数，每一轮接收开始前重新计算
++    uint32_t roundRecvStartTokenIdx_{0};  // 每一轮每个核从HCCL buffer接收的token的起始index，每一轮接收开始前重新计算
++    uint32_t roundRecvEndTokenIdx_{0};  // 每一轮每个核从HCCL buffer接收的token的结束index，每一轮接收开始前重新计算
++    uint32_t xOutTokenOffset_{
++        0};  // 这一轮接收的token需要存放在xOut的偏移，即前面几轮接收的token数，每一轮每个核从topkWeightsGM_拷贝权重也需要
++    uint32_t stateOffset_{0};
+ 
+     bool isEnableDiagnose_{false};
+ 
+@@ -115,14 +153,27 @@ class CamMoeCombineNormal
+     TQue<QuePosition::VECIN, 1> weightedSumQueue_;
+     TQue<QuePosition::VECOUT, 1> sendCostStatsOutQueue_;
+     TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> localCopyQueue_;
+-    TBuf<> stateBuf_;
++    TBuf<> setStateBuf_;
++    TBuf<> waitStateBuf_;
++    TBuf<> waitTempStateBuf_;
+     TBuf<> topkWeightsBuf_;
+     TBuf<> tokenFloatBuf_;
+     TBuf<> sumFloatBuf_;
+     TBuf<> weightedMulBuf_;
+     TBuf<> srcInfoBuf_;
+     TBuf<> xOutBuf_;
+-    TBuf<> tempStateBuf_;
++    TBuf<> setRoundStateBuf_;
++    TBuf<> waitRoundStateBuf_;
++    TBuf<> tempRoundStateBuf_;
++    TBuf<> roundNeedSendCntBuf_;
++    TBuf<> roundSendOffsetBuf_;
++    TBuf<> tempRecvCountBuf_;
++
++    LocalTensor<uint32_t> setStateLT_;
++    LocalTensor<uint32_t> roundNeedSendCntLT_;
++    LocalTensor<uint32_t> roundSendOffsetLT_;
++    LocalTensor<SrcInfoType> srcInfoLT_;
++    LocalTensor<float> topkWeightsLT_;
+ 
+     GlobalTensor<RecvXType> recvXGM_;
+     GlobalTensor<SrcInfoType> tokenSrcInfoGM_;
+@@ -130,6 +181,7 @@ class CamMoeCombineNormal
+     GlobalTensor<float> topkWeightsGM_;
+     GlobalTensor<XType> xOutGlobal_;
+     GlobalTensor<int32_t> sendCostStatsGT_;
++    GlobalTensor<float> dstRoundStatusGT_;
+     GM_ADDR localRankGM_;
+     GM_ADDR workspaceGM_;
+ };
+@@ -178,6 +230,9 @@ CamMoeCombineNormal<TemplateMC2TypeFunc>::InitTilingData(const CamMoeCombineNorm
+     epWorldSize_ = tilingData->camMoeCombineNormalInfo.epWorldSize;
+     epRankId_ = tilingData->camMoeCombineNormalInfo.epRankId;
+     isEnableDiagnose_ = tilingData->camMoeCombineNormalInfo.isEnableDiagnose;
++    realMaxBs_ = tilingData->camMoeCombineNormalInfo.realMaxBs;
++    maxRound_ = tilingData->camMoeCombineNormalInfo.maxRound;
++    perRoundTokens_ = tilingData->camMoeCombineNormalInfo.perRoundTokens;
+ }
+ 
+ template <TemplateMC2TypeClass>
+@@ -194,6 +249,78 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::InitBuffLen()
+     }
+ }
+ 
++template <TemplateMC2TypeClass>
++__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::InitRoundSendData()
++{
++    SplitCoreCal(moeExpertNum_, perCoreBlockNum_, startBlockId_,
++                 endBlockId_);  // 按专家分核，每个核负责向perBlockRankNum个rank发送数据
++    if (perCoreBlockNum_ == 0) {
++        return;
++    }
++    uint32_t sendBlockLen = perCoreBlockNum_ * sizeof(int32_t);
++    tpipe_->Reset();
++    tpipe_->InitBuffer(tempRecvCountBuf_, sendBlockLen);     // 64B
++    tpipe_->InitBuffer(roundNeedSendCntBuf_, sendBlockLen);  // 64B
++    tpipe_->InitBuffer(roundSendOffsetBuf_, sendBlockLen);   // 64B
++
++    // 拷贝 epRecvCountGM_ 到 UB
++    LocalTensor<int32_t> tempRecvCountTensor = tempRecvCountBuf_.Get<int32_t>();
++    const DataCopyExtParams sendBlockCopyParams{1U, sendBlockLen, 0U, 0U, 0U};
++    const DataCopyPadExtParams<int32_t> sendBlockPadParams{false, 0U, 0U, 0U};
++    DataCopyPad(tempRecvCountTensor, epRecvCountGM_[startBlockId_], sendBlockCopyParams, sendBlockPadParams);
++    SyncFunc<HardEvent::MTE2_S>();
++
++    // 每个核计算需要给每个专家发送的token数以及token起始偏移，以及每个block的srcInfo偏移
++    preRecvCount_ = startBlockId_ == 0 ? 0 : epRecvCountGM_(startBlockId_ - 1);  // 记录当前core发送token的起始偏移
++    needSendTokenCnt_ = tempRecvCountTensor(perCoreBlockNum_ - 1) - preRecvCount_;
++    roundNeedSendCntLT_ = roundNeedSendCntBuf_.Get<uint32_t>();
++    roundSendOffsetLT_ = roundSendOffsetBuf_.Get<uint32_t>();
++    roundSendOffsetLT_(0) = preRecvCount_;
++    roundNeedSendCntLT_(0) = tempRecvCountTensor(0) - preRecvCount_;
++    for (uint32_t i = 1; i < perCoreBlockNum_; ++i) {
++        roundSendOffsetLT_(i) = tempRecvCountTensor(i - 1);
++        roundNeedSendCntLT_(i) = tempRecvCountTensor(i) - tempRecvCountTensor(i - 1);
++    }
++
++    // 创建 srcInfoLT_
++    // 为了支持一轮最大8192 bs，这里按照一批BATCH_SRC_INFO_LEN个srcInfo拷贝，这样可以保证UB占用少
++    uint32_t srcInfoLen = static_cast<uint32_t>(BATCH_SRC_INFO_CNT * TOKEN_SRC_INFO_LEN * sizeof(SrcInfoType));
++    tpipe_->InitBuffer(srcInfoBuf_, srcInfoLen);  // 128*3*4/1024=1.5KB
++    srcInfoLT_ = srcInfoBuf_.Get<SrcInfoType>();
++
++    // 创建 setStatusLT_
++    tpipe_->InitBuffer(setStateBuf_, UB_32_ALIGN);  // 32B
++    setStateLT_ = setStateBuf_.Get<uint32_t>();
++    Duplicate<uint32_t>(setStateLT_, 0x3F800000, FLOAT_NUM_PER_ALIGN);
++
++    // 创建localCopyQueue_， 用于存放从GM拷贝到UB的token
++    tpipe_->InitBuffer(localCopyQueue_, DOUBLE_BUFFER, h32AlignRecvXLen_);  // 28KB
++    PipeBarrier<PIPE_ALL>();
++}
++
++template <TemplateMC2TypeClass>
++__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::InitRoundRecvData()
++{
++    totalNeedRecvTokenCnt_ = axisBS_;
++
++    // 每个核一轮最多需要接收Ceil(perRoundTokens_, aivNum_) * aivNum_个token，topkWeightBuf_也只需要开这么大
++    tpipe_->InitBuffer(xOutBuf_, h32AlignRecvXLen_);                                             // 14KB
++    tpipe_->InitBuffer(tokenFloatBuf_, h32AlignFloatLen_);                                       // 28KB
++    tpipe_->InitBuffer(weightedMulBuf_, h256AlignFloatLen_);                                     // 28KB
++    tpipe_->InitBuffer(sumFloatBuf_, h32AlignFloatLen_);                                         // 28KB
++    tpipe_->InitBuffer(weightedSumQueue_, DOUBLE_BUFFER, h32AlignRecvXLen_);                     // 14KB
++    tpipe_->InitBuffer(waitStateBuf_, axisK_ * UB_32_ALIGN);                                     // 196B
++    tpipe_->InitBuffer(waitTempStateBuf_, axisK_ * UB_32_ALIGN);                                 // 196B
++    tpipe_->InitBuffer(setRoundStateBuf_, epWorldSize_ * FLOAT_NUM_PER_ALIGN * sizeof(float));   // 用于setRoundStatus
++    tpipe_->InitBuffer(waitRoundStateBuf_, epWorldSize_ * FLOAT_NUM_PER_ALIGN * sizeof(float));  // 用于waitRoundStatus
++    tpipe_->InitBuffer(tempRoundStateBuf_, epWorldSize_ * FLOAT_NUM_PER_ALIGN * sizeof(float));  // 用于waitRoundStatus
++
++    // 创建topkWeightsLT_，存放每一轮每个核的权重信息
++    uint32_t maxTopkWeightsLen = (perRoundTokens_ / aivNum_ + 1) * axisK_ * sizeof(float);
++    tpipe_->InitBuffer(topkWeightsBuf_, maxTopkWeightsLen);  // 512 分48核 需要352B
++    topkWeightsLT_ = topkWeightsBuf_.Get<float>();
++}
++
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::Init(
+     GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount, GM_ADDR topkWeights, GM_ADDR tpRecvCount, GM_ADDR XOut,
+@@ -202,6 +329,7 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::Init(
+     workspaceGM_ = workspaceGM;
+     tpipe_ = pipe;
+     coreIdx_ = GetBlockIdx();
++    stateOffset_ = STATE_OFFSET;
+ 
+     InitMagic();
+     InitTilingData(tilingData);
+@@ -213,33 +341,18 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::Init(
+     localRankGM_ = GetBufferAddrByRankId(epRankId_);
+     DataCacheCleanAndInvalid<SrcInfoType, CacheLine::SINGLE_CACHE_LINE, DcciDst::CACHELINE_OUT>(
+         epRecvCountGM_[moeExpertNum_ - 1]);
+-    selfSendCnt_ = epRecvCountGM_(moeExpertNum_ - 1);
++    PipeBarrier<PIPE_ALL>();
++
++    InitRoundSendData();
++    InitRoundRecvData();
+ }
+ 
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::CopyBufferToShareAndSetStatus()
+ {
+-    PipeBarrier<PIPE_ALL>();
+-    uint32_t perBlockSendNum = 0, startTokenId = 0, endTokenId = 0;
+-    SplitCoreCal(selfSendCnt_, perBlockSendNum, startTokenId, endTokenId);
+-    if (perBlockSendNum == 0U) {
++    if (needSendTokenCnt_ == 0) {
+         return;
+     }
+-
+-    uint32_t blockLen = static_cast<uint32_t>(perBlockSendNum * TOKEN_SRC_INFO_LEN * sizeof(uint32_t));
+-    tpipe_->Reset();
+-    tpipe_->InitBuffer(stateBuf_, UB_32_ALIGN);
+-    tpipe_->InitBuffer(localCopyQueue_, DOUBLE_BUFFER, h32AlignRecvXLen_);
+-    tpipe_->InitBuffer(srcInfoBuf_, blockLen);
+-    LocalTensor<uint32_t> statusTensor = stateBuf_.AllocTensor<uint32_t>();
+-    Duplicate<uint32_t>(statusTensor, 0x3F800000, FLOAT_NUM_PER_ALIGN);
+-
+-    LocalTensor<SrcInfoType> srcInfoLocal = srcInfoBuf_.Get<SrcInfoType>();
+-    const DataCopyExtParams dataCopyParams{1U, blockLen, 0U, 0U, 0U};
+-    const DataCopyPadExtParams<SrcInfoType> padParams{false, 0U, 0U, 0U};
+-    DataCopyPad(srcInfoLocal, tokenSrcInfoGM_[startTokenId * TOKEN_SRC_INFO_LEN], dataCopyParams, padParams);
+-    SyncFunc<AscendC::HardEvent::MTE2_S>();
+-
+     LocalTensor<int32_t> sendCostStatsTensor;
+     if (isEnableDiagnose_) {
+         tpipe_->InitBuffer(sendCostStatsOutQueue_, DOUBLE_BUFFER, sendCostStatsBufSize_);
+@@ -247,23 +360,57 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::CopyBufferToSha
+         Duplicate<int32_t>(sendCostStatsTensor, 0, sendCostStatsBufSize_ / sizeof(int32_t));
+     }
+ 
+-    for (uint32_t tokenIndex = startTokenId; tokenIndex < endTokenId; tokenIndex++) {
+-        uint32_t index = (tokenIndex - startTokenId) * TOKEN_SRC_INFO_LEN;
+-        uint32_t srcRankId = static_cast<uint32_t>(srcInfoLocal(index + RANK_ID_OFFSET_IN_SRC_INFO));
+-        uint32_t srcTokenId = static_cast<uint32_t>(srcInfoLocal(index + TOKEN_IDX_OFFSET_IN_SRC_INFO));
+-        uint32_t srcTopkId = static_cast<uint32_t>(srcInfoLocal(index + TOPK_IDX_OFFSET_IN_SRC_INFO));
+-        int64_t sendStartCycle = GetSystemCycle();
+-
+-        CopyBufferToShare(srcRankId, srcTokenId, srcTopkId, tokenIndex);
+-        PipeBarrier<PIPE_ALL>();
+-        SetStatusBySrcInfo(srcRankId, srcTokenId, srcTopkId);
+-
+-        if (isEnableDiagnose_) {
+-            SyncFunc<AscendC::HardEvent::MTE3_S>();
+-            int32_t durationTime = static_cast<int32_t>((GetSystemCycle() - sendStartCycle) / CYCLE_TO_TIME);  // us
+-            int32_t preTime = sendCostStatsTensor.GetValue(srcRankId);
+-            sendCostStatsTensor.SetValue(srcRankId, preTime + durationTime);
++    uint32_t startTokenIndex = preRecvCount_;
++    int64_t sendStartCycle;
++    for (uint32_t blockIndex = 0; blockIndex < perCoreBlockNum_; ++blockIndex) {
++        uint32_t roundMaxSendCount = roundNeedSendCntLT_(blockIndex) >= perRoundTokens_
++                                         ? perRoundTokens_
++                                         : roundNeedSendCntLT_(blockIndex);  // 这一轮最多发送 roundMaxSendCount 个token
++
++        uint32_t sendTokenOffset = roundSendOffsetLT_(blockIndex);
++        uint32_t startTokenId = sendTokenOffset;  // 这一轮要发的token在recvX中的偏移
++        uint32_t roundActualSendCount = 0;        // 这一轮blockIndex实际发送的token数，<= roundMaxSendCount
++        while (roundActualSendCount < roundMaxSendCount) {
++            uint32_t recvXTokenIdx = startTokenId + roundActualSendCount;  // 要发送的token在recvX中的位置
++            uint32_t tokenIdxInBatch = roundActualSendCount % BATCH_SRC_INFO_CNT;
++            if (tokenIdxInBatch == 0) {
++                uint32_t tokenCount = min(BATCH_SRC_INFO_CNT, roundMaxSendCount - roundActualSendCount);
++                uint32_t srcInfoLen = tokenCount * TOKEN_SRC_INFO_LEN * sizeof(SrcInfoType);
++                const DataCopyExtParams dataCopyParams{1U, srcInfoLen, 0U, 0U, 0U};
++                const DataCopyPadExtParams<SrcInfoType> padParams{false, 0U, 0U, 0U};
++                DataCopyPad(srcInfoLT_, tokenSrcInfoGM_[recvXTokenIdx * TOKEN_SRC_INFO_LEN], dataCopyParams, padParams);
++                SyncFunc<AscendC::HardEvent::MTE2_S>();
++            }
++            // 要发送的token的srcInfo在srcInfoLT_中的位置，所以起始偏移为0
++            uint32_t srcInfoIdx = tokenIdxInBatch * TOKEN_SRC_INFO_LEN;
++            uint32_t srcRankId = static_cast<uint32_t>(srcInfoLT_(srcInfoIdx + RANK_ID_OFFSET_IN_SRC_INFO));
++            uint32_t srcTokenId = static_cast<uint32_t>(srcInfoLT_(srcInfoIdx + TOKEN_IDX_OFFSET_IN_SRC_INFO));
++            if (srcTokenId >= (roundIndex_ + 1) * perRoundTokens_) {
++                // 这一轮实际发送的token数，接收方一轮最多接收perRoundTokens_个token
++                break;
++            }
++            uint32_t srcTopkId = static_cast<uint32_t>(srcInfoLT_(srcInfoIdx + TOPK_IDX_OFFSET_IN_SRC_INFO));
++            // 每一轮 put token和state 到目标rank的hccl buffer的偏移都要从0开始计算
++            uint32_t roundTokenId = srcTokenId % perRoundTokens_;
++            if (isEnableDiagnose_) {
++                sendStartCycle = GetSystemCycle();
++            }
++            CopyBufferToShare(srcRankId, roundTokenId, srcTopkId, recvXTokenIdx);
++            PipeBarrier<PIPE_ALL>();
++            SetStatusBySrcInfo(srcRankId, roundTokenId, srcTopkId);
++
++            if (isEnableDiagnose_) {
++                SyncFunc<AscendC::HardEvent::MTE3_S>();
++                int32_t durationTime = static_cast<int32_t>((GetSystemCycle() - sendStartCycle) / CYCLE_TO_TIME);  // us
++                int32_t preTime = sendCostStatsTensor.GetValue(srcRankId);
++                sendCostStatsTensor.SetValue(srcRankId, preTime + durationTime);
++            }
++            ++roundActualSendCount;
+         }
++
++        roundSendOffsetLT_(blockIndex) += roundActualSendCount;
++        roundNeedSendCntLT_(blockIndex) -= roundActualSendCount;
++        needSendTokenCnt_ -= roundActualSendCount;
+     }
+ 
+     if (isEnableDiagnose_) {
+@@ -274,7 +421,6 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::CopyBufferToSha
+         AscendC::SetAtomicNone();
+         sendCostStatsOutQueue_.FreeTensor<int32_t>(sendCostStatsTensor);
+     }
+-
+     SyncFunc<AscendC::HardEvent::MTE3_S>();
+ }
+ 
+@@ -304,25 +450,25 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::SetStatusBySrcI
+                                                                                     uint32_t srcTokenId,
+                                                                                     uint32_t srcTopkId)
+ {
+-    LocalTensor<uint32_t> statusTensor = stateBuf_.AllocTensor<uint32_t>();
+     GM_ADDR stateGM = GetStateAddrByRankId(srcRankId) + (srcTokenId * axisK_ + srcTopkId) * UB_32_ALIGN;
+     GlobalTensor<uint32_t> stateGMTensor;
+     stateGMTensor.SetGlobalBuffer((__gm__ uint32_t *)stateGM);
+-    DataCopy<uint32_t>(stateGMTensor, statusTensor, FLOAT_NUM_PER_ALIGN);
++    DataCopy<uint32_t>(stateGMTensor, setStateLT_, FLOAT_NUM_PER_ALIGN);
++    PipeBarrier<PIPE_ALL>();
+ }
+ 
+ template <TemplateMC2TypeClass>
+-__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::WaitBuffCopy(uint32_t tokenIndex)
++__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::WaitBuffCopy(uint32_t recvXTokenIdx)
+ {
+     uint32_t calCount = axisK_ * FLOAT_NUM_PER_ALIGN;
+-    GM_ADDR stateGM = GetStateAddrByRankId(epRankId_) + tokenIndex * axisK_ * UB_32_ALIGN;  // 计算地址偏移
++    GM_ADDR stateGM = GetStateAddrByRankId(epRankId_) + recvXTokenIdx * axisK_ * UB_32_ALIGN;  // 计算地址偏移
+     GlobalTensor<float> stateGMTensor;
+     stateGMTensor.SetGlobalBuffer((__gm__ float *)stateGM);
+     float current = (float)0.0;
+     float target = (float)1.0 * axisK_ * FLOAT_NUM_PER_ALIGN;
+     SumParams sumPerKParams{1, calCount, calCount};
+-    LocalTensor<float> stateTensorLocal = stateBuf_.Get<float>();
+-    LocalTensor<float> tempStateTensorLocal = tempStateBuf_.Get<float>();
++    LocalTensor<float> stateTensorLocal = waitStateBuf_.Get<float>();
++    LocalTensor<float> tempStateTensorLocal = waitTempStateBuf_.Get<float>();
+     while (current != target) {
+         SyncFunc<AscendC::HardEvent::S_MTE2>();
+         DataCopy<float>(stateTensorLocal, stateGMTensor, calCount);
+@@ -338,20 +484,19 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::WaitBuffCopy(ui
+ }
+ 
+ template <TemplateMC2TypeClass>
+-__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferAndWeightedSum(uint32_t tokenIndex,
+-                                                                                          uint32_t startTokenIndex)
++__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferAndWeightedSum(uint32_t recvXTokenIdx,
++                                                                                          uint32_t topkWeightTokenIdx)
+ {
+     LocalTensor<float> tokenFloatLocal = tokenFloatBuf_.Get<float>();
+     LocalTensor<float> weightedMulBufLocal = weightedMulBuf_.Get<float>();
+     LocalTensor<float> sumFloatBufLocal = sumFloatBuf_.Get<float>();
+-    LocalTensor<float> topkWeightsLocal = topkWeightsBuf_.Get<float>();
+-    LocalTensor<uint32_t> stateTensorLocal = stateBuf_.Get<uint32_t>();
+     Duplicate(sumFloatBufLocal, static_cast<float>(0), axisH_);
+     const DataCopyExtParams xOutCopyParams{1U, static_cast<uint32_t>(hRecvXTypeLen_), 0U, 0U, 0U};
++    uint32_t xOutTokenIdx = recvXTokenIdx + xOutTokenOffset_;
+ 
+     for (uint32_t topkId = 0U; topkId < axisK_; topkId++) {
+-        float scale = topkWeightsLocal.GetValue((tokenIndex - startTokenIndex) * axisK_ + topkId);
+-        GM_ADDR localTokenAddr = localRankGM_ + (tokenIndex * axisK_ + topkId) * h512AlignRecvXLen_;
++        float scale = topkWeightsLT_.GetValue(topkWeightTokenIdx * axisK_ + topkId);
++        GM_ADDR localTokenAddr = localRankGM_ + (recvXTokenIdx * axisK_ + topkId) * h512AlignRecvXLen_;
+         GlobalTensor<XType> localTokenTensor;
+         localTokenTensor.SetGlobalBuffer((__gm__ XType *)localTokenAddr);
+ 
+@@ -371,51 +516,108 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferAndWe
+     LocalTensor<XType> xOutLocal = xOutBuf_.Get<XType>();
+     Cast(xOutLocal, sumFloatBufLocal, AscendC::RoundMode::CAST_RINT, axisH_);
+     SyncFunc<AscendC::HardEvent::V_MTE3>();
+-    DataCopyPad(xOutGlobal_[tokenIndex * axisH_], xOutLocal, xOutCopyParams);
++    DataCopyPad(xOutGlobal_[xOutTokenIdx * axisH_], xOutLocal, xOutCopyParams);
++    PipeBarrier<PIPE_ALL>();
+ }
+ 
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferFromRemote()
+ {
+-    if (axisBS_ == 0U) {
++    if (totalNeedRecvTokenCnt_ == 0) {
++        return;
++    }
++    roundTotalRecvTokenCnt_ = min(perRoundTokens_, totalNeedRecvTokenCnt_);
++    SplitCoreCal(roundTotalRecvTokenCnt_, roundRecvTokenCnt_, roundRecvStartTokenIdx_, roundRecvEndTokenIdx_);
++    if (roundRecvTokenCnt_ == 0) {
+         return;
+     }
+-    uint32_t tokenPerBlock = 0U, startTokenIndex = 0U, endTokenIndex = 0U;
+-    SplitCoreCal(axisBS_, tokenPerBlock, startTokenIndex, endTokenIndex);
++    const DataCopyExtParams bskParams{1U, static_cast<uint32_t>(roundRecvTokenCnt_ * axisK_ * sizeof(float)), 0U, 0U,
++                                      0U};
++    const DataCopyPadExtParams<float> copyPadFloatParams{false, 0U, 0U, 0U};
++    DataCopyPad(topkWeightsLT_, topkWeightsGM_[(xOutTokenOffset_ + roundRecvStartTokenIdx_) * axisK_], bskParams,
++                copyPadFloatParams);
++    PipeBarrier<PIPE_ALL>();
+ 
+-    if (tokenPerBlock == 0U) {
++    for (uint32_t roundTokenIdx = roundRecvStartTokenIdx_; roundTokenIdx < roundRecvEndTokenIdx_;
++         roundTokenIdx++) {  // 每轮都从从hccl buffer起始位置读put来的数据
++        WaitBuffCopy(roundTokenIdx);
++        SyncFunc<AscendC::HardEvent::MTE3_V>();                            // 与结果搬出datacopy同tensor
++        uint32_t topkWeightIdx = roundTokenIdx - roundRecvStartTokenIdx_;  // 用来计算每一轮token对应weight的偏移
++        ReadBufferAndWeightedSum(roundTokenIdx, topkWeightIdx);
++    }
++    totalNeedRecvTokenCnt_ -= roundTotalRecvTokenCnt_;
++    xOutTokenOffset_ += roundTotalRecvTokenCnt_;
++}
++template <TemplateMC2TypeClass>
++__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::SetRoundStatus()
++{
++    if (coreIdx_ != 0) {
+         return;
+     }
++    LocalTensor<float> roundStateTensor = setRoundStateBuf_.Get<float>();
++    Duplicate<float>(roundStateTensor, 1.0, FLOAT_NUM_PER_ALIGN);
++    SyncFunc<AscendC::HardEvent::V_MTE3>();
++    for (uint32_t i = 0; i < epWorldSize_; ++i) {
++        uint32_t targetRankId = i;
++        uint32_t offset = stateOffset_ * epRankId_;
++        GM_ADDR rankGM = GetRoundStateAddrByRankId(targetRankId) + offset;
++        dstRoundStatusGT_.SetGlobalBuffer((__gm__ float *)rankGM);
++        DataCopy<float>(dstRoundStatusGT_, roundStateTensor, FLOAT_NUM_PER_ALIGN);
++    }
++    SyncFunc<AscendC::HardEvent::MTE3_S>();
++}
+ 
+-    tpipe_->Reset();
+-    tpipe_->InitBuffer(xOutBuf_, h32AlignRecvXLen_);
+-    tpipe_->InitBuffer(tokenFloatBuf_, h32AlignFloatLen_);
+-    tpipe_->InitBuffer(weightedMulBuf_, h256AlignFloatLen_);
+-    tpipe_->InitBuffer(sumFloatBuf_, h32AlignFloatLen_);
+-    tpipe_->InitBuffer(weightedSumQueue_, DOUBLE_BUFFER, h32AlignRecvXLen_);
+-    tpipe_->InitBuffer(stateBuf_, (axisK_)*UB_32_ALIGN);
+-    tpipe_->InitBuffer(tempStateBuf_, (axisK_)*UB_32_ALIGN);
+-    tpipe_->InitBuffer(topkWeightsBuf_, tokenPerBlock * axisK_ * sizeof(float));
+-
+-    LocalTensor<float> topkWeightsLocal = topkWeightsBuf_.Get<float>();
+-    const DataCopyExtParams bskParams{1U, static_cast<uint32_t>(tokenPerBlock * axisK_ * sizeof(float)), 0U, 0U, 0U};
+-    const DataCopyPadExtParams<float> copyPadFloatParams{false, 0U, 0U, 0U};
+-    DataCopyPad(topkWeightsLocal, topkWeightsGM_[startTokenIndex * axisK_], bskParams, copyPadFloatParams);
+-    SyncFunc<AscendC::HardEvent::MTE2_S>();
++template <TemplateMC2TypeClass>
++__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::WaitRoundStatus()
++{
++    if (coreIdx_ != 0) {
++        return;
++    }
++    uint32_t count = epWorldSize_ * FLOAT_NUM_PER_ALIGN;
++    uint32_t inner = (count * sizeof(float) + 32 - 1) / 32 * 32 / sizeof(float);
++    GM_ADDR roundStateGM = GetRoundStateAddrByRankId(epRankId_);
++    GlobalTensor<float> roundStatusGMTensor;
+ 
+-    for (uint32_t tokenIndex = startTokenIndex; tokenIndex < endTokenIndex; tokenIndex++) {
+-        WaitBuffCopy(tokenIndex);
+-        SyncFunc<AscendC::HardEvent::MTE3_V>();  // 与结果搬出datacopy同tensor
+-        ReadBufferAndWeightedSum(tokenIndex, startTokenIndex);
++    roundStatusGMTensor.SetGlobalBuffer((__gm__ float *)roundStateGM);
++    float current = (float)0.0;
++    float target = (float)(1.0) * epWorldSize_ * FLOAT_NUM_PER_ALIGN;
++    SumParams sumPerRankParams{1, inner, count};
++    LocalTensor<float> stateTensorLocal = waitRoundStateBuf_.Get<float>();
++    LocalTensor<float> tempRoundStateTensorLocal = tempRoundStateBuf_.Get<float>();
++
++    while (current != target) {
++        SyncFunc<AscendC::HardEvent::S_MTE2>();
++        DataCopy<float>(stateTensorLocal, roundStatusGMTensor, count);
++        SyncFunc<AscendC::HardEvent::MTE2_V>();
++        Sum(tempRoundStateTensorLocal, stateTensorLocal, sumPerRankParams);
++        SyncFunc<AscendC::HardEvent::V_S>();
++        current = tempRoundStateTensorLocal.GetValue(0);
+     }
++
++    SyncFunc<AscendC::HardEvent::S_V>();
++    Duplicate<float>(tempRoundStateTensorLocal, (float)0.0, count);
++    SyncFunc<AscendC::HardEvent::V_MTE3>();
++    DataCopy<float>(roundStatusGMTensor, tempRoundStateTensorLocal, count);
++    PipeBarrier<PIPE_ALL>();
+ }
+ 
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::Process()
+ {
+     if ASCEND_IS_AIV {  // 全aiv处理
+-        CopyBufferToShareAndSetStatus();
+-        ReadBufferFromRemote();
++        uint32_t realRound = (realMaxBs_ + perRoundTokens_ - 1) / perRoundTokens_;
++        while (roundIndex_ < realRound) {
++            CopyBufferToShareAndSetStatus();
++            ReadBufferFromRemote();
++            SyncAll<true>();
++            if (realRound > 1) {
++                SetRoundStatus();
++                WaitRoundStatus();
++                roundMagic_ = roundMagic_ == 0 ? 1 : 0;
++                SyncAll<true>();
++            }
++            roundIndex_ += 1;
++        }
+     }
+ }
+ 
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_tiling.h b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_tiling.h
+index a1f393bf7..89d8e29aa 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_tiling.h
++++ b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_tiling.h
+@@ -12,7 +12,9 @@ struct CamMoeCombineNormalInfo {
+     uint32_t expertShardType;
+     uint32_t moeExpertNum;
+     uint32_t moeExpertPerRankNum;
+-    uint32_t globalBs;
++    uint32_t realMaxBs;
++    uint32_t perRoundTokens;
++    uint32_t maxRound;
+     uint32_t bs;
+     uint32_t k;
+     uint32_t h;
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h b/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+index 64799a0cf..efbb8d6d6 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
++++ b/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+@@ -19,11 +19,10 @@ constexpr uint64_t WIN_STATE_OFFSET = 500UL * 1024UL;
+ constexpr uint64_t STATE_WIN_OFFSET = 950UL * 1024UL;
+ constexpr uint64_t WIN_ADDR_ALIGN = 512UL;
+ constexpr uint32_t EXPAND_IDX_INFO = 3U;
+-constexpr uint64_t COMBINE_STATE_WIN_OFFSET = 4UL * 1024UL * 1024UL;
++constexpr uint64_t COMBINE_STATE_WIN_OFFSET = 8UL * 1024UL * 1024UL;
+ constexpr int64_t CYCLE_TO_TIME = 50;  // cycle num is converted into a fixed base unit of time, set at 50
+-constexpr uint64_t ROUND_STATE_OFFSET = 450UL * 1024UL;
++constexpr uint64_t ROUND_STATE_OFFSET = Moe::BASE_ROUND_STATE_OFFSET;
+ constexpr uint32_t FLOAT_NUM_PER_ALIGN = 8U;
+-constexpr uint64_t ROUND_STATE_MAX_SIZE = 4 * 1024UL;
+ 
+ template <AscendC::HardEvent event>
+ __aicore__ inline void SyncFunc()
+@@ -90,12 +89,12 @@ class CamMoeDispatchNormal
+     {
+         uint32_t curRankId = ctxIdx == COMM_EP_IDX ? epRankId : tpRankId;
+         if (curRankId == rankId) {
+-            return (GM_ADDR)(winContext_[ctxIdx]->localWindowsExp) + dataState * ROUND_STATE_MAX_SIZE +
++            return (GM_ADDR)(winContext_[ctxIdx]->localWindowsExp) + dataState * Moe::ROUND_STATE_MAX_SIZE +
+                    ROUND_STATE_OFFSET;
+         }
+         return (GM_ADDR)(((HcclRankRelationResV2 *)(winContext_[ctxIdx]->remoteRes[rankId].nextDevicePtr))
+                              ->windowsExp) +
+-               dataState * ROUND_STATE_MAX_SIZE + ROUND_STATE_OFFSET;
++               dataState * Moe::ROUND_STATE_MAX_SIZE + ROUND_STATE_OFFSET;
+     }
+ 
+     TPipe *tpipe_{nullptr};
+@@ -280,7 +279,7 @@ __aicore__ inline void CamMoeDispatchNormal<CamTypeFunc>::Init(
+ 
+     uint64_t hSizeAlignCombine = Ceil(h * sizeof(XType), WIN_ADDR_ALIGN) * WIN_ADDR_ALIGN;
+     winDataSizeOffset = dataState * (tilingData->camMoeDispatchNormalInfo.totalWinSize / 2) +
+-                        realMaxBatchSize * topK * hSizeAlignCombine;
++                        min(realMaxBatchSize, perRoundTokens) * topK * hSizeAlignCombine;
+     shareGM = GetWindAddrByRankId(COMM_EP_IDX, epRankId);
+ 
+     hCommuCopyOutParams = {1U, static_cast<uint32_t>(hScaleIdxSize), 0U, 0U, 0U};
+@@ -750,77 +749,21 @@ __aicore__ inline void CamMoeDispatchNormal<CamTypeFunc>::ShareToOutputLongSeq()
+     }
+ }
+ 
+-template <CamTypeClass>
+-__aicore__ inline void CamMoeDispatchNormal<CamTypeFunc>::ShareToOutput()
+-{
+-    if (startStatusId >= moeExpertNum) {
+-        return;
+-    }
+-    uint32_t fromRank, count, preCount, recvOffset, targetOffset;
+-    DataCopyPadExtParams<ExpandXOutType> copyPadExtParams{false, 0U, 0U, 0U};
+-    DataCopyExtParams dataCopyExandIdxParams{1U, sizeof(int32_t) * EXPAND_IDX_INFO, 0U, 0U, 0U};
+-    DataCopyExtParams dataCopyOutParams{1U, static_cast<uint32_t>(statusNumPerCore * sizeof(int32_t)), 0U, 0U, 0U};
+-    DataCopyExtParams expandXCopyParams = {1U, static_cast<uint32_t>(h * sizeof(ExpandXOutType)), 0U, 0U, 0U};
+-    LocalTensor<int32_t> xTmpTensorInt;
+-    AscendC::TQueSync<PIPE_MTE2, PIPE_S> recvCountLocalSync;
+-    recvCountLocalSync.SetFlag(0);
+-    recvCountLocalSync.WaitFlag(0);
+-    for (uint32_t i = startStatusId; i < endStatusId; ++i) {
+-        preCount = 0;
+-        if (likely(i != 0)) {
+-            preCount = recvCountTensor(i - 1);
+-        }
+-        fromRank = i % epRankSize;
+-        count = recvCountTensor(i) - preCount;
+-        recvOffset = recvOffsetTensor(i);
+-        targetOffset = preCount;
+-        GM_ADDR recvStart =
+-            (__gm__ uint8_t *)(GetWindAddrByRankId(COMM_EP_IDX, fromRank)) + recvOffset * hOutGMAlignSize;
+-        GlobalTensor<ExpandXOutType> srcTokenGT, dstTokenGT;
+-        for (uint32_t j = 0; j < count; ++j) {
+-            srcTokenGT.SetGlobalBuffer((__gm__ ExpandXOutType *)(recvStart + j * hOutGMAlignSize));
+-            xTmpTensor = xQueue.AllocTensor<ExpandXOutType>();
+-            DataCopyPad(xTmpTensor, srcTokenGT, hCommuCopyOutParams, copyPadExtParams);
+-            xQueue.EnQue(xTmpTensor);
+-            xTmpTensor = xQueue.DeQue<ExpandXOutType>();
+-            xTmpTensorInt = xTmpTensor.template ReinterpretCast<int32_t>();
+-            DataCopyPad(expandIdxOutGT[(targetOffset + j) * EXPAND_IDX_INFO], xTmpTensorInt[expandIdxStartIdx],
+-                        dataCopyExandIdxParams);
+-            if constexpr (DynamicQuant) {
+-                DataCopyExtParams floatDataCopyParams = {1U, sizeof(float), 0U, 0U, 0U};
+-                LocalTensor<float> xOutFp32Tensor = xTmpTensor.template ReinterpretCast<float>();
+-                DataCopyPad(dynamicScalesOutGT[targetOffset + j], xOutFp32Tensor[hUBAlignSize / sizeof(float)],
+-                            floatDataCopyParams);
+-            }
+-            dstTokenGT.SetGlobalBuffer((__gm__ ExpandXOutType *)(expandXOutGM) + (targetOffset + j) * h, h);
+-            DataCopyPad(dstTokenGT, xTmpTensor, expandXCopyParams);
+-            xQueue.FreeTensor(xTmpTensor);
+-        }
+-    }
+-}
+-
+ template <CamTypeClass>
+ __aicore__ inline void CamMoeDispatchNormal<CamTypeFunc>::Process()
+ {
+     if ASCEND_IS_AIV {
+-        if (round != 0) {
+-            uint32_t realRound = (realMaxBatchSize + perRoundTokens - 1) / perRoundTokens;
+-            while (roundIndex < realRound) {
+-                InputToShare();
+-                SetStatus();
+-                WaitStatus();
+-                ShareToOutputLongSeq();
+-                SyncAll<true>();
+-                SetRoundStatus();
+-                WaitRoundStatus();
+-                SyncAll<true>();
+-                roundIndex += 1;
+-            }
+-        } else {
++        uint32_t realRound = (realMaxBatchSize + perRoundTokens - 1) / perRoundTokens;
++        while (roundIndex < realRound) {
+             InputToShare();
+             SetStatus();
+             WaitStatus();
+-            ShareToOutput();
++            ShareToOutputLongSeq();
++            SyncAll<true>();
++            SetRoundStatus();
++            WaitRoundStatus();
++            SyncAll<true>();
++            roundIndex += 1;
+         }
+     }
+ }
+diff --git a/csrc/deepep/ops/op_kernel/comm_args.h b/csrc/deepep/ops/op_kernel/comm_args.h
+index 32cd9d42b..775a4f49d 100644
+--- a/csrc/deepep/ops/op_kernel/comm_args.h
++++ b/csrc/deepep/ops/op_kernel/comm_args.h
+@@ -27,6 +27,8 @@ constexpr int64_t WAIT_SUCCESS = 112233445566;
+ constexpr int64_t IPC_CHUNK_FLAG = 0;  // Start offset for send recv, chunk flag region
+ constexpr int64_t MAX_WAIT_ROUND_UNIT =
+     10 * 1000 * 1000;  // Threshold for waiting to get Flag under normal conditions within the same SIO
++constexpr uint64_t ROUND_STATE_MAX_SIZE = 4UL * 1024UL;
++constexpr uint64_t BASE_ROUND_STATE_OFFSET = 450UL * 1024UL;
+ 
+ constexpr static int32_t UB_HEAD_OFFSET = 96;
+ constexpr static int32_t UB_MID_OFFSET = UB_HEAD_OFFSET + UB_SINGLE_PING_PONG_ADD_SIZE_MAX + UB_ALIGN_SIZE;
+diff --git a/csrc/deepep/ops/op_kernel/dispatch_layout.h b/csrc/deepep/ops/op_kernel/dispatch_layout.h
+index 385f0d2bf..58489fa68 100644
+--- a/csrc/deepep/ops/op_kernel/dispatch_layout.h
++++ b/csrc/deepep/ops/op_kernel/dispatch_layout.h
+@@ -85,7 +85,7 @@ class DispatchLayout
+             if (coreIdx_ >= aivNum_) {
+                 SyncAll<true>();
+                 SyncAll<true>();
+-                return;
++                continue;
+             }
+             uint32_t temp = roundTokens / aivNum_;
+             uint32_t restNum = roundTokens % aivNum_;
+@@ -150,10 +150,6 @@ class DispatchLayout
+                         isTokenInRankTensor.SetValue(i * numRanks_ + rank_id, 1);
+                         seenRankTensor.SetValue(rank_id, 1);
+                         numTokensPerRankTensor.SetValue(rank_id, per_rank_num);
+-                        printf(
+-                            "get_dispatch_layout [AIC %d] tempTokens_ %d i %d numTopk_ %d j %d rank_id %d per_rank_num "
+-                            "%d\n",
+-                            coreIdx_, tempTokens_, i, numTopk_, j, rank_id, per_rank_num);
+                     }
+                 }
+             }
+diff --git a/csrc/deepep/ops/op_kernel/notify_dispatch.h b/csrc/deepep/ops/op_kernel/notify_dispatch.h
+index 5fadd1cfd..d572471a7 100644
+--- a/csrc/deepep/ops/op_kernel/notify_dispatch.h
++++ b/csrc/deepep/ops/op_kernel/notify_dispatch.h
+@@ -69,13 +69,14 @@ class NotifyDispatch
+         recvOffset_ = recvOffset;
+         maxBs_ = maxBs;
+         recvTokensPerExpert_ = recvTokensPerExpert;
+-        recvDataAlignLen = Ceil(numExperts * sendPerGroup * sizeof(int32_t), UB_ALIGN_SIZE) * UB_ALIGN_SIZE;
+         tokenPerExpertDataAlignLen = Ceil(round * numExperts * sizeof(int32_t), UB_ALIGN_SIZE) * UB_ALIGN_SIZE;
+         sendDataOffsetAlignLen = Ceil(round * numExperts * sizeof(T), UB_ALIGN_SIZE) * UB_ALIGN_SIZE;
+         sendDataAlignLen = Ceil(round * numExperts * sendPerGroup * sizeof(T), UB_ALIGN_SIZE) * UB_ALIGN_SIZE;
+-        recvDataAlignLen = Ceil(round * numExperts * sendPerGroup * sizeof(int32_t), UB_ALIGN_SIZE) * UB_ALIGN_SIZE;
++        recvDataAlignLen = Ceil(round * numExperts * sendPerGroup * sizeof(int32_t), UB_ALIGN_SIZE) *
++                           UB_ALIGN_SIZE;  // 32 * 256 * 3 * 4 = 96KB
+         sendTokensPerRankAlignLen = Ceil(numRanks * sizeof(int32_t), UB_ALIGN_SIZE) * UB_ALIGN_SIZE;
+-        sendCountAlignLen = Ceil(round * numExperts * sizeof(int32_t), UB_ALIGN_SIZE) * UB_ALIGN_SIZE;
++        sendCountAlignLen =
++            Ceil(round * numExperts * sizeof(int32_t), UB_ALIGN_SIZE) * UB_ALIGN_SIZE;  // 32 * 256 * 4 = 32KB
+ 
+         // Initialize core grouping
+         InitCoreGroup();
+@@ -118,7 +119,7 @@ class NotifyDispatch
+         }
+         SyncAll<true>();
+         ReorderOutput();
+-        BuildTotalRecvTokens();
++        BuildTotalRecvTokens();  // 出错点
+         BuildRecvCount();
+         BuildRecvOffset();
+         BuildMaxBs();
+@@ -151,7 +152,11 @@ class NotifyDispatch
+         pipe.InitBuffer(tokenPerExpertDataBuf, tokenPerExpertDataAlignLen);
+         pipe.InitBuffer(sendDataBuf, sendDataAlignLen);
+         pipe.InitBuffer(sendDataOffsetBuf, sendDataOffsetAlignLen);
+-        pipe.InitBuffer(newSendDataBuf, sendDataAlignLen);
++        int batchRounds = 32;
++        int localExpertsNum = numExperts / rankSize;
++        int newSendDataAlignLen =
++            Ceil(batchRounds * localExpertsNum * sendPerGroup * sizeof(T), UB_ALIGN_SIZE) * UB_ALIGN_SIZE;
++        pipe.InitBuffer(newSendDataBuf, newSendDataAlignLen);
+ 
+         tokenPerExpertTensor = tokenPerExpertDataBuf.Get<int32_t>();
+         sendDataTensor = sendDataBuf.Get<T>();
+@@ -196,27 +201,32 @@ class NotifyDispatch
+             }
+         }
+ 
+-        int localExpertsNum = numExperts / rankSize;
+-
+-        for (int r = 0; r < round; ++r) {
+-            for (int e = 0; e < numExperts; ++e) {
+-                int targetRank = e / localExpertsNum;
+-                int localExpertId = e % localExpertsNum;
+-                int baseUB = (r * numExperts + e) * sendPerGroup;
+-                int newSendDataIdx =
+-                    sendPerGroup * (targetRank * round * localExpertsNum + r * localExpertsNum + localExpertId);
+-                newSendDataTensor(newSendDataIdx) = sendDataTensor(baseUB);
+-                newSendDataTensor(newSendDataIdx + 1) = sendDataTensor(baseUB + 1);
+-                newSendDataTensor(newSendDataIdx + 2) = sendDataTensor(baseUB + 2);
++        int totalRounds = round;
++        for (int tr = 0; tr < rankSize; ++tr) {
++            for (int rBase = 0; rBase < totalRounds; rBase += batchRounds) {
++                int currentBatch = (rBase + batchRounds > totalRounds) ? (totalRounds - rBase) : batchRounds;
++                for (int r = 0; r < currentBatch; ++r) {
++                    int absRound = rBase + r;
++                    for (int le = 0; le < localExpertsNum; ++le) {
++                        int globalExpertIdx = tr * localExpertsNum + le;
++                        int srcIdx = (absRound * numExperts + globalExpertIdx) * sendPerGroup;
++                        int dstIdx = (r * localExpertsNum + le) * sendPerGroup;
++                        newSendDataTensor(dstIdx) = sendDataTensor(srcIdx);
++                        newSendDataTensor(dstIdx + 1) = sendDataTensor(srcIdx + 1);
++                        newSendDataTensor(dstIdx + 2) = sendDataTensor(srcIdx + 2);
++                    }
++                }
++                AscendC::SetFlag<HardEvent::S_MTE3>(EVENT_ID0);
++                AscendC::WaitFlag<HardEvent::S_MTE3>(EVENT_ID0);
++                uint32_t copyLen = currentBatch * localExpertsNum * sendPerGroup * sizeof(int32_t);
++                DataCopyExtParams copyParams = {1U, copyLen, 0U, 0U, 0U};
++                uint64_t gmOffset = (uint64_t)tr * totalRounds * localExpertsNum * sendPerGroup +
++                                    (uint64_t)rBase * localExpertsNum * sendPerGroup;
++                DataCopyPad(sendDataInputGt[gmOffset], newSendDataTensor[0], copyParams);
++                AscendC::SetFlag<HardEvent::MTE3_S>(EVENT_ID0);
++                AscendC::WaitFlag<HardEvent::MTE3_S>(EVENT_ID0);
+             }
+         }
+-
+-        AscendC::SetFlag<HardEvent::S_MTE3>(EVENT_ID0);
+-        AscendC::WaitFlag<HardEvent::S_MTE3>(EVENT_ID0);
+-
+-        DataCopyExtParams sendDataParams = {1U, sendDataAlignLen, 0U, 0U, 0U};
+-        DataCopyPad(sendDataInputGt, newSendDataTensor, sendDataParams);
+-
+         DataCopyExtParams sendDataOffsetParams = {1U, sendDataOffsetAlignLen, 0U, 0U, 0U};
+         DataCopyPad(sendDataOffsetOutputGt, sendDataOffsetTensor, sendDataOffsetParams);
+ 
+@@ -399,16 +409,18 @@ class NotifyDispatch
+         if (blockIdx != TOTAL_CNT_CORE) {
+             return;
+         }
+-        ReorderSendCountOutput();
+-        pipe.InitBuffer(tmpBuf_, Ceil(round * numExperts * sizeof(int32_t), UB_ALIGN_SIZE) * UB_ALIGN_SIZE);
+-        pipe.InitBuffer(tmpBuf2_, Ceil(round * numExperts * sizeof(float), UB_ALIGN_SIZE) * UB_ALIGN_SIZE);
+-        pipe.InitBuffer(tmpBuf3_, Ceil(round * numExperts * sizeof(float), UB_ALIGN_SIZE) * UB_ALIGN_SIZE);
+-        pipe.InitBuffer(tmpBuf4_, Ceil(round * numExperts * sizeof(float), UB_ALIGN_SIZE) * UB_ALIGN_SIZE);
++
++        ReorderSendCountOutput();  // 这里消耗32 KB ；还剩 32； 这个函数里用例recvDataTensor_消耗96tensor  // 这里
++                                   // 共消耗 128
++        pipe.InitBuffer(tmpBuf_, UB_ALIGN_SIZE);
++        pipe.InitBuffer(tmpBuf2_, Ceil(round * numExperts * sizeof(float), UB_ALIGN_SIZE) * UB_ALIGN_SIZE);  // 32KB
+ 
+         LocalTensor<int32_t> totalCntLt = tmpBuf_.Get<int32_t>();
+         LocalTensor<float> floatExpTokenCntLt = tmpBuf2_.Get<float>();
+-        LocalTensor<float> floatExpTokenSumCntLt = tmpBuf3_.Get<float>();
+-        LocalTensor<float> sharedTmpBuffer = tmpBuf4_.Get<float>();
++        LocalTensor<float> floatExpTokenSumCntLt = sendCountBuf.Get<float>();  // 复用32 的，？ 直接复用试试
++        LocalTensor<float> sharedTmpBuffer =
++            recvDataBuf.Get<float>();  // 复用 96的 ；需要清0 么？？？？不需要， 直接复用
++
+         SyncFunc<AscendC::HardEvent::S_V>();
+         Cast(floatExpTokenCntLt, sendCountTensor, RoundMode::CAST_NONE, round * numExperts);
+         PipeBarrier<PIPE_V>();
+@@ -419,7 +431,6 @@ class NotifyDispatch
+         totalCntLt(0) = sumVal;
+         PipeBarrier<PIPE_V>();
+         SyncFunc<AscendC::HardEvent::MTE2_MTE3>();
+-
+         // 拷贝到outputGT
+         GlobalTensor<int32_t> totalCntGt;
+         totalCntGt.SetGlobalBuffer((__gm__ int32_t *)totalRecvTokens_);
+diff --git a/tests/python/deepep/test_intranode.py b/tests/python/deepep/test_intranode.py
+index 3596abfff..b59dc823a 100644
+--- a/tests/python/deepep/test_intranode.py
++++ b/tests/python/deepep/test_intranode.py
+@@ -115,14 +115,14 @@ def test_main(
+             )
+ 
+         assert (
+-            r >= 1 and r <= 16
+-        ), f"DEEPEP_NORMAL_LONG_SEQ_ROUND must be between 1-16, current value:{r}"
++            r >= 1 and r <= 256
++        ), f"DEEPEP_NORMAL_LONG_SEQ_ROUND must be between 1-256, current value:{r}"
+         assert (
+             t >= 32 and t <= 8192
+         ), f"DEEPEP_NORMAL_LONG_SEQ_PER_ROUND_TOKENS must be between 32-8192, current value:{t}"
+         assert (
+-            r * t <= 16384
+-        ), f"round({r}) * per_round_tokens({t}) = {r*t} exceeds limit of 16384"
++            r * t <= 131072
++        ), f"round({r}) * per_round_tokens({t}) = {r*t} exceeds limit of 131072"
+         round_val = r
+         per_round_tokens = t
+ 
+@@ -225,8 +225,8 @@ def test_diagnose(
+         for current_x in filter(lambda elem: elem is not None, (x_pure_rand,)):
+             dispatch_args = {
+                 "x": current_x,
+-                "num_tokens_per_rank": num_tokens_per_rank,
+-                "is_token_in_rank": is_token_in_rank,
++                "num_tokens_per_rank": ref_num_tokens_per_rank,
++                "is_token_in_rank": ref_is_token_in_rank,
+                 "num_tokens_per_expert": ref_num_tokens_per_expert,
+                 "config": config,
+                 "topk_idx": topk_idx,
+@@ -290,8 +290,8 @@ def test_diagnose(
+             )
+         dispatch_args = {
+             "x": current_x,
+-            "num_tokens_per_rank": num_tokens_per_rank,
+-            "is_token_in_rank": is_token_in_rank,
++            "num_tokens_per_rank": ref_num_tokens_per_rank,
++            "is_token_in_rank": ref_is_token_in_rank,
+             "num_tokens_per_expert": ref_num_tokens_per_expert,
+             "config": config,
+             "topk_idx": topk_idx,
+@@ -320,7 +320,9 @@ def test_diagnose(
+         else:
+             local_expert_token_list = local_expert_token.tolist()
+ 
+-        assert local_expert_token_list == recv_num_tokens_per_expert_list
++        assert (
++            local_expert_token_list == recv_num_tokens_per_expert_list
++        ), f"Assertion num_tokens_per_rank failed on rank {rank}: Expected {local_expert_token_list}, Actual {recv_num_tokens_per_expert_list}"
+         # todo 1. Duplicate tansmission to experts of the same rank.
+         # assert gbl_num_tokens_per_rank[rank].item() == recv_x.size(0), f'{gbl_num_tokens_per_rank[rank].item()} != {recv_x.size(0)}'
+         # todo 2. recv_num_tokens_per_expert_list is the prefix sum of the actual data.
+@@ -340,13 +342,11 @@ def test_diagnose(
+         combined_x, combined_topk_weights, event = buffer.combine(**combine_args)
+         check_x = combined_x.float()
+         ref_x = x_pure_rand if current_x is x_pure_rand else x
+-        assert (
+-            calc_diff(
+-                check_x,
+-                ref_x * handle[7].masked_fill(topk_idx == -1, 0).sum(dim=1).view(-1, 1),
+-            )
+-            < 5e-5
++        diff = calc_diff(
++            check_x,
++            ref_x * handle[7].masked_fill(topk_idx == -1, 0).sum(dim=1).view(-1, 1),
+         )
++        assert diff < 5e-5
+ 
+         # For later tuning
+         dispatch_bf16_recv_bytes = recv_x.numel() * 2
+@@ -370,8 +370,8 @@ def test_diagnose(
+         tune_args = {
+             "x": current_x,
+             "config": config,
+-            "num_tokens_per_rank": num_tokens_per_rank,
+-            "is_token_in_rank": is_token_in_rank,
++            "num_tokens_per_rank": ref_num_tokens_per_rank,
++            "is_token_in_rank": ref_is_token_in_rank,
+             "num_tokens_per_expert": ref_num_tokens_per_expert,
+             "topk_idx": topk_idx,
+             "topk_weights": topk_weights,
+@@ -387,8 +387,8 @@ def test_diagnose(
+ 
+     dispatch_args = {
+         "x": x,
+-        "num_tokens_per_rank": num_tokens_per_rank,
+-        "is_token_in_rank": is_token_in_rank,
++        "num_tokens_per_rank": ref_num_tokens_per_rank,
++        "is_token_in_rank": ref_is_token_in_rank,
+         "num_tokens_per_expert": ref_num_tokens_per_expert,
+         "config": config,
+         "topk_idx": topk_idx,
+diff --git a/tests/python/deepep/test_normal_and_low_latency.py b/tests/python/deepep/test_normal_and_low_latency.py
+index 07f7db056..3bfc9f0ce 100644
+--- a/tests/python/deepep/test_normal_and_low_latency.py
++++ b/tests/python/deepep/test_normal_and_low_latency.py
+@@ -102,30 +102,34 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+         group, int(2e9), 0, low_latency_mode=True, num_qps_per_rank=1
+     )
+ 
+-    normal_num_tokens = args.normal_num_tokens
+-    print("Start executing normal test...", flush=True)
+-    normal_test(
+-        normal_num_tokens,
+-        hidden,
+-        num_experts,
+-        num_topk,
+-        buffer,
+-    )
+-    print("End executing normal test...", flush=True)
+-    dist.barrier()
+-
+-    low_latency_num_tokens = args.low_latency_num_tokens
+-    print("Start executing low latency test...", flush=True)
+-    low_latency_test(
+-        low_latency_num_tokens,
+-        hidden,
+-        num_experts,
+-        num_topk,
+-        rank,
+-        num_ranks,
+-        buffer,
+-    )
+-    print("End executing low latency test...", flush=True)
++    for i in range(args.test_loop):
++        normal_num_tokens = args.normal_num_tokens
++        if local_rank == 0:
++            print(f"Start executing normal test loop {i} ...", flush=True)
++        normal_test(
++            normal_num_tokens,
++            hidden,
++            num_experts,
++            num_topk,
++            buffer,
++        )
++        if local_rank == 0:
++            print(f"End executing normal test loop {i} ...", flush=True)
++
++        low_latency_num_tokens = args.low_latency_num_tokens
++        if local_rank == 0:
++            print(f"Start executing low latency test loop {i} ...", flush=True)
++        low_latency_test(
++            low_latency_num_tokens,
++            hidden,
++            num_experts,
++            num_topk,
++            rank,
++            num_ranks,
++            buffer,
++        )
++        if local_rank == 0:
++            print(f"End executing low latency test loop {i} ...", flush=True)
+     dist.barrier()
+ 
+     dist.destroy_process_group()
+@@ -160,6 +164,12 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+     parser.add_argument(
+         "--num-experts", type=int, default=256, help="Number of experts (default: 256)"
+     )
++    parser.add_argument(
++        "--test-loop",
++        type=int,
++        default=1000,
++        help="Number of test loop (default: 1000)",
++    )
+ 
+     args = parser.parse_args()
+ 

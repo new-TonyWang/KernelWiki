@@ -1,0 +1,54 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/116
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: 0318326b
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-116
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: bb668f99d29cfab0d90eb19f0e1a7a2c2d4ad2e48204f010191e7fc37fc7e554
+- local_path: key-files/csrc/deepep/ops/op_host/fused_deep_moe.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/fused_deep_moe.cpp
+  sha256: 626306fe3bf6d322f38785ca15c9c91bbfee96f186c231d26faadcb55fa5bbcf
+- local_path: key-files/csrc/deepep/ops/op_host/fused_deep_moe_infer.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/fused_deep_moe_infer.cpp
+  sha256: cdf18e9fa04eed6141c31475e0a77126d71c19c575fda1cd7e797a27f5a1cb77
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_fused_deep_moe.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_fused_deep_moe.cpp
+  sha256: 7c7141244f637e976b81060ad95d3c5906bb60558d21b4ee1646d2855bb8b47f
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_fused_deep_moe.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_fused_deep_moe.h
+  sha256: 3647879e71f1069da78d8eca1f52aaa624e2150b76f5db3db0a4c4e6a524720b
+- local_path: key-files/csrc/deepep/ops/op_kernel/fused_deep_moe.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/fused_deep_moe.cpp
+  sha256: 7fd96320eeba77d7151c718b74ae3a449c3b23e0776ab4276d0ea16c4ca8fdac
+- local_path: key-files/csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  sha256: c7eb21c1e6a9da7412eacbc40dc5df296d5b1fc1ec747511f8c03e7d789796f4
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/catlass/act/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_multistage_workspace.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/catlass/act/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_multistage_workspace.hpp
+  sha256: f792c4b041730c9e9b8310aa85d8dba5849fdb612522438dc6f29fe16d19b4db
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  sha256: a682c4f8015827ae2e75aa485262ecf59108384f2d4a83372a7356859178ee9c

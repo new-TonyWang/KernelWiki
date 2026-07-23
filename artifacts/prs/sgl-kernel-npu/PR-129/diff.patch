@@ -1,0 +1,17 @@
+diff --git a/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h b/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+index 8c1c6778b..8a33c30b6 100644
+--- a/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
++++ b/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+@@ -98,12 +98,6 @@ class BlockQuant
+     using DequantScaleType = GemmType<ElementDequantScale, LayoutDequantScale>;
+     using OutputType = GemmType<ElementOutput, LayoutOutput>;
+ 
+-    constexpr static uint32_t TILE_ROW = 8;
+-    constexpr static uint32_t TILE_COLUMN = 2048;
+-    constexpr static uint32_t HALF_TILE_COLUMN = 1024;
+-    using TileShape = MatrixShape<TILE_ROW, TILE_COLUMN>;
+-    using HalfTileShape = MatrixShape<TILE_ROW, HALF_TILE_COLUMN>;
+-
+     using EpilogueTileSwizzle = Epilogue::Tile::EpilogueHorizontalTileSwizzle;
+ 
+     struct Params {

@@ -1,0 +1,195 @@
+diff --git a/python/sgl_kernel_npu/sgl_kernel_npu/fla/fused_gdn_gating.py b/python/sgl_kernel_npu/sgl_kernel_npu/fla/fused_gdn_gating.py
+index 2afd7bb88..b348de208 100644
+--- a/python/sgl_kernel_npu/sgl_kernel_npu/fla/fused_gdn_gating.py
++++ b/python/sgl_kernel_npu/sgl_kernel_npu/fla/fused_gdn_gating.py
+@@ -89,3 +89,69 @@ def fused_gdn_gating_npu(
+         num_warps=1,
+     )
+     return g, beta_output
++
++
++@triton.jit
++def fused_gdn_gating_kernel_without_sigmoid_kernel(
++    g,
++    A_log,
++    a,
++    dt_bias,
++    batch,
++    seq_len,
++    NUM_HEADS: tl.constexpr,
++    beta: tl.constexpr,
++    threshold: tl.constexpr,
++    BLK_BATCHES: tl.constexpr,
++    BLK_HEADS: tl.constexpr,
++):
++    i_b, i_s, i_d = tl.program_id(0), tl.program_id(1), tl.program_id(2)
++    batch_off = i_b * BLK_BATCHES + tl.arange(0, BLK_BATCHES)
++    head_off = i_d * BLK_HEADS + tl.arange(0, BLK_HEADS)
++    head_mask = head_off < NUM_HEADS
++    a_off = (
++        batch_off[:, None] * seq_len * NUM_HEADS + i_s * NUM_HEADS + head_off[None, :]
++    )
++    a_mask = (batch_off[:, None] < batch) & head_mask[None, :]
++    blk_A_log = tl.load(A_log + head_off, mask=head_mask)
++    blk_bias = tl.load(dt_bias + head_off, mask=head_mask)
++    blk_a = tl.load(a + a_off, mask=a_mask)
++    x = blk_a.to(tl.float32) + blk_bias.to(tl.float32)
++    softplus_x = tl.where(
++        beta * x <= threshold, (1 / beta) * tl.log(1 + tl.exp(beta * x)), x
++    )
++    blk_g = -tl.exp(blk_A_log.to(tl.float32)) * softplus_x
++    tl.store(g + a_off, blk_g.to(g.dtype.element_ty), mask=a_mask)
++
++
++def fused_gdn_gating_kernel_without_sigmoid(
++    A_log: torch.Tensor,
++    a: torch.Tensor,
++    b: torch.Tensor,
++    dt_bias: torch.Tensor,
++    beta: float = 1.0,
++    threshold: float = 20.0,
++) -> Tuple[torch.Tensor, torch.Tensor]:
++    batch, num_heads = a.shape
++    seq_len = 1
++    g = torch.empty_like(a, dtype=torch.float32)
++    num_cores = 48  # num_vectorcore of NPU
++    NUM_BLK_BATCHES = triton.cdiv(num_cores, triton.cdiv(num_heads, 8))
++    BLK_BATCHES = triton.cdiv(batch, NUM_BLK_BATCHES)
++    grid = (NUM_BLK_BATCHES, seq_len, triton.cdiv(num_heads, 8))
++    fused_gdn_gating_kernel_without_sigmoid_kernel[grid](
++        g,
++        A_log,
++        a,
++        dt_bias,
++        batch,
++        seq_len,
++        num_heads,
++        beta,
++        threshold,
++        BLK_BATCHES=BLK_BATCHES,
++        BLK_HEADS=8,
++        num_warps=1,
++    )
++    g = g.unsqueeze(0)
++    return g, b
+diff --git a/tests/python/sgl_kernel_npu/test_fused_gdn_gating_without_sigmoid.py b/tests/python/sgl_kernel_npu/test_fused_gdn_gating_without_sigmoid.py
+new file mode 100644
+index 000000000..5042852f7
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_fused_gdn_gating_without_sigmoid.py
+@@ -0,0 +1,115 @@
++import argparse
++from dataclasses import dataclass
++
++import torch
++from sgl_kernel_npu.fla.fused_gdn_gating import fused_gdn_gating_kernel_without_sigmoid
++
++
++@dataclass
++class CaseConfig:
++    name: str
++    dtype: torch.dtype
++    batch: int
++    num_heads: int
++    beta: float
++    threshold: float
++
++
++def summarize_diff(lhs: torch.Tensor, rhs: torch.Tensor) -> tuple[float, float]:
++    diff = (lhs.float() - rhs.float()).abs()
++    return diff.max().item(), diff.mean().item()
++
++
++def reference_fused_gdn_gating(
++    A_log: torch.Tensor,
++    a: torch.Tensor,
++    b: torch.Tensor,
++    dt_bias: torch.Tensor,
++    beta: float = 1.0,
++    threshold: float = 20.0,
++):
++    x = a.to(torch.float32) + dt_bias.to(torch.float32)
++    beta_x = beta * x
++    softplus_x = torch.where(
++        beta_x <= threshold, (1.0 / beta) * torch.log1p(torch.exp(beta_x)), x
++    )
++    g = -torch.exp(A_log.to(torch.float32)) * softplus_x
++    g = g.unsqueeze(0)
++    return g, b
++
++
++def make_case_tensors(case: CaseConfig, device: torch.device):
++    A_log = torch.randn((case.num_heads,), device=device, dtype=case.dtype)
++    a = torch.randn((case.batch, case.num_heads), device=device, dtype=case.dtype)
++    b = torch.randn((case.batch, case.num_heads), device=device, dtype=case.dtype)
++    dt_bias = torch.randn((case.num_heads,), device=device, dtype=case.dtype)
++    return A_log, a, b, dt_bias
++
++
++def run_positive_case(case: CaseConfig, device: torch.device, atol: float, rtol: float):
++    host_device = torch.device("cpu")
++    A_log_cpu, a_cpu, b_cpu, dt_bias_cpu = make_case_tensors(case, host_device)
++
++    A_log = A_log_cpu.to(device)
++    a = a_cpu.to(device)
++    b = b_cpu.to(device)
++    dt_bias = dt_bias_cpu.to(device)
++
++    g_ref, b_ref = reference_fused_gdn_gating(
++        A_log_cpu, a_cpu, b_cpu, dt_bias_cpu, case.beta, case.threshold
++    )
++    g_kernel, b_kernel = fused_gdn_gating_kernel_without_sigmoid(
++        A_log, a, b, dt_bias, case.beta, case.threshold
++    )
++    torch.npu.synchronize()
++
++    g_ref_cpu = g_ref.float().cpu()
++    g_kernel_cpu = g_kernel.float().cpu()
++    b_ref_cpu = b_ref.float().cpu()
++    b_kernel_cpu = b_kernel.float().cpu()
++
++    torch.testing.assert_close(g_kernel_cpu, g_ref_cpu, atol=atol, rtol=rtol)
++    torch.testing.assert_close(b_kernel_cpu, b_ref_cpu, atol=0.0, rtol=0.0)
++
++    g_max_diff, g_mean_diff = summarize_diff(g_kernel_cpu, g_ref_cpu)
++    b_max_diff, b_mean_diff = summarize_diff(b_kernel_cpu, b_ref_cpu)
++    print(
++        f"[PASS] {case.name}: "
++        f"g_output(max={g_max_diff:.6g}, mean={g_mean_diff:.6g}) "
++        f"b_forward(max={b_max_diff:.6g}, mean={b_mean_diff:.6g})"
++    )
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--atol", type=float, default=5e-2)
++    parser.add_argument("--rtol", type=float, default=1e-2)
++    parser.add_argument("--seed", type=int, default=20260326)
++    args = parser.parse_args()
++
++    try:
++        import torch_npu
++    except ImportError as exc:
++        raise SystemExit(f"Import failed: {exc}") from exc
++
++    if not torch.npu.is_available():
++        raise SystemExit("NPU device not available")
++
++    torch.manual_seed(args.seed)
++    device = torch.device("npu")
++
++    positive_cases = [
++        CaseConfig("minimal_fp32", torch.float32, 1, 8, 1.0, 20.0),
++        CaseConfig("normal_bf16", torch.bfloat16, 16, 8, 1.0, 20.0),
++        CaseConfig("large_batch_fp16", torch.float16, 64, 16, 0.5, 15.0),
++        CaseConfig("multi_heads_bf16", torch.bfloat16, 32, 32, 2.0, 25.0),
++    ]
++
++    for case in positive_cases:
++        run_positive_case(case, device, args.atol, args.rtol)
++
++    print("All fused_gdn_gating_kernel_without_sigmoid tests passed.")
++
++
++if __name__ == "__main__":
++    main()

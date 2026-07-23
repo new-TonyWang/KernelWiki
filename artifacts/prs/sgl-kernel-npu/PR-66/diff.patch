@@ -1,0 +1,140 @@
+diff --git a/csrc/deepep/deep_ep.cpp b/csrc/deepep/deep_ep.cpp
+index 197863879..84f3e7cc5 100644
+--- a/csrc/deepep/deep_ep.cpp
++++ b/csrc/deepep/deep_ep.cpp
+@@ -11,6 +11,8 @@
+ namespace deep_ep {
+ constexpr int PADDING_SIZE = 3;
+ constexpr size_t HCOMM_NAME_LEN = 128;
++constexpr uint32_t NO_SCALES = 0;
++constexpr uint32_t DYNAMIC_SCALES = 2;
+ 
+ Buffer::Buffer(int64_t rank, int64_t num_ranks, int64_t num_nvl_bytes, int64_t num_rdma_bytes, bool low_latency_mode,
+                std::string moe_all_to_all_group_name)
+@@ -106,7 +108,7 @@ Buffer::intranode_dispatch(const at::Tensor& x, const std::optional<at::Tensor>&
+                            const std::optional<at::Tensor>& num_tokens_per_rank, const at::Tensor& is_token_in_rank, const std::optional<at::Tensor>& num_tokens_per_expert,
+                            int cached_num_recv_tokens, const std::optional<at::Tensor>& cached_rank_prefix_matrix, const std::optional<at::Tensor>& cached_channel_prefix_matrix,
+                            int expert_alignment, int num_worst_tokens, const Config& config,
+-                           std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream) {
++                           std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream, bool use_quant) {
+     // One channel use two blocks, even-numbered blocks for sending, odd-numbered blocks for receiving.
+     EP_HOST_ASSERT(config.num_sms % 2 == 0);
+     int num_channels = config.num_sms / 2;
+@@ -237,8 +239,8 @@ Buffer::intranode_dispatch(const at::Tensor& x, const std::optional<at::Tensor>&
+     auto recv_data_ptr = recv_data_cpu.data_ptr<int>();
+     auto recv_count_ptr = recv_count_cpu.data_ptr<int>();
+     auto recv_offset_ptr = recv_offset_cpu.data_ptr<int>();
+-    int64_t total_recv_tokens = 0;
+-    int64_t num_max_dispatch_tokens_per_rank = 0;
++    int total_recv_tokens = 0;
++    int num_max_dispatch_tokens_per_rank = 0;
+     std::vector<int> num_recv_tokens_per_expert_list;
+ 
+     for (int64_t local_e = 0; local_e < num_local_experts; ++local_e) {
+@@ -249,7 +251,7 @@ Buffer::intranode_dispatch(const at::Tensor& x, const std::optional<at::Tensor>&
+ 
+             int recv_cnt = recv_data_ptr[pair_idx];        // count from this src_rank for this global_expert
+             int recv_off = recv_data_ptr[pair_idx + 1];    // offset in that src_rank's window
+-            int64_t send_num_tokens = recv_data_ptr[pair_idx + 2];   // all bs from rank
++            int send_num_tokens = recv_data_ptr[pair_idx + 2];   // all bs from rank
+ 
+             total_recv_tokens += recv_cnt;
+             recv_count_ptr[index] = total_recv_tokens;
+@@ -264,7 +266,7 @@ Buffer::intranode_dispatch(const at::Tensor& x, const std::optional<at::Tensor>&
+     at::Tensor expert_ids = new_topk_idx.to(at::kInt);
+     int64_t tp_size = 1;
+     int64_t tp_rank = 0;
+-    int64_t quant_mode = 0;
++    int64_t quant_mode = use_quant ? DYNAMIC_SCALES : NO_SCALES;
+     int64_t global_bs = static_cast<int64_t>(
+         std::max(num_max_dispatch_tokens_per_rank * num_ranks, static_cast<int64_t>(num_worst_tokens)));
+ 
+@@ -272,13 +274,11 @@ Buffer::intranode_dispatch(const at::Tensor& x, const std::optional<at::Tensor>&
+     auto recv_offset = recv_offset_cpu.to(x.device());
+     auto recv_count = recv_count_cpu.to(x.device());
+ 
+-    int total_cnt = total_recv_tokens;
+-    if (total_cnt == 0) {
+-        total_cnt = 1;
+-    }
+-    auto expandx_out = at::zeros({total_cnt, hidden}, x.options());
+-    auto dynamic_scales_out = at::zeros({total_cnt}, at::dtype(at::kFloat).device(x.device()));
+-    auto expand_idx_out = at::zeros({total_cnt * 3}, at::dtype(at::kInt).device(x.device()));
++    int num_recv_tokens = (total_recv_tokens == 0) ? 1 : total_recv_tokens;
++    auto expandx_out = use_quant ? at::zeros({num_recv_tokens, hidden}, at::dtype(at::kChar).device(x.device()))
++                                : at::zeros({num_recv_tokens, hidden}, x.options());
++    auto dynamic_scales_out = at::zeros({num_recv_tokens}, at::dtype(at::kFloat).device(x.device()));
++    auto expand_idx_out = at::zeros({num_recv_tokens * 3}, at::dtype(at::kInt).device(x.device()));
+ 
+     EXEC_NPU_CMD(aclnnCamMoeDispatchNormal,
+         new_x,
+diff --git a/csrc/deepep/deep_ep.hpp b/csrc/deepep/deep_ep.hpp
+index 3a7eb2310..3427c0ac4 100644
+--- a/csrc/deepep/deep_ep.hpp
++++ b/csrc/deepep/deep_ep.hpp
+@@ -57,7 +57,7 @@ struct Buffer {
+                        const std::optional<at::Tensor>& num_tokens_per_rank, const at::Tensor& is_token_in_rank, const std::optional<at::Tensor>& num_tokens_per_expert,
+                        int cached_num_recv_tokens, const std::optional<at::Tensor>& cached_rank_prefix_matrix, const std::optional<at::Tensor>& cached_channel_prefix_matrix,
+                        int expert_alignment, int num_worst_tokens, const Config& config,
+-                       std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream);
++                       std::optional<EventHandle>& previous_event, bool async, bool allocate_on_comm_stream, bool use_quant);
+ 
+     void clean_low_latency_buffer(int num_max_dispatch_tokens_per_rank, int hidden, int num_experts);
+ 
+diff --git a/python/deep_ep/deep_ep/buffer.py b/python/deep_ep/deep_ep/buffer.py
+index b552671e8..14a5b0e73 100644
+--- a/python/deep_ep/deep_ep/buffer.py
++++ b/python/deep_ep/deep_ep/buffer.py
+@@ -214,8 +214,9 @@ def dispatch(self, x: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
+             allocate_on_comm_stream: control whether all the allocated tensors' ownership to be on the communication stream.
+ 
+         Returns:
+-            recv_x: received tokens, the same type and tuple as the input `x`, but the number of tokens equals to the
+-                received token count.
++            recv_x: received tokens, the first element is a `torch.Tensor` shaped as `[received_token_count, hidden]` with
++                `torch.int8`, the second tensor is the corresponding scales for the first element with shape `[received_token_count]`
++                with `torch.float`.
+             recv_topk_idx: received expert indices.
+             recv_topk_weights: received expert weights.
+             num_recv_tokens_per_expert_list: Python list shaped `[num_local_experts]`, the received token count by
+@@ -231,6 +232,7 @@ def dispatch(self, x: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
+         if isinstance(x, tuple):
+             raise NotImplementedError("Not support fp8")
+         x_scales = None
++        use_quant = True
+ 
+         if handle is not None:
+             raise NotImplementedError("Optional communication handle is not supported yet.")
+@@ -240,9 +242,9 @@ def dispatch(self, x: Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]],
+                 self.runtime.intranode_dispatch(x, x_scales, topk_idx, topk_weights,
+                                                 num_tokens_per_rank, is_token_in_rank, num_tokens_per_expert, 0, None, None,
+                                                 expert_alignment, num_worst_tokens, config,
+-                                                getattr(previous_event, 'event', None), async_finish, allocate_on_comm_stream)
++                                                getattr(previous_event, 'event', None), async_finish, allocate_on_comm_stream, use_quant)
+             handle = (rank_prefix_matrix, channel_prefix_matrix, recv_channel_prefix_matrix, recv_src_idx, is_token_in_rank, send_head, topk_idx, topk_weights)
+-            return (recv_x, recv_x_scales) if x_scales is not None else recv_x, recv_topk_idx, recv_topk_weights, num_recv_tokens_per_expert_list, handle, EventOverlap(event)
++            return (recv_x, recv_x_scales) if use_quant else recv_x, recv_topk_idx, recv_topk_weights, num_recv_tokens_per_expert_list, handle, EventOverlap(event)
+ 
+         # noinspection PyTypeChecker
+     def combine(self, x: torch.Tensor, handle: Tuple,
+diff --git a/tests/python/deepep/test_intranode.py b/tests/python/deepep/test_intranode.py
+index 7747e1913..5f0f5cc2e 100644
+--- a/tests/python/deepep/test_intranode.py
++++ b/tests/python/deepep/test_intranode.py
+@@ -118,7 +118,7 @@ def check_data(check_x, rank_prefix_matrix):
+         combined_x, combined_topk_weights, event = buffer.combine(**combine_args)
+         check_x = combined_x.float()
+         ref_x = x_pure_rand if current_x is x_pure_rand else x
+-        assert calc_diff(check_x, ref_x * handle[7].masked_fill(topk_idx == -1, 0).sum(dim=1).view(-1, 1)) < 5e-6
++        assert calc_diff(check_x, ref_x * handle[7].masked_fill(topk_idx == -1, 0).sum(dim=1).view(-1, 1)) < 5e-5
+ 
+         # For later tuning
+         dispatch_bf16_recv_bytes = recv_x.numel() * 2
+@@ -148,6 +148,7 @@ def check_data(check_x, rank_prefix_matrix):
+                      'config': config,
+                      'topk_idx': topk_idx, 'topk_weights': topk_weights}
+     recv_x, _, _, _, handle, _ = buffer.dispatch(**dispatch_args)
++    recv_x = per_token_cast_back(*recv_x) if isinstance(recv_x, tuple) else recv_x
+     # Tune combine performance
+     tune_args = {'x': recv_x, 'handle': handle, 'config': config, 'async_finish': False, 'topk_weights': handle[7]}
+     t = bench(lambda: buffer.combine(**tune_args))[0]

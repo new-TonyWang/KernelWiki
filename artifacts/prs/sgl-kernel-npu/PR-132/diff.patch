@@ -1,0 +1,237 @@
+diff --git a/.github/workflows/pr-test-npu.yml b/.github/workflows/pr-test-npu.yml
+index 87b418cc0..8d5376255 100644
+--- a/.github/workflows/pr-test-npu.yml
++++ b/.github/workflows/pr-test-npu.yml
+@@ -71,7 +71,7 @@ jobs:
+         env:
+           HCCL_BUFFSIZE: 2000
+         run: |
+-          python3 $GITHUB_WORKSPACE/tests/python/deepep/test_fused_deep_moe.py
++          python3 $GITHUB_WORKSPACE/tests/python/deepep/test_fused_deep_moe.py --minus1-flag True
+ 
+   test-build-deepep:
+     if: (github.repository == 'sgl-project/sgl-kernel-npu' || github.event_name == 'pull_request') &&
+@@ -126,7 +126,7 @@ jobs:
+         env:
+           HCCL_BUFFSIZE: 2000
+         run: |
+-          python3 $GITHUB_WORKSPACE/tests/python/deepep/test_fused_deep_moe.py
++          python3 $GITHUB_WORKSPACE/tests/python/deepep/test_fused_deep_moe.py --minus1-flag True
+ 
+   finish:
+     if: always()
+diff --git a/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h b/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+index 18a2046f6..b35e61401 100644
+--- a/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
++++ b/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+@@ -696,6 +696,10 @@ __aicore__ inline void CamMoeDistributeCombine<TemplateMC2TypeFunc>::LocalWindow
+         Duplicate(sumFloatBufLocal, (float)0, axisH_);
+         for (uint32_t i = 0; i < axisK_; i++) {
+             int32_t moeExpert = expertIdsLocal.GetValue(index);
++            if (moeExpert < 0) {
++                index++;
++                continue;
++            }
+             float scaleVal = expandScalesLocal.GetValue(index);
+             GM_ADDR wAddr = (__gm__ uint8_t *)(epWindowGM_) +
+                             expertPerSizeOnWin_ * moeExpertPerRankNum_ * sharedExpertRankNum_ +
+diff --git a/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h b/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
+index 85132b130..896ed85ce 100644
+--- a/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
++++ b/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
+@@ -455,7 +455,10 @@ __aicore__ inline void CamMoeDistributeDispatch<TemplateDispatchTypeFunc>::SendT
+     uint32_t endTokenId = startTokenId + sendTokenNum;
+     GlobalTensor<ExpandXOutType> dstWinGMTensor;
+     for (uint32_t tokenIndex = startTokenId; tokenIndex < endTokenId; ++tokenIndex) {
+-        uint32_t dstExpertId = expertIdsTensor_(tokenIndex);
++        int32_t dstExpertId = expertIdsTensor_(tokenIndex);
++        if (dstExpertId < 0) {
++            continue;
++        }
+         uint32_t tempRankId = dstExpertId / moeExpertNumPerRank_ + sharedExpertRankNum_;
+         GM_ADDR rankGM = (__gm__ uint8_t *)(GetWindAddrByRankId(COMM_EP_IDX, tempRankId) +
+                                             (expertPerSizeOnWin_ *
+diff --git a/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h b/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+index 8a33c30b6..53a4dac75 100644
+--- a/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
++++ b/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+@@ -937,7 +937,10 @@ class GroupedMatmulSliceMPerTokenDequantSwigluQuantMultiStageWorkspace
+         uint32_t sendValidTokenIndex = 0;
+         for (uint32_t sendGroupIndex = 0; sendGroupIndex < moeExpertNumPerRank; ++sendGroupIndex) {
+             for (uint32_t tokenIndex = startTokenId; tokenIndex < endTokenId; ++tokenIndex) {
+-                uint32_t dstExpertId = expertIdsTensor_(tokenIndex);
++                int32_t dstExpertId = expertIdsTensor_(tokenIndex);
++                if (dstExpertId < 0) {
++                    continue;
++                }
+                 if ((dstExpertId % moeExpertNumPerRank) != sendGroupIndex) {  // 优先发送指定专家的token
+                     continue;
+                 }
+diff --git a/tests/python/deepep/test_fused_deep_moe.py b/tests/python/deepep/test_fused_deep_moe.py
+index 926a98556..04b0ef508 100644
+--- a/tests/python/deepep/test_fused_deep_moe.py
++++ b/tests/python/deepep/test_fused_deep_moe.py
+@@ -1,6 +1,7 @@
+ import argparse
+ import os
+ import random
++import sys
+ import time
+ from functools import partial
+ 
+@@ -11,6 +12,7 @@
+ from utils import bench, calc_diff, hash_tensor, init_dist
+ 
+ torch_npu.npu.config.allow_internal_format = True
++test_topk_minus1 = False
+ 
+ 
+ # ======================== Weight Initialization ========================
+@@ -331,36 +333,72 @@ def test(
+     )
+     return_recv_hook = False
+ 
+-    # ----- Baseline -----
+     hidden_states = x
+-    baseline_output, base_ep_recv_count = baseline_test(
+-        buffer2,
+-        x,
+-        topk_idx,
+-        num_tokens,
+-        num_experts,
+-        cumulative_local_expert_recv_stats,
+-        return_recv_hook,
+-        w13,
+-        w13_scale,
+-        w2,
+-        w2_scale,
+-        topk_weights,
+-    )
+ 
+-    # ----- Fused -----
+-    fused_output, fused_ep_recv_count = buffer.fused_deep_moe(
+-        x,
+-        topk_idx,
+-        topk_weights,
+-        w13_f,
+-        w13s_f,
+-        w2_f,
+-        w2s_f,
+-        num_tokens,
+-        num_experts,
+-        0,
+-    )
++    if test_topk_minus1:
++        topk_idx_minus1 = topk_idx.clone()
++        topk_idx_minus1[:, -2:-1] = -1
++        topk_weights_minus1 = topk_weights.clone()
++        topk_weights_minus1[:, -2:-1] = 0
++        # ----- Baseline -----
++        baseline_output, base_ep_recv_count = baseline_test(
++            buffer2,
++            x,
++            topk_idx,
++            num_tokens,
++            num_experts,
++            cumulative_local_expert_recv_stats,
++            return_recv_hook,
++            w13,
++            w13_scale,
++            w2,
++            w2_scale,
++            topk_weights_minus1,
++        )
++        # ----- Fused -----
++        fused_output, fused_ep_recv_count = buffer.fused_deep_moe(
++            x,
++            topk_idx_minus1,
++            topk_weights,
++            w13_f,
++            w13s_f,
++            w2_f,
++            w2s_f,
++            num_tokens,
++            num_experts,
++            0,
++        )
++
++    else:
++        # ----- Baseline -----
++        baseline_output, base_ep_recv_count = baseline_test(
++            buffer2,
++            x,
++            topk_idx,
++            num_tokens,
++            num_experts,
++            cumulative_local_expert_recv_stats,
++            return_recv_hook,
++            w13,
++            w13_scale,
++            w2,
++            w2_scale,
++            topk_weights,
++        )
++
++        # ----- Fused -----
++        fused_output, fused_ep_recv_count = buffer.fused_deep_moe(
++            x,
++            topk_idx,
++            topk_weights,
++            w13_f,
++            w13s_f,
++            w2_f,
++            w2s_f,
++            num_tokens,
++            num_experts,
++            0,
++        )
+ 
+     # ----- Compare Outputs -----
+     max_diff = torch.max(torch.abs(fused_output - baseline_output)).item()
+@@ -383,9 +421,11 @@ def test(
+     print(
+         f"[Rank {rank}] Difference between base and fused recv_count -> max: {max_recv_count_diff}, mean: {mean_recv_count_diff}"
+     )
+-    assert (
+-        max_recv_count_diff < 1e-4
+-    ), f"[Rank {rank}] Mismatch detected! diff={max_recv_count_diff}"
++
++    if not test_topk_minus1:
++        assert (
++            max_recv_count_diff < 1e-4
++        ), f"[Rank {rank}] Mismatch detected! diff={max_recv_count_diff}"
+ 
+ 
+ # ======================== Distributed Entry ========================
+@@ -431,6 +471,15 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+     dist.destroy_process_group()
+ 
+ 
++def str_to_bool(value):
++    if isinstance(value, bool):
++        return value
++    if value.lower() in ("true", "True", "1"):
++        return True
++    else:
++        return False
++
++
+ if __name__ == "__main__":
+     parser = argparse.ArgumentParser(description="Test intranode EP kernels")
+     parser.add_argument(
+@@ -465,9 +514,15 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+         help="Probability of dropping an individual top-k index (set to -1). "
+         "Guaranteed that each token keeps at least one valid expert.",
+     )
++
++    parser.add_argument(
++        "--minus1-flag", type=str_to_bool, default=False, help="bool flag, True/False"
++    )
++
+     args = parser.parse_args()
+ 
+     num_processes = args.num_processes
++    test_topk_minus1 = args.minus1_flag
+     torch.multiprocessing.spawn(
+         test_loop, args=(num_processes, args), nprocs=num_processes
+     )

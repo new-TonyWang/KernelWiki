@@ -1,0 +1,61 @@
+diff --git a/build.sh b/build.sh
+index 8aefe418e..fc3e3b4a9 100755
+--- a/build.sh
++++ b/build.sh
+@@ -123,7 +123,7 @@ function build_kernels()
+     mkdir -p $BUILD_DIR
+ 
+     cmake $COMPILE_OPTIONS -DCMAKE_INSTALL_PREFIX="$OUTPUT_DIR" -DASCEND_HOME_PATH=$ASCEND_HOME_PATH -DASCEND_INCLUDE_DIR=$ASCEND_INCLUDE_DIR -DSOC_VERSION=$SOC_VERSION -DBUILD_DEEPEP_MODULE=$BUILD_DEEPEP_MODULE -DBUILD_KERNELS_MODULE=$BUILD_KERNELS_MODULE -B "$BUILD_DIR" -S .
+-    cmake --build "$BUILD_DIR" -j8 && cmake --build "$BUILD_DIR" --target install
++    cmake --build "$BUILD_DIR" --target install
+     cd -
+ }
+ 
+diff --git a/csrc/deepep/ops/op_host/error_log.h b/csrc/deepep/ops/op_host/error_log.h
+index 4ef02cd43..af8667fc6 100644
+--- a/csrc/deepep/ops/op_host/error_log.h
++++ b/csrc/deepep/ops/op_host/error_log.h
+@@ -2,7 +2,6 @@
+ #define OPS_BUILT_IN_OP_TILING_ERROR_LOG_H_
+ 
+ #include <string>
+-#include "toolchain/slog.h"
+ 
+ #define OP_LOGI(opname, ...)
+ #define OP_LOGW(opname, ...)             \
+diff --git a/csrc/deepep/ops/utils/op_host/error_log.h b/csrc/deepep/ops/utils/op_host/error_log.h
+index d809a9226..cae81bd57 100644
+--- a/csrc/deepep/ops/utils/op_host/error_log.h
++++ b/csrc/deepep/ops/utils/op_host/error_log.h
+@@ -10,7 +10,6 @@
+ #define OPS_BUILT_IN_OP_TILING_ERROR_LOG_H_
+ 
+ #include <string>
+-#include "toolchain/slog.h"
+ 
+ #define OP_LOGI(opname, ...)
+ #define OP_LOGW(opname, ...)      \
+diff --git a/csrc/deepep/ops2/op_host/error_log.h b/csrc/deepep/ops2/op_host/error_log.h
+index 84258321c..bef314c28 100644
+--- a/csrc/deepep/ops2/op_host/error_log.h
++++ b/csrc/deepep/ops2/op_host/error_log.h
+@@ -2,7 +2,6 @@
+ #define OPS_BUILT_IN_OP_TILING_ERROR_LOG_H_
+ 
+ #include <string>
+-#include "toolchain/slog.h"
+ 
+ #define OP_LOGI(opname, ...)
+ #define OP_LOGW(opname, ...)             \
+diff --git a/csrc/deepep/ops2/utils/op_host/error_log.h b/csrc/deepep/ops2/utils/op_host/error_log.h
+index d809a9226..cae81bd57 100644
+--- a/csrc/deepep/ops2/utils/op_host/error_log.h
++++ b/csrc/deepep/ops2/utils/op_host/error_log.h
+@@ -10,7 +10,6 @@
+ #define OPS_BUILT_IN_OP_TILING_ERROR_LOG_H_
+ 
+ #include <string>
+-#include "toolchain/slog.h"
+ 
+ #define OP_LOGI(opname, ...)
+ #define OP_LOGW(opname, ...)      \

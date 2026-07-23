@@ -1,0 +1,94 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/95
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: ff12c201
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-95
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: fea38eb765dbf83d97005f50fab78fc1ac41831af7160135667461940982fd93
+- local_path: key-files/csrc/deepep/deep_ep.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/deep_ep.cpp
+  sha256: 8e2af80b82468994390e69f72d1ed4eb5d3f2a839627a18172c794dec5ae806d
+- local_path: key-files/csrc/deepep/deep_ep.hpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/deep_ep.hpp
+  sha256: 87d2119960fe5cf52ffc378a1c6e0b6a9e3f62c798c866eb946994a86fa6d6ea
+- local_path: key-files/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+  sha256: 95f2fa405d6dc9119d91c5ddd2ef5038a91c0dcab518605602c2e7cbb1b75937
+- local_path: key-files/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+  sha256: 17c074b4edaf0f34ab6b620ecfe574889f4f4ea6a25ec6f0943c09e71ccfa1b3
+- local_path: key-files/csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/cam_moe_dispatch_normal.cpp
+  sha256: 9b01e535ce63beb0b7edea35349593d165efe268120fce03aad437809b8b42da
+- local_path: key-files/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+  sha256: ca2b642702c4fe70d49b57b8577cd3301a3cc71a39969dc9e3ba02ade5b645d6
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+  sha256: 197cdfee64ca35634f0a743e2d93252f68cdb552181f2d7c70e0e87273c6a60c
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
+  sha256: f64dabbf3dec2905be6c6317da073be2304a3ec493ad502af0e9f001c6addd75
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_dispatch_normal.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_dispatch_normal.cpp
+  sha256: c9cbee01e82b8989d3904f79304949b7b87619e5cef5f8caf8e1376eb26def37
+- local_path: key-files/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_dispatch_normal.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_dispatch_normal.h
+  sha256: 69246976fe1b65c3cb45de332b6cdea7a599f9d07394133dd13a01f8e6cb6a1a
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp
+  sha256: 7a21d1503777f33a18ef3ee1dfbc40e2a9910d3ae3a31228760063793127552c
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+  sha256: f629c4171d5ade762406dda03191b5b49d2e1405e4b02f3dbfa9e201b28480d7
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_combine_normal_tiling.h
+  sha256: b572b26ecf2b961590aed078b16a6772daf81262fbeaa40fca4bf3d7ce028407
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.cpp
+  sha256: f5f69173e73ff65bbb88bc63ed04e3722ccfdbe7995897950f6664fce906bde6
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+  sha256: ccebbae333112aead3cfe23243921c5e96a3c0bba269390666ee2fa3d9327f34
+- local_path: key-files/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal_tiling.h
+  sha256: 1034c6166cb8fc1f766d0cf9e05244a2898603e1f5869f7f5894df52aa1e02af

@@ -1,0 +1,64 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/77
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: '27308341'
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-77
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 14d601a32ef8eda7a940d4c33ee6cf7d7f40860a4571f73db39b90927ebdd7f5
+- local_path: key-files/csrc/batch_matmul_transpose/op_host/batch_matmul_transpose.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/batch_matmul_transpose/op_host/batch_matmul_transpose.cpp
+  sha256: f773818497ec4a0380b1bdf7899f44ddfb702e14fc28e80052f1ae9b5eadae57
+- local_path: key-files/csrc/batch_matmul_transpose/op_host/tiling/tiling_data.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/batch_matmul_transpose/op_host/tiling/tiling_data.cpp
+  sha256: 1c3eafc6d3fc962ae29fad5b15d26f1e3766776089bfd33cf1cf7ec9634f149b
+- local_path: key-files/csrc/batch_matmul_transpose/op_host/tiling/tiling_data.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/batch_matmul_transpose/op_host/tiling/tiling_data.h
+  sha256: a82c5075277b96662416cfd5575e3348a93cfb5a20ac09cf9a7468cc987ac4ab
+- local_path: key-files/csrc/batch_matmul_transpose/op_kernel/batch_matmul_transpose_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/batch_matmul_transpose/op_kernel/batch_matmul_transpose_kernel.cpp
+  sha256: 60c83b7f24c0dc8e09fc0921fc7d5458a32d7cb1713d32efd92a6109779e11fd
+- local_path: key-files/csrc/cache_location_assign/op_host/cache_loc_assign.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/cache_location_assign/op_host/cache_loc_assign.cpp
+  sha256: 9c96a7a0006d7b59d6377b91fd59b2d0faad8e154c609056b19f1713319deef2
+- local_path: key-files/csrc/pytorch_extensions.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extensions.cpp
+  sha256: c93a89c4b36be1935480677210fa535783b011ad18beba992efd1158c4ebb1d0
+- local_path: key-files/csrc/utils/common.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/utils/common.h
+  sha256: b32b3e003437c811805db78c0d1be19f4cd9cdb6e3c300ab2306d3538bfe37de
+- local_path: key-files/csrc/utils/common_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/utils/common_tiling.h
+  sha256: 36be4be0797d03691f8d513f0fbe39fe4ea927d1b9e31614fbfca1ce77bdf4f4
+- local_path: key-files/csrc/utils/kernel/math_utils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/utils/kernel/math_utils.h
+  sha256: f943c5f58936309299e3ec309f141c8815373787ca9aaa61d63b3761e169fa68
+- local_path: key-files/include/sgl_kenel_npu_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/sgl_kenel_npu_ops.h
+  sha256: 00e3ec3d96c0e499563a0b4b4acfa97b6a4bd452f87fa81873b53776086b8ad1

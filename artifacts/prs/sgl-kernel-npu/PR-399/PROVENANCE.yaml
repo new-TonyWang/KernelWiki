@@ -1,0 +1,39 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/399
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: 6fbe8d0f
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-399
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 3876337effff2aa1167f2df4c54df7b7418f7957b4b184ea2f69b024ea57912a
+- local_path: key-files/csrc/pytorch_extensions.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extensions.cpp
+  sha256: dcf6a3b830defd8f4a6623942438b8c9492d4128c64a744774b5c7b0058c5cdf
+- local_path: key-files/csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+  sha256: 7bebd1d8b09024e8ef243f209d536ac4bbc6e66cbb58dbb2df94ecb212bfc259
+- local_path: key-files/csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+  sha256: d1f5c690cd762831d18be3da743c4018c420aa84018354de63a62335d18b9bff
+- local_path: key-files/csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+  sha256: fc4dff47a33819a63d7e33207448a33fc64ba245f723c5dcaac708f320674a2f
+- local_path: key-files/include/sgl_kenel_npu_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/sgl_kenel_npu_ops.h
+  sha256: a21d2b6145d88c5e511138fb1d36d2ef8f95d844bd93fbb7e46dc169c989a045

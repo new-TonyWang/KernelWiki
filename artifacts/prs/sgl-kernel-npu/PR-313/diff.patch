@@ -1,0 +1,1709 @@
+diff --git a/csrc/deepep/deep_ep.cpp b/csrc/deepep/deep_ep.cpp
+index 51d7840bf..158e4361a 100644
+--- a/csrc/deepep/deep_ep.cpp
++++ b/csrc/deepep/deep_ep.cpp
+@@ -149,9 +149,10 @@ Buffer::get_dispatch_layout(const torch::Tensor &topk_idx, int num_experts, std:
+     */
+     auto send_token_idx_small = at::zeros({num_tokens, num_topk}, at::dtype(at::kInt).device(device));
+     auto notify_send_data = at::zeros({notify_send_data_size}, at::dtype(at::kInt).device(device));
++    int32_t rank_id = static_cast<int>(rank);
+     EXEC_NPU_CMD(aclnnDispatchLayout, new_topk_idx, num_tokens, num_ranks, num_experts, num_topk, local_ranksize,
+-                 per_round_tokens, num_tokens_per_rank, num_tokens_per_expert, is_token_in_rank, notify_send_data,
+-                 send_token_idx_small);
++                 per_round_tokens, rank_id, num_tokens_per_rank, num_tokens_per_expert, is_token_in_rank,
++                 notify_send_data, send_token_idx_small);
+ 
+     this->notify_send_data = notify_send_data;
+     this->send_token_idx_small = send_token_idx_small;
+@@ -547,7 +548,6 @@ Buffer::intranode_combine(const torch::Tensor &x, const torch::Tensor &topk_idx,
+     }
+ 
+     auto topk_idx_int32 = topk_idx_p.to(at::kInt);
+-    at::Tensor expand_ids = topk_idx_int32;
+     at::Tensor token_src_info = src_idx;
+     at::Tensor ep_send_counts = send_head;
+     auto device = x.device();
+@@ -605,9 +605,9 @@ Buffer::intranode_combine(const torch::Tensor &x, const torch::Tensor &topk_idx,
+ 
+     int32_t round = this->combine_enable_long_seq ? this->round : 1;
+     int32_t per_round_tokens = this->combine_enable_long_seq ? this->per_round_tokens : MAX_TOKENS_PER_ROUND;
+-    EXEC_NPU_CMD(aclnnCamMoeCombineNormal, recv_x, token_src_info, ep_send_counts, expert_scales, tp_send_counts,
+-                 hcom_ep_name, num_ranks, rank, hcom_ep_name, tp_world_size, tp_rankId, moe_expert_number, real_max_bs,
+-                 round, per_round_tokens, combined_x, combine_send_cost_stats_out);
++    EXEC_NPU_CMD(aclnnCamMoeCombineNormal, recv_x, token_src_info, ep_send_counts, expert_scales, topk_idx_int32,
++                 tp_send_counts, hcom_ep_name, num_ranks, rank, hcom_ep_name, tp_world_size, tp_rankId,
++                 moe_expert_number, real_max_bs, round, per_round_tokens, combined_x, combine_send_cost_stats_out);
+ 
+     if (this->is_padding) {
+         if (this->padding_cnt == PADDING_SIZE) {
+diff --git a/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp b/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+index 03974dfe6..32f0be5c5 100644
+--- a/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
++++ b/csrc/deepep/ops/op_host/cam_moe_combine_normal.cpp
+@@ -30,6 +30,12 @@ class CamMoeCombineNormal : public OpDef
+             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+             .AutoContiguous();
++        this->Input("token_idx")
++            .ParamType(REQUIRED)
++            .DataType({ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32})
++            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
++            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
++            .AutoContiguous();
+         this->Input("tp_recv_counts")
+             .ParamType(OPTIONAL)
+             .DataType({ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32})
+diff --git a/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc b/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+index d3d3474cd..638ba334b 100644
+--- a/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
++++ b/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+@@ -31,7 +31,8 @@ constexpr uint32_t RECV_X_INDEX = 0;
+ constexpr uint32_t TOKEN_SRC_INFO_INDEX = 1;
+ constexpr uint32_t EP_RECV_COUNTS_INDEX = 2;
+ constexpr uint32_t TOPK_WEIGHTS_INDEX = 3;
+-constexpr uint32_t TP_RECV_COUNTS_INDEX = 4;
++constexpr uint32_t TOKEN_IDX_INDEX = 4;
++constexpr uint32_t TP_RECV_COUNTS_INDEX = 5;
+ constexpr uint32_t OUTPUT_X_INDEX = 0;
+ constexpr uint32_t OUTPUT_SEND_COST_INDEX = 1;
+ 
+@@ -207,6 +208,15 @@ static bool CheckInputTensorDim(gert::TilingContext *context, const char *nodeNa
+     OP_LOGD(nodeName, "topkWeights dim0 = %ld", topkWeightsStorageShape->GetStorageShape().GetDim(0));
+     OP_LOGD(nodeName, "topkWeights dim1 = %ld", topkWeightsStorageShape->GetStorageShape().GetDim(1));
+ 
++    const gert::StorageShape *tokenIdxStorageShape = context->GetInputShape(TOKEN_IDX_INDEX);
++    OP_TILING_CHECK(tokenIdxStorageShape == nullptr, OP_LOGE(nodeName, "tokenIdx is null."), return false);
++    OP_TILING_CHECK(tokenIdxStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
++                    OP_LOGE(nodeName, "tokenIdx must be 2-dimension, but got %lu dim",
++                            tokenIdxStorageShape->GetStorageShape().GetDimNum()),
++                    return false);
++    OP_LOGD(nodeName, "tokenIdx dim0 = %ld", tokenIdxStorageShape->GetStorageShape().GetDim(0));
++    OP_LOGD(nodeName, "tokenIdx dim1 = %ld", tokenIdxStorageShape->GetStorageShape().GetDim(1));
++
+     return true;
+ }
+ 
+@@ -285,6 +295,10 @@ static bool CheckTensorDataType(gert::TilingContext *context, const char *nodeNa
+     OP_TILING_CHECK((topkWeightsDesc->GetDataType() != ge::DT_FLOAT),
+                     OP_LOGE(nodeName, "topkWeights dataType is invalid, dataType should be float, but is "),
+                     return false);
++    auto tokenIdxDesc = context->GetInputDesc(TOKEN_IDX_INDEX);
++    OP_TILING_CHECK(tokenIdxDesc == nullptr, OP_LOGE(nodeName, "tokenIdxDesc is null."), return false);
++    OP_TILING_CHECK((tokenIdxDesc->GetDataType() != ge::DT_INT32),
++                    OP_LOGE(nodeName, "tokenIdx dataType is invalid, dataType should be int32, but is "), return false);
+     auto xDesc = context->GetOutputDesc(OUTPUT_X_INDEX);
+     OP_TILING_CHECK(xDesc == nullptr, OP_LOGE(nodeName, "xDesc is null."), return false);
+     OP_TILING_CHECK((xDesc->GetDataType() != recvXDesc->GetDataType()),
+@@ -329,6 +343,12 @@ static bool CheckTensorFormat(gert::TilingContext *context, const char *nodeName
+         static_cast<ge::Format>(ge::GetPrimaryFormat(topkWeightsDesc->GetStorageFormat())) == ge::FORMAT_FRACTAL_NZ,
+         OP_LOGE(nodeName, "topkWeightsFormat is invalid"), return false);
+ 
++    auto tokenIdxDesc = context->GetInputDesc(TOKEN_IDX_INDEX);
++    OP_TILING_CHECK(tokenIdxDesc == nullptr, OP_LOGE(nodeName, "tokenIdxDesc is null."), return false);
++    OP_TILING_CHECK(
++        static_cast<ge::Format>(ge::GetPrimaryFormat(tokenIdxDesc->GetStorageFormat())) == ge::FORMAT_FRACTAL_NZ,
++        OP_LOGE(nodeName, "tokenIdxFormat is invalid"), return false);
++
+     auto xDesc = context->GetOutputDesc(OUTPUT_X_INDEX);
+     OP_TILING_CHECK(xDesc == nullptr, OP_LOGE(nodeName, "xDesc is null."), return false);
+     OP_TILING_CHECK(static_cast<ge::Format>(ge::GetPrimaryFormat(xDesc->GetStorageFormat())) == ge::FORMAT_FRACTAL_NZ,
+@@ -378,7 +398,7 @@ static bool CheckTensorShape(gert::TilingContext *context, CamMoeCombineNormalTi
+     int64_t xDim0 = xStorageShape->GetStorageShape().GetDim(0);
+     int64_t xDim1 = xStorageShape->GetStorageShape().GetDim(1);
+     OP_TILING_CHECK(xDim0 != topkWeightsDim0,
+-                    OP_LOGE(nodeName, "x's dim0 not equal to bs, bs = %ld, x's dim0 = %ld", topkWeightsDim0, xDim0),
++                    OP_LOGE(nodeName, "x's dim0 is greater than bs, bs = %ld, x's dim0 = %ld", topkWeightsDim0, xDim0),
+                     return false);
+     OP_TILING_CHECK(xDim1 != recvXDim1,
+                     OP_LOGE(nodeName, "x's dim1 not equal to h, x's dim1 = %ld, h = %ld", xDim1, recvXDim1),
+diff --git a/csrc/deepep/ops/op_host/dispatch_layout.cpp b/csrc/deepep/ops/op_host/dispatch_layout.cpp
+index 64b680c35..6495eb144 100644
+--- a/csrc/deepep/ops/op_host/dispatch_layout.cpp
++++ b/csrc/deepep/ops/op_host/dispatch_layout.cpp
+@@ -18,6 +18,7 @@ class DispatchLayout : public OpDef
+         this->Attr("num_topk").Int();
+         this->Attr("local_ranksize").Int();
+         this->Attr("per_round_tokens").Int();
++        this->Attr("rank_id").Int();
+ 
+         this->Output("numTokensPerRank")
+             .ParamType(REQUIRED)
+diff --git a/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc b/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+index 7086ed5b3..722ef734f 100644
+--- a/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
++++ b/csrc/deepep/ops/op_host/dispatch_layout_tiling.cc
+@@ -34,6 +34,7 @@ constexpr uint32_t OUTPUT_NUM_TOKEN_PER_RANK_INDEX = 0;
+ constexpr uint32_t OUTPUT_NUM_TOKEN_PER_EXPERT_INDEX = 1;
+ constexpr uint32_t OUTPUT_IS_TOKEN_IN_RANK_INDEX = 2;
+ constexpr uint32_t OUTPUT_NOTIFY_SEND_DATA_INDEX = 3;
++constexpr uint32_t OUTPUT_SEND_TOKEN_IDX_SMALL_INDEX = 4;
+ 
+ constexpr uint32_t ATTR_NUM_TOKENS_INDEX = 0;
+ constexpr uint32_t ATTR_NUM_RANKS_INDEX = 1;
+@@ -41,6 +42,7 @@ constexpr uint32_t ATTR_NUM_EXPERTS_INDEX = 2;
+ constexpr uint32_t ATTR_NUM_TOPK_INDEX = 3;
+ constexpr uint32_t ATTR_LOCAL_RANKSIZE_INDEX = 4;
+ constexpr uint32_t ATTR_PER_ROUND_TOKENS_INDEX = 5;
++constexpr uint32_t ATTR_RANK_ID_INDEX = 6;
+ const int64_t MAX_COMM_WORLD_SIZE = 384;
+ const int64_t MAX_MOE_EXPERTS_NUM = 512;
+ const int64_t MAX_LOCAL_RANKSIZE = 8;
+@@ -94,6 +96,7 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+     auto numTopkPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_NUM_TOPK_INDEX));
+     auto localRankSizePtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_LOCAL_RANKSIZE_INDEX));
+     auto perRoundTokensPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_PER_ROUND_TOKENS_INDEX));
++    auto rankIdPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_RANK_ID_INDEX));
+ 
+     OP_TILING_CHECK(numTokensPtr == nullptr, OP_LOGE(nodeName, "numTokensPtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(numRanksPtr == nullptr, OP_LOGE(nodeName, "numRanksPtr is null."), return ge::GRAPH_FAILED);
+@@ -103,6 +106,7 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+                     return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(perRoundTokensPtr == nullptr, OP_LOGE(nodeName, "perRoundTokensPtr is null."),
+                     return ge::GRAPH_FAILED);
++    OP_TILING_CHECK(rankIdPtr == nullptr, OP_LOGE(nodeName, "rankIdPtr is null."), return ge::GRAPH_FAILED);
+ 
+     OP_TILING_CHECK((*numRanksPtr <= 0) || (*numRanksPtr > MAX_COMM_WORLD_SIZE),
+                     OP_LOGE(nodeName, "rankSize is invalid, only support (0, %ld], but got rankSize=%ld.",
+@@ -135,6 +139,7 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+     tilingData.dispatchLayoutInfo.numTopk = static_cast<uint32_t>(*numTopkPtr);
+     tilingData.dispatchLayoutInfo.localRankSize = static_cast<uint32_t>(*localRankSizePtr);
+     tilingData.dispatchLayoutInfo.perRoundTokens = static_cast<uint32_t>(*perRoundTokensPtr);
++    tilingData.dispatchLayoutInfo.rankId = static_cast<uint32_t>(*rankIdPtr);
+ 
+     return ge::GRAPH_SUCCESS;
+ }
+@@ -154,12 +159,14 @@ static bool CheckTensorDataType(gert::TilingContext *context, const char *nodeNa
+     auto numTokensPerExpert = context->GetOutputDesc(OUTPUT_NUM_TOKEN_PER_EXPERT_INDEX);
+     auto isTokenInRank = context->GetOutputDesc(OUTPUT_IS_TOKEN_IN_RANK_INDEX);
+     auto notifySendData = context->GetOutputDesc(OUTPUT_NOTIFY_SEND_DATA_INDEX);
++    auto sendTokenIdxSmall = context->GetOutputDesc(OUTPUT_SEND_TOKEN_IDX_SMALL_INDEX);
+ 
+     OP_TILING_CHECK(topkIdx == nullptr, OP_LOGE(nodeName, "topkIdx is null."), return false);
+     OP_TILING_CHECK(numTokensPerRank == nullptr, OP_LOGE(nodeName, "numTokensPerRank is null."), return false);
+     OP_TILING_CHECK(numTokensPerExpert == nullptr, OP_LOGE(nodeName, "numTokensPerExpert is null."), return false);
+     OP_TILING_CHECK(isTokenInRank == nullptr, OP_LOGE(nodeName, "isTokenInRank is null."), return false);
+     OP_TILING_CHECK(notifySendData == nullptr, OP_LOGE(nodeName, "notifySendData is null."), return false);
++    OP_TILING_CHECK(sendTokenIdxSmall == nullptr, OP_LOGE(nodeName, "sendTokenIdxSmall is null."), return false);
+ 
+     OP_TILING_CHECK((topkIdx->GetDataType() != ge::DT_INT64),
+                     OP_LOGE(nodeName, "topkIdx datatype is invalid, datatype should be int, but is %d.",
+@@ -181,6 +188,10 @@ static bool CheckTensorDataType(gert::TilingContext *context, const char *nodeNa
+                     OP_LOGE(nodeName, "notifySendData datatype is invalid, datatype should be int, but is %d.",
+                             static_cast<ge::DataType>(notifySendData->GetDataType())),
+                     return false);
++    OP_TILING_CHECK((sendTokenIdxSmall->GetDataType() != ge::DT_INT32),
++                    OP_LOGE(nodeName, "sendTokenIdxSmall datatype is invalid, datatype should be int, but is %d.",
++                            static_cast<ge::DataType>(sendTokenIdxSmall->GetDataType())),
++                    return false);
+ 
+     return true;
+ }
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp b/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+index d24760480..9c9fa0392 100644
+--- a/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+@@ -14,18 +14,16 @@ extern "C" void __attribute__((weak)) NnopbaseSetHcclServerType(void *executor,
+ extern "C" {
+ #endif
+ 
+-aclnnStatus aclnnCamMoeCombineNormalGetWorkspaceSize(const aclTensor *recvX, const aclTensor *tokenSrcInfo,
+-                                                     const aclTensor *epRecvCounts, const aclTensor *recvTopkWeights,
+-                                                     const aclTensor *tpRecvCountsOptional, char *epGroupName,
+-                                                     int64_t epWorldSize, int64_t epRankId, char *tpGroupNameOptional,
+-                                                     int64_t tpWorldSize, int64_t tpRankId, int64_t moeExpertNum,
+-                                                     int64_t realMaxBs, int32_t round, int32_t per_round_tokens,
+-                                                     const aclTensor *out, const aclTensor *sendCostStats,
+-                                                     uint64_t *workspaceSize, aclOpExecutor **executor)
++aclnnStatus aclnnCamMoeCombineNormalGetWorkspaceSize(
++    const aclTensor *recvX, const aclTensor *tokenSrcInfo, const aclTensor *epRecvCounts,
++    const aclTensor *recvTopkWeights, const aclTensor *tokenIdx, const aclTensor *tpRecvCountsOptional,
++    char *epGroupName, int64_t epWorldSize, int64_t epRankId, char *tpGroupNameOptional, int64_t tpWorldSize,
++    int64_t tpRankId, int64_t moeExpertNum, int64_t realMaxBs, int32_t round, int32_t per_round_tokens,
++    const aclTensor *out, const aclTensor *sendCostStats, uint64_t *workspaceSize, aclOpExecutor **executor)
+ {
+     return aclnnInnerCamMoeCombineNormalGetWorkspaceSize(
+-        recvX, tokenSrcInfo, epRecvCounts, recvTopkWeights, tpRecvCountsOptional, epGroupName, epWorldSize, epRankId,
+-        tpGroupNameOptional, tpWorldSize, tpRankId, moeExpertNum, realMaxBs, round, per_round_tokens, out,
++        recvX, tokenSrcInfo, epRecvCounts, recvTopkWeights, tokenIdx, tpRecvCountsOptional, epGroupName, epWorldSize,
++        epRankId, tpGroupNameOptional, tpWorldSize, tpRankId, moeExpertNum, realMaxBs, round, per_round_tokens, out,
+         sendCostStats, workspaceSize, executor);
+ }
+ 
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h b/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
+index fb248c8a8..7ef907685 100644
+--- a/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_cam_moe_combine_normal.h
+@@ -12,6 +12,8 @@ extern "C" {
+  * tokenSrcInfo : required
+  * epRecvCounts : required
+  * recvTopkWeights : required
++ * tokenIdx : required
++ * tokenIdxMap : required
+  * tpRecvCountsOptional : required
+  * epGroupName : optional
+  * epWorldSize : required
+@@ -27,10 +29,10 @@ extern "C" {
+  */
+ __attribute__((visibility("default"))) aclnnStatus aclnnCamMoeCombineNormalGetWorkspaceSize(
+     const aclTensor *recvX, const aclTensor *tokenSrcInfo, const aclTensor *epRecvCounts,
+-    const aclTensor *recvTopkWeights, const aclTensor *tpRecvCountsOptional, char *epGroupName, int64_t epWorldSize,
+-    int64_t epRankId, char *tpGroupNameOptional, int64_t tpWorldSize, int64_t tpRankId, int64_t moeExpertNum,
+-    int64_t realMaxBs, int32_t round, int32_t per_round_tokens, const aclTensor *out, const aclTensor *sendCostStats,
+-    uint64_t *workspaceSize, aclOpExecutor **executor);
++    const aclTensor *recvTopkWeights, const aclTensor *tokenIdx, const aclTensor *tpRecvCountsOptional,
++    char *epGroupName, int64_t epWorldSize, int64_t epRankId, char *tpGroupNameOptional, int64_t tpWorldSize,
++    int64_t tpRankId, int64_t moeExpertNum, int64_t realMaxBs, int32_t round, int32_t per_round_tokens,
++    const aclTensor *out, const aclTensor *sendCostStats, uint64_t *workspaceSize, aclOpExecutor **executor);
+ 
+ /* function: aclnnMoeCombine
+  * workspace : workspace memory addr(input).
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp b/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp
+index 71f2a3b38..1c9fa3ce9 100644
+--- a/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.cpp
+@@ -16,14 +16,15 @@ extern "C" {
+ 
+ aclnnStatus aclnnDispatchLayoutGetWorkspaceSize(const aclTensor *topkIdx, int64_t numTokens, int64_t numRanks,
+                                                 int64_t numExperts, int64_t numTopk, int64_t localRankSize,
+-                                                int32_t perRoundTokens, const aclTensor *numTokensPerRank,
+-                                                const aclTensor *numTokensPerExpert, const aclTensor *isTokenInRank,
+-                                                const aclTensor *notifySendData, const aclTensor *sendTokenIdxSmall,
+-                                                uint64_t *workspaceSize, aclOpExecutor **executor)
++                                                int32_t perRoundTokens, int32_t rankId,
++                                                const aclTensor *numTokensPerRank, const aclTensor *numTokensPerExpert,
++                                                const aclTensor *isTokenInRank, const aclTensor *notifySendData,
++                                                const aclTensor *sendTokenIdxSmall, uint64_t *workspaceSize,
++                                                aclOpExecutor **executor)
+ {
+-    return aclnnInnerDispatchLayoutGetWorkspaceSize(topkIdx, numTokens, numRanks, numExperts, numTopk, localRankSize,
+-                                                    perRoundTokens, numTokensPerRank, numTokensPerExpert, isTokenInRank,
+-                                                    notifySendData, sendTokenIdxSmall, workspaceSize, executor);
++    return aclnnInnerDispatchLayoutGetWorkspaceSize(
++        topkIdx, numTokens, numRanks, numExperts, numTopk, localRankSize, perRoundTokens, rankId, numTokensPerRank,
++        numTokensPerExpert, isTokenInRank, notifySendData, sendTokenIdxSmall, workspaceSize, executor);
+ }
+ 
+ aclnnStatus aclnnDispatchLayout(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)
+diff --git a/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h b/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h
+index fc57491aa..ff04e60ab 100644
+--- a/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h
++++ b/csrc/deepep/ops/op_host/op_api/aclnn_dispatch_layout.h
+@@ -15,16 +15,20 @@ extern "C" {
+  * numTopk : required
+  * localRankSize : required
+  * perRoundTokens : required
++ * rankId : required
+  * numTokensPerRank : required
+  * numTokensPerExpert : required
+  * isTokenInRank : required
+  * notifySendData : required
++ * sendTokenIdxSmall : required
++ * tokenIdxMap : required
++ * validBs : required
+  * workspaceSize : size of workspace(output).
+  * executor : executor context(output).
+  */
+ __attribute__((visibility("default"))) aclnnStatus aclnnDispatchLayoutGetWorkspaceSize(
+     const aclTensor *topkIdx, int64_t numTokens, int64_t numRanks, int64_t numExperts, int64_t numTopk,
+-    int64_t localRankSize, int32_t perRoundTokens, const aclTensor *numTokensPerRank,
++    int64_t localRankSize, int32_t perRoundTokens, int32_t rankId, const aclTensor *numTokensPerRank,
+     const aclTensor *numTokensPerExpert, const aclTensor *isTokenInRank, const aclTensor *notifySendData,
+     const aclTensor *sendTokenIdxSmall, uint64_t *workspaceSize, aclOpExecutor **executor);
+ 
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp
+index 638120ef8..1ed2d1f2d 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp
++++ b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.cpp
+@@ -9,9 +9,9 @@ using namespace AscendC;
+ #define TILINGKEY_SINGLE_ROUND 10000
+ 
+ extern "C" __global__ __aicore__ void cam_moe_combine_normal(GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount,
+-                                                             GM_ADDR topkWeights, GM_ADDR tpRecvCount, GM_ADDR XOut,
+-                                                             GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM,
+-                                                             GM_ADDR tilingGM)
++                                                             GM_ADDR topkWeights, GM_ADDR tokenIdx, GM_ADDR tpRecvCount,
++                                                             GM_ADDR XOut, GM_ADDR sendCostStatsOut,
++                                                             GM_ADDR workspaceGM, GM_ADDR tilingGM)
+ 
+ {
+     REGISTER_TILING_DEFAULT(CamMoeCombineNormalTilingData);
+@@ -21,13 +21,13 @@ extern "C" __global__ __aicore__ void cam_moe_combine_normal(GM_ADDR recvX, GM_A
+     GET_TILING_DATA_WITH_STRUCT(CamMoeCombineNormalTilingData, tilingData, tilingGM);
+     if (TILING_KEY_IS(TILINGKEY_MULTI_ROUND)) {
+         CamMoeCombineNormalMultiRoundImpl::CamMoeCombineNormalMultiRound<DTYPE_RECV_X, DTYPE_X, int32_t> op;
+-        op.Init(recvX, tokenSrcInfo, epRecvCount, topkWeights, tpRecvCount, XOut, sendCostStatsOut, workspaceGM, &pipe,
+-                &tilingData);
++        op.Init(recvX, tokenSrcInfo, epRecvCount, topkWeights, tokenIdx, tpRecvCount, XOut, sendCostStatsOut,
++                workspaceGM, &pipe, &tilingData);
+         op.Process();
+     } else if (TILING_KEY_IS(TILINGKEY_SINGLE_ROUND)) {
+         CamMoeCombineNormalImpl::CamMoeCombineNormal<DTYPE_RECV_X, DTYPE_X, int32_t> op;
+-        op.Init(recvX, tokenSrcInfo, epRecvCount, topkWeights, tpRecvCount, XOut, sendCostStatsOut, workspaceGM, &pipe,
+-                &tilingData);
++        op.Init(recvX, tokenSrcInfo, epRecvCount, topkWeights, tokenIdx, tpRecvCount, XOut, sendCostStatsOut,
++                workspaceGM, &pipe, &tilingData);
+         op.Process();
+     }
+ #endif
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+index a40e19b11..ae5873ad0 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
++++ b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal.h
+@@ -39,21 +39,22 @@ class CamMoeCombineNormal
+ public:
+     __aicore__ inline CamMoeCombineNormal(){};
+     __aicore__ inline void Init(GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount, GM_ADDR topkWeights,
+-                                GM_ADDR tpRecvCount, GM_ADDR XOut, GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM,
+-                                TPipe *pipe, const CamMoeCombineNormalTilingData *tilingData);
++                                GM_ADDR tokenIdx, GM_ADDR tpRecvCount, GM_ADDR XOut, GM_ADDR sendCostStatsOut,
++                                GM_ADDR workspaceGM, TPipe *pipe, const CamMoeCombineNormalTilingData *tilingData);
+     __aicore__ inline void Process();
+ 
+ private:
+     __aicore__ inline void InitMagic();
+     __aicore__ inline void InitGlobalBuffer(GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount,
+-                                            GM_ADDR topkWeights, GM_ADDR XOut, GM_ADDR sendCostStatsOut);
++                                            GM_ADDR topkWeights, GM_ADDR tokenIdx, GM_ADDR XOut,
++                                            GM_ADDR sendCostStatsOut);
+     __aicore__ inline void InitTilingData(const CamMoeCombineNormalTilingData *tilingData);
+     __aicore__ inline void InitBuffLen();
+     __aicore__ inline void CopyBufferToShareAndSetStatus();
+     __aicore__ inline void CopyBufferToShare(uint32_t srcRankId, uint32_t srcTokenId, uint32_t srcTopkId,
+                                              uint32_t tkIndex);
+     __aicore__ inline void ReadBufferFromRemote();
+-    __aicore__ inline void WaitBuffCopy(uint32_t tokenIndex);
++    __aicore__ inline void WaitBuffCopy(uint32_t tokenIndex, uint32_t startTokenIndex);
+     __aicore__ inline void SetStatusBySrcInfo(uint32_t srcRankId, uint32_t srcTokenId, uint32_t srcTopkId);
+     __aicore__ inline void ReadBufferAndWeightedSum(uint32_t tokenIndex, uint32_t startTokenIndex);
+ 
+@@ -103,6 +104,7 @@ class CamMoeCombineNormal
+     uint64_t winDataSizeOffset_{0};
+     uint32_t selfSendCnt_{0};
+     uint32_t hRecvXTypeLen_{0};
++    uint32_t tokenIdx32AlignLen_{0};
+     uint32_t h32AlignFloatLen_{0};
+     uint32_t h256AlignFloatLen_{0};
+     uint32_t h32AlignRecvXLen_{0};
+@@ -116,6 +118,7 @@ class CamMoeCombineNormal
+     TQue<QuePosition::VECOUT, 1> sendCostStatsOutQueue_;
+     TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> localCopyQueue_;
+     TBuf<> stateBuf_;
++    TBuf<> tokenIdxBuf_;
+     TBuf<> topkWeightsBuf_;
+     TBuf<> tokenFloatBuf_;
+     TBuf<> sumFloatBuf_;
+@@ -127,6 +130,7 @@ class CamMoeCombineNormal
+     GlobalTensor<RecvXType> recvXGM_;
+     GlobalTensor<SrcInfoType> tokenSrcInfoGM_;
+     GlobalTensor<SrcInfoType> epRecvCountGM_;
++    GlobalTensor<SrcInfoType> tokenIdxGM_;
+     GlobalTensor<float> topkWeightsGM_;
+     GlobalTensor<XType> xOutGlobal_;
+     GlobalTensor<int32_t> sendCostStatsGT_;
+@@ -152,12 +156,14 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::InitMagic()
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::InitGlobalBuffer(GM_ADDR recvX, GM_ADDR tokenSrcInfo,
+                                                                                   GM_ADDR epRecvCount,
+-                                                                                  GM_ADDR topkWeights, GM_ADDR XOut,
++                                                                                  GM_ADDR topkWeights, GM_ADDR tokenIdx,
++                                                                                  GM_ADDR XOut,
+                                                                                   GM_ADDR sendCostStatsOut)
+ {
+     recvXGM_.SetGlobalBuffer((__gm__ RecvXType *)recvX);
+     tokenSrcInfoGM_.SetGlobalBuffer((__gm__ SrcInfoType *)tokenSrcInfo);
+     epRecvCountGM_.SetGlobalBuffer((__gm__ int32_t *)epRecvCount);
++    tokenIdxGM_.SetGlobalBuffer((__gm__ int32_t *)tokenIdx);
+     topkWeightsGM_.SetGlobalBuffer((__gm__ float *)topkWeights);
+     xOutGlobal_.SetGlobalBuffer((__gm__ XType *)XOut);
+     if (isEnableDiagnose_) {
+@@ -195,9 +201,12 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::InitBuffLen()
+ }
+ 
+ template <TemplateMC2TypeClass>
+-__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::Init(
+-    GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount, GM_ADDR topkWeights, GM_ADDR tpRecvCount, GM_ADDR XOut,
+-    GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM, TPipe *pipe, const CamMoeCombineNormalTilingData *tilingData)
++__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::Init(GM_ADDR recvX, GM_ADDR tokenSrcInfo,
++                                                                      GM_ADDR epRecvCount, GM_ADDR topkWeights,
++                                                                      GM_ADDR tokenIdx, GM_ADDR tpRecvCount,
++                                                                      GM_ADDR XOut, GM_ADDR sendCostStatsOut,
++                                                                      GM_ADDR workspaceGM, TPipe *pipe,
++                                                                      const CamMoeCombineNormalTilingData *tilingData)
+ {
+     workspaceGM_ = workspaceGM;
+     tpipe_ = pipe;
+@@ -205,7 +214,7 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::Init(
+ 
+     InitMagic();
+     InitTilingData(tilingData);
+-    InitGlobalBuffer(recvX, tokenSrcInfo, epRecvCount, topkWeights, XOut, sendCostStatsOut);
++    InitGlobalBuffer(recvX, tokenSrcInfo, epRecvCount, topkWeights, tokenIdx, XOut, sendCostStatsOut);
+     InitBuffLen();
+ 
+     PipeBarrier<PIPE_ALL>();
+@@ -312,14 +321,24 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::SetStatusBySrcI
+ }
+ 
+ template <TemplateMC2TypeClass>
+-__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::WaitBuffCopy(uint32_t tokenIndex)
++__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::WaitBuffCopy(uint32_t tokenIndex,
++                                                                              uint32_t startTokenIndex)
+ {
++    LocalTensor<int32_t> tokenIdxLocal = tokenIdxBuf_.Get<int32_t>();
++    int tempValidCount = 0;
++    for (int topkId = 0; topkId < axisK_; ++topkId) {
++        int expertId = tokenIdxLocal.GetValue((tokenIndex - startTokenIndex) * axisK_ + topkId);
++        if (expertId < 0 || expertId >= moeExpertNum_) {
++            continue;
++        }
++        ++tempValidCount;
++    }
+     uint32_t calCount = axisK_ * FLOAT_NUM_PER_ALIGN;
+     GM_ADDR stateGM = GetStateAddrByRankId(epRankId_) + tokenIndex * axisK_ * UB_32_ALIGN;  // 计算地址偏移
+     GlobalTensor<float> stateGMTensor;
+     stateGMTensor.SetGlobalBuffer((__gm__ float *)stateGM);
+     float current = (float)0.0;
+-    float target = (float)1.0 * axisK_ * FLOAT_NUM_PER_ALIGN;
++    float target = (float)1.0 * tempValidCount * FLOAT_NUM_PER_ALIGN;
+     SumParams sumPerKParams{1, calCount, calCount};
+     LocalTensor<float> stateTensorLocal = stateBuf_.Get<float>();
+     LocalTensor<float> tempStateTensorLocal = tempStateBuf_.Get<float>();
+@@ -346,10 +365,15 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferAndWe
+     LocalTensor<float> sumFloatBufLocal = sumFloatBuf_.Get<float>();
+     LocalTensor<float> topkWeightsLocal = topkWeightsBuf_.Get<float>();
+     LocalTensor<uint32_t> stateTensorLocal = stateBuf_.Get<uint32_t>();
++    LocalTensor<int32_t> tokenIdxLocal = tokenIdxBuf_.Get<int32_t>();
+     Duplicate(sumFloatBufLocal, static_cast<float>(0), axisH_);
+     const DataCopyExtParams xOutCopyParams{1U, static_cast<uint32_t>(hRecvXTypeLen_), 0U, 0U, 0U};
+ 
+     for (uint32_t topkId = 0U; topkId < axisK_; topkId++) {
++        int expertId = tokenIdxLocal.GetValue((tokenIndex - startTokenIndex) * axisK_ + topkId);
++        if (expertId < 0 || expertId >= moeExpertNum_) {
++            continue;
++        }
+         float scale = topkWeightsLocal.GetValue((tokenIndex - startTokenIndex) * axisK_ + topkId);
+         GM_ADDR localTokenAddr = localRankGM_ + (tokenIndex * axisK_ + topkId) * h512AlignRecvXLen_;
+         GlobalTensor<XType> localTokenTensor;
+@@ -371,6 +395,7 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferAndWe
+     LocalTensor<XType> xOutLocal = xOutBuf_.Get<XType>();
+     Cast(xOutLocal, sumFloatBufLocal, AscendC::RoundMode::CAST_RINT, axisH_);
+     SyncFunc<AscendC::HardEvent::V_MTE3>();
++    SyncFunc<AscendC::HardEvent::S_MTE3>();
+     DataCopyPad(xOutGlobal_[tokenIndex * axisH_], xOutLocal, xOutCopyParams);
+ }
+ 
+@@ -387,6 +412,8 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferFromR
+         return;
+     }
+ 
++    tokenIdx32AlignLen_ = Ceil(tokenPerBlock * axisK_ * sizeof(int32_t), UB_32_ALIGN) * UB_32_ALIGN;
++
+     tpipe_->Reset();
+     tpipe_->InitBuffer(xOutBuf_, h32AlignRecvXLen_);
+     tpipe_->InitBuffer(tokenFloatBuf_, h32AlignFloatLen_);
+@@ -396,15 +423,20 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferFromR
+     tpipe_->InitBuffer(stateBuf_, (axisK_)*UB_32_ALIGN);
+     tpipe_->InitBuffer(tempStateBuf_, (axisK_)*UB_32_ALIGN);
+     tpipe_->InitBuffer(topkWeightsBuf_, tokenPerBlock * axisK_ * sizeof(float));
++    tpipe_->InitBuffer(tokenIdxBuf_, tokenIdx32AlignLen_);
+ 
+     LocalTensor<float> topkWeightsLocal = topkWeightsBuf_.Get<float>();
++    LocalTensor<int32_t> tokenIdxLocal = tokenIdxBuf_.Get<int32_t>();
+     const DataCopyExtParams bskParams{1U, static_cast<uint32_t>(tokenPerBlock * axisK_ * sizeof(float)), 0U, 0U, 0U};
++    const DataCopyExtParams tokenIdxParams{1U, tokenIdx32AlignLen_, 0U, 0U, 0U};
+     const DataCopyPadExtParams<float> copyPadFloatParams{false, 0U, 0U, 0U};
++    const DataCopyPadExtParams<int32_t> copyPadIntParams{false, 0U, 0U, 0U};
+     DataCopyPad(topkWeightsLocal, topkWeightsGM_[startTokenIndex * axisK_], bskParams, copyPadFloatParams);
++    DataCopyPad(tokenIdxLocal, tokenIdxGM_[startTokenIndex * axisK_], tokenIdxParams, copyPadIntParams);
+     SyncFunc<AscendC::HardEvent::MTE2_S>();
+ 
+     for (uint32_t tokenIndex = startTokenIndex; tokenIndex < endTokenIndex; tokenIndex++) {
+-        WaitBuffCopy(tokenIndex);
++        WaitBuffCopy(tokenIndex, startTokenIndex);
+         SyncFunc<AscendC::HardEvent::MTE3_V>();  // 与结果搬出datacopy同tensor
+         ReadBufferAndWeightedSum(tokenIndex, startTokenIndex);
+     }
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+index a4c7a7e1c..a13d2a04d 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
++++ b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+@@ -44,23 +44,24 @@ class CamMoeCombineNormalMultiRound
+ public:
+     __aicore__ inline CamMoeCombineNormalMultiRound(){};
+     __aicore__ inline void Init(GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount, GM_ADDR topkWeights,
+-                                GM_ADDR tpRecvCount, GM_ADDR XOut, GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM,
+-                                TPipe *pipe, const CamMoeCombineNormalTilingData *tilingData);
++                                GM_ADDR tokenIdx, GM_ADDR tpRecvCount, GM_ADDR XOut, GM_ADDR sendCostStatsOut,
++                                GM_ADDR workspaceGM, TPipe *pipe, const CamMoeCombineNormalTilingData *tilingData);
+     __aicore__ inline void Process();
+ 
+ private:
+     __aicore__ inline void InitMagic();
+     __aicore__ inline void InitGlobalBuffer(GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount,
+-                                            GM_ADDR topkWeights, GM_ADDR XOut, GM_ADDR sendCostStatsOut);
++                                            GM_ADDR topkWeights, GM_ADDR tokenIdx, GM_ADDR XOut,
++                                            GM_ADDR sendCostStatsOut);
+     __aicore__ inline void InitTilingData(const CamMoeCombineNormalTilingData *tilingData);
+     __aicore__ inline void InitBuffLen();
+     __aicore__ inline void CopyBufferToShareAndSetStatus();
+     __aicore__ inline void CopyBufferToShare(uint32_t srcRankId, uint32_t srcTokenId, uint32_t srcTopkId,
+                                              uint32_t tkIndex);
+     __aicore__ inline void ReadBufferFromRemote();
+-    __aicore__ inline void WaitBuffCopy(uint32_t recvXTokenIdx);
++    __aicore__ inline void WaitBuffCopy(uint32_t recvXTokenIdx, uint32_t topkWeightTokenIdx);
+     __aicore__ inline void SetStatusBySrcInfo(uint32_t srcRankId, uint32_t srcTokenId, uint32_t srcTopkId);
+-    __aicore__ inline void ReadBufferAndWeightedSum(uint32_t recvXTokenIdx, uint32_t roundRecvStartTokenIdx_);
++    __aicore__ inline void ReadBufferAndWeightedSum(uint32_t recvXTokenIdx, uint32_t topkWeightTokenIdx);
+     __aicore__ inline void InitRoundSendData();
+     __aicore__ inline void SetRoundStatus();
+     __aicore__ inline void WaitRoundStatus();
+@@ -126,6 +127,7 @@ class CamMoeCombineNormalMultiRound
+     uint32_t h256AlignFloatLen_{0};
+     uint32_t h32AlignRecvXLen_{0};
+     uint32_t h512AlignRecvXLen_{0};
++    uint32_t tokenIdx32AlignLen_{0};
+     uint32_t roundIndex_{0};
+     uint32_t realMaxBs_{0};
+     uint32_t perRoundTokens_{0};
+@@ -144,8 +146,8 @@ class CamMoeCombineNormalMultiRound
+     uint32_t roundRecvTokenCnt_{0};       // 每一轮每个核接收的token数，每一轮接收开始前重新计算
+     uint32_t roundRecvStartTokenIdx_{0};  // 每一轮每个核从HCCL buffer接收的token的起始index，每一轮接收开始前重新计算
+     uint32_t roundRecvEndTokenIdx_{0};  // 每一轮每个核从HCCL buffer接收的token的结束index，每一轮接收开始前重新计算
+-    uint32_t xOutTokenOffset_{
+-        0};  // 这一轮接收的token需要存放在xOut的偏移，即前面几轮接收的token数，每一轮每个核从topkWeightsGM_拷贝权重也需要
++    // 这一轮接收的token需要存放在xOut的偏移，即前面几轮接收的token数，每一轮每个核从topkWeightsGM_拷贝权重也需要
++    uint32_t xOutTokenOffset_{0};
+     uint32_t stateOffset_{0};
+     uint32_t combineDataBuffSize_{0};
+ 
+@@ -163,6 +165,7 @@ class CamMoeCombineNormalMultiRound
+     TBuf<> sumFloatBuf_;
+     TBuf<> weightedMulBuf_;
+     TBuf<> srcInfoBuf_;
++    TBuf<> tokenIdxBuf_;
+     TBuf<> xOutBuf_;
+     TBuf<> setRoundStateBuf_;
+     TBuf<> waitRoundStateBuf_;
+@@ -175,11 +178,13 @@ class CamMoeCombineNormalMultiRound
+     LocalTensor<uint32_t> roundNeedSendCntLT_;
+     LocalTensor<uint32_t> roundSendOffsetLT_;
+     LocalTensor<SrcInfoType> srcInfoLT_;
++    LocalTensor<SrcInfoType> tokenIdxLT_;
+     LocalTensor<float> topkWeightsLT_;
+ 
+     GlobalTensor<RecvXType> recvXGM_;
+     GlobalTensor<SrcInfoType> tokenSrcInfoGM_;
+     GlobalTensor<SrcInfoType> epRecvCountGM_;
++    GlobalTensor<SrcInfoType> tokenIdxGM_;
+     GlobalTensor<float> topkWeightsGM_;
+     GlobalTensor<XType> xOutGlobal_;
+     GlobalTensor<int32_t> sendCostStatsGT_;
+@@ -204,12 +209,13 @@ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::InitM
+ 
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::InitGlobalBuffer(
+-    GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount, GM_ADDR topkWeights, GM_ADDR XOut,
++    GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount, GM_ADDR topkWeights, GM_ADDR tokenIdx, GM_ADDR XOut,
+     GM_ADDR sendCostStatsOut)
+ {
+     recvXGM_.SetGlobalBuffer((__gm__ RecvXType *)recvX);
+     tokenSrcInfoGM_.SetGlobalBuffer((__gm__ SrcInfoType *)tokenSrcInfo);
+     epRecvCountGM_.SetGlobalBuffer((__gm__ int32_t *)epRecvCount);
++    tokenIdxGM_.SetGlobalBuffer((__gm__ int32_t *)tokenIdx);
+     topkWeightsGM_.SetGlobalBuffer((__gm__ float *)topkWeights);
+     xOutGlobal_.SetGlobalBuffer((__gm__ XType *)XOut);
+     if (isEnableDiagnose_) {
+@@ -316,14 +322,18 @@ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::InitR
+ 
+     // 创建topkWeightsLT_，存放每一轮每个核的权重信息
+     uint32_t maxTopkWeightsLen = (perRoundTokens_ / aivNum_ + 1) * axisK_ * sizeof(float);
++    tokenIdx32AlignLen_ = (perRoundTokens_ / aivNum_ + 1) * axisK_ * sizeof(int32_t);
++    tpipe_->InitBuffer(tokenIdxBuf_, tokenIdx32AlignLen_);
+     tpipe_->InitBuffer(topkWeightsBuf_, maxTopkWeightsLen);  // 512 分48核 需要352B
++    tokenIdxLT_ = tokenIdxBuf_.Get<int32_t>();
+     topkWeightsLT_ = topkWeightsBuf_.Get<float>();
+ }
+ 
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::Init(
+-    GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount, GM_ADDR topkWeights, GM_ADDR tpRecvCount, GM_ADDR XOut,
+-    GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM, TPipe *pipe, const CamMoeCombineNormalTilingData *tilingData)
++    GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount, GM_ADDR topkWeights, GM_ADDR tokenIdx,
++    GM_ADDR tpRecvCount, GM_ADDR XOut, GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM, TPipe *pipe,
++    const CamMoeCombineNormalTilingData *tilingData)
+ {
+     workspaceGM_ = workspaceGM;
+     tpipe_ = pipe;
+@@ -332,7 +342,7 @@ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::Init(
+ 
+     InitMagic();
+     InitTilingData(tilingData);
+-    InitGlobalBuffer(recvX, tokenSrcInfo, epRecvCount, topkWeights, XOut, sendCostStatsOut);
++    InitGlobalBuffer(recvX, tokenSrcInfo, epRecvCount, topkWeights, tokenIdx, XOut, sendCostStatsOut);
+     InitBuffLen();
+     combineDataBuffSize_ = perRoundTokens_ * axisK_ * h512AlignRecvXLen_;
+     PipeBarrier<PIPE_ALL>();
+@@ -456,8 +466,17 @@ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::SetSt
+ }
+ 
+ template <TemplateMC2TypeClass>
+-__aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::WaitBuffCopy(uint32_t recvXTokenIdx)
++__aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::WaitBuffCopy(uint32_t recvXTokenIdx,
++                                                                                        uint32_t topkWeightTokenIdx)
+ {
++    int tempValidCount = 0;
++    for (int topkId = 0; topkId < axisK_; ++topkId) {
++        int expertId = tokenIdxLT_.GetValue((topkWeightTokenIdx)*axisK_ + topkId);
++        if (expertId < 0 || expertId >= moeExpertNum_) {
++            continue;
++        }
++        ++tempValidCount;
++    }
+     uint32_t calCount = axisK_ * FLOAT_NUM_PER_ALIGN;
+     uint32_t stateOffset = roundMagic_ * STATE_WIN_SIZE_HALF;
+     GM_ADDR stateGM =
+@@ -465,7 +484,7 @@ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::WaitB
+     GlobalTensor<float> stateGMTensor;
+     stateGMTensor.SetGlobalBuffer((__gm__ float *)stateGM);
+     float current = (float)0.0;
+-    float target = (float)1.0 * axisK_ * FLOAT_NUM_PER_ALIGN;
++    float target = (float)1.0 * tempValidCount * FLOAT_NUM_PER_ALIGN;
+     SumParams sumPerKParams{1, calCount, calCount};
+     LocalTensor<float> stateTensorLocal = waitStateBuf_.Get<float>();
+     LocalTensor<float> tempStateTensorLocal = waitTempStateBuf_.Get<float>();
+@@ -495,6 +514,10 @@ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::ReadB
+     uint32_t xOutTokenIdx = recvXTokenIdx + xOutTokenOffset_;
+ 
+     for (uint32_t topkId = 0U; topkId < axisK_; topkId++) {
++        int expertId = tokenIdxLT_.GetValue(topkWeightTokenIdx * axisK_ + topkId);
++        if (expertId < 0 || expertId >= moeExpertNum_) {
++            continue;
++        }
+         float scale = topkWeightsLT_.GetValue(topkWeightTokenIdx * axisK_ + topkId);
+         GM_ADDR localTokenAddr =
+             GetBufferAddrByRankId(epRankId_) + (recvXTokenIdx * axisK_ + topkId) * h512AlignRecvXLen_;
+@@ -533,16 +556,22 @@ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::ReadB
+     }
+     const DataCopyExtParams bskParams{1U, static_cast<uint32_t>(roundRecvTokenCnt_ * axisK_ * sizeof(float)), 0U, 0U,
+                                       0U};
++    const DataCopyExtParams tokenIdxParams{1U, static_cast<uint32_t>(roundRecvTokenCnt_ * axisK_ * sizeof(int32_t)), 0U,
++                                           0U, 0U};
+     const DataCopyPadExtParams<float> copyPadFloatParams{false, 0U, 0U, 0U};
++    const DataCopyPadExtParams<int32_t> copyPadIntParams{false, 0U, 0U, 0U};
+     DataCopyPad(topkWeightsLT_, topkWeightsGM_[(xOutTokenOffset_ + roundRecvStartTokenIdx_) * axisK_], bskParams,
+                 copyPadFloatParams);
++    DataCopyPad(tokenIdxLT_, tokenIdxGM_[(xOutTokenOffset_ + roundRecvStartTokenIdx_) * axisK_], tokenIdxParams,
++                copyPadIntParams);
++    PipeBarrier<PIPE_ALL>();
+     SyncFunc<AscendC::HardEvent::MTE2_S>();
+ 
+     for (uint32_t roundTokenIdx = roundRecvStartTokenIdx_; roundTokenIdx < roundRecvEndTokenIdx_;
+          roundTokenIdx++) {  // 每轮都从从hccl buffer起始位置读put来的数据
+-        WaitBuffCopy(roundTokenIdx);
+-        SyncFunc<AscendC::HardEvent::MTE3_V>();                            // 与结果搬出datacopy同tensor
+         uint32_t topkWeightIdx = roundTokenIdx - roundRecvStartTokenIdx_;  // 用来计算每一轮token对应weight的偏移
++        WaitBuffCopy(roundTokenIdx, topkWeightIdx);
++        SyncFunc<AscendC::HardEvent::MTE3_V>();  // 与结果搬出datacopy同tensor
+         ReadBufferAndWeightedSum(roundTokenIdx, topkWeightIdx);
+     }
+     totalNeedRecvTokenCnt_ -= roundTotalRecvTokenCnt_;
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h b/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+index 80fabc095..407ef25a5 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
++++ b/csrc/deepep/ops/op_kernel/cam_moe_dispatch_normal.h
+@@ -437,6 +437,9 @@ __aicore__ inline void CamMoeDispatchNormal<CamTypeFunc>::InputToShare()
+     DataCopyExtParams xCopyParams = {1U, static_cast<uint32_t>(h * sizeof(XType)), 0U, 0U, 0U};
+     for (int32_t tokenIndex = startTokenId; tokenIndex < endTokenId; ++tokenIndex) {
+         uint32_t dstExpertId = expertIdsTensor(tokenIndex - startTokenId);
++        if (dstExpertId < 0 || dstExpertId >= moeExpertNum) {
++            continue;
++        }
+         int32_t curExpertCnt = sendTokenIdxTensor(tokenIndex - startTokenId);
+         int32_t dstExpertOffset = sendOffsetTensor(dstExpertId);
+         GM_ADDR rankGM = (__gm__ uint8_t *)(shareGM + hOutGMAlignSize * (dstExpertOffset + curExpertCnt));
+diff --git a/csrc/deepep/ops/op_kernel/dispatch_layout.h b/csrc/deepep/ops/op_kernel/dispatch_layout.h
+index f7ace0dd9..0b8ba82bb 100644
+--- a/csrc/deepep/ops/op_kernel/dispatch_layout.h
++++ b/csrc/deepep/ops/op_kernel/dispatch_layout.h
+@@ -12,6 +12,7 @@
+ namespace MoeDispatchLayout {
+ 
+ constexpr uint32_t UB_32_ALIGN = 32U;
++constexpr uint32_t ONE_PIECE = 8U;
+ 
+ template <AscendC::HardEvent event>
+ __aicore__ inline void SyncFunc()
+@@ -38,6 +39,7 @@ class DispatchLayout
+         numExperts_ = tilingData->dispatchLayoutInfo.numExperts;
+         numTopk_ = tilingData->dispatchLayoutInfo.numTopk;
+         perRoundTokens_ = tilingData->dispatchLayoutInfo.perRoundTokens;
++        rankId_ = tilingData->dispatchLayoutInfo.rankId;
+         round_ = (numTokens_ + perRoundTokens_ - 1) / perRoundTokens_;
+         tpipe_ = pipe;
+ 
+@@ -46,13 +48,31 @@ class DispatchLayout
+         isTokenInRank_ = isTokenInRank;
+         sendTokenIdxSmall_ = sendTokenIdxSmall;
+ 
++        uint32_t maxAivNum = GetBlockNum();
+         coreIdx_ = GetBlockIdx();
+-        uint32_t tempRoundTokens = perRoundTokens_ / GetBlockNum() + 1;
+-        topkIdx32AlignIntLen_ = Ceil(tempRoundTokens * numTopk_ * sizeof(int64_t), UB_32_ALIGN) * UB_32_ALIGN;
++        int32_t firstRoundTokens = (round_ == 1) ? numTokens_ : perRoundTokens_;
++        aivNum_ = firstRoundTokens <= maxAivNum ? firstRoundTokens : maxAivNum;
++        tempTokens_ = firstRoundTokens / aivNum_;
++        int32_t restNum = firstRoundTokens % aivNum_;
++        if (coreIdx_ < restNum) {
++            ++tempTokens_;
++        }
++        topkIdx32AlignIntLen_ = Ceil(tempTokens_ * numTopk_ * sizeof(int64_t), UB_32_ALIGN) * UB_32_ALIGN;
+         numTokensPerRank32AlignIntLen_ = Ceil(numRanks_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
+         numTokensPerExpert32AlignIntLen_ = Ceil(numExperts_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
+-        isTokenInRank32AlignIntLen_ = Ceil(tempRoundTokens * numRanks_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
+-        sendTokenIdx32AlignIntLen_ = Ceil(tempTokens_ * numExperts_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++        isTokenInRank32AlignIntLen_ = Ceil(tempTokens_ * numRanks_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++
++        if (coreIdx_ < restNum) {
++            topkIdxOffset_ = coreIdx_ * tempTokens_ * numTopk_ * sizeof(int64_t);
++            sendIdxOffset_ = coreIdx_ * tempTokens_ * numTopk_ * sizeof(T);
++            isTokenOffset_ = coreIdx_ * tempTokens_ * numRanks_ * sizeof(T);
++            tokenIdxOffset_ = coreIdx_ * tempTokens_ * sizeof(T);
++        } else {
++            topkIdxOffset_ = (restNum + coreIdx_ * tempTokens_) * numTopk_ * sizeof(int64_t);
++            sendIdxOffset_ = (restNum + coreIdx_ * tempTokens_) * numTopk_ * sizeof(T);
++            isTokenOffset_ = (restNum + coreIdx_ * tempTokens_) * numRanks_ * sizeof(T);
++            tokenIdxOffset_ = (restNum + coreIdx_ * tempTokens_) * sizeof(T);
++        }
+ 
+         tempExpertGM_.SetGlobalBuffer((__gm__ T *)notifySendData);
+         numTokensPerRankGM_.SetGlobalBuffer((__gm__ T *)numTokensPerRank);
+@@ -67,17 +87,38 @@ class DispatchLayout
+         tpipe_->InitBuffer(isTokenInRankBuf_, isTokenInRank32AlignIntLen_);
+         tpipe_->InitBuffer(seenRankBuf_, numRanks_ * sizeof(T));
+         tpipe_->InitBuffer(sendTokenIdxSmallBuf_, topkIdx32AlignIntLen_);
+-
+         LocalTensor<int64_t> topkIdxTensor = topkIdxBuf_.AllocTensor<int64_t>();
+         LocalTensor<T> numTokensPerRankTensor = numTokensPerRankBuf_.AllocTensor<T>();
+         LocalTensor<T> numTokensPerExpertTensor = numTokensPerExpertBuf_.AllocTensor<T>();
+         LocalTensor<T> isTokenInRankTensor = isTokenInRankBuf_.AllocTensor<T>();
+         LocalTensor<T> seenRankTensor = seenRankBuf_.AllocTensor<T>();
+         LocalTensor<T> sendTokenIdxSmallTensor = sendTokenIdxSmallBuf_.AllocTensor<T>();
++
++        int32_t preRoundCount = 0;
+         for (int r = 0; r < round_; r++) {
+             uint32_t roundTokens = perRoundTokens_;
+-            if (r == round_ - 1) {
+-                roundTokens = (numTokens_ % perRoundTokens_ == 0) ? perRoundTokens_ : (numTokens_ % perRoundTokens_);
++            if (r == round_ - 1 && (numTokens_ % perRoundTokens_ != 0)) {
++                roundTokens = numTokens_ % perRoundTokens_;
++                uint32_t temp = roundTokens / aivNum_;
++                uint32_t restNum = roundTokens % aivNum_;
++                tempTokens_ = temp;
++                if (coreIdx_ < restNum) {
++                    tempTokens_++;
++                }
++                topkIdx32AlignIntLen_ = Ceil(tempTokens_ * numTopk_ * sizeof(int64_t), UB_32_ALIGN) * UB_32_ALIGN;
++                isTokenInRank32AlignIntLen_ = Ceil(tempTokens_ * numRanks_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
++
++                if (coreIdx_ < restNum) {
++                    topkIdxOffset_ = coreIdx_ * tempTokens_ * numTopk_ * sizeof(int64_t);
++                    sendIdxOffset_ = coreIdx_ * tempTokens_ * numTopk_ * sizeof(T);
++                    isTokenOffset_ = coreIdx_ * tempTokens_ * numRanks_ * sizeof(T);
++                    tokenIdxOffset_ = coreIdx_ * tempTokens_ * sizeof(T);
++                } else {
++                    topkIdxOffset_ = (restNum + coreIdx_ * tempTokens_) * numTopk_ * sizeof(int64_t);
++                    sendIdxOffset_ = (restNum + coreIdx_ * tempTokens_) * numTopk_ * sizeof(T);
++                    isTokenOffset_ = (restNum + coreIdx_ * tempTokens_) * numRanks_ * sizeof(T);
++                    tokenIdxOffset_ = (restNum + coreIdx_ * tempTokens_) * sizeof(T);
++                }
+             }
+ 
+             uint32_t maxAivNum = GetBlockNum();
+@@ -87,46 +128,26 @@ class DispatchLayout
+                 SyncAll<true>();
+                 continue;
+             }
+-            uint32_t temp = roundTokens / aivNum_;
+-            uint32_t restNum = roundTokens % aivNum_;
+-            int64_t topkIdxOffset;
+-            int64_t isTokenOffset;
+-            tempTokens_ = temp;
+-
+-            if (coreIdx_ < restNum) {
+-                tempTokens_++;
+-            }
+-            topkIdx32AlignIntLen_ = Ceil(tempTokens_ * numTopk_ * sizeof(int64_t), UB_32_ALIGN) * UB_32_ALIGN;
+-            isTokenInRank32AlignIntLen_ = Ceil(tempTokens_ * numRanks_ * sizeof(T), UB_32_ALIGN) * UB_32_ALIGN;
+-
+-            if (coreIdx_ < restNum) {
+-                topkIdxOffset = coreIdx_ * tempTokens_ * numTopk_ * sizeof(int64_t);
+-                isTokenOffset = coreIdx_ * tempTokens_ * numRanks_ * sizeof(T);
+-            } else {
+-                topkIdxOffset = (restNum + coreIdx_ * tempTokens_) * numTopk_ * sizeof(int64_t);
+-                isTokenOffset = (restNum + coreIdx_ * tempTokens_) * numRanks_ * sizeof(T);
+-            }
+ 
+             int64_t round_topkIdx_offset = r * perRoundTokens_ * numTopk_ * sizeof(int64_t);
++            int64_t round_sendIdx_offset = r * perRoundTokens_ * numTopk_ * sizeof(T);
+ 
+             sendTokenIdxSmallGM_.SetGlobalBuffer(
+-                (__gm__ T *)(sendTokenIdxSmall_ + round_topkIdx_offset / 2 + topkIdxOffset / 2));
+-            topkIdxGM_.SetGlobalBuffer(
+-                (__gm__ int64_t *)(topkIdx_ + r * perRoundTokens_ * numTopk_ * sizeof(int64_t) + topkIdxOffset));
+-            numTokensPerExpertGM_.SetGlobalBuffer((__gm__ T *)numTokensPerExpert_ + numExperts_ * r);
++                (__gm__ T *)(sendTokenIdxSmall_ + round_sendIdx_offset + sendIdxOffset_));
++            topkIdxGM_.SetGlobalBuffer((__gm__ int64_t *)(topkIdx_ + round_topkIdx_offset + topkIdxOffset_));
++            numTokensPerExpertGM_.SetGlobalBuffer((__gm__ T *)(numTokensPerExpert_ + numExperts_ * r * sizeof(T)));
+             // tokens * rank;
+             isTokenInRankGM_.SetGlobalBuffer(
+-                (__gm__ T *)(isTokenInRank_ + r * perRoundTokens_ * numRanks_ * sizeof(T) + isTokenOffset));
++                (__gm__ T *)(isTokenInRank_ + r * perRoundTokens_ * numRanks_ * sizeof(T) + isTokenOffset_));
+ 
+             const DataCopyExtParams dataCopyParams{1U, topkIdx32AlignIntLen_, 0U, 0U, 0U};
+             const DataCopyPadExtParams<int64_t> padParams{false, 0U, 0U, 0U};
+             SyncFunc<AscendC::HardEvent::S_MTE2>();
+             DataCopyPad(topkIdxTensor, topkIdxGM_, dataCopyParams, padParams);
+             SyncFunc<AscendC::HardEvent::MTE2_S>();
+-
+             SyncFunc<AscendC::HardEvent::MTE3_V>();
+-            Duplicate<T>(numTokensPerRankTensor, 0, numRanks_);
+-            Duplicate<T>(isTokenInRankTensor, 0, tempTokens_ * numRanks_);
++            Duplicate<T>(numTokensPerRankTensor, 0, numTokensPerRank32AlignIntLen_ / sizeof(T));
++            Duplicate<T>(isTokenInRankTensor, 0, isTokenInRank32AlignIntLen_ / sizeof(T));
+             Duplicate<T>(numTokensPerExpertTensor, 0, numTokensPerExpert32AlignIntLen_ / sizeof(T));
+             SyncFunc<AscendC::HardEvent::V_S>();
+             SyncFunc<AscendC::HardEvent::V_MTE3>();
+@@ -142,6 +163,9 @@ class DispatchLayout
+                 SyncFunc<AscendC::HardEvent::V_S>();
+                 for (int j = 0; j < numTopk_; ++j) {
+                     int64_t expert_idx = topkIdxTensor.GetValue(i * numTopk_ + j);
++                    if (expert_idx < 0 || expert_idx >= numExperts_) {
++                        continue;
++                    }
+                     uint32_t per_expert_num = numTokensPerExpertTensor.GetValue(expert_idx) + 1;
+                     numTokensPerExpertTensor.SetValue(expert_idx, per_expert_num);
+                     int rank_id = expert_idx / experts_per_rank;
+@@ -153,7 +177,6 @@ class DispatchLayout
+                     }
+                 }
+             }
+-
+             uint32_t sendSize = tempTokens_ * numRanks_ * sizeof(T);
+             const DataCopyExtParams isTokenInRankDataCopyParams{1U, sendSize, 0U, 0U, 0U};
+             SyncFunc<AscendC::HardEvent::S_MTE3>();
+@@ -176,11 +199,13 @@ class DispatchLayout
+             const DataCopyPadExtParams<T> tempPadParams{false, 0U, 0U, 0U};
+             DataCopyPad(numTokensPerExpertTensor, tempExpertGM_[coreIdx_ * numExperts_], tempExpertDataCopyParams,
+                         tempPadParams);
+-
+             SyncFunc<AscendC::HardEvent::MTE2_S>();
+             for (int i = 0; i < tempTokens_; ++i) {
+                 for (int j = 0; j < numTopk_; ++j) {
+                     int64_t expert_idx = topkIdxTensor.GetValue(i * numTopk_ + j);
++                    if (expert_idx < 0 || expert_idx >= numExperts_) {
++                        continue;
++                    }
+                     T valT = numTokensPerExpertTensor(expert_idx);
+                     sendTokenIdxSmallTensor(i * numTopk_ + j) = valT;
+                     numTokensPerExpertTensor(expert_idx) = valT + 1;
+@@ -217,13 +242,18 @@ class DispatchLayout
+     uint32_t aivNum_{0};
+     uint32_t tempTokens_{0};
+     uint32_t round_{0};
++    uint32_t rankId_{0};
+     uint32_t perRoundTokens_{0};
++    uint32_t preRoundsCount_{0};
++    int64_t topkIdxOffset_{0};
++    int64_t sendIdxOffset_{0};
++    int64_t isTokenOffset_{0};
++    int64_t tokenIdxOffset_{0};
+ 
+     uint32_t topkIdx32AlignIntLen_{0};
+     uint32_t numTokensPerRank32AlignIntLen_{0};
+     uint32_t numTokensPerExpert32AlignIntLen_{0};
+     uint32_t isTokenInRank32AlignIntLen_{0};
+-    uint32_t sendTokenIdx32AlignIntLen_{0};
+ 
+     GM_ADDR topkIdx_;
+     GM_ADDR numTokensPerExpert_;
+diff --git a/csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h b/csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h
+index 504d30c44..26641a204 100644
+--- a/csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h
++++ b/csrc/deepep/ops/op_kernel/dispatch_layout_tiling.h
+@@ -10,6 +10,7 @@ struct DispatchLayoutInfo {
+     uint32_t numTopk;
+     uint32_t localRankSize;
+     uint32_t perRoundTokens;
++    uint32_t rankId;
+     uint64_t totalUbSize;
+ };
+ 
+diff --git a/csrc/deepep/ops2/op_host/cam_moe_combine_normal.cpp b/csrc/deepep/ops2/op_host/cam_moe_combine_normal.cpp
+index 92652f100..83289564d 100644
+--- a/csrc/deepep/ops2/op_host/cam_moe_combine_normal.cpp
++++ b/csrc/deepep/ops2/op_host/cam_moe_combine_normal.cpp
+@@ -30,6 +30,12 @@ class CamMoeCombineNormal : public OpDef
+             .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+             .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
+             .AutoContiguous();
++        this->Input("topk_idx")
++            .ParamType(REQUIRED)
++            .DataType({ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32})
++            .Format({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
++            .UnknownShapeFormat({ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND, ge::FORMAT_ND})
++            .AutoContiguous();
+         this->Input("tp_recv_counts")
+             .ParamType(OPTIONAL)
+             .DataType({ge::DT_INT32, ge::DT_INT32, ge::DT_INT32, ge::DT_INT32})
+diff --git a/csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc b/csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
+index 639ba10fa..7ed82706c 100644
+--- a/csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
++++ b/csrc/deepep/ops2/op_host/cam_moe_combine_normal_tiling.cc
+@@ -52,7 +52,9 @@ constexpr uint32_t RECV_X_INDEX = 0;
+ constexpr uint32_t TOKEN_SRC_INFO_INDEX = 1;
+ constexpr uint32_t EP_RECV_COUNTS_INDEX = 2;
+ constexpr uint32_t TOPK_WEIGHTS_INDEX = 3;
+-constexpr uint32_t TP_RECV_COUNTS_INDEX = 4;
++constexpr uint32_t TOPK_IDX_INDEX = 4;
++constexpr uint32_t TP_RECV_COUNTS_INDEX = 5;
++
+ constexpr uint32_t OUTPUT_X_INDEX = 0;
+ constexpr uint32_t OUTPUT_SEND_COST_INDEX = 1;
+ 
+@@ -227,6 +229,15 @@ static bool CheckInputTensorDim(gert::TilingContext *context, const char *nodeNa
+     OP_LOGD(nodeName, "topkWeights dim0 = %ld", topkWeightsStorageShape->GetStorageShape().GetDim(0));
+     OP_LOGD(nodeName, "topkWeights dim1 = %ld", topkWeightsStorageShape->GetStorageShape().GetDim(1));
+ 
++    const gert::StorageShape *topIdxStorageShape = context->GetInputShape(TOPK_IDX_INDEX);
++    OP_TILING_CHECK(topIdxStorageShape == nullptr, OP_LOGE(nodeName, "topkWeights is null."), return false);
++    OP_TILING_CHECK(topIdxStorageShape->GetStorageShape().GetDimNum() != TWO_DIMS,
++                    OP_LOGE(nodeName, "topkIdx must be 2-dimension, but got %lu dim",
++                            topIdxStorageShape->GetStorageShape().GetDimNum()),
++                    return false);
++    OP_LOGD(nodeName, "topkIdx dim0 = %ld", topIdxStorageShape->GetStorageShape().GetDim(0));
++    OP_LOGD(nodeName, "topkIdx dim1 = %ld", topIdxStorageShape->GetStorageShape().GetDim(1));
++
+     return true;
+ }
+ 
+@@ -305,6 +316,13 @@ static bool CheckTensorDataType(gert::TilingContext *context, const char *nodeNa
+     OP_TILING_CHECK((topkWeightsDesc->GetDataType() != ge::DT_FLOAT),
+                     OP_LOGE(nodeName, "topkWeights dataType is invalid, dataType should be float, but is "),
+                     return false);
++    auto topkIdxDesc = context->GetInputDesc(TOPK_IDX_INDEX);
++    OP_TILING_CHECK(topkIdxDesc == nullptr, OP_LOGE(nodeName, "topkIdxDesc is null."), return false);
++    OP_TILING_CHECK((topkIdxDesc->GetDataType() != ge::DT_INT32),
++                    OP_LOGE(nodeName,
++                            "topkIdxForCombine dataType is invalid,"
++                            " dataType should be int32, but is"),
++                    return false);
+     auto xDesc = context->GetOutputDesc(OUTPUT_X_INDEX);
+     OP_TILING_CHECK(xDesc == nullptr, OP_LOGE(nodeName, "xDesc is null."), return false);
+     OP_TILING_CHECK((xDesc->GetDataType() != recvXDesc->GetDataType()),
+@@ -349,6 +367,12 @@ static bool CheckTensorFormat(gert::TilingContext *context, const char *nodeName
+         static_cast<ge::Format>(ge::GetPrimaryFormat(topkWeightsDesc->GetStorageFormat())) == ge::FORMAT_FRACTAL_NZ,
+         OP_LOGE(nodeName, "topkWeightsFormat is invalid"), return false);
+ 
++    auto topkIdxsDesc = context->GetOptionalInputDesc(TOPK_IDX_INDEX);
++    OP_TILING_CHECK(topkIdxsDesc == nullptr, OP_LOGE(nodeName, "topkIdxsDesc is null."), return false);
++    OP_TILING_CHECK(
++        static_cast<ge::Format>(ge::GetPrimaryFormat(topkIdxsDesc->GetStorageFormat())) == ge::FORMAT_FRACTAL_NZ,
++        OP_LOGE(nodeName, "topkIdxsFormat is invalid"), return false);
++
+     auto xDesc = context->GetOutputDesc(OUTPUT_X_INDEX);
+     OP_TILING_CHECK(xDesc == nullptr, OP_LOGE(nodeName, "xDesc is null."), return false);
+     OP_TILING_CHECK(static_cast<ge::Format>(ge::GetPrimaryFormat(xDesc->GetStorageFormat())) == ge::FORMAT_FRACTAL_NZ,
+diff --git a/csrc/deepep/ops2/op_host/dispatch_layout.cpp b/csrc/deepep/ops2/op_host/dispatch_layout.cpp
+index 64b680c35..6495eb144 100644
+--- a/csrc/deepep/ops2/op_host/dispatch_layout.cpp
++++ b/csrc/deepep/ops2/op_host/dispatch_layout.cpp
+@@ -18,6 +18,7 @@ class DispatchLayout : public OpDef
+         this->Attr("num_topk").Int();
+         this->Attr("local_ranksize").Int();
+         this->Attr("per_round_tokens").Int();
++        this->Attr("rank_id").Int();
+ 
+         this->Output("numTokensPerRank")
+             .ParamType(REQUIRED)
+diff --git a/csrc/deepep/ops2/op_host/dispatch_layout_tiling.cc b/csrc/deepep/ops2/op_host/dispatch_layout_tiling.cc
+index 6a63c6c42..141550ad6 100644
+--- a/csrc/deepep/ops2/op_host/dispatch_layout_tiling.cc
++++ b/csrc/deepep/ops2/op_host/dispatch_layout_tiling.cc
+@@ -41,6 +41,7 @@ constexpr uint32_t ATTR_NUM_EXPERTS_INDEX = 2;
+ constexpr uint32_t ATTR_NUM_TOPK_INDEX = 3;
+ constexpr uint32_t ATTR_LOCAL_RANKSIZE_INDEX = 4;
+ constexpr uint32_t ATTR_PER_ROUND_TOKENS_INDEX = 5;
++constexpr uint32_t ATTR_RANK_ID_INDEX = 6;
+ const int64_t MAX_COMM_WORLD_SIZE = 384;
+ const int64_t MAX_MOE_EXPERTS_NUM = 512;
+ const int64_t MAX_LOCAL_RANKSIZE = 8;
+@@ -64,6 +65,7 @@ static void PrintTilingDataInfo(const char *nodeName, DispatchLayoutTilingData &
+     OP_LOGD(nodeName, "numExperts is %u.", tilingData.dispatchLayoutInfo.numExperts);
+     OP_LOGD(nodeName, "numTopk is %u.", tilingData.dispatchLayoutInfo.numTopk);
+     OP_LOGD(nodeName, "localRankSize is %u.", tilingData.dispatchLayoutInfo.localRankSize);
++    OP_LOGD(nodeName, "rankId is %u.", tilingData.dispatchLayoutInfo.rankId);
+     OP_LOGD(nodeName, "perRoundTokens is %u.", tilingData.dispatchLayoutInfo.perRoundTokens);
+     OP_LOGD(nodeName, "totalUbSize is %lu.", tilingData.dispatchLayoutInfo.totalUbSize);
+ }
+@@ -96,6 +98,7 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+     auto numExpertsPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_NUM_EXPERTS_INDEX));
+     auto numTopkPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_NUM_TOPK_INDEX));
+     auto localRankSizePtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_LOCAL_RANKSIZE_INDEX));
++    auto rankIdPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_RANK_ID_INDEX));
+     auto perRoundTokensPtr = attrs->GetAttrPointer<int64_t>(static_cast<int>(ATTR_PER_ROUND_TOKENS_INDEX));
+ 
+     OP_TILING_CHECK(numTokensPtr == nullptr, OP_LOGE(nodeName, "numTokensPtr is null."), return ge::GRAPH_FAILED);
+@@ -104,6 +107,7 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+     OP_TILING_CHECK(numTopkPtr == nullptr, OP_LOGE(nodeName, "numTopkPtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(localRankSizePtr == nullptr, OP_LOGE(nodeName, "localRankSizePtr is null."),
+                     return ge::GRAPH_FAILED);
++    OP_TILING_CHECK(rankIdPtr == nullptr, OP_LOGE(nodeName, "rankIdPtr is null."), return ge::GRAPH_FAILED);
+     OP_TILING_CHECK(perRoundTokensPtr == nullptr, OP_LOGE(nodeName, "perRoundTokensPtr is null."),
+                     return ge::GRAPH_FAILED);
+ 
+@@ -129,6 +133,7 @@ static ge::graphStatus GetAttrAndSetTilingData(gert::TilingContext *context, con
+     tilingData.dispatchLayoutInfo.numExperts = static_cast<uint32_t>(*numExpertsPtr);
+     tilingData.dispatchLayoutInfo.numTopk = static_cast<uint32_t>(*numTopkPtr);
+     tilingData.dispatchLayoutInfo.localRankSize = static_cast<uint32_t>(*localRankSizePtr);
++    tilingData.dispatchLayoutInfo.rankId = static_cast<uint32_t>(*rankIdPtr);
+     tilingData.dispatchLayoutInfo.perRoundTokens = static_cast<uint32_t>(*perRoundTokensPtr);
+ 
+     if (CheckIfA2MultiMachine(context, tilingData)) {
+diff --git a/csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.cpp b/csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+index 351e31397..3250967bf 100644
+--- a/csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
++++ b/csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.cpp
+@@ -14,18 +14,16 @@ extern "C" void __attribute__((weak)) NnopbaseSetHcclServerType(void *executor,
+ extern "C" {
+ #endif
+ 
+-aclnnStatus aclnnCamMoeCombineNormalGetWorkspaceSize(const aclTensor *recvX, const aclTensor *tokenSrcInfo,
+-                                                     const aclTensor *epRecvCounts, const aclTensor *recvTopkWeights,
+-                                                     const aclTensor *tpRecvCountsOptional, char *epGroupName,
+-                                                     int64_t epWorldSize, int64_t epRankId, char *tpGroupNameOptional,
+-                                                     int64_t tpWorldSize, int64_t tpRankId, int64_t moeExpertNum,
+-                                                     int64_t realMaxBs, int32_t round, int32_t per_round_tokens,
+-                                                     const aclTensor *out, const aclTensor *sendCostStats,
+-                                                     uint64_t *workspaceSize, aclOpExecutor **executor)
++aclnnStatus aclnnCamMoeCombineNormalGetWorkspaceSize(
++    const aclTensor *recvX, const aclTensor *tokenSrcInfo, const aclTensor *epRecvCounts,
++    const aclTensor *recvTopkWeights, const aclTensor *topkIdx, const aclTensor *tpRecvCountsOptional,
++    char *epGroupName, int64_t epWorldSize, int64_t epRankId, char *tpGroupNameOptional, int64_t tpWorldSize,
++    int64_t tpRankId, int64_t moeExpertNum, int64_t realMaxBs, int32_t round, int32_t per_round_tokens,
++    const aclTensor *out, const aclTensor *sendCostStats, uint64_t *workspaceSize, aclOpExecutor **executor)
+ {
+     return aclnnInnerCamMoeCombineNormalGetWorkspaceSize(
+-        recvX, tokenSrcInfo, epRecvCounts, recvTopkWeights, tpRecvCountsOptional, epGroupName, epWorldSize, epRankId,
+-        tpGroupNameOptional, tpWorldSize, tpRankId, moeExpertNum, realMaxBs, round, per_round_tokens, out,
++        recvX, tokenSrcInfo, epRecvCounts, recvTopkWeights, topkIdx, tpRecvCountsOptional, epGroupName, epWorldSize,
++        epRankId, tpGroupNameOptional, tpWorldSize, tpRankId, moeExpertNum, realMaxBs, round, per_round_tokens, out,
+         sendCostStats, workspaceSize, executor);
+ }
+ 
+diff --git a/csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.h b/csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.h
+index fb248c8a8..0e8446bd5 100644
+--- a/csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.h
++++ b/csrc/deepep/ops2/op_host/op_api/aclnn_cam_moe_combine_normal.h
+@@ -27,10 +27,10 @@ extern "C" {
+  */
+ __attribute__((visibility("default"))) aclnnStatus aclnnCamMoeCombineNormalGetWorkspaceSize(
+     const aclTensor *recvX, const aclTensor *tokenSrcInfo, const aclTensor *epRecvCounts,
+-    const aclTensor *recvTopkWeights, const aclTensor *tpRecvCountsOptional, char *epGroupName, int64_t epWorldSize,
+-    int64_t epRankId, char *tpGroupNameOptional, int64_t tpWorldSize, int64_t tpRankId, int64_t moeExpertNum,
+-    int64_t realMaxBs, int32_t round, int32_t per_round_tokens, const aclTensor *out, const aclTensor *sendCostStats,
+-    uint64_t *workspaceSize, aclOpExecutor **executor);
++    const aclTensor *recvTopkWeights, const aclTensor *topkIdx, const aclTensor *tpRecvCountsOptional,
++    char *epGroupName, int64_t epWorldSize, int64_t epRankId, char *tpGroupNameOptional, int64_t tpWorldSize,
++    int64_t tpRankId, int64_t moeExpertNum, int64_t realMaxBs, int32_t round, int32_t per_round_tokens,
++    const aclTensor *out, const aclTensor *sendCostStats, uint64_t *workspaceSize, aclOpExecutor **executor);
+ 
+ /* function: aclnnMoeCombine
+  * workspace : workspace memory addr(input).
+diff --git a/csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.cpp b/csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.cpp
+index 71f2a3b38..1c9fa3ce9 100644
+--- a/csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.cpp
++++ b/csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.cpp
+@@ -16,14 +16,15 @@ extern "C" {
+ 
+ aclnnStatus aclnnDispatchLayoutGetWorkspaceSize(const aclTensor *topkIdx, int64_t numTokens, int64_t numRanks,
+                                                 int64_t numExperts, int64_t numTopk, int64_t localRankSize,
+-                                                int32_t perRoundTokens, const aclTensor *numTokensPerRank,
+-                                                const aclTensor *numTokensPerExpert, const aclTensor *isTokenInRank,
+-                                                const aclTensor *notifySendData, const aclTensor *sendTokenIdxSmall,
+-                                                uint64_t *workspaceSize, aclOpExecutor **executor)
++                                                int32_t perRoundTokens, int32_t rankId,
++                                                const aclTensor *numTokensPerRank, const aclTensor *numTokensPerExpert,
++                                                const aclTensor *isTokenInRank, const aclTensor *notifySendData,
++                                                const aclTensor *sendTokenIdxSmall, uint64_t *workspaceSize,
++                                                aclOpExecutor **executor)
+ {
+-    return aclnnInnerDispatchLayoutGetWorkspaceSize(topkIdx, numTokens, numRanks, numExperts, numTopk, localRankSize,
+-                                                    perRoundTokens, numTokensPerRank, numTokensPerExpert, isTokenInRank,
+-                                                    notifySendData, sendTokenIdxSmall, workspaceSize, executor);
++    return aclnnInnerDispatchLayoutGetWorkspaceSize(
++        topkIdx, numTokens, numRanks, numExperts, numTopk, localRankSize, perRoundTokens, rankId, numTokensPerRank,
++        numTokensPerExpert, isTokenInRank, notifySendData, sendTokenIdxSmall, workspaceSize, executor);
+ }
+ 
+ aclnnStatus aclnnDispatchLayout(void *workspace, uint64_t workspaceSize, aclOpExecutor *executor, aclrtStream stream)
+diff --git a/csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.h b/csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.h
+index fc57491aa..0c7d4189c 100644
+--- a/csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.h
++++ b/csrc/deepep/ops2/op_host/op_api/aclnn_dispatch_layout.h
+@@ -15,6 +15,7 @@ extern "C" {
+  * numTopk : required
+  * localRankSize : required
+  * perRoundTokens : required
++ * rankId : required
+  * numTokensPerRank : required
+  * numTokensPerExpert : required
+  * isTokenInRank : required
+@@ -24,7 +25,7 @@ extern "C" {
+  */
+ __attribute__((visibility("default"))) aclnnStatus aclnnDispatchLayoutGetWorkspaceSize(
+     const aclTensor *topkIdx, int64_t numTokens, int64_t numRanks, int64_t numExperts, int64_t numTopk,
+-    int64_t localRankSize, int32_t perRoundTokens, const aclTensor *numTokensPerRank,
++    int64_t localRankSize, int32_t perRoundTokens, int32_t rankId, const aclTensor *numTokensPerRank,
+     const aclTensor *numTokensPerExpert, const aclTensor *isTokenInRank, const aclTensor *notifySendData,
+     const aclTensor *sendTokenIdxSmall, uint64_t *workspaceSize, aclOpExecutor **executor);
+ 
+diff --git a/csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.cpp b/csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.cpp
+index b306d0eb7..bed704181 100644
+--- a/csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.cpp
++++ b/csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.cpp
+@@ -6,9 +6,9 @@ using namespace AscendC;
+ using namespace CamMoeCombineNormalImpl;
+ 
+ extern "C" __global__ __aicore__ void cam_moe_combine_normal(GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount,
+-                                                             GM_ADDR topkWeights, GM_ADDR tpRecvCount, GM_ADDR XOut,
+-                                                             GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM,
+-                                                             GM_ADDR tilingGM)
++                                                             GM_ADDR topkWeights, GM_ADDR topkIdx, GM_ADDR tpRecvCount,
++                                                             GM_ADDR XOut, GM_ADDR sendCostStatsOut,
++                                                             GM_ADDR workspaceGM, GM_ADDR tilingGM)
+ 
+ {
+     REGISTER_TILING_DEFAULT(CamMoeCombineNormalTilingData);
+@@ -17,8 +17,8 @@ extern "C" __global__ __aicore__ void cam_moe_combine_normal(GM_ADDR recvX, GM_A
+ #if (ORIG_DTYPE_RECV_X == DT_BF16 || ORIG_DTYPE_RECV_X == DT_FLOAT16)
+     GET_TILING_DATA_WITH_STRUCT(CamMoeCombineNormalTilingData, tilingData, tilingGM);
+     CamMoeCombineNormal<DTYPE_RECV_X, DTYPE_X, int32_t> op;
+-    op.Init(recvX, tokenSrcInfo, epRecvCount, topkWeights, tpRecvCount, XOut, sendCostStatsOut, workspaceGM, &pipe,
+-            tilingGM);
++    op.Init(recvX, tokenSrcInfo, epRecvCount, topkWeights, topkIdx, tpRecvCount, XOut, sendCostStatsOut, workspaceGM,
++            &pipe, tilingGM);
+     op.Process();
+ #endif
+ }
+diff --git a/csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.h b/csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.h
+index 47fe17b53..454ae61ad 100644
+--- a/csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.h
++++ b/csrc/deepep/ops2/op_kernel/cam_moe_combine_normal.h
+@@ -39,21 +39,22 @@ class CamMoeCombineNormal
+ public:
+     __aicore__ inline CamMoeCombineNormal(){};
+     __aicore__ inline void Init(GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount, GM_ADDR topkWeights,
+-                                GM_ADDR tpRecvCount, GM_ADDR XOut, GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM,
+-                                TPipe *pipe, GM_ADDR tiling);
++                                GM_ADDR topkIdx, GM_ADDR tpRecvCount, GM_ADDR XOut, GM_ADDR sendCostStatsOut,
++                                GM_ADDR workspaceGM, TPipe *pipe, GM_ADDR tiling);
+     __aicore__ inline void Process();
+ 
+ private:
+     __aicore__ inline void InitMagic();
+     __aicore__ inline void InitGlobalBuffer(GM_ADDR recvX, GM_ADDR tokenSrcInfo, GM_ADDR epRecvCount,
+-                                            GM_ADDR topkWeights, GM_ADDR XOut, GM_ADDR sendCostStatsOut);
++                                            GM_ADDR topkWeights, GM_ADDR topkIdx, GM_ADDR XOut,
++                                            GM_ADDR sendCostStatsOut);
+     __aicore__ inline void InitTilingData(__gm__ CamMoeCombineNormalTilingData *tilingData);
+     __aicore__ inline void InitBuffLen();
+     __aicore__ inline void CopyBufferToShareAndSetStatus();
+     __aicore__ inline void CopyBufferToShare(uint32_t srcRankId, uint32_t srcTokenId, uint32_t srcTopkId,
+                                              uint32_t tkIndex);
+     __aicore__ inline void ReadBufferFromRemote();
+-    __aicore__ inline void WaitBuffCopy(uint32_t tokenIndex);
++    __aicore__ inline void WaitBuffCopy(uint32_t tokenIndex, uint32_t startTokenIndex);
+     __aicore__ inline void SetStatusBySrcInfo(uint32_t srcRankId, uint32_t srcTokenId, uint32_t srcTopkId);
+     __aicore__ inline void ReadBufferAndWeightedSum(uint32_t tokenIndex, uint32_t startTokenIndex);
+ 
+@@ -103,6 +104,7 @@ class CamMoeCombineNormal
+     uint32_t h32AlignRecvXLen_{0};
+     uint32_t h512AlignRecvXLen_{0};
+     uint32_t sendCostStatsBufSize_{0};
++    uint32_t tokenIdx32AlignLen_{0};
+ 
+     bool isEnableDiagnose_{false};
+ 
+@@ -112,6 +114,7 @@ class CamMoeCombineNormal
+     TQueBind<QuePosition::VECIN, QuePosition::VECOUT, 1> localCopyQueue_;
+     TBuf<> stateBuf_;
+     TBuf<> topkWeightsBuf_;
++    TBuf<> topkIdxBuf_;
+     TBuf<> tokenFloatBuf_;
+     TBuf<> sumFloatBuf_;
+     TBuf<> weightedMulBuf_;
+@@ -123,6 +126,7 @@ class CamMoeCombineNormal
+     GlobalTensor<SrcInfoType> tokenSrcInfoGM_;
+     GlobalTensor<SrcInfoType> epRecvCountGM_;
+     GlobalTensor<float> topkWeightsGM_;
++    GlobalTensor<int32_t> topkIdxGM_;
+     GlobalTensor<XType> xOutGlobal_;
+     GlobalTensor<int32_t> sendCostStatsGT_;
+     GM_ADDR localRankGM_;
+@@ -144,13 +148,15 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::InitMagic()
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::InitGlobalBuffer(GM_ADDR recvX, GM_ADDR tokenSrcInfo,
+                                                                                   GM_ADDR epRecvCount,
+-                                                                                  GM_ADDR topkWeights, GM_ADDR XOut,
++                                                                                  GM_ADDR topkWeights, GM_ADDR topkIdx,
++                                                                                  GM_ADDR XOut,
+                                                                                   GM_ADDR sendCostStatsOut)
+ {
+     recvXGM_.SetGlobalBuffer((__gm__ RecvXType *)recvX);
+     tokenSrcInfoGM_.SetGlobalBuffer((__gm__ SrcInfoType *)tokenSrcInfo);
+     epRecvCountGM_.SetGlobalBuffer((__gm__ int32_t *)epRecvCount);
+     topkWeightsGM_.SetGlobalBuffer((__gm__ float *)topkWeights);
++    topkIdxGM_.SetGlobalBuffer((__gm__ int32_t *)topkIdx);
+     xOutGlobal_.SetGlobalBuffer((__gm__ XType *)XOut);
+     if (isEnableDiagnose_) {
+         sendCostStatsGT_.SetGlobalBuffer((__gm__ int32_t *)sendCostStatsOut);
+@@ -189,9 +195,9 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::InitBuffLen()
+ template <TemplateMC2TypeClass>
+ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::Init(GM_ADDR recvX, GM_ADDR tokenSrcInfo,
+                                                                       GM_ADDR epRecvCount, GM_ADDR topkWeights,
+-                                                                      GM_ADDR tpRecvCount, GM_ADDR XOut,
+-                                                                      GM_ADDR sendCostStatsOut, GM_ADDR workspaceGM,
+-                                                                      TPipe *pipe, GM_ADDR tiling)
++                                                                      GM_ADDR topkIdx, GM_ADDR tpRecvCount,
++                                                                      GM_ADDR XOut, GM_ADDR sendCostStatsOut,
++                                                                      GM_ADDR workspaceGM, TPipe *pipe, GM_ADDR tiling)
+ {
+     workspaceGM_ = workspaceGM;
+     tpipe_ = pipe;
+@@ -208,7 +214,7 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::Init(GM_ADDR re
+     epWinContext_ = (__gm__ HcclOpResParam *)contextGM0;
+     InitTilingData(tilingData);
+     InitMagic();
+-    InitGlobalBuffer(recvX, tokenSrcInfo, epRecvCount, topkWeights, XOut, sendCostStatsOut);
++    InitGlobalBuffer(recvX, tokenSrcInfo, epRecvCount, topkWeights, topkIdx, XOut, sendCostStatsOut);
+     InitBuffLen();
+ 
+     PipeBarrier<PIPE_ALL>();
+@@ -315,14 +321,24 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::SetStatusBySrcI
+ }
+ 
+ template <TemplateMC2TypeClass>
+-__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::WaitBuffCopy(uint32_t tokenIndex)
++__aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::WaitBuffCopy(uint32_t tokenIndex,
++                                                                              uint32_t startTokenIndex)
+ {
+     uint32_t calCount = axisK_ * FLOAT_NUM_PER_ALIGN;
++    LocalTensor<int32_t> topkIdxTensorLocal = topkIdxBuf_.Get<int32_t>();
++    int tempValidCount = 0;
++    for (int topkId = 0; topkId < axisK_; ++topkId) {
++        int expertId = topkIdxTensorLocal.GetValue((tokenIndex - startTokenIndex) * axisK_ + topkId);
++        if (expertId < 0 || expertId >= moeExpertNum_) {
++            continue;
++        }
++        ++tempValidCount;
++    }
+     GM_ADDR stateGM = GetStateAddrByRankId(epRankId_) + tokenIndex * axisK_ * UB_32_ALIGN;  // 计算地址偏移
+     GlobalTensor<float> stateGMTensor;
+     stateGMTensor.SetGlobalBuffer((__gm__ float *)stateGM);
+     float current = (float)0.0;
+-    float target = (float)1.0 * axisK_ * FLOAT_NUM_PER_ALIGN;
++    float target = (float)1.0 * tempValidCount * FLOAT_NUM_PER_ALIGN;
+     SumParams sumPerKParams{1, calCount, calCount};
+     LocalTensor<float> stateTensorLocal = stateBuf_.Get<float>();
+     LocalTensor<float> tempStateTensorLocal = tempStateBuf_.Get<float>();
+@@ -348,12 +364,18 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferAndWe
+     LocalTensor<float> weightedMulBufLocal = weightedMulBuf_.Get<float>();
+     LocalTensor<float> sumFloatBufLocal = sumFloatBuf_.Get<float>();
+     LocalTensor<float> topkWeightsLocal = topkWeightsBuf_.Get<float>();
++    LocalTensor<int32_t> topkIdxTensorLocal = topkIdxBuf_.Get<int32_t>();
+     LocalTensor<uint32_t> stateTensorLocal = stateBuf_.Get<uint32_t>();
+     Duplicate(sumFloatBufLocal, static_cast<float>(0), axisH_);
+     const DataCopyExtParams xOutCopyParams{1U, static_cast<uint32_t>(hRecvXTypeLen_), 0U, 0U, 0U};
+ 
+     for (uint32_t topkId = 0U; topkId < axisK_; topkId++) {
+-        float scale = topkWeightsLocal.GetValue((tokenIndex - startTokenIndex) * axisK_ + topkId);
++        uint32_t topkIdOffset = (tokenIndex - startTokenIndex) * axisK_ + topkId;
++        int32_t expertId = topkIdxTensorLocal.GetValue(topkIdOffset);
++        if (expertId < 0 || expertId >= moeExpertNum_) {
++            continue;
++        }
++        float scale = topkWeightsLocal.GetValue(topkIdOffset);
+         GM_ADDR localTokenAddr = localRankGM_ + (tokenIndex * axisK_ + topkId) * h512AlignRecvXLen_;
+         GlobalTensor<XType> localTokenTensor;
+         localTokenTensor.SetGlobalBuffer((__gm__ XType *)localTokenAddr);
+@@ -385,6 +407,7 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferFromR
+     }
+     uint32_t tokenPerBlock = 0U, startTokenIndex = 0U, endTokenIndex = 0U;
+     SplitCoreCal(axisBS_, tokenPerBlock, startTokenIndex, endTokenIndex);
++    tokenIdx32AlignLen_ = Ceil(tokenPerBlock * axisK_ * sizeof(int32_t), UB_32_ALIGN) * UB_32_ALIGN;
+ 
+     if (tokenPerBlock == 0U) {
+         return;
+@@ -399,15 +422,20 @@ __aicore__ inline void CamMoeCombineNormal<TemplateMC2TypeFunc>::ReadBufferFromR
+     tpipe_->InitBuffer(stateBuf_, (axisK_)*UB_32_ALIGN);
+     tpipe_->InitBuffer(tempStateBuf_, (axisK_)*UB_32_ALIGN);
+     tpipe_->InitBuffer(topkWeightsBuf_, tokenPerBlock * axisK_ * sizeof(float));
++    tpipe_->InitBuffer(topkIdxBuf_, tokenIdx32AlignLen_);
+ 
+     LocalTensor<float> topkWeightsLocal = topkWeightsBuf_.Get<float>();
++    LocalTensor<int32_t> topkIdxTensorLocal = topkIdxBuf_.Get<int32_t>();
+     const DataCopyExtParams bskParams{1U, static_cast<uint32_t>(tokenPerBlock * axisK_ * sizeof(float)), 0U, 0U, 0U};
++    const DataCopyExtParams tokenIdxParams{1U, tokenIdx32AlignLen_, 0U, 0U, 0U};
+     const DataCopyPadExtParams<float> copyPadFloatParams{false, 0U, 0U, 0U};
++    const DataCopyPadExtParams<int32_t> copyPadIntParams{false, 0U, 0U, 0U};
+     DataCopyPad(topkWeightsLocal, topkWeightsGM_[startTokenIndex * axisK_], bskParams, copyPadFloatParams);
++    DataCopyPad(topkIdxTensorLocal, topkIdxGM_[startTokenIndex * axisK_], tokenIdxParams, copyPadIntParams);
+     SyncFunc<AscendC::HardEvent::MTE2_S>();
+ 
+     for (uint32_t tokenIndex = startTokenIndex; tokenIndex < endTokenIndex; tokenIndex++) {
+-        WaitBuffCopy(tokenIndex);
++        WaitBuffCopy(tokenIndex, startTokenIndex);
+         SyncFunc<AscendC::HardEvent::MTE3_V>();  // 与结果搬出datacopy同tensor
+         ReadBufferAndWeightedSum(tokenIndex, startTokenIndex);
+     }
+diff --git a/csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.h b/csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.h
+index 0cf0a729e..718724127 100644
+--- a/csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.h
++++ b/csrc/deepep/ops2/op_kernel/cam_moe_dispatch_normal.h
+@@ -376,6 +376,9 @@ __aicore__ inline void CamMoeDispatchNormal<CamTypeFunc>::InputToShare()
+     DataCopyExtParams xCopyParams = {1U, static_cast<uint32_t>(h * sizeof(XType)), 0U, 0U, 0U};
+     for (int32_t tokenIndex = startTokenId; tokenIndex < endTokenId; ++tokenIndex) {
+         uint32_t dstExpertId = expertIdsTensor(tokenIndex - startTokenId);
++        if (dstExpertId < 0 || dstExpertId >= moeExpertNum) {
++            continue;
++        }
+         int32_t curExpertCnt = sendTokenIdxTensor(tokenIndex - startTokenId);
+         int32_t dstExpertOffset = sendOffsetTensor(dstExpertId);
+         GM_ADDR rankGM = (__gm__ uint8_t *)(shareGM + hOutGMAlignSize * (dstExpertOffset + curExpertCnt));
+diff --git a/csrc/deepep/ops2/op_kernel/dispatch_layout.h b/csrc/deepep/ops2/op_kernel/dispatch_layout.h
+index 681ab71b4..0540e2a92 100644
+--- a/csrc/deepep/ops2/op_kernel/dispatch_layout.h
++++ b/csrc/deepep/ops2/op_kernel/dispatch_layout.h
+@@ -109,6 +109,9 @@ class DispatchLayout
+             SyncFunc<AscendC::HardEvent::V_S>();
+             for (int j = 0; j < numTopk_; ++j) {
+                 int64_t expert_idx = topkIdxTensor.GetValue(i * numTopk_ + j);
++                if (expert_idx < 0 || expert_idx >= numExperts_) {
++                    continue;
++                }
+                 uint32_t per_expert_num = numTokensPerExpertTensor.GetValue(expert_idx) + 1;
+                 numTokensPerExpertTensor.SetValue(expert_idx, per_expert_num);
+                 int rank_id = expert_idx / experts_per_rank;
+@@ -147,6 +150,9 @@ class DispatchLayout
+         for (int i = 0; i < tempTokens_; ++i) {
+             for (int j = 0; j < numTopk_; ++j) {
+                 int64_t expert_idx = topkIdxTensor.GetValue(i * numTopk_ + j);
++                if (expert_idx < 0 || expert_idx >= numExperts_) {
++                    continue;
++                }
+                 T valT = numTokensPerExpertTensor(expert_idx);
+                 sendTokenIdxSmallTensor(i * numTopk_ + j) = valT;
+                 numTokensPerExpertTensor(expert_idx) = valT + 1;
+diff --git a/csrc/deepep/ops2/op_kernel/dispatch_layout_a2.h b/csrc/deepep/ops2/op_kernel/dispatch_layout_a2.h
+index 4280223a8..38972315e 100644
+--- a/csrc/deepep/ops2/op_kernel/dispatch_layout_a2.h
++++ b/csrc/deepep/ops2/op_kernel/dispatch_layout_a2.h
+@@ -41,6 +41,7 @@ class DispatchLayoutA2
+         numExperts_ = tilingData->dispatchLayoutInfo.numExperts;
+         numTopk_ = tilingData->dispatchLayoutInfo.numTopk;
+         localRankSize_ = tilingData->dispatchLayoutInfo.localRankSize;
++        rankId_ = tilingData->dispatchLayoutInfo.rankId;
+         serverNum_ = (numRanks_ + localRankSize_ - 1) / localRankSize_;
+         tpipe_ = pipe;
+ 
+@@ -190,6 +191,9 @@ class DispatchLayoutA2
+             SyncFunc<AscendC::HardEvent::V_S>();
+             for (int j = 0; j < numTopk_; ++j) {
+                 int64_t expert_idx = topkIdxTensor.GetValue(i * numTopk_ + j);
++                if (expert_idx < 0 || expert_idx >= numExperts_) {
++                    continue;
++                }
+                 uint32_t per_expert_num = numTokensPerExpertTensor.GetValue(expert_idx) + 1;
+                 numTokensPerExpertTensor.SetValue(expert_idx, per_expert_num);
+                 int rank_id = expert_idx / experts_per_rank;
+@@ -293,6 +297,9 @@ class DispatchLayoutA2
+         for (int i = 0; i < tempTokens_; ++i) {
+             for (int j = 0; j < numTopk_; ++j) {
+                 int64_t expert_idx = topkIdxTensor.GetValue(i * numTopk_ + j);
++                if (expert_idx < 0 || expert_idx >= numExperts_) {
++                    continue;
++                }
+                 int rank_id = expert_idx / experts_per_rank;
+                 int server_id = rank_id / localRankSize_;
+                 int32_t offset = localTokenServerOffsetTensor.GetValue(i * serverNum_ + server_id);
+@@ -372,7 +379,7 @@ class DispatchLayoutA2
+     uint32_t coreIdx_{0};
+     uint32_t aivNum_{0};
+     uint32_t tempTokens_{0};
+-    uint32_t rank_{0};
++    uint32_t rankId_{0};
+ 
+     uint32_t topkIdx32AlignIntLen_{0};
+     uint32_t numTokensPerRank32AlignIntLen_{0};
+diff --git a/csrc/deepep/ops2/op_kernel/dispatch_layout_tiling.h b/csrc/deepep/ops2/op_kernel/dispatch_layout_tiling.h
+index 504d30c44..26641a204 100644
+--- a/csrc/deepep/ops2/op_kernel/dispatch_layout_tiling.h
++++ b/csrc/deepep/ops2/op_kernel/dispatch_layout_tiling.h
+@@ -10,6 +10,7 @@ struct DispatchLayoutInfo {
+     uint32_t numTopk;
+     uint32_t localRankSize;
+     uint32_t perRoundTokens;
++    uint32_t rankId;
+     uint64_t totalUbSize;
+ };
+ 
+diff --git a/csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2_layered.h b/csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2_layered.h
+index 759847b5b..764df0f19 100644
+--- a/csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2_layered.h
++++ b/csrc/deepep/ops2/op_kernel/moe_distribute_combine_a2_layered.h
+@@ -669,8 +669,8 @@ __aicore__ inline void MoeDistributeCombineA2Layered<TemplateMC2TypeA2layeredFun
+     if (coreIdx_ >= 8U) {
+         return;
+     }
+-    processNum = MAX_BS / 8U;
+-    resNum = MAX_BS - processNum * 8U;
++    processNum = axisBS_ / 8U;
++    resNum = axisBS_ - processNum * 8U;
+     resLen = (resNum == 0U) ? 0U : 1U;
+     startBs = 0U;
+     endBs = 0U;
+@@ -736,7 +736,7 @@ __aicore__ inline void MoeDistributeCombineA2Layered<TemplateMC2TypeA2layeredFun
+         SyncFunc<AscendC::HardEvent::MTE3_V>();
+         Cast(castUbIn, sumFloatLocal_, AscendC::RoundMode::CAST_RINT, axisH_);
+         SyncFunc<AscendC::HardEvent::V_MTE3>();
+-        DataCopy(expandOutGlobal_[count * axisH_], castUbIn, axisH_);
++        DataCopy(expandOutGlobal_[i * axisH_], castUbIn, axisH_);
+         count++;
+         PipeBarrier<PIPE_V>();
+     }
+diff --git a/tests/python/deepep/test_internode.py b/tests/python/deepep/test_internode.py
+index a3bbc6699..df68fa013 100644
+--- a/tests/python/deepep/test_internode.py
++++ b/tests/python/deepep/test_internode.py
+@@ -97,6 +97,41 @@ def test_main(
+         )
+         topk_idx = torch.topk(scores, num_topk, dim=-1, largest=True, sorted=False)[1]
+ 
++    topk_weights = (
++        torch.ones((num_tokens, num_topk), dtype=torch.float32, device="npu") * rank
++    )
++
++    if args.topk_drop_prob > 0 or args.topk_drop_row >= 0:
++        topk_idx_dropped = topk_idx.clone()
++        topk_weights_dropped = topk_weights.clone()
++
++        # Random drop (based on probability)
++        if args.topk_drop_prob > 0:
++            drop_mask = (
++                torch.rand_like(topk_idx, dtype=torch.float32) < args.topk_drop_prob
++            )
++            topk_idx_dropped = topk_idx.clone()
++            topk_idx_dropped = topk_idx_dropped.masked_fill(drop_mask, -1)
++
++            # Construct topk_weights_dropped
++            invalid_mask = topk_idx_dropped == -1
++            topk_weights_dropped = topk_weights_dropped.masked_fill(invalid_mask, 0.0)
++
++        # Fixed column drop (for the test_topk_minus1 scenario)
++        if args.topk_drop_row >= 0 and args.topk_drop_row < num_tokens:
++            topk_idx_dropped[args.topk_drop_row, :] = -1
++            topk_weights_dropped[args.topk_drop_row, :] = 0
++
++        # print drop ratio
++        drop_ratio = (topk_idx_dropped == -1).float().mean().item()
++        if rank == 0:
++            print(
++                f"[DEBUG] [rank {rank}] topk dropped ratio = {drop_ratio*100:.2f}%",
++                flush=True,
++            )
++        topk_idx = topk_idx_dropped
++        topk_weights = topk_weights_dropped
++
+     rank_idx = topk_idx // (num_experts // num_ranks)
+     rank_idx.masked_fill_(topk_idx == -1, -1)
+     inplace_unique(rank_idx, num_ranks)
+@@ -144,6 +179,8 @@ def check_layout_a2_data(notify_send_data):
+             seen_server = [0] * num_servers
+             for j in range(num_topk):
+                 expert_id = topk_idx[i][j]
++                if expert_id < 0 or expert_id > num_experts:
++                    continue
+                 rank_id = expert_id // experts_per_rank
+                 server_id = rank_id // num_local_ranks
+                 if seen_server[server_id] == 0:
+@@ -163,6 +200,8 @@ def check_layout_a2_data(notify_send_data):
+         for i in range(num_tokens):
+             for j in range(num_topk):
+                 expert_id = topk_idx[i][j]
++                if expert_id < 0 or expert_id > num_experts:
++                    continue
+                 rank_id = expert_id // experts_per_rank
+                 server_id = rank_id // num_local_ranks
+                 expert_rank_token_idx[
+@@ -240,15 +279,15 @@ def check_layout_a2_data(notify_send_data):
+     token_idx_in_rank = torch.full(
+         (num_ranks, num_tokens), -1, dtype=torch.long, device="npu"
+     )
++
+     for i in range(num_ranks):
+-        num_tokens_per_rank[i] = (rank_idx == i).sum()
+-        token_sel = (rank_idx == i).max(dim=-1)[0]
+-        count = token_sel.sum().item()
+-        tokens = torch.sort(token_sel.to(torch.int), descending=True)[1]
+-        tokens[:count] = torch.sort(tokens[:count])[0]
+-        token_idx_in_rank[i][tokens[:count]] = torch.arange(
+-            count, dtype=torch.long, device="npu"
+-        )
++        token_sel = (rank_idx == i).max(dim=-1)[0]  # [num_tokens]
++        token_indices = torch.nonzero(token_sel, as_tuple=True)[0]  # [count]
++        count = token_indices.numel()
++        num_tokens_per_rank[i] = count
++        if count > 0:
++            token_idx_in_rank[i][token_indices] = torch.arange(count, device="npu")
++
+     for i in range(num_nodes):
+         num_tokens_per_rdma_rank[i] = (rdma_rank_idx == i).sum()
+     token_idx_in_rank = token_idx_in_rank.T.contiguous().to(torch.int)
+@@ -430,11 +469,14 @@ def test_correctness():
+             combined_x, combined_topk_weights, event = buffer.combine(**combine_args)
+             check_x = combined_x.float()
+             ref_x = x_pure_rand if current_x is x_pure_rand else x
++            mask = ~torch.all(topk_idx == -1, dim=1)
++            desire_x = ref_x * handle[4].masked_fill(topk_idx == -1, 0).sum(dim=1).view(
++                -1, 1
++            )
+             assert (
+                 calc_diff(
+-                    check_x,
+-                    ref_x
+-                    * handle[4].masked_fill(topk_idx == -1, 0).sum(dim=1).view(-1, 1),
++                    check_x[mask],
++                    desire_x[mask],
+                 )
+                 < 5e-5
+             )
+@@ -587,6 +629,20 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+         action="store_true",
+         help="Whether to enable diagnose for testing",
+     )
++    parser.add_argument(
++        "--topk-drop-prob",
++        dest="topk_drop_prob",
++        type=float,
++        default=0.0,
++        help="Probability of randomly dropping a top-k index (set to -1).",
++    )
++    parser.add_argument(
++        "--topk-drop-row",
++        dest="topk_drop_row",
++        type=int,
++        default=-1,
++        help="If >=0, drop this specific top-k column (set index to -1 for testing).",
++    )
+     args = parser.parse_args()
+ 
+     num_processes = args.num_processes
+diff --git a/tests/python/deepep/test_intranode.py b/tests/python/deepep/test_intranode.py
+index b59dc823a..b1704c8be 100644
+--- a/tests/python/deepep/test_intranode.py
++++ b/tests/python/deepep/test_intranode.py
+@@ -91,6 +91,41 @@ def test_main(
+         )
+         topk_idx = torch.topk(scores, num_topk, dim=-1, largest=True, sorted=False)[1]
+ 
++    topk_weights = (
++        torch.ones((num_tokens, num_topk), dtype=torch.float32, device="npu") * rank
++    )
++
++    if args.topk_drop_prob > 0 or args.topk_drop_row >= 0:
++        topk_idx_dropped = topk_idx.clone()
++        topk_weights_dropped = topk_weights.clone()
++
++        # Random drop (based on probability)
++        if args.topk_drop_prob > 0:
++            drop_mask = (
++                torch.rand_like(topk_idx, dtype=torch.float32) < args.topk_drop_prob
++            )
++            topk_idx_dropped = topk_idx.clone()
++            topk_idx_dropped = topk_idx_dropped.masked_fill(drop_mask, -1)
++
++            # Construct topk_weights_dropped
++            invalid_mask = topk_idx_dropped == -1
++            topk_weights_dropped = topk_weights_dropped.masked_fill(invalid_mask, 0.0)
++
++        # Fixed column drop (for the test_topk_minus1 scenario)
++        if args.topk_drop_row >= 0 and args.topk_drop_row < num_tokens:
++            topk_idx_dropped[args.topk_drop_row, :] = -1
++            topk_weights_dropped[args.topk_drop_row, :] = 0
++
++        # print drop ratio
++        drop_ratio = (topk_idx_dropped == -1).float().mean().item()
++        if rank == 0:
++            print(
++                f"[DEBUG] [rank {rank}] topk dropped ratio = {drop_ratio*100:.2f}%",
++                flush=True,
++            )
++        topk_idx = topk_idx_dropped
++        topk_weights = topk_weights_dropped
++
+     rank_idx = topk_idx // experts_per_rank
+     rank_idx.masked_fill_(topk_idx == -1, -1)
+     inplace_unique(rank_idx, num_ranks)
+@@ -151,15 +186,15 @@ def test_main(
+     token_idx_in_rank = torch.full(
+         (num_ranks, num_tokens), -1, dtype=torch.long, device="npu"
+     )
++
+     for i in range(num_ranks):
+-        num_tokens_per_rank[i] = (rank_idx == i).sum()
+-        token_sel = (rank_idx == i).max(dim=-1)[0]
+-        count = token_sel.sum().item()
+-        tokens = torch.sort(token_sel.to(torch.int), descending=True)[1]
+-        tokens[:count] = torch.sort(tokens[:count])[0]
+-        token_idx_in_rank[i][tokens[:count]] = torch.arange(
+-            count, dtype=torch.long, device="npu"
+-        )
++        token_sel = (rank_idx == i).max(dim=-1)[0]  # [num_tokens]
++        token_indices = torch.nonzero(token_sel, as_tuple=True)[0]  # [count]
++        count = token_indices.numel()
++        num_tokens_per_rank[i] = count
++        if count > 0:
++            token_idx_in_rank[i][token_indices] = torch.arange(count, device="npu")
++
+     token_idx_in_rank = token_idx_in_rank.T.contiguous().to(torch.int)
+     is_token_in_rank = (token_idx_in_rank >= 0).to(torch.int)
+     gbl_num_tokens_per_rank = num_tokens_per_rank.clone()
+@@ -341,6 +376,7 @@ def test_diagnose(
+         }
+         combined_x, combined_topk_weights, event = buffer.combine(**combine_args)
+         check_x = combined_x.float()
++
+         ref_x = x_pure_rand if current_x is x_pure_rand else x
+         diff = calc_diff(
+             check_x,
+@@ -477,6 +513,20 @@ def test_loop(local_rank: int, num_local_ranks: int, args: argparse.Namespace):
+         action="store_true",
+         help="Whether to enable diagnose for testing",
+     )
++    parser.add_argument(
++        "--topk-drop-prob",
++        dest="topk_drop_prob",
++        type=float,
++        default=0.0,
++        help="Probability of randomly dropping a top-k index (set to -1).",
++    )
++    parser.add_argument(
++        "--topk-drop-row",
++        dest="topk_drop_row",
++        type=int,
++        default=-1,
++        help="If >=0, drop this specific top-k column (set index to -1 for testing).",
++    )
+     args = parser.parse_args()
+ 
+     num_processes = args.num_processes

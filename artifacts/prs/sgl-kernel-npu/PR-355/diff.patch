@@ -1,0 +1,51 @@
+diff --git a/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc b/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+index 638ba334b..2ccade07d 100644
+--- a/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
++++ b/csrc/deepep/ops/op_host/cam_moe_combine_normal_tiling.cc
+@@ -56,7 +56,7 @@ constexpr size_t MAX_GROUP_NAME_LENGTH = 128UL;
+ constexpr int64_t MAX_EP_WORLD_SIZE = 384;
+ constexpr int64_t MIN_EP_WORLD_SIZE = 2;
+ constexpr int64_t MAX_TP_WORLD_SIZE = 2;
+-constexpr int64_t BS_UPPER_BOUND = 32768;
++constexpr int64_t BS_UPPER_BOUND = 65536;
+ 
+ constexpr uint32_t SYSTEM_NEED_WORKSPACE = 16 * 1024 * 1024;
+ constexpr int32_t HCCL_BUFFER_SIZE_DEFAULT = 200 * 1024 * 1024;  // Bytes
+diff --git a/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc b/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+index 8d51bc830..f30c7deb7 100644
+--- a/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
++++ b/csrc/deepep/ops/op_host/cam_moe_dispatch_normal_tiling.cc
+@@ -64,7 +64,7 @@ constexpr size_t MAX_GROUP_NAME_LENGTH = 128UL;
+ constexpr int64_t MAX_EP_WORLD_SIZE = 384;
+ constexpr int64_t MIN_EP_WORLD_SIZE = 2;
+ constexpr int64_t MAX_TP_WORLD_SIZE = 2;
+-constexpr int64_t BS_UPPER_BOUND = 32768;  // 最大bs
++constexpr int64_t BS_UPPER_BOUND = 65536;  // 最大bs
+ 
+ constexpr uint32_t TILINGKEY_TP_WORLD_SIZE = 100;
+ constexpr uint32_t TP_WORLD_SIZE_TWO = 2;
+diff --git a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+index a13d2a04d..c26a6e1cc 100644
+--- a/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
++++ b/csrc/deepep/ops/op_kernel/cam_moe_combine_normal_multi_round.h
+@@ -635,15 +635,15 @@ __aicore__ inline void CamMoeCombineNormalMultiRound<TemplateMC2TypeFunc>::Proce
+     if ASCEND_IS_AIV {  // 全aiv处理
+         uint32_t realRound = (realMaxBs_ + perRoundTokens_ - 1) / perRoundTokens_;
+         while (roundIndex_ < realRound) {
+-            if (roundIndex_ >= WAIT_ROUND_INDEX) {
++            CopyBufferToShareAndSetStatus();
++            ReadBufferFromRemote();
++            if (realRound > 1) {
++                SetRoundStatus();
+                 WaitRoundStatus();
++                roundMagic_ = roundMagic_ == 0 ? 1 : 0;
+                 SyncAll<true>();
+             }
+-            CopyBufferToShareAndSetStatus();
+-            ReadBufferFromRemote();
+-            SetRoundStatus();
+             roundIndex_ += 1;
+-            roundMagic_ = roundMagic_ == 0 ? 1 : 0;
+         }
+     }
+ }

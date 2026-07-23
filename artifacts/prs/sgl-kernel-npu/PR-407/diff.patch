@@ -1,0 +1,1511 @@
+diff --git a/csrc/CMakeLists.txt b/csrc/CMakeLists.txt
+index d248dadf0..a76791d8f 100644
+--- a/csrc/CMakeLists.txt
++++ b/csrc/CMakeLists.txt
+@@ -22,6 +22,7 @@ FILE(GLOB OP_SRCS
+     ${PROJECT_OP_SRC_BASE}/lightning_indexer/op_host/lightning_indexer.cpp
+     ${PROJECT_OP_SRC_BASE}/lightning_indexer/op_host/tiling/lightning_indexer_tiling.cpp
+     ${PROJECT_OP_SRC_BASE}/tri_inv/op_host/tri_inv.cpp
++    ${PROJECT_OP_SRC_BASE}/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+     ${PROJECT_OP_SRC_BASE}/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+     )
+ if(BUILD_CATLASS_MODULE)
+@@ -55,6 +56,7 @@ set(WORKSPACE_KERNEL_SRCS
+     ${PROJECT_OP_SRC_BASE}/alloc_extend/op_kernel/alloc_extend_kernel.cpp
+     ${PROJECT_OP_SRC_BASE}/build_tree/op_kernel/build_tree_kernel.cpp
+     ${PROJECT_OP_SRC_BASE}/lightning_indexer/op_kernel/lightning_indexer_kernel.cpp
++    ${PROJECT_OP_SRC_BASE}/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+ )
+ if(BUILD_CATLASS_MODULE)
+     list(APPEND WORKSPACE_KERNEL_SRCS
+@@ -62,6 +64,9 @@ if(BUILD_CATLASS_MODULE)
+     )
+ endif()
+ ascendc_library(workspace_kernel STATIC ${WORKSPACE_KERNEL_SRCS})
++ascendc_include_directories(workspace_kernel PRIVATE
++    ${PROJECT_OP_SRC_BASE}/causal_conv1d_update/op_kernel
++)
+ if(BUILD_CATLASS_MODULE)
+     ascendc_include_directories(workspace_kernel PRIVATE
+         ${CATLASS_DIR}/include
+@@ -96,6 +101,10 @@ target_link_directories(${OP_PLUGIN_NAME} PRIVATE
+ target_include_directories(${OP_PLUGIN_NAME} PRIVATE
+         ${PROJECT_OP_SRC_BASE}/utils
+         ${PROJECT_SOURCE_DIR}/include
++        ${PROJECT_OP_SRC_BASE}/causal_conv1d_update/op_kernel
++        ${PROJECT_OP_SRC_BASE}/causal_conv1d_update/op_host/tiling
++        ${PROJECT_OP_SRC_BASE}/causal_conv1d_update/op_host
++        ${PROJECT_OP_SRC_BASE}/causal_conv1d_update/op_host/stub
+         ${TORCH_DIR}/include
+         ${TORCH_DIR}/include/torch/csrc/api/include
+         ${TORCH_NPU_DIR}/include
+diff --git a/csrc/causal_conv1d_update/CMakeLists.txt b/csrc/causal_conv1d_update/CMakeLists.txt
+new file mode 100644
+index 000000000..03505a0d1
+--- /dev/null
++++ b/csrc/causal_conv1d_update/CMakeLists.txt
+@@ -0,0 +1,26 @@
++# Copyright (c) 2026 Huawei Technologies Co., Ltd.
++# All rights reserved.
++#
++# Licensed under the BSD 3-Clause License  (the "License");
++# you may not use this file except in compliance with the License.
++# You may obtain a copy of the License at
++#
++# Unless required by applicable law or agreed to in writing, software
++# distributed under the License is distributed on an "AS IS" BASIS,
++# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++# See the License for the specific language governing permissions and
++# limitations under the License.
++
++include_directories(
++  ${CMAKE_CURRENT_SOURCE_DIR}
++  ${CMAKE_CURRENT_SOURCE_DIR}/../causal_conv1d_update/op_kernel
++  ${CMAKE_CURRENT_SOURCE_DIR}/../causal_conv1d_update/op_host/tiling
++)
++
++set(CAUSAL_CONV1D_UPDATE_OP_KERNEL_SOURCES
++  ${CMAKE_CURRENT_SOURCE_DIR}/../causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
++  ${CMAKE_CURRENT_SOURCE_DIR}/../causal_conv1d_update/op_kernel/causal_conv1d_update.h
++  ${CMAKE_CURRENT_SOURCE_DIR}/../causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
++  ${CMAKE_CURRENT_SOURCE_DIR}/../causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
++  ${CMAKE_CURRENT_SOURCE_DIR}/../causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
++)
+diff --git a/csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp b/csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+new file mode 100644
+index 000000000..15dafd6af
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+@@ -0,0 +1,186 @@
++/**
++ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++#include <cstdio>
++#include <cstring>
++#include <unordered_map>
++#include <functional>
++#include "acl/acl.h"
++#include "kernel_tiling/kernel_tiling.h"
++#include "tiling/platform/platform_ascendc.h"
++#include "tiling/causal_conv1d_update_tiling.h"
++#include "defines.h"
++#include "torch_helper.h"
++#include "common_tiling.h"
++#include "common.h"
++#include "stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h"
++#include "stub/aclrtlaunch_causal_conv1d_update_half.h"
++
++namespace sglang {
++namespace npu_kernel {
++
++constexpr uint32_t PADDING_BYTE = 32U;
++constexpr uint32_t MAX_CAPTURE_NUM = 1024; // 对齐 lightning_indexer
++
++// Graph mode tiling cache
++uint32_t actualCaptureNum = 0;
++static std::unordered_map<uint64_t, uint32_t> captureMap;
++
++// Helper struct for hashing tiling parameters
++struct CausalConv1dUpdateTilingKey {
++    int64_t batch;
++    int64_t seqLen;
++    int64_t dim;
++    int64_t width;
++    int64_t stateLen;
++    int64_t hasIndices;
++    int64_t hasBias;
++    int64_t hasNumAccept;
++    int64_t hasQueryLoc;
++    int64_t activationMode;
++    int64_t padSlotId;
++
++    bool operator==(const CausalConv1dUpdateTilingKey& other) const {
++        return batch == other.batch && seqLen == other.seqLen && dim == other.dim &&
++               width == other.width && stateLen == other.stateLen && hasIndices == other.hasIndices &&
++               hasBias == other.hasBias && hasNumAccept == other.hasNumAccept &&
++               hasQueryLoc == other.hasQueryLoc && activationMode == other.activationMode &&
++               padSlotId == other.padSlotId;
++    }
++};
++
++// Hash function for CausalConv1dUpdateTilingKey
++struct CausalConv1dUpdateTilingKeyHash {
++    std::size_t operator()(const CausalConv1dUpdateTilingKey& k) const {
++        std::size_t h1 = std::hash<int64_t>{}(k.batch);
++        std::size_t h2 = std::hash<int64_t>{}(k.seqLen);
++        std::size_t h3 = std::hash<int64_t>{}(k.dim);
++        std::size_t h4 = std::hash<int64_t>{}(k.width);
++        std::size_t h5 = std::hash<int64_t>{}(k.stateLen);
++        std::size_t h6 = std::hash<int64_t>{}(k.hasIndices);
++        std::size_t h7 = std::hash<int64_t>{}(k.hasBias);
++        std::size_t h8 = std::hash<int64_t>{}(k.hasNumAccept);
++        std::size_t h9 = std::hash<int64_t>{}(k.hasQueryLoc);
++        std::size_t h10 = std::hash<int64_t>{}(k.activationMode);
++        std::size_t h11 = std::hash<int64_t>{}(k.padSlotId);
++        return h1 ^ (h2 << 1) ^ (h3 << 2) ^ (h4 << 3) ^ (h5 << 4) ^ (h6 << 5) ^ (h7 << 6) ^ (h8 << 7) ^ (h9 << 8) ^ (h10 << 9) ^ (h11 << 10);
++    }
++};
++
++HOST_API at::Tensor causal_conv1d_update_impl(
++    const at::Tensor& x, const at::Tensor& weight, const at::Tensor& conv_state,
++    const at::Tensor& conv_state_indices, const at::Tensor& bias,
++    const at::Tensor& num_accepted_tokens, const at::Tensor& query_start_loc,
++    bool activation_mode, int64_t pad_slot_id)
++{
++    // Input validation
++    TORCH_CHECK(x.dim() == 3, "x must be 3D tensor [batch, seq_len, dim], got shape ", x.sizes());
++    TORCH_CHECK(weight.dim() == 2, "weight must be 2D tensor [width, dim], got shape ", weight.sizes());
++    TORCH_CHECK(conv_state.dim() == 3, "conv_state must be 3D tensor [cache_len, width-1, dim], got shape ", conv_state.sizes());
++
++    const at::ScalarType dtype = x.scalar_type();
++    TORCH_CHECK(dtype == at::kBFloat16 || dtype == at::kHalf, "Only BF16 and FP16 are supported, got ", dtype);
++    TORCH_CHECK(weight.scalar_type() == dtype, "weight dtype must match x dtype");
++    TORCH_CHECK(conv_state.scalar_type() == dtype, "conv_state dtype must match x dtype");
++
++    TORCH_CHECK(x.is_contiguous(), "x must be contiguous before entering the NPU kernel. Fix this in Python.");
++    TORCH_CHECK(weight.is_contiguous(), "weight must be contiguous. Transposed weights are NOT allowed. Fix this in Python.");
++    TORCH_CHECK(conv_state.is_contiguous(), "conv_state must be contiguous. Fix this in Python.");
++
++    const int64_t batch = x.size(0);
++    const int64_t seq_len = x.size(1);
++    const int64_t dim = x.size(2);
++    const int64_t width = weight.size(0);
++    const int64_t state_len = conv_state.size(1);
++
++    // Check optional tensors
++    const bool has_indices = conv_state_indices.numel() > 0;
++    const bool has_bias = bias.numel() > 0;
++    const bool has_num_accept = num_accepted_tokens.numel() > 0;
++    const bool has_query_loc = query_start_loc.numel() > 0;
++
++    // Create output tensor
++    at::Tensor y = at::empty_like(x);
++
++    auto ascendc_platform = platform_ascendc::PlatformAscendCManager::GetInstance();
++    int32_t max_aiv_core = static_cast<int32_t>(ascendc_platform->GetCoreNumAiv());
++    int32_t block_dim = std::min(max_aiv_core, static_cast<int32_t>(batch));
++    if (block_dim == 0) {
++        block_dim = 1;
++    }
++    int32_t workspace_size = static_cast<int32_t>(ascendc_platform->GetLibApiWorkSpaceSize());
++
++    // 1. Prepare Tiling Data Struct
++    CausalConv1dUpdateTilingData tiling_data;
++    SGLang::CausalConv1dUpdate::ComputeTilingData(
++        batch, seq_len, dim, width, state_len,
++        has_indices, has_bias, has_num_accept, has_query_loc,
++        activation_mode, pad_slot_id, block_dim,
++        tiling_data
++    );
++
++    int32_t tilingSize = (sizeof(CausalConv1dUpdateTilingData) + PADDING_BYTE - 1) / PADDING_BYTE * PADDING_BYTE;
++    at::Tensor tilingTensor;
++
++    // 2. Hash computation
++    CausalConv1dUpdateTilingKey key{
++        .batch = batch, .seqLen = seq_len, .dim = dim, .width = width, .stateLen = state_len,
++        .hasIndices = has_indices ? 1 : 0, .hasBias = has_bias ? 1 : 0, 
++        .hasNumAccept = has_num_accept ? 1 : 0, .hasQueryLoc = has_query_loc ? 1 : 0,
++        .activationMode = activation_mode ? 1 : 0, .padSlotId = pad_slot_id
++    };
++    uint64_t hashValue = CausalConv1dUpdateTilingKeyHash{}(key);
++
++    // 3. cache management
++    static auto globalTilingBuffer = at::empty({tilingSize * MAX_CAPTURE_NUM},
++                                               at::TensorOptions().dtype(at::kByte).device(x.options().device()));
++
++    if (captureMap.find(hashValue) != captureMap.end()) {
++        tilingTensor = at::from_blob(globalTilingBuffer.data_ptr<uint8_t>() + (tilingSize * captureMap[hashValue]),
++                                     tilingSize, at::kByte);
++    } else if (actualCaptureNum >= MAX_CAPTURE_NUM) {
++        static auto tilingBuffer =
++            at::empty({tilingSize}, at::TensorOptions().dtype(at::kByte).device(x.options().device()));
++        aclrtMemcpy(tilingBuffer.data_ptr<uint8_t>(), sizeof(CausalConv1dUpdateTilingData), &tiling_data, sizeof(CausalConv1dUpdateTilingData), ACL_MEMCPY_HOST_TO_DEVICE);
++        tilingTensor = at::from_blob(tilingBuffer.data_ptr<uint8_t>(), tilingSize, at::kByte);
++    } else {
++        captureMap[hashValue] = actualCaptureNum;
++        aclrtMemcpy(globalTilingBuffer.data_ptr<uint8_t>() + actualCaptureNum * tilingSize, sizeof(CausalConv1dUpdateTilingData), &tiling_data,
++                    sizeof(CausalConv1dUpdateTilingData), ACL_MEMCPY_HOST_TO_DEVICE);
++        actualCaptureNum++;
++        tilingTensor = at::from_blob(globalTilingBuffer.data_ptr<uint8_t>() + (tilingSize * captureMap[hashValue]),
++                                     tilingSize, at::kByte);
++    }
++
++    // 4. Create workspace
++    auto workspace_tensor = at::empty({workspace_size}, at::TensorOptions().dtype(at::kByte).device(x.options().device()));
++
++    // 5. Launch kernel
++    if (dtype == at::kBFloat16) {
++        EXEC_KERNEL_CMD(causal_conv1d_update_bfloat16_t, block_dim, x, weight, conv_state,
++                        has_indices ? conv_state_indices : at::empty(0, x.options()),
++                        has_bias ? bias : at::empty(0, x.options()),
++                        has_num_accept ? num_accepted_tokens : at::empty(0, x.options()),
++                        has_query_loc ? query_start_loc : at::empty(0, x.options()),
++                        y, workspace_tensor, tilingTensor);
++    } else {
++        EXEC_KERNEL_CMD(causal_conv1d_update_half, block_dim, x, weight, conv_state,
++                        has_indices ? conv_state_indices : at::empty(0, x.options()),
++                        has_bias ? bias : at::empty(0, x.options()),
++                        has_num_accept ? num_accepted_tokens : at::empty(0, x.options()),
++                        has_query_loc ? query_start_loc : at::empty(0, x.options()),
++                        y, workspace_tensor, tilingTensor);
++    }
++
++    return y;
++}
++
++}  // namespace npu_kernel
++}  // namespace sglang
+diff --git a/csrc/causal_conv1d_update/op_host/causal_conv1d_update.h b/csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+new file mode 100644
+index 000000000..c134aa172
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+@@ -0,0 +1,34 @@
++/**
++ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++/*!
++ * \file causal_conv1d_update.h
++ * \brief causal_conv1d_update host-side function declaration
++ */
++
++#ifndef CAUSAL_CONV1D_UPDATE_HOST_H_
++#define CAUSAL_CONV1D_UPDATE_HOST_H_
++
++#include <ATen/ATen.h>
++#include "defines.h"
++
++namespace sglang {
++namespace npu_kernel {
++
++HOST_API at::Tensor causal_conv1d_update_impl(
++    const at::Tensor& x, const at::Tensor& weight, const at::Tensor& conv_state,
++    const at::Tensor& conv_state_indices, const at::Tensor& bias,
++    const at::Tensor& num_accepted_tokens, const at::Tensor& query_start_loc,
++    bool activation_mode, int64_t pad_slot_id);
++
++}  // namespace npu_kernel
++}  // namespace sglang
++
++#endif // CAUSAL_CONV1D_UPDATE_HOST_H_
+diff --git a/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h b/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h
+new file mode 100644
+index 000000000..ebbf0b528
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h
+@@ -0,0 +1,10 @@
++#ifndef HEADER_ACLRTLAUNCH_CAUSAL_CONV1D_UPDATE_BFLOAT16_T_H
++#define HEADER_ACLRTLAUNCH_CAUSAL_CONV1D_UPDATE_BFLOAT16_T_H
++#include "acl/acl_base.h"
++
++#ifndef ACLRT_LAUNCH_KERNEL
++#define ACLRT_LAUNCH_KERNEL(kernel_func) aclrtlaunch_##kernel_func
++#endif
++
++extern "C" uint32_t aclrtlaunch_causal_conv1d_update_bfloat16_t(uint32_t numBlocks, aclrtStream stream, void* x, void* weight, void* conv_state, void* conv_state_indices, void* bias, void* num_accepted_tokens, void* query_start_loc, void* y, void* workspace, void* tiling);
++#endif
+diff --git a/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h b/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h
+new file mode 100644
+index 000000000..94ef11538
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h
+@@ -0,0 +1,10 @@
++#ifndef HEADER_ACLRTLAUNCH_CAUSAL_CONV1D_UPDATE_HALF_H
++#define HEADER_ACLRTLAUNCH_CAUSAL_CONV1D_UPDATE_HALF_H
++#include "acl/acl_base.h"
++
++#ifndef ACLRT_LAUNCH_KERNEL
++#define ACLRT_LAUNCH_KERNEL(kernel_func) aclrtlaunch_##kernel_func
++#endif
++
++extern "C" uint32_t aclrtlaunch_causal_conv1d_update_half(uint32_t numBlocks, aclrtStream stream, void* x, void* weight, void* conv_state, void* conv_state_indices, void* bias, void* num_accepted_tokens, void* query_start_loc, void* y, void* workspace, void* tiling);
++#endif
+diff --git a/csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h b/csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+new file mode 100644
+index 000000000..54320d658
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+@@ -0,0 +1,84 @@
++/**
++ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++/*!
++ * \file causal_conv1d_update_tiling.h
++ * \brief tiling data struct for host side
++ */
++
++#ifndef CAUSAL_CONV1D_UPDATE_TILING_HOST_H_
++#define CAUSAL_CONV1D_UPDATE_TILING_HOST_H_
++
++#include <cstdint>
++
++struct CausalConv1dUpdateTilingData {
++    // used core num
++    int64_t numCore;
++
++    // batch per core
++    int64_t blockFactor;
++    int64_t blockTailFactor;
++
++    // x [batch, seqLen, dim]
++    // weight [width, dim]
++    int64_t batch;
++    int64_t seqLen;
++    int64_t dim;
++    int64_t width;
++    int64_t stateLen;
++
++    int64_t hasIndices;
++    int64_t hasBias;
++    int64_t hasNumAccept;
++    int64_t hasQueryLoc;
++    int64_t activationMode;
++    int64_t padSlotId;
++};
++
++namespace SGLang {
++namespace CausalConv1dUpdate {
++
++// Helper function to compute tiling data
++inline void ComputeTilingData(
++    const int64_t batch,
++    const int64_t seq_len,
++    const int64_t dim,
++    const int64_t width,
++    const int64_t state_len,
++    const bool has_indices,
++    const bool has_bias,
++    const bool has_num_accept,
++    const bool has_query_loc,
++    const bool activation_mode,
++    const int64_t pad_slot_id,
++    const int32_t num_cores,
++    CausalConv1dUpdateTilingData& tiling_data
++) {
++    tiling_data.batch = batch;
++    tiling_data.seqLen = seq_len;
++    tiling_data.dim = dim;
++    tiling_data.width = width;
++    tiling_data.stateLen = state_len;
++    tiling_data.hasIndices = has_indices ? 1 : 0;
++    tiling_data.hasBias = has_bias ? 1 : 0;
++    tiling_data.hasNumAccept = has_num_accept ? 1 : 0;
++    tiling_data.hasQueryLoc = has_query_loc ? 1 : 0;
++    tiling_data.activationMode = activation_mode ? 1 : 0;
++    tiling_data.padSlotId = pad_slot_id;
++
++    tiling_data.numCore = num_cores;
++    tiling_data.blockFactor = batch / num_cores;
++    tiling_data.blockTailFactor = batch - tiling_data.blockFactor * (num_cores - 1);
++}
++
++} // namespace CausalConv1dUpdate
++} // namespace SGLang
++
++#endif // CAUSAL_CONV1D_UPDATE_TILING_HOST_H_
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+new file mode 100644
+index 000000000..bcfa2d28d
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+@@ -0,0 +1,36 @@
++/**
++ * This program is free software, you can redistribute it and/or modify it.
++ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
++ * This file is a part of the CANN Open Software.
++ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
++ * BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++/*!
++ * \file causal_conv1d_update.cpp
++ * \brief causal_conv1d_update kernel entry point
++ */
++
++#include "causal_conv1d_update.h"
++#include "causal_conv1d_update_struct.h"
++
++extern "C" __global__ __aicore__ void causal_conv1d_update_bfloat16_t(GM_ADDR x, GM_ADDR weight, GM_ADDR conv_state, GM_ADDR conv_state_indices,
++                                                                   GM_ADDR bias, GM_ADDR num_accepted_tokens, GM_ADDR query_start_loc,
++                                                                   GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
++{
++    CausalConv1dUpdateOp::CausalConv1dUpdate<bfloat16_t> op;
++    op.Init(x, weight, conv_state, conv_state_indices, bias, num_accepted_tokens, query_start_loc, y, tiling);
++    op.Process();
++}
++
++extern "C" __global__ __aicore__ void causal_conv1d_update_half(GM_ADDR x, GM_ADDR weight, GM_ADDR conv_state, GM_ADDR conv_state_indices,
++                                                               GM_ADDR bias, GM_ADDR num_accepted_tokens, GM_ADDR query_start_loc,
++                                                               GM_ADDR y, GM_ADDR workspace, GM_ADDR tiling)
++{
++    CausalConv1dUpdateOp::CausalConv1dUpdate<half> op;
++    op.Init(x, weight, conv_state, conv_state_indices, bias, num_accepted_tokens, query_start_loc, y, tiling);
++    op.Process();
++}
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+new file mode 100644
+index 000000000..9f88e32a7
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+@@ -0,0 +1,374 @@
++/**
++ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++/*!
++ * \file causal_conv1d_update.h
++ * \brief causal_conv1d_update kernel
++ */
++
++#ifndef CAUSAL_CONV1D_UPDATE_H
++#define CAUSAL_CONV1D_UPDATE_H
++
++#include "causal_conv1d_update_base.h"
++
++namespace CausalConv1dUpdateOp {
++using namespace AscendC;
++template <typename T>
++class CausalConv1dUpdate : public CausalConv1dUpdateBase<T> {
++public:
++    __aicore__ inline CausalConv1dUpdate(){};
++    __aicore__ inline void Init(GM_ADDR x, GM_ADDR weight, GM_ADDR convState, GM_ADDR convStateIndices,
++                                GM_ADDR bias, GM_ADDR numAcceptedTokens, GM_ADDR queryStartLoc,
++                                GM_ADDR y, GM_ADDR tiling);
++    __aicore__ inline void Process();
++
++private:
++    __aicore__ inline void ComputeUpdate(int64_t xOffset);
++    __aicore__ inline void CopyInX(int64_t xLen, int64_t xInOffset);
++    __aicore__ inline void CopyInWeight(int64_t weightLen, int64_t weightInOffset);
++    __aicore__ inline void CopyInState(int64_t stateLen, int64_t stateInOffset);
++    __aicore__ inline void CopyInBias(int64_t biasLen, int64_t biasInOffset);
++    __aicore__ inline void CopyOutY(int64_t yLen, int64_t yOutOffset);
++    __aicore__ inline void CopyOutState(int64_t stateLen, int64_t stateOutOffset);
++
++private:
++    // constexpr static int32_t bufferNum_ = 2;
++    TPipe pipe_;
++    // TQue<QuePosition::VECIN, 1> inQueueX_;
++    TQue<QuePosition::VECIN, 1> inQueueWeight_;
++    // TQue<QuePosition::VECIN, 1> inQueueState_;
++    TQue<QuePosition::VECIN, 1> inQueueBias_;
++    TQue<QuePosition::VECOUT, 1> outQueueY_;
++
++    TBuf<QuePosition::VECCALC> inputBuf_;
++    TBuf<QuePosition::VECCALC> castBufInput_;
++    TBuf<QuePosition::VECCALC> castBufWeight_;
++    TBuf<QuePosition::VECCALC> resultBuf_;
++
++    GlobalTensor<T> xGm_;
++    GlobalTensor<T> weightGm_;
++    GlobalTensor<T> convStateGm_;
++    GlobalTensor<int32_t> convStateIndicesGm_;
++    GlobalTensor<T> biasGm_;
++    GlobalTensor<int32_t> numAcceptGm_;
++    GlobalTensor<int32_t> queryLocGm_;
++    GlobalTensor<T> yGm_;
++
++    LocalTensor<T> inLocal;
++    LocalTensor<float> resultLocal;
++    LocalTensor<float> castIn;
++    LocalTensor<float> castWeight;
++
++    CausalConv1dUpdateTilingData tilingData_;
++    int32_t blockIdx_ = 0;
++    int64_t gmXOffset_ = 0;
++    int64_t gmStateOffset_ = 0;
++    int64_t batchNum_ = 1;
++    int64_t inStateOffset_ = 0;
++
++    __aicore__ inline void MTE2ToVSync()
++    {
++        event_t eventIDMTE2ToV = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_V));
++        SetFlag<HardEvent::MTE2_V>(eventIDMTE2ToV);
++        WaitFlag<HardEvent::MTE2_V>(eventIDMTE2ToV);
++    }
++
++    __aicore__ inline void MTE3ToMTE2Sync()
++    {
++        event_t eventIDMTE3ToMTE2 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE3_MTE2));
++        SetFlag<HardEvent::MTE3_MTE2>(eventIDMTE3ToMTE2);
++        WaitFlag<HardEvent::MTE3_MTE2>(eventIDMTE3ToMTE2);
++    }
++
++    __aicore__ inline void MTE2ToMTE3Sync()
++    {
++        event_t eventIDMTE2ToMTE3 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::MTE2_MTE3));
++        SetFlag<HardEvent::MTE2_MTE3>(eventIDMTE2ToMTE3);
++        WaitFlag<HardEvent::MTE2_MTE3>(eventIDMTE2ToMTE3);
++    }
++
++    __aicore__ inline void VToMTE2Sync()
++    {
++        event_t eventIDVToMTE2 = static_cast<event_t>(GetTPipePtr()->FetchEventID(HardEvent::V_MTE2));
++        SetFlag<HardEvent::V_MTE2>(eventIDVToMTE2);
++        WaitFlag<HardEvent::V_MTE2>(eventIDVToMTE2);
++    }
++};
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdate<T>::Init(GM_ADDR x, GM_ADDR weight, GM_ADDR convState, GM_ADDR convStateIndices,
++                                                   GM_ADDR bias, GM_ADDR numAcceptedTokens, GM_ADDR queryStartLoc,
++                                                   GM_ADDR y, GM_ADDR tiling)
++{
++    blockIdx_ = GetBlockIdx();
++    xGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(x));
++    weightGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(weight));
++    convStateGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(convState));
++    convStateIndicesGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(convStateIndices));
++    biasGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(bias));
++    numAcceptGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(numAcceptedTokens));
++    queryLocGm_.SetGlobalBuffer(reinterpret_cast<__gm__ int32_t*>(queryStartLoc));
++    yGm_.SetGlobalBuffer(reinterpret_cast<__gm__ T*>(y));
++
++    // Parse tiling data directly
++    auto tiling_data = reinterpret_cast<__gm__ sglang::npu_kernel::CausalConv1dUpdateTilingData*>(tiling);
++    tilingData_.numCore = tiling_data->numCore;
++    tilingData_.blockFactor = tiling_data->blockFactor;
++    tilingData_.blockTailFactor = tiling_data->blockTailFactor;
++    tilingData_.batch = tiling_data->batch;
++    tilingData_.seqLen = tiling_data->seqLen;
++    tilingData_.dim = tiling_data->dim;
++    tilingData_.width = tiling_data->width;
++    tilingData_.stateLen = tiling_data->stateLen;
++    tilingData_.hasIndices = tiling_data->hasIndices;
++    tilingData_.hasBias = tiling_data->hasBias;
++    tilingData_.hasNumAccept = tiling_data->hasNumAccept;
++    tilingData_.hasQueryLoc = tiling_data->hasQueryLoc;
++    tilingData_.activationMode = tiling_data->activationMode;
++    this->ParseCoreBlocks(tilingData_, blockIdx_, batchNum_);
++
++    // alloc TQue
++    // pipe_.InitBuffer(inQueueX_, 1, tilingData_.dim * sizeof(T));
++    pipe_.InitBuffer(inQueueWeight_, 1, tilingData_.width * tilingData_.dim * sizeof(T));
++    // pipe_.InitBuffer(inQueueState_, 1, tilingData_.dim * sizeof(T));
++    pipe_.InitBuffer(inQueueBias_, 1, tilingData_.dim * sizeof(T));
++    pipe_.InitBuffer(outQueueY_, 1, tilingData_.dim * sizeof(T));
++
++    // alloc TBuf
++    pipe_.InitBuffer(inputBuf_, tilingData_.dim * sizeof(T));
++    pipe_.InitBuffer(castBufInput_, tilingData_.dim * sizeof(float));
++    pipe_.InitBuffer(castBufWeight_, tilingData_.dim * sizeof(float));
++    pipe_.InitBuffer(resultBuf_, tilingData_.dim * sizeof(float));
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdate<T>::Process()
++{
++    if (blockIdx_ >= tilingData_.numCore) {
++        return;
++    }
++
++    if (tilingData_.hasQueryLoc) {
++        gmXOffset_ = queryLocGm_.GetValue(blockIdx_ * tilingData_.blockFactor) * tilingData_.dim;
++    } else {
++        gmXOffset_ = blockIdx_ * tilingData_.blockFactor * tilingData_.seqLen * tilingData_.dim;
++    }
++
++    CopyInWeight(tilingData_.width * tilingData_.dim, 0);
++
++    ComputeUpdate(gmXOffset_);
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdate<T>::ComputeUpdate(int64_t xOffset)
++{
++    LocalTensor<T> wLocal = inQueueWeight_.DeQue<T>();
++    inLocal = inputBuf_.Get<T>();
++    resultLocal = resultBuf_.Get<float>();
++    castIn = castBufInput_.Get<float>();
++    castWeight = castBufWeight_.Get<float>();
++    int64_t stateOffset = 0;
++
++    if(!tilingData_.hasIndices) {
++        gmStateOffset_ = blockIdx_ * tilingData_.blockFactor * tilingData_.stateLen * tilingData_.dim;
++    }
++
++    for (int64_t i = 0; i < batchNum_; ++i) {
++        // Resolve the state offset for the current batch item.
++        if (tilingData_.hasIndices) {
++            int64_t stateIdx = convStateIndicesGm_.GetValue(blockIdx_ * tilingData_.blockFactor + i);
++            if (stateIdx == tilingData_.padSlotId) {
++                continue;
++            }
++            stateOffset = tilingData_.stateLen * tilingData_.dim * stateIdx;
++        } else {
++            stateOffset = gmStateOffset_ + i * tilingData_.stateLen * tilingData_.dim;
++        }
++
++        int64_t actSeqLen = tilingData_.seqLen;
++        if (tilingData_.hasQueryLoc) {
++            int64_t startLoc = queryLocGm_.GetValue(blockIdx_ * tilingData_.blockFactor + i);
++            int64_t endLoc = queryLocGm_.GetValue(blockIdx_ * tilingData_.blockFactor + i + 1);
++            actSeqLen = endLoc - startLoc;
++        }
++
++        int64_t numAccept = actSeqLen;
++        if (tilingData_.hasNumAccept) {
++            numAccept = numAcceptGm_.GetValue(blockIdx_ * tilingData_.blockFactor + i);
++            inStateOffset_ = numAccept - 1;
++        }
++
++        int64_t calcSeqLen = numAccept < actSeqLen ? numAccept : actSeqLen;
++        for (int64_t j = 0; j < calcSeqLen; ++j) {
++            Duplicate<float>(resultLocal, 0, tilingData_.dim);
++            LocalTensor<T> outLocal = outQueueY_.AllocTensor<T>();
++            for (int64_t k = 0; k < tilingData_.width - 1; ++k) {
++                // Walk the history window from oldest to newest cached token.
++                CopyInState(tilingData_.dim, stateOffset + (k + inStateOffset_) * tilingData_.dim);
++                MTE2ToMTE3Sync();
++
++                if ((k + inStateOffset_) != 0) {
++                    // Shift the cached state left once there is a previous slot to overwrite.
++                    CopyOutState(tilingData_.dim, stateOffset + (k + inStateOffset_ -1) * tilingData_.dim);
++                    MTE3ToMTE2Sync();
++                }
++
++                MTE2ToVSync();
++                Cast(castIn, inLocal, RoundMode::CAST_NONE, tilingData_.dim);
++                Cast(castWeight, wLocal[k * tilingData_.dim], RoundMode::CAST_NONE, tilingData_.dim);
++                MulAddDst(resultLocal, castIn, castWeight, tilingData_.dim);
++
++                VToMTE2Sync();
++            }
++            // Append the current token to the newest conv_state slot.
++            CopyInX(tilingData_.dim, xOffset + j * tilingData_.dim);
++            MTE2ToMTE3Sync();
++            CopyOutState(tilingData_.dim, stateOffset + (inStateOffset_ + tilingData_.width - 2) * tilingData_.dim);
++            MTE3ToMTE2Sync();
++
++            MTE2ToVSync();
++            Cast(castIn, inLocal, RoundMode::CAST_NONE, tilingData_.dim);
++            Cast(castWeight, wLocal[(tilingData_.width - 1) * tilingData_.dim], RoundMode::CAST_NONE, tilingData_.dim);
++            MulAddDst(resultLocal, castIn, castWeight, tilingData_.dim);
++
++            if (tilingData_.hasBias) {
++                CopyInBias(tilingData_.dim, 0);
++                LocalTensor<T> biasLocal = inQueueBias_.DeQue<T>();
++                Cast(castIn, biasLocal, RoundMode::CAST_NONE, tilingData_.dim);
++                Add(resultLocal, castIn, resultLocal, tilingData_.dim);
++                inQueueBias_.FreeTensor(biasLocal);
++            }
++
++            if (tilingData_.activationMode) {
++                Muls(castWeight, resultLocal, (float)-1.0, tilingData_.dim);
++                Exp(castWeight, castWeight, tilingData_.dim);
++                Adds(castWeight, castWeight, (float)1.0, tilingData_.dim);
++                Div(resultLocal, resultLocal, castWeight, tilingData_.dim);
++            }
++
++            Cast(outLocal, resultLocal, RoundMode::CAST_ROUND, tilingData_.dim);
++
++            outQueueY_.EnQue(outLocal);
++            CopyOutY(tilingData_.dim, xOffset + j * tilingData_.dim);
++        }
++
++        for (int64_t j = 0; j < actSeqLen - calcSeqLen; ++j) {
++            Duplicate<float>(resultLocal, 0, tilingData_.dim);
++            LocalTensor<T> outLocal = outQueueY_.AllocTensor<T>();
++            for (int64_t k = 0; k < tilingData_.width - 1; ++k) {
++                CopyInState(tilingData_.dim, stateOffset + (k + inStateOffset_ + j) * tilingData_.dim);
++
++                MTE2ToVSync();
++                Cast(castIn, inLocal, RoundMode::CAST_NONE, tilingData_.dim);
++                Cast(castWeight, wLocal[k * tilingData_.dim], RoundMode::CAST_NONE, tilingData_.dim);
++                MulAddDst(resultLocal, castIn, castWeight, tilingData_.dim);
++
++                VToMTE2Sync();
++            }
++
++            CopyInX(tilingData_.dim, xOffset + (calcSeqLen + j) * tilingData_.dim);
++            MTE2ToMTE3Sync();
++            CopyOutState(tilingData_.dim, stateOffset + (inStateOffset_ + tilingData_.width - 1 + j) * tilingData_.dim);
++            MTE3ToMTE2Sync();
++
++            MTE2ToVSync();
++            Cast(castIn, inLocal, RoundMode::CAST_NONE, tilingData_.dim);
++            Cast(castWeight, wLocal[(tilingData_.width - 1) * tilingData_.dim], RoundMode::CAST_NONE, tilingData_.dim);
++            MulAddDst(resultLocal, castIn, castWeight, tilingData_.dim);
++
++            if (tilingData_.hasBias) {
++                CopyInBias(tilingData_.dim, 0);
++                LocalTensor<T> biasLocal = inQueueBias_.DeQue<T>();
++                Cast(castIn, biasLocal, RoundMode::CAST_NONE, tilingData_.dim);
++                Add(resultLocal, castIn, resultLocal, tilingData_.dim);
++                inQueueBias_.FreeTensor(biasLocal);
++            }
++
++            if (tilingData_.activationMode) {
++                Muls(castWeight, resultLocal, (float)-1.0, tilingData_.dim);
++                Exp(castWeight, castWeight, tilingData_.dim);
++                Adds(castWeight, castWeight, (float)1.0, tilingData_.dim);
++                Div(resultLocal, resultLocal, castWeight, tilingData_.dim);
++            }
++
++            Cast(outLocal, resultLocal, RoundMode::CAST_ROUND, tilingData_.dim);
++
++            outQueueY_.EnQue(outLocal);
++            CopyOutY(tilingData_.dim, xOffset + (calcSeqLen + j) * tilingData_.dim);
++        }
++
++        xOffset = xOffset + actSeqLen * tilingData_.dim;
++    }
++    inQueueWeight_.FreeTensor(wLocal);
++}
++
++// x [batch, seqLen, dim] xLen = dataCount
++template <typename T>
++__aicore__ inline void CausalConv1dUpdate<T>::CopyInX(int64_t xLen, int64_t xInOffset)
++{
++    DataCopyExtParams copyParams;
++    DataCopyPadExtParams<T> padParams = {false, 0, 0, 0};
++    this->GetXInCopyParams(xLen, copyParams);
++    DataCopyPad(inLocal, xGm_[xInOffset], copyParams, padParams);
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdate<T>::CopyInState(int64_t stateLen, int64_t stateInOffset)
++{
++    DataCopyExtParams copyParams;
++    DataCopyPadExtParams<T> padParams = {false, 0, 0, 0};
++    this->GetStateInCopyParams(stateLen, copyParams);
++    DataCopyPad(inLocal, convStateGm_[stateInOffset], copyParams, padParams);
++}
++
++// weight [width, dim] wLen = width * dim
++template <typename T>
++__aicore__ inline void CausalConv1dUpdate<T>::CopyInWeight(int64_t weightLen, int64_t weightInOffset)
++{
++    LocalTensor<T> wLocal = inQueueWeight_.AllocTensor<T>();
++    DataCopyExtParams copyParams;
++    DataCopyPadExtParams<T> padParams = {false, 0, 0, 0};
++    this->GetWeightInCopyParams(weightLen, copyParams);
++    DataCopyPad(wLocal, weightGm_[weightInOffset], copyParams, padParams);
++    inQueueWeight_.EnQue(wLocal);
++}
++
++// bias [dim, ] bLen = dim
++template <typename T>
++__aicore__ inline void CausalConv1dUpdate<T>::CopyInBias(int64_t biasLen, int64_t biasInOffset)
++{
++    LocalTensor<T> bLocal = inQueueBias_.AllocTensor<T>();
++    DataCopyExtParams copyParams;
++    DataCopyPadExtParams<T> padParams = {false, 0, 0, 0};
++    this->GetBiasInCopyParams(biasLen, copyParams);
++    DataCopyPad(bLocal, biasGm_[biasInOffset], copyParams, padParams);
++    inQueueBias_.EnQue(bLocal);
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdate<T>::CopyOutState(int64_t stateLen, int64_t stateOutOffset)
++{
++    DataCopyExtParams copyParams;
++    // DataCopyPadExtParams<T> padParams = {false, 0, 0, 0};
++    this->GetStateOutCopyParams(stateLen, copyParams);
++    DataCopyPad<T>(convStateGm_[stateOutOffset], inLocal, copyParams);
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdate<T>::CopyOutY(int64_t yLen, int64_t yOutOffset)
++{
++    LocalTensor<T> outLocal = outQueueY_.DeQue<T>();
++    DataCopyExtParams copyParams;
++    this->GetYOutCopyParams(yLen, copyParams);
++    DataCopyPad<T>(yGm_[yOutOffset], outLocal, copyParams);
++    outQueueY_.FreeTensor(outLocal);
++}
++} // namespace CausalConv1dUpdateOp
++#endif
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+new file mode 100644
+index 000000000..839b3b2f3
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+@@ -0,0 +1,143 @@
++/**
++ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++/*!
++ * \file causal_conv1d_update_base.h
++ * \brief causal_conv1d_update kernel
++ */
++
++#ifndef CAUSAL_CONV1D_UPDATE_BASE_H
++#define CAUSAL_CONV1D_UPDATE_BASE_H
++
++#include "kernel_operator.h"
++#include "kernel_operator_intf.h"
++#include "causal_conv1d_update_struct.h"
++#include "causal_conv1d_update_tilingdata.h"
++
++namespace CausalConv1dUpdateOp {
++using namespace AscendC;
++
++using sglang::npu_kernel::CausalConv1dUpdateTilingData;
++
++template <typename T>
++class CausalConv1dUpdateBase {
++public:
++    __aicore__ inline CausalConv1dUpdateBase(){};
++
++protected:
++    __aicore__ inline void ParseTilingData(
++        const sglang::npu_kernel::CausalConv1dUpdateTilingData* tilingData, CausalConv1dUpdateTilingData& runTilingData);
++    __aicore__ inline void ParseCoreBlocks(
++        const CausalConv1dUpdateTilingData& runTilingData, int32_t blockIdx, int64_t& batchNum);
++    __aicore__ inline void GetXInCopyParams(int64_t xLen, AscendC::DataCopyExtParams& copyParams);
++    __aicore__ inline void GetWeightInCopyParams(int64_t weightLen, AscendC::DataCopyExtParams& copyParams);
++    __aicore__ inline void GetStateInCopyParams(int64_t stateLen, AscendC::DataCopyExtParams& copyParams);
++    __aicore__ inline void GetBiasInCopyParams(int64_t biasLen, AscendC::DataCopyExtParams& copyParams);
++    __aicore__ inline void GetYOutCopyParams(int64_t yLen, AscendC::DataCopyExtParams& copyParams);
++    __aicore__ inline void GetStateOutCopyParams(int64_t stateLen, AscendC::DataCopyExtParams& copyParams);
++
++// protected:
++//     constexpr static int32_t BLOCK_SIZE = GetUbBlockSize();
++
++};
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdateBase<T>::ParseTilingData(
++    const sglang::npu_kernel::CausalConv1dUpdateTilingData* tilingData, CausalConv1dUpdateTilingData& runTilingData)
++{
++    runTilingData.numCore = tilingData->numCore;
++    runTilingData.blockFactor = tilingData->blockFactor;
++    runTilingData.blockTailFactor = tilingData->blockTailFactor;
++    runTilingData.batch = tilingData->batch;
++    runTilingData.seqLen = tilingData->seqLen;
++    runTilingData.dim = tilingData->dim;
++    runTilingData.width = tilingData->width;
++    runTilingData.stateLen = tilingData->stateLen;
++    runTilingData.hasIndices = tilingData->hasIndices;
++    runTilingData.hasBias = tilingData->hasBias;
++    runTilingData.hasNumAccept = tilingData->hasNumAccept;
++    runTilingData.hasQueryLoc = tilingData->hasQueryLoc;
++    runTilingData.activationMode = tilingData->activationMode;
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdateBase<T>::ParseCoreBlocks(
++    const CausalConv1dUpdateTilingData& runTilingData, int32_t blockIdx, int64_t& batchNum)
++{
++    if (blockIdx == runTilingData.numCore - 1) {
++        batchNum = runTilingData.blockTailFactor;
++    } else {
++        batchNum = runTilingData.blockFactor;
++    }
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetXInCopyParams(int64_t xLen, DataCopyExtParams& copyParams)
++{
++    copyParams.blockCount = 1;
++    copyParams.blockLen = xLen * sizeof(T);
++    copyParams.dstStride = 0;
++    copyParams.srcStride = 0;
++    copyParams.rsv = 0;
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetWeightInCopyParams(int64_t weightLen, DataCopyExtParams& copyParams)
++{
++    copyParams.blockCount = 1;
++    copyParams.blockLen = weightLen * sizeof(T);
++    copyParams.dstStride = 0;
++    copyParams.srcStride = 0;
++    copyParams.rsv = 0;
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetStateInCopyParams(int64_t stateLen, DataCopyExtParams& copyParams)
++{
++    copyParams.blockCount = 1;
++    copyParams.blockLen = stateLen * sizeof(T);
++    copyParams.dstStride = 0;
++    copyParams.srcStride = 0;
++    copyParams.rsv = 0;
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetBiasInCopyParams(int64_t biasLen, DataCopyExtParams& copyParams)
++{
++    copyParams.blockCount = 1;
++    copyParams.blockLen = biasLen * sizeof(T);
++    copyParams.dstStride = 0;
++    copyParams.srcStride = 0;
++    copyParams.rsv = 0;
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetYOutCopyParams(int64_t yLen, DataCopyExtParams& copyParams)
++{
++    copyParams.blockCount = 1;
++    copyParams.blockLen = yLen * sizeof(T);
++    copyParams.dstStride = 0;
++    copyParams.srcStride = 0;
++    copyParams.rsv = 0;
++}
++
++template <typename T>
++__aicore__ inline void CausalConv1dUpdateBase<T>::GetStateOutCopyParams(int64_t stateLen, DataCopyExtParams& copyParams)
++{
++    copyParams.blockCount = 1;
++    copyParams.blockLen = stateLen * sizeof(T);
++    copyParams.dstStride = 0;
++    copyParams.srcStride = 0;
++    copyParams.rsv = 0;
++}
++
++} // namespace CausalConv1dUpdateOp
++
++#endif
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+new file mode 100644
+index 000000000..74d7c4d86
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+@@ -0,0 +1,23 @@
++/**
++ * This program is free software, you can redistribute it and/or modify it.
++ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
++ * This file is a part of the CANN Open Software.
++ * Licensed under CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING
++ * BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++/*!
++ * \file causal_conv1d_update_struct.h
++ * \brief causal_conv1d_update constants and macros
++ */
++
++#ifndef __CAUSAL_CONV1D_UPDATE_STRUCT_H__
++#define __CAUSAL_CONV1D_UPDATE_STRUCT_H__
++
++#define CAUSAL_CONV1D_UPDATE_DTYPE_BF16 0
++#define CAUSAL_CONV1D_UPDATE_DTYPE_FP16 1
++
++#endif // __CAUSAL_CONV1D_UPDATE_STRUCT_H__
+diff --git a/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+new file mode 100644
+index 000000000..cd30b71b4
+--- /dev/null
++++ b/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+@@ -0,0 +1,53 @@
++/**
++ * Copyright (c) 2026 Huawei Technologies Co., Ltd.
++ * This program is free software, you can redistribute it and/or modify it under the terms and conditions of
++ * CANN Open Software License Agreement Version 2.0 (the "License").
++ * Please refer to the License for details. You may not use this file except in compliance with the License.
++ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED,
++ * INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY, OR FITNESS FOR A PARTICULAR PURPOSE.
++ * See LICENSE in the root of the software repository for the full text of the License.
++ */
++
++/*!
++ * \file causal_conv1d_update_tilingdata.h
++ * \brief tiling data struct
++ */
++
++#ifndef CAUSAL_CONV1D_UPDATE_TILING_DATA_H_
++#define CAUSAL_CONV1D_UPDATE_TILING_DATA_H_
++
++#include <cstdint>
++
++namespace sglang {
++namespace npu_kernel {
++
++struct CausalConv1dUpdateTilingData {
++    // used core num
++    int64_t numCore;
++
++    // batch per core
++    int64_t blockFactor;
++    int64_t blockTailFactor;
++    // token per loop
++    // int64_t baseN;
++
++    // x [batch, seqlen, dim]
++    // weight [width, dim]
++    int64_t batch;
++    int64_t seqLen;
++    int64_t dim;
++    int64_t width;
++    int64_t stateLen;
++
++    int64_t hasIndices;
++    int64_t hasBias;
++    int64_t hasNumAccept;
++    int64_t hasQueryLoc;
++    int64_t activationMode;
++    int64_t padSlotId;
++};
++
++}  // namespace npu_kernel
++}  // namespace sglang
++
++#endif // CAUSAL_CONV1D_UPDATE_TILING_DATA_H_
+diff --git a/csrc/pytorch_extensions.cpp b/csrc/pytorch_extensions.cpp
+index 172ac43dd..82614cbb5 100644
+--- a/csrc/pytorch_extensions.cpp
++++ b/csrc/pytorch_extensions.cpp
+@@ -15,6 +15,7 @@
+ 
+ #include "torch_helper.h"
+ #include "sgl_kenel_npu_ops.h"
++#include "causal_conv1d_update/op_host/causal_conv1d_update.h"
+ 
+ namespace {
+ TORCH_LIBRARY_FRAGMENT(npu, m)
+@@ -105,6 +106,11 @@ TORCH_LIBRARY_FRAGMENT(npu, m)
+         "int? sparse_count=None, int? sparse_mode=None) -> Tensor");
+ 
+     m.def("triangular_inverse(Tensor x) -> Tensor");
++
++    m.def(
++        "causal_conv1d_update(Tensor x, Tensor weight, Tensor conv_state, "
++        "Tensor conv_state_indices, Tensor? bias=None, Tensor? num_accepted_tokens=None, "
++        "Tensor? query_start_loc=None, bool activation_mode=False, int pad_slot_id=-1) -> Tensor");
+ }
+ }  // namespace
+ 
+@@ -150,5 +156,21 @@ TORCH_LIBRARY_IMPL(npu, PrivateUse1, m)
+     m.impl("lightning_indexer", TORCH_FN(sglang::npu_kernel::lightning_indexer));
+ 
+     m.impl("triangular_inverse", TORCH_FN(sglang::npu_kernel::tri_inv_col_sweep));
++
++    m.impl("causal_conv1d_update", [](const at::Tensor& x, const at::Tensor& weight,
++                                       const at::Tensor& conv_state, const at::Tensor& conv_state_indices,
++                                       const c10::optional<at::Tensor>& bias,
++                                       const c10::optional<at::Tensor>& num_accepted_tokens,
++                                       const c10::optional<at::Tensor>& query_start_loc,
++                                       bool activation_mode, int64_t pad_slot_id) {
++        // Handle optional parameters - convert None to empty tensors
++        auto bias_or_empty = bias.has_value() ? *bias : at::empty({0}, x.options());
++        auto num_accepted_or_empty = num_accepted_tokens.has_value() ? *num_accepted_tokens : at::empty({0}, x.options().dtype(at::kInt));
++        auto query_loc_or_empty = query_start_loc.has_value() ? *query_start_loc : at::empty({0}, x.options().dtype(at::kInt));
++
++        return sglang::npu_kernel::causal_conv1d_update_impl(x, weight, conv_state, conv_state_indices,
++                                                              bias_or_empty, num_accepted_or_empty, query_loc_or_empty,
++                                                              activation_mode, pad_slot_id);
++    });
+ }
+ }  // namespace
+diff --git a/tests/python/sgl_kernel_npu/test_conv1d_update.py b/tests/python/sgl_kernel_npu/test_conv1d_update.py
+new file mode 100644
+index 000000000..89b2b30bd
+--- /dev/null
++++ b/tests/python/sgl_kernel_npu/test_conv1d_update.py
+@@ -0,0 +1,373 @@
++import torch
++import torch.nn.functional as F
++from typing import Optional, Tuple
++import logging
++
++# Logging configuration
++logging.basicConfig(level=logging.INFO)
++logger = logging.getLogger("TestScript")
++torch.manual_seed(42)
++
++# ==========================================
++# 1. Original SGLang implementation
++# ==========================================
++class SGLangImpl:
++    def torch_causal_conv1d_update_npu(
++        self,
++        hidden_state: torch.Tensor,
++        conv_state: torch.Tensor,
++        weight: torch.Tensor,
++        conv_state_update: Optional[torch.Tensor] = None,
++        bias: Optional[torch.Tensor] = None,
++    ):
++        bsz, hidden_size, seq_len = hidden_state.shape
++        state_len = conv_state.shape[-1]
++
++        hidden_states_new = torch.cat([conv_state, hidden_state], dim=-1).to(
++            weight.dtype
++        )
++
++        if conv_state_update is not None:
++            for i in range(seq_len):
++                end = i - seq_len + 1
++                start = end - state_len
++                slice_range = slice(start, end if end != 0 else None)
++                conv_state_update[:, i] = hidden_states_new[:, :, slice_range]
++        else:
++            conv_state_update = hidden_states_new[:, :, -state_len:]
++
++        kernel_size = weight.shape[-1]
++        windows = hidden_states_new.unfold(-1, kernel_size, 1)
++
++        # Note: this test assumes weight has shape [H, K].
++        out = (windows * weight[None, :, None, :]).sum(dim=-1)
++
++        if bias is not None:
++            out = out + bias[None, :, None]
++
++        out = F.silu(out[:, :, -seq_len:])
++        out = out.to(hidden_state.dtype)
++        conv_state = conv_state.transpose(1, 2)
++        return out, conv_state_update
++
++# ==========================================
++# 2. vLLM-style reference implementation (V3)
++# ==========================================
++def vllm_causal_conv1d_update_v3(
++    hidden_state: torch.Tensor,
++    conv_state: torch.Tensor,
++    weight: torch.Tensor,
++    conv_state_indices: torch.Tensor,
++    bias: Optional[torch.Tensor] = None,
++    activation: bool = True,
++) -> torch.Tensor:
++    hidden_state = hidden_state.transpose(1, 2)
++    weight = weight.transpose(0, 1)
++    conv_state = conv_state.transpose(1, 2)
++    bsz, hidden_size, seq_len = hidden_state.shape
++    kernel_size = weight.shape[-1]
++
++    # Keep (kernel_size - 1) history tokens plus the latest generated suffix.
++    target_state_len = (kernel_size - 1) + (seq_len - 1)
++
++    full_context = torch.cat([conv_state[conv_state_indices], hidden_state], dim=-1).to(weight.dtype)
++
++    # Compute the output.
++    computation_input = full_context[:, :, -(kernel_size - 1 + seq_len):]
++    windows = computation_input.unfold(-1, kernel_size, 1)
++
++    # This path also assumes weight has shape [H, K].
++    out = (windows * weight[None, :, None, :]).sum(dim=-1)
++
++    if bias is not None:
++        out = out + bias[None, :, None]
++
++    if activation:
++        out = F.silu(out)
++
++    out = out.to(hidden_state.dtype)
++
++    # Update the state by keeping the most recent target_state_len values.
++    if target_state_len > 0:
++        new_conv_state = full_context[:, :, -target_state_len:]
++    else:
++        new_conv_state = torch.empty(bsz, hidden_size, 0, device=hidden_state.device, dtype=hidden_state.dtype)
++    conv_state[conv_state_indices] = new_conv_state
++    conv_state = conv_state.transpose(1, 2)
++    out = out.transpose(1, 2)
++
++    return out
++
++# ==========================================
++# 3. Correctness test
++# ==========================================
++def test_correctness_fixed():
++    # --- Config ---
++    BSZ = 8
++    HIDDEN_SIZE = 4096
++    SEQ_LEN = 2
++    KERNEL_SIZE = 3
++    CACHE_LEN = 65
++    DTYPE = torch.bfloat16
++    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
++
++    print(f"Running Test (Fixed Logic) on {DEVICE}...")
++
++    # [FIXED HERE] Weight shape changed to [H, K] (2D)
++    weight = torch.randn(KERNEL_SIZE, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++    bias = torch.randn(HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++
++    hidden_state = torch.randn(BSZ, SEQ_LEN, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++    conv_state_init = torch.randn(CACHE_LEN, KERNEL_SIZE - 1, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++
++    conv_state_indices = torch.arange(BSZ, device=hidden_state.device)
++
++    # --- SGLang Execution ---
++    sglang_model = SGLangImpl()
++    sglang_cache_buffer = torch.zeros(
++        BSZ, SEQ_LEN, HIDDEN_SIZE, KERNEL_SIZE - 1,
++        device=DEVICE, dtype=DTYPE
++    )
++
++    out_sg, final_buffer_sg = sglang_model.torch_causal_conv1d_update_npu(
++        hidden_state=hidden_state.transpose(1, 2),
++        conv_state=conv_state_init.transpose(1, 2)[conv_state_indices],
++        weight=weight.transpose(0, 1),
++        conv_state_update=sglang_cache_buffer,
++        bias=bias
++    )
++
++    # --- vLLM Execution ---
++    out_vl, state_vl = vllm_causal_conv1d_update_v3(
++        hidden_state=hidden_state,
++        conv_state=conv_state_init,
++        weight=weight,
++        bias=bias,
++        conv_state_indices=conv_state_indices,
++        activation=True
++    )
++
++    # --- Validation ---
++
++    # 1. Output Check
++    try:
++        torch.testing.assert_close(out_sg, out_vl, rtol=1e-5, atol=1e-5)
++        print("✅ Outputs match perfectly!")
++    except AssertionError as e:
++        print("❌ Outputs mismatched!")
++        print(e)
++        return
++
++    # 2. State Length Check
++    state_vl_t = state_vl.transpose(1, 2)
++    expected_len = (KERNEL_SIZE - 1) + (SEQ_LEN - 1)
++    print(f"State Shapes -> SGLang Buffer: {final_buffer_sg.shape}, vLLM State: {state_vl_t.shape}")
++    assert state_vl_t.shape[-1] == expected_len, f"Length mismatch: {state_vl_t.shape[-1]} vs {expected_len}"
++    print(f"✅ vLLM State length is correct: {expected_len}")
++
++    # 3. Cache Content Check
++    print("--- Verifying Cache Slices ---")
++    match_count = 0
++
++    for i in range(SEQ_LEN):
++        # SGLang: History used to predict i+1
++        sg_slice = final_buffer_sg[:, i, :, :]
++
++        # vLLM: Reconstruct window from continuous state
++        # vLLM state ends with the token (SEQ_LEN - 1).
++        # Token i is (SEQ_LEN - 1 - i) steps away from the end.
++        end_idx = state_vl_t.shape[-1] - (SEQ_LEN - 1 - i)
++        start_idx = end_idx - (KERNEL_SIZE - 1)
++
++        vl_slice = state_vl_t[:, :, start_idx : end_idx]
++
++        try:
++            torch.testing.assert_close(sg_slice, vl_slice, rtol=1e-5, atol=1e-5)
++            match_count += 1
++        except AssertionError:
++            print(f"❌ Mismatch at index {i}")
++            break
++
++    if match_count == SEQ_LEN:
++        print(f"✅ Verified {match_count} intermediate states (Full Coverage).")
++    else:
++        print("❌ Cache content verification failed.")
++
++# ==========================================
++# 4. NPU operator test
++# ==========================================
++def test_npu_causal_conv1d_update():
++    """Test the NPU causal_conv1d_update operator."""
++    try:
++        import torch_npu
++    except ImportError as e:
++        print(f"⚠️  Skipping NPU test (import failed): {e}")
++        return
++
++    # Import sgl_kernel_npu to ensure operator registration
++    try:
++        import sgl_kernel_npu
++    except ImportError as e:
++        print(f"⚠️  Skipping NPU test (sgl_kernel_npu import failed): {e}")
++        return
++
++    # Check NPU availability
++    try:
++        if not (hasattr(torch_npu, 'npu') and torch.npu.device_count() > 0):
++            print("⚠️  NPU not available, skipping NPU test")
++            return
++    except Exception as e:
++        print(f"⚠️  Failed to check NPU availability: {e}")
++        return
++
++    # Verify operator is registered
++    if not hasattr(torch.ops.npu, 'causal_conv1d_update'):
++        print("⚠️  causal_conv1d_update operator not registered!")
++        print(f"Available npu ops: {[op for op in dir(torch.ops.npu) if not op.startswith('_')][:10]}")
++        return
++
++    # --- Config ---
++    BSZ = 1
++    HIDDEN_SIZE = 4096  # Keep the hidden size moderate so the test stays fast.
++    SEQ_LEN = 1
++    KERNEL_SIZE = 4
++    CACHE_LEN = 10
++    # conv_state must be large enough to hold (width - 1) + (seq_len - 1) values.
++    CONV_STATE_LEN = KERNEL_SIZE - 1 + SEQ_LEN - 1  # The current NPU kernel expects a fixed-size state buffer.
++    DTYPE = torch.bfloat16
++    DEVICE = "npu"
++
++    print(f"\n{'='*50}")
++    print(f"Testing NPU causal_conv1d_update on {DEVICE}")
++    print(f"{'='*50}")
++
++    # Create inputs.
++    weight = torch.randn(KERNEL_SIZE, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++    # bias = torch.randn(HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++    bias = None
++    hidden_state = torch.randn(BSZ, SEQ_LEN, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++    conv_state_init = torch.randn(CACHE_LEN, CONV_STATE_LEN, HIDDEN_SIZE, device=DEVICE, dtype=DTYPE)
++    conv_state_indices = torch.arange(BSZ, device=DEVICE, dtype=torch.int32)
++    num_accepted_tokens = torch.tensor([SEQ_LEN] * BSZ, device=DEVICE, dtype=torch.int32)
++    # Optional tensor used when queries are packed by start offset.
++    query_start_loc = torch.tensor([0, SEQ_LEN, 2*SEQ_LEN, 3*SEQ_LEN], device=DEVICE, dtype=torch.int32)
++    conv_state_vl = conv_state_init.clone()
++    # --- vLLM Execution (CPU/CUDA reference) ---
++    out_vl = vllm_causal_conv1d_update_v3(
++        hidden_state=hidden_state,
++        conv_state=conv_state_vl,
++        weight=weight,
++        bias=bias,
++        conv_state_indices=conv_state_indices,
++        activation=True
++    )
++
++    # --- NPU Execution ---
++    print(f"Input shapes: x={hidden_state.shape}, weight={weight.shape}, conv_state={conv_state_init.shape}")
++    print(f"Calling torch.ops.npu.causal_conv1d_update...")
++
++    # Clone conv_state because the NPU kernel updates it in place.
++    conv_state_npu = conv_state_init.clone()
++
++    try:
++        out_npu = torch.ops.npu.causal_conv1d_update(
++            x=hidden_state,
++            weight=weight,
++            conv_state=conv_state_npu,
++            conv_state_indices=conv_state_indices,
++            bias=bias,
++            num_accepted_tokens=num_accepted_tokens,
++            # query_start_loc=None,  # Leave unset for dense [batch, seq, hidden] inputs.
++            activation_mode=True,
++            pad_slot_id=-1
++        )
++
++        print(f"✅ NPU kernel executed successfully!")
++        print(f"Output shape: {out_npu.shape}")
++
++        # --- Validation ---
++        # Move the NPU result back to CPU for comparison.
++        out_npu_cpu = out_npu.cpu()
++        out_vl = out_vl.cpu()
++
++
++        # Check the output shape.
++        assert out_npu_cpu.shape == out_vl.shape, \
++            f"Output shape mismatch: {out_npu_cpu.shape} vs {out_vl.shape}"
++        print(f"✅ Output shape matched: {out_npu_cpu.shape}")
++
++        # Ensure the output is not all zeros.
++        assert not torch.all(out_npu_cpu == 0), "NPU output is all zeros!"
++        print(f"✅ NPU output is not all zeros")
++
++        print(f"\n--- Numerical Comparison ---")
++        print(f"NPU output - shape: {out_npu_cpu.shape}, dtype: {out_npu_cpu.dtype}, mean: {out_npu_cpu.mean().item():.6f}")
++        print(f"vLLM output (transposed) - shape: {out_vl.shape}, dtype: {out_vl.dtype}, mean: {out_vl.mean().item():.6f}")
++
++        # Compare precision element by element.
++        diff = out_npu_cpu - out_vl
++        abs_diff = torch.abs(diff)
++        max_abs_diff = abs_diff.max().item()
++        mean_abs_diff = abs_diff.mean().item()
++        rel_diff_max = abs_diff / (torch.abs(out_vl) + 1e-6)
++        max_rel_diff = rel_diff_max.max().item()
++
++        print(f"Max absolute diff: {max_abs_diff:.6e}")
++        print(f"Mean absolute diff: {mean_abs_diff:.6e}")
++        print(f"Median absolute diff: {(abs_diff).median().item():.6e}")
++        print(f"Max relative diff: {max_rel_diff:.6e}")
++
++        # Validate precision using the repo's existing tolerance style.
++        ATOL, RTOL = 5e-2, 1e-2
++        tol = ATOL + RTOL * torch.abs(out_vl)
++        matched = (abs_diff <= tol).sum().item()
++        total = abs_diff.numel()
++        print(f"Matched (atol={ATOL}, rtol={RTOL}): {matched}/{total} ({100*matched/total:.2f}%)")
++
++        # --- Conv state verification ---
++        print(f"\n--- Conv State Update Verification ---")
++        print(f"vLLM state shape: {conv_state_vl.shape}")
++        print(f"NPU state shape: {conv_state_npu.shape}")
++
++        vllm_last = conv_state_vl
++        npu_state = conv_state_npu.cpu()
++
++        state_diff = (npu_state - vllm_last.cpu()).abs()
++        state_exact_match = (state_diff < 1e-6).sum().item()
++        state_total = state_diff.numel()
++
++        print(f"State exact match (diff < 1e-6): {state_exact_match}/{state_total} ({100*state_exact_match/state_total:.2f}%)")
++        if state_exact_match == state_total:
++            print(f"✅ Conv state values match exactly!")
++        else:
++            print(f"State max diff: {state_diff.max():.6e}")
++
++        # --- Summary ---
++        print(f"\n{'='*60}")
++        print("PRECISION TEST SUMMARY")
++        print(f"{'='*60}")
++        print(f"Output precision:  {matched}/{total} ({100*matched/total:.2f}%) match (atol={ATOL}, rtol={RTOL})")
++        print(f"State precision:   {state_exact_match}/{state_total} ({100*state_exact_match/state_total:.2f}%) exact match")
++
++        if matched >= total * 0.95 and state_exact_match == state_total:
++            print(f"\\n✅ PASS: Output and state are correctly aligned to torch reference!")
++        else:
++            print(f"\\n⚠️  WARNING: Precision below expected threshold")
++
++        print(f"\n🎉 NPU causal_conv1d_update test passed!")
++
++    except Exception as e:
++        print(f"❌ NPU test failed with error: {e}")
++        import traceback
++        traceback.print_exc()
++
++if __name__ == "__main__":
++    # print("="*60)
++    # print("Running test_correctness_fixed (CPU/CUDA reference)")
++    # print("="*60)
++    # test_correctness_fixed()
++
++    print("\n" + "="*60)
++    print("Running test_npu_causal_conv1d_update (NPU kernel)")
++    print("="*60)
++    test_npu_causal_conv1d_update()

@@ -1,0 +1,39 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/123
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: 2a4a5559
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-123
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 1f08a54675cdc2d5dbd3cb5a0e1eb532de81912ddaf4647d75c59decc0aacd9b
+- local_path: key-files/csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_host/fused_deep_moe_tiling.cpp
+  sha256: 16733f31a3003afee19265537f727047a3de29f8ca1e1fcd1dde5c8766283ded
+- local_path: key-files/csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/fused_deep_moe.h
+  sha256: 1b9a346602aff6da9dd0f1cafb6788f67e303755e582b9fd85944e9609b18490
+- local_path: key-files/csrc/deepep/ops/op_kernel/fused_deep_moe_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/op_kernel/fused_deep_moe_tiling.h
+  sha256: ef8ae64b9c920f20c10bfc9311cc7635ec0c66a2ef9f7c5a54abae383153f5d3
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+  sha256: d75c9a2da4f258022eda1140f26e78cf133fb7fe648bb3a58a0b09f567a3d4be
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  sha256: 794566e0a206360ef0c2bc097a2c8b05372b85c360331b7d1904aa32bf5611f4

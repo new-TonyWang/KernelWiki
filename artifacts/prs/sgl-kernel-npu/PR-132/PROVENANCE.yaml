@@ -1,0 +1,29 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/132
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: 3d1cd71d
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-132
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 65c47883fefa27dd4f3ef91f0ef9f6c35c253768b7684e7fea8915866a8f05ef
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_combine.h
+  sha256: bedf65836ed31be3539a444dec69ee76700e7e620f9d3cbdcd77bf70313a80d3
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/cam_moe_distribute_combine/op_kernel/a3/cam_moe_distribute_dispatch.h
+  sha256: 27ac7d935ac9bf19fd3d9e08dd6b7e596e0828c35d2a3e2a7f64c0d4eaeb6c7e
+- local_path: key-files/csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/deepep/ops/utils/op_kernel/operator/gemm/kernel/grouped_matmul_slice_m_per_token_dequant_swiglu_quant_multistage_workspace.h
+  sha256: 07378ffedd5aac2fabb079dd75793687d102eba30e820de97e620bf6e6a3bf4c

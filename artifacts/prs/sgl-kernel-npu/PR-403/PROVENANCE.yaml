@@ -1,0 +1,94 @@
+origin_url: https://github.com/sgl-project/sgl-kernel-npu/pull/403
+upstream_repo: sgl-project/sgl-kernel-npu
+upstream_sha: 878309c5
+license: inherits-from-upstream
+retrieved_at: '2026-07-23'
+asset_mode: verbatim
+size_cap_truncated: false
+generated_by: scripts/fetch_pr_diff.py
+source_pr_id: pr-sgl-kernel-npu-403
+files:
+- local_path: diff.patch
+  role: pr-diff
+  mode: upstream-patch
+  sha256: 2001d5e292a95c4de60b4c4077ef78967fc512f8f6f826a75812ff60ed459304
+- local_path: key-files/csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_host/causal_conv1d_update.cpp
+  sha256: 95c9b50884c0d67d41e938641a5abf06a0682d3525866ee00b1086185641ab5a
+- local_path: key-files/csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_host/causal_conv1d_update.h
+  sha256: d348df9f08c62452c6f8bb2d91c7050d731070fe679c20102f1e1a757bc7b5b4
+- local_path: key-files/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_bfloat16_t.h
+  sha256: 303056965c5c2b277228d65561d4fba0f0770aca3d2a1c9ad2cf21f9eae3f4f2
+- local_path: key-files/csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_host/stub/aclrtlaunch_causal_conv1d_update_half.h
+  sha256: 920e8aff03c19f464b792c88b833eba2718fbd9e22bae542e7b3b55696fb99b3
+- local_path: key-files/csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_host/tiling/causal_conv1d_update_tiling.h
+  sha256: e6e0ea9f96bb0e724fccbf99913edde37e66315050fb12782b6c208eb3d4cd6c
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.cpp
+  sha256: 06a5bb0a720c748410bcf1b506d73c1a4d8af57cca8397097660da2b12a8fb3d
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update.h
+  sha256: 9e0a8c5fdea962a7b70974b0f6bc55a59f79b7b2a1415ab4d64230895db9884a
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_base.h
+  sha256: 7305a3cb4b9554030926152226a87934e0d9d5e2adb7af961f2062b4c1bb9823
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_struct.h
+  sha256: 97726e0e32b8704b1ebedd7decb9f29c16a3cbff2f9725fb2f5518b61b7b83b9
+- local_path: key-files/csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/causal_conv1d_update/op_kernel/causal_conv1d_update_tilingdata.h
+  sha256: 532ab811f231577eddf15777aad641c4cd3d31a663bd982cc992f69fb9d3298d
+- local_path: key-files/csrc/pytorch_extensions.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/pytorch_extensions.cpp
+  sha256: e2c4332408b7a0359f31895aa3324b21d1e3f2b57ebded1d88216ba3b70ab811
+- local_path: key-files/csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/recurrent_gated_delta_rule/op_host/recurrent_gated_delta_rule.cpp
+  sha256: 09a84f8ca8195a333a6531e73c912291993aa3cb85e965613194ee2b3566dd51
+- local_path: key-files/csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/recurrent_gated_delta_rule/op_kernel/recurrent_gated_delta_rule_kernel.cpp
+  sha256: 2393c1cad4456003e4b91e8e0e44f03d56a9b5e311c3f5ed59841ae4028da3aa
+- local_path: key-files/csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: csrc/recurrent_gated_delta_rule/op_kernel/tensorutils.h
+  sha256: 249edc9a824939cac2859794a69bbd3d4e7659d54142eb583355adcd3fff3f44
+- local_path: key-files/include/sgl_kenel_npu_ops.h
+  role: upstream-file
+  mode: verbatim
+  upstream_path: include/sgl_kenel_npu_ops.h
+  sha256: 59298da8f5ee83fda9dbd6514e697675bac85a5a68e7ee5079940b291e798fee
+- local_path: key-files/python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+  role: upstream-file
+  mode: verbatim
+  upstream_path: python/sgl_kernel_npu/sgl_kernel_npu/mamba/mamba_state_update_triton.py
+  sha256: 2e7dcc625f2a26076e667c56d0791709b9bab797b4019a66f8d72f772889a493
